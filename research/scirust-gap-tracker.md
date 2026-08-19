@@ -36,6 +36,41 @@ This tracker records only **general scientific capabilities** that may be missin
 
 ---
 
+### SCIRUST-GAP-CONTROL-001 — Advanced nonlinear / explicit / multi-rate predictive control
+
+**Status:** INVESTIGATE
+
+**Origin:** Mandal et al. (2020) predictive and learned runtime-resource-control review, including the explicit-NMPC GPU mechanism it summarizes.
+
+**Need revealed:** several runtime resource-management problems combine nonlinear dynamics, multiple control inputs, hard constraints, different actuation timescales, online-adapted system/sensitivity models, and a requirement for a very low-overhead deployed controller.
+
+**Existing SciRust capabilities verified:**
+
+- `scirust-control/src/mpc.rs` provides a condensed finite-horizon **linear MPC** for `x_{k+1}=Ax_k+Bu_k`, quadratic cost and hard box input constraints solved by box QP;
+- `scirust-estimation/src/rls.rs` provides deterministic multi-channel **recursive least squares** with forgetting factor and zero heap allocations in the update hot loop.
+
+Therefore neither generic MPC nor online RLS should be described as missing.
+
+**Capability not identified in the current search:** a clearly exposed, general implementation of one or more of:
+
+- nonlinear MPC (NMPC);
+- explicit MPC / explicit-NMPC control-law generation or approximation;
+- generic multi-rate predictive control;
+- a reusable integration layer between adaptive sensitivity/system-identification models and constrained MPC.
+
+**Why this is not yet confirmed:**
+
+1. related functionality may exist elsewhere in SciRust under another name;
+2. the capabilities may belong as separate modules rather than one monolithic feature;
+3. mature external nonlinear/QP/NLP solver integrations may be preferable to reimplementation;
+4. ElasticXxx has not yet produced a concrete dynamics model requiring NMPC rather than simpler MPC/heuristics.
+
+**General usefulness independent of ElasticXxx:** robotics, process control, energy systems, thermal management, embedded systems, autonomous systems, vehicle control and industrial optimization.
+
+**Next evidence required:** deeper SciRust control/solver audit, survey of Rust-accessible nonlinear optimization/MPC tooling, and at least one concrete non-Elastic scientific use case before moving beyond INVESTIGATE.
+
+---
+
 ## Reviews that produced no confirmed SciRust gap
 
 ### Huber et al. (2024) — HPC Dynamic Resource Management design principles
