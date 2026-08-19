@@ -43,7 +43,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
-- [ ] Alpa — automatic parallelization planning
+- [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
 - [ ] Dynamic / malleable HPC runtimes
 - [ ] Heterogeneous-memory runtimes
 - [ ] Model-predictive and learned resource control
