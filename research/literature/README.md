@@ -51,7 +51,8 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Xu et al. (2024), *FlexMem: Adaptive Page Profiling and Migration for Tiered Memory*
 - [x] Liu et al. (2025), *Tiered Memory Management Beyond Hotness*
 - [x] Heterogeneous-memory runtimes — representative transition, feedback, and performance-driven tiering reviews complete; additional papers may be added as mechanisms require
-- [ ] Model-predictive and learned resource control
+- [x] Mandal et al. (2020), *Online Adaptive Learning for Runtime Resource Management of Heterogeneous SoCs*
+- [x] Model-predictive and learned resource control — representative online-model, imitation-learning, multi-rate and explicit-NMPC review complete; production safe-RL systems such as AWARE remain relevant to the later cloud-autoscaling review
 - [ ] Resource-aware type systems
 - [ ] Cloud elasticity and autoscaling
 - [ ] Adaptive task runtimes and work stealing
