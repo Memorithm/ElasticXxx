@@ -42,7 +42,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
 - [ ] Invasive Computing / invade-infect-retreat model
-- [ ] Pollux — co-adaptive DL scheduling
+- [x] Pollux — co-adaptive DL scheduling
 - [ ] Alpa — automatic parallelization planning
 - [ ] Dynamic / malleable HPC runtimes
 - [ ] Heterogeneous-memory runtimes
