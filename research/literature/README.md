@@ -47,7 +47,10 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Huber et al. (2024), *Design Principles of Dynamic Resource Management for High-Performance Parallel Programming Models*
 - [x] Sandås et al. (2026), *Seamless Execution of Malleable Applications in Controlled and Production HPC Environments*
 - [x] Dynamic / malleable HPC runtimes — representative design + production reviews complete; additional papers may be added as mechanisms require
-- [ ] Heterogeneous-memory runtimes
+- [x] Xiang et al. (2024), *NOMAD: Non-Exclusive Memory Tiering via Transactional Page Migration*
+- [x] Xu et al. (2024), *FlexMem: Adaptive Page Profiling and Migration for Tiered Memory*
+- [x] Liu et al. (2025), *Tiered Memory Management Beyond Hotness*
+- [x] Heterogeneous-memory runtimes — representative transition, feedback, and performance-driven tiering reviews complete; additional papers may be added as mechanisms require
 - [ ] Model-predictive and learned resource control
 - [ ] Resource-aware type systems
 - [ ] Cloud elasticity and autoscaling
