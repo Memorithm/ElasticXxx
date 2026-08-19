@@ -44,7 +44,9 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
-- [ ] Dynamic / malleable HPC runtimes
+- [x] Huber et al. (2024), *Design Principles of Dynamic Resource Management for High-Performance Parallel Programming Models*
+- [x] Sandås et al. (2026), *Seamless Execution of Malleable Applications in Controlled and Production HPC Environments*
+- [x] Dynamic / malleable HPC runtimes — representative design + production reviews complete; additional papers may be added as mechanisms require
 - [ ] Heterogeneous-memory runtimes
 - [ ] Model-predictive and learned resource control
 - [ ] Resource-aware type systems
