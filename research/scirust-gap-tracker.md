@@ -46,6 +46,18 @@ No concrete gap established. Future work may exercise general modelling, optimiz
 
 No concrete gap established. The paper motivates future investigation of controller stability, hysteresis, stochastic acquisition delay, and transition-cost modelling, but these needs must be mapped against existing SciRust capabilities before declaring a gap.
 
+### Xiang et al. (2024) — NOMAD transactional page migration
+
+No SciRust gap established. NOMAD primarily contributes an OS/runtime transition mechanism (transactional copy, validation, commit/abort, retained shadows), not a missing general scientific primitive. Its lessons belong primarily in ElasticXxx transition semantics.
+
+### Xu et al. (2024) — FlexMem adaptive tiering
+
+No SciRust gap established. FlexMem uses feedback, exponential moving averages, threshold adaptation, and anti-ping-pong logic. Current SciRust code search confirms EWMA functionality in `scirust-spc/src/ewma.rs` and CUSUM functionality in `scirust-spc/src/cusum.rs`. A broader online sensor-fusion or uncertainty framework should only be considered if future experiments establish a concrete need.
+
+### Liu et al. (2025) — Tiered Memory Management Beyond Hotness
+
+No SciRust gap established. AOL and the slowdown predictor are mathematically lightweight. Future ElasticXxx experiments may reveal a need for more general online uncertainty-aware performance modelling, but no missing general SciRust capability is demonstrated by this paper alone.
+
 ## Rule for future additions
 
 Before adding a capability to SciRust, ask:
