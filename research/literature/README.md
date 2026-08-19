@@ -41,8 +41,8 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 ## Initial review queue
 
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
-- [ ] Invasive Computing / invade-infect-retreat model
-- [x] Pollux — co-adaptive DL scheduling
+- [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
+- [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [ ] Alpa — automatic parallelization planning
 - [ ] Dynamic / malleable HPC runtimes
 - [ ] Heterogeneous-memory runtimes
