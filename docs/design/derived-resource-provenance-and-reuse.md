@@ -2,7 +2,7 @@
 
 ## Status
 
-**ELASTIC PROPOSAL / RESEARCH DESIGN NOTE.** This note is motivated directly by CacheBlend (EuroSys 2025) and by earlier version/epoch lessons from SciRust's KV research, NOMAD, and planner-generation work. It does not claim novelty.
+**ELASTIC PROPOSAL / RESEARCH DESIGN NOTE.** This note is motivated by CacheBlend (EuroSys 2025), Provenance Semirings (PODS 2007), Adaptive Functional Programming (POPL 2002), DBToaster (PVLDB 2012), Build Systems à la Carte (ICFP 2018), and earlier version/epoch lessons from SciRust's KV research, NOMAD, and planner-generation work. It does not claim novelty.
 
 ## 1. Problem
 
@@ -25,6 +25,8 @@ source identity
     !=
 derivation provenance
 ```
+
+The database, incremental-computation and build-system literature independently shows that this distinction generalizes beyond KV caches.
 
 ## 2. Source identity versus materialization identity
 
@@ -51,7 +53,9 @@ Examples beyond KV caches include:
 
 ## 3. Derivation provenance
 
-The generic core should probably not hardcode a universal provenance schema. Instead, the resource adapter can expose an opaque provenance identity plus compatibility logic.
+The generic core should not assume that provenance is one hash or one flat tuple of identifiers.
+
+Provenance Semirings provides prior art showing that an output can have multiple alternative derivations and derivations that jointly depend on several inputs. Algebraic provenance can therefore be structurally richer than a single source id.
 
 A domain-specific provenance object may include:
 
@@ -65,12 +69,63 @@ DerivationProvenance {
     ordering_or_position_context,
     model_or_kernel_version,
     generation_epoch,
+    alternative_or_joint_derivations,
 }
 ```
 
 For a KV cache, relevant fields can include text/token identity, model/layer identity, positional context, preceding-context dependencies, representation/basis epoch, and attention-related derivation assumptions.
 
-## 4. Reuse is a relation
+The exact representation may be opaque to Elastic core and interpreted by a domain adapter.
+
+## 4. Provenance, reuse witness, and maintenance state are distinct
+
+The literature supports three related but non-identical objects.
+
+### 4.1 Derivation provenance
+
+Answers:
+
+```text
+How was this materialization derived?
+```
+
+It can be explanatory, algebraic, multi-source, or otherwise rich.
+
+### 4.2 Reuse witness / verification trace
+
+Answers:
+
+```text
+Is the existing materialization still valid for this requested use?
+```
+
+Build Systems à la Carte gives a concrete prior-art mechanism: verifying traces can retain dependency hashes sufficient to decide whether a key needs rebuilding, without storing every semantic detail of its complete lineage.
+
+A reuse witness may therefore be much smaller than full provenance.
+
+### 4.3 Maintenance state / repair index
+
+Answers:
+
+```text
+If something changed, how can affected derived state be repaired cheaply?
+```
+
+Adaptive Functional Programming maintains dependency/trace information so change propagation can identify affected computations. DBToaster materializes first- and higher-order delta views to make future updates cheap.
+
+Maintenance state is an optimization structure, not the derived result itself.
+
+### Consequence
+
+Avoid collapsing these into one field:
+
+```text
+provenance != reuse_witness != maintenance_state
+```
+
+They may share information in a concrete implementation, but their semantics and lifecycle differ.
+
+## 5. Reuse is a relation
 
 Avoid a universal Boolean field:
 
@@ -78,7 +133,7 @@ Avoid a universal Boolean field:
 reusable: bool
 ```
 
-Reuse depends on both cached provenance and the requested target context.
+Reuse depends on both cached provenance/witnesses and the requested target context.
 
 Conceptually:
 
@@ -104,13 +159,13 @@ The cached artifact can be reused without changing the relevant semantics under 
 
 The cached artifact is not directly valid, but a legal repair transition can materialize a compatible state more cheaply than rebuilding everything.
 
-CacheBlend's selective KV recomputation is a concrete example.
+CacheBlend's selective KV recomputation and self-adjusting computation's change propagation are concrete examples of the broader repair idea.
 
 ### Invalid
 
 No currently authorized repair path establishes compatibility; rebuild/recompute from a valid source or reject reuse.
 
-## 5. Partial repair
+## 6. Partial repair
 
 A derived object need not be rebuilt atomically as a whole.
 
@@ -133,9 +188,60 @@ A repair protocol must specify:
 - verification criteria;
 - failure/rollback/compensation behavior.
 
-CacheBlend demonstrates token- and layer-selective KV repair.
+Adaptive Functional Programming provides a particularly strong correctness reference: affected subexpressions are reevaluated while unaffected trace regions are reused, and the result is proven equivalent to complete reevaluation under its semantics.
 
-## 6. Non-compositional correctness
+## 7. Repairability can be purchased with auxiliary state
+
+DBToaster demonstrates that extra materialized delta views can drastically reduce future view-maintenance work. Self-adjusting computation similarly retains dependency information to accelerate change propagation.
+
+Therefore:
+
+```text
+cheap future repair
+```
+
+often requires paying today for:
+
+```text
+maintenance memory
+metadata updates
+synchronization
+persistence
+validation
+```
+
+A generic planner should be allowed to reason about whether maintaining repair accelerators is worthwhile.
+
+Conceptually:
+
+```text
+MaintenanceState {
+    footprint,
+    update_cost,
+    validity,
+    expected_future_repair_benefit,
+}
+```
+
+This is an Elastic proposal, not one paper's API.
+
+## 8. Repair is not automatically cheaper than recompute
+
+DBToaster explicitly motivates cost-based materialization because some delta computations can cost more than reevaluating the original expression.
+
+Therefore the action set should contain competing alternatives:
+
+```text
+REUSE
+REPAIR_INCREMENTALLY
+REPAIR_USING_MAINTENANCE_STATE
+FULL_RECOMPUTE
+DO_NOTHING
+```
+
+The planner should compare actual expected costs rather than assume incremental work is always preferable.
+
+## 9. Non-compositional correctness
 
 Individually valid artifacts are not necessarily valid when concatenated/composed.
 
@@ -158,7 +264,7 @@ semantic contract
 transform compatibility
 ```
 
-## 7. Provenance and epochs are different
+## 10. Provenance and epochs are different
 
 `Version`/`Epoch` answers roughly:
 
@@ -176,7 +282,7 @@ Two artifacts can share an epoch yet have incompatible derivation contexts. Conv
 
 Therefore provenance should not be collapsed into `ResourceGeneration` or `PlannerEpoch`.
 
-## 8. Provenance and logical identity are different
+## 11. Provenance and logical identity are different
 
 The stable logical identity should remain stable across legal representation/residency changes.
 
@@ -193,7 +299,23 @@ ResourceGeneration
 
 The exact Rust API remains an open design question.
 
-## 9. Cost of repair can overlap with transfer
+## 12. Validity policy and repair scheduling are separate
+
+Build Systems à la Carte separates a **rebuilder** (whether/how a key should be rebuilt using persistent build information) from a **scheduler** (which keys are processed and in what order).
+
+Elastic should investigate an analogous split:
+
+```text
+Compatibility / Validity Validator
+        ↓
+Repair/Rebuild Candidates
+        ↓
+Repair Scheduler / Planner
+```
+
+Correctness of the materialization is a constraint; minimizing repair work, latency, energy or resource cost is an objective.
+
+## 13. Cost of repair can overlap with transfer
 
 CacheBlend pipelines selective recomputation with retrieval of the next KV layer. This means transition cost can require a DAG rather than a scalar sum.
 
@@ -220,7 +342,22 @@ Cost(plan) = critical_path / makespan under contention
 
 This also generalizes to prefetch-overlap, checkpointing, migration, compilation and asynchronous provisioning.
 
-## 10. Trusted validation
+## 14. Higher-order maintenance state
+
+DBToaster demonstrates that maintenance state can itself be derived and maintained incrementally:
+
+```text
+Q
+├── ΔQ
+├── Δ²Q
+└── ...
+```
+
+This suggests that an Elastic resource graph may contain resources whose purpose is solely to accelerate maintenance of another resource.
+
+Such resources still consume capacity, bandwidth, persistence and update effort and must therefore be observable/accounted.
+
+## 15. Trusted validation
 
 A planner can recommend reuse or repair, but it must not decide semantic compatibility by fiat.
 
@@ -235,7 +372,7 @@ Planner
 
 The validator can reject stale provenance even if the planner predicts reuse would be faster.
 
-## 11. Interaction with semantic contracts
+## 16. Interaction with semantic contracts
 
 `Exact` reuse requires the domain to establish equivalence appropriate to the contract.
 
@@ -250,15 +387,42 @@ BestEffort(...)
 
 may admit repair methods that an `Exact` contract rejects.
 
-## 12. Relationship to SciRust
+## 17. Updated generic model
+
+A more complete conceptual derived-resource model is now:
+
+```text
+DerivedResource {
+    logical_identity,
+    materialization,
+    provenance,
+    reuse_witness,
+    maintenance_state,
+    generation,
+}
+```
+
+with domain-defined operations:
+
+```text
+validate_reuse(target_context)
+identify_affected_region(change)
+repair(...)
+full_recompute(...)
+verify(...)
+```
+
+This is intentionally a semantic model, not yet a Rust API.
+
+## 18. Relationship to SciRust
 
 SciRust remains an external scientific R&D platform, never an ElasticXxx runtime dependency.
 
-Current SciRust KV research already demonstrates explicit basis versions/epochs and deterministic handoff semantics. The repository inspection performed during the CacheBlend review did not identify a generic KV derivation-provenance abstraction for preceding-context dependency.
+The Provenance Semirings review exposed a genuinely general algebraic omission: `scirust-algebra` had Magma/Semigroup/Monoid/Group and Ring/Field abstractions but no Semiring. A generic `Semiring` / `CommutativeSemiring` abstraction and non-breaking ring adapter were therefore added to SciRust. No database-specific provenance mechanism was added.
 
-This is **not a SciRust gap by itself**. Provenance/compatibility is principally target-resource semantics. A general scientific provenance facility should only be added to SciRust if independent scientific workflows demonstrate a reusable need.
+Generic change propagation, build traces and DB view maintenance were not added to SciRust because the current evidence identifies them primarily as systems/runtime mechanisms rather than missing scientific primitives.
 
-## 13. Experiments
+## 19. Experiments
 
 **EXPERIMENT REQUIRED.** Build a derived-resource test harness with intentionally stale/incompatible materializations and compare:
 
@@ -269,6 +433,9 @@ This is **not a SciRust gap by itself**. Provenance/compatibility is principally
 5. provenance-aware planner + trusted validator;
 6. stale version but compatible provenance;
 7. same version but incompatible provenance;
-8. sequential versus overlapped repair/transfer.
+8. sequential versus overlapped repair/transfer;
+9. full provenance validation versus compact reuse witness;
+10. no maintenance state versus maintained dependency/delta structures;
+11. incremental repair versus full recompute as change size varies.
 
-Measure false reuse acceptance, false rejection, semantic error, repair fraction, validator overhead, critical-path transition cost and total useful progress.
+Measure false reuse acceptance, false rejection, semantic error, repair fraction, witness/provenance overhead, maintenance-state memory/update cost, validator overhead, critical-path transition cost and total useful progress.
