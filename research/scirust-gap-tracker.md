@@ -46,16 +46,17 @@ Future research projects may expose scheduling, assignment, packing, placement, 
 
 **Status:** INVESTIGATE
 
-**Origin:** Mandal et al. (2020) predictive and learned runtime-resource-control review, including the explicit-NMPC GPU mechanism it summarizes.
+**Origins:** Mandal et al. (2020) predictive/learned runtime-resource-control review; Zanini et al. (2009) predictive thermal-control review.
 
-**Need revealed:** several runtime resource-management problems combine nonlinear dynamics, multiple control inputs, hard constraints, different actuation timescales, online-adapted system/sensitivity models, and a requirement for a very low-overhead deployed controller.
+**Need revealed:** several runtime resource-management and physical-control problems combine nonlinear dynamics, multiple control inputs, hard constraints, different actuation timescales, online-adapted system/sensitivity models, and a requirement for a very low-overhead deployed controller. Zanini et al. independently reinforce the potential value of explicit MPC, where expensive optimization is moved off the hot path and a precomputed control law is evaluated online.
 
 **Existing SciRust capabilities verified:**
 
 - `scirust-control/src/mpc.rs` provides a condensed finite-horizon **linear MPC** for `x_{k+1}=Ax_k+Bu_k`, quadratic cost and hard box input constraints solved by box QP;
-- `scirust-estimation/src/rls.rs` provides deterministic multi-channel **recursive least squares** with forgetting factor and zero heap allocations in the update hot loop.
+- `scirust-estimation/src/rls.rs` provides deterministic multi-channel **recursive least squares** with forgetting factor and zero heap allocations in the update hot loop;
+- `scirust-sim/src/thermal.rs` provides basic dynamic thermal models, including Newton cooling and 1-D transient heat conduction by the method of lines.
 
-Therefore neither generic MPC nor online RLS should be described as missing.
+Therefore generic MPC, online RLS, and basic thermal simulation should not be described as missing.
 
 **Capability not identified in the current search:** a clearly exposed, general implementation of one or more of:
 
@@ -69,7 +70,8 @@ Therefore neither generic MPC nor online RLS should be described as missing.
 1. related functionality may exist elsewhere in SciRust under another name;
 2. the capabilities may belong as separate modules rather than one monolithic feature;
 3. mature external nonlinear/QP/NLP solver integrations may be preferable to reimplementation;
-4. ElasticXxx has not yet produced a concrete dynamics model requiring NMPC rather than simpler MPC/heuristics.
+4. ElasticXxx has not yet produced a concrete dynamics model requiring NMPC rather than simpler MPC/heuristics;
+5. a dedicated chip thermal RC model is not automatically a SciRust gap because the simulation framework already permits construction of project-specific dynamical systems.
 
 **General usefulness independent of ElasticXxx:** robotics, process control, energy systems, thermal management, embedded systems, autonomous systems, vehicle control and industrial optimization.
 
@@ -117,14 +119,9 @@ No SciRust gap established. The relevant mechanisms—exponential history weight
 
 ### Qiu et al. (2023) — AWARE production RL autoscaling
 
-No SciRust gap established in this review. Current SciRust inspection confirms:
+No SciRust gap established in this review. Current SciRust inspection confirms `scirust-learning/src/rl/` contains deep RL, PPO and tabular RL modules, while `scirust-rl-algo` documents REINFORCE, a simplified Actor-Critic, tabular Q-learning and meta-learning / transfer machinery for algorithm search. Therefore neither reinforcement learning nor meta-learning should be described as generically absent from SciRust.
 
-- `scirust-learning/src/rl/` contains deep RL, PPO and tabular RL modules;
-- `scirust-rl-algo` documents REINFORCE, a simplified Actor-Critic, tabular Q-learning and meta-learning / transfer machinery for algorithm search.
-
-Therefore neither reinforcement learning nor meta-learning should be described as generically absent from SciRust.
-
-AWARE does motivate a possible future scientific question around **safe exploration, controller lifecycle management, policy drift detection and fallback control**, but this is not yet a demonstrated missing SciRust capability. Much of the lifecycle/fallback mechanism may properly belong in project-specific runtime architecture rather than the scientific library.
+AWARE does motivate a possible future scientific question around safe exploration, controller lifecycle management, policy drift detection and fallback control, but this is not yet a demonstrated missing SciRust capability. Much of the lifecycle/fallback mechanism may properly belong in project-specific runtime architecture rather than the scientific library.
 
 ### Blumofe et al. (1996) — Cilk work stealing
 
@@ -137,6 +134,18 @@ No SciRust gap established. The desire-estimation rule is a lightweight feedback
 ### Wang et al. (2023) — BWoS
 
 No SciRust gap established. BWoS contributes concurrent queue structure, weak-memory correctness and systems-level scheduling optimization rather than a missing scientific primitive. The current SciRust repository search did not reveal a dedicated work-stealing runtime, but that absence is not itself a SciRust deficiency under the project's gap rule.
+
+### Hoffmann et al. (2011) — PowerDial
+
+No SciRust gap established. Pareto calibration, feedback control, QoS/performance modelling, and trade-off analysis can be investigated with existing scientific tooling. The critical contribution to ElasticXxx is semantic-contract handling of lossy actions, which is project/runtime architecture rather than a missing scientific primitive.
+
+### Eastep et al. (2017) — GEOPM
+
+No SciRust gap established. GEOPM's power redistribution is primarily a scalable systems/runtime control mechanism. Its optimization questions can exercise existing statistics/control tooling, but RAPL actuation and hierarchical job-level power management do not belong in SciRust merely because ElasticXxx studies them.
+
+### Zanini et al. (2009) — Predictive multicore thermal management
+
+No new gap established. Current SciRust inspection confirms basic thermal dynamic models in `scirust-sim` and constrained finite-horizon linear MPC in `scirust-control`. The paper strengthens the existing `SCIRUST-GAP-CONTROL-001` investigation around explicit/nonlinear/multi-rate predictive control rather than creating a separate thermal-control gap.
 
 ## Rule for future additions
 
