@@ -14,25 +14,31 @@ This tracker records only **general scientific capabilities** that may be missin
 
 ## Candidate gaps
 
-### SCIRUST-GAP-OPT-001 — Generic ILP / MILP capability
+### SCIRUST-GAP-OPT-001 — Generic LP / ILP / MILP capability
 
 **Status:** INVESTIGATE
 
-**Origin:** Alpa literature review.
+**Origins:** Alpa literature review; Multivariate Amortized Resource Analysis review.
 
-**Need revealed:** Alpa uses integer linear programming as a specialized solver for a structured parallel-planning subproblem. Future ElasticXxx planning domains may also expose assignment, scheduling, packing, placement, routing, or selection problems naturally expressible with integer variables.
+**Need revealed:**
 
-**Current evidence:** An inspection of `scirust-solvers` found continuous optimizers (including BFGS, gradient-based optimization, Nelder–Mead and SPG) and specialized combinatorial branch-and-bound functionality, but did not identify a clearly exposed general-purpose ILP/MILP solver.
+- Alpa uses integer linear programming as a specialized solver for a structured parallel-planning subproblem.
+- Multivariate amortized resource analysis uses linear programming / linear constraint solving to infer quantitative resource bounds.
+
+Future research projects may expose scheduling, assignment, packing, placement, routing, selection, resource-bound inference, or other operations-research problems naturally expressible as LP/ILP/MILP models.
+
+**Current evidence:** An inspection of `scirust-solvers` found continuous optimizers (including BFGS, gradient-based optimization, Nelder–Mead and SPG) and specialized combinatorial branch-and-bound functionality, but did not identify a clearly exposed general-purpose LP/ILP/MILP solver API. A search for `simplex` found `scirust-func-safety/src/simplex.rs`, but that module implements the **Simplex safety architecture** for controller fallback, not the simplex linear-programming algorithm. A direct repository search for `linprog` returned no result.
 
 **Why this is not yet confirmed:**
 
 1. SciRust may expose related functionality elsewhere under another abstraction.
-2. Mature external solver bindings/interfaces may be scientifically preferable to implementing a solver from scratch.
-3. ElasticXxx has not yet demonstrated that ILP/MILP is the best solver family for any concrete planning domain.
+2. Mature external solver bindings/interfaces may be scientifically preferable to implementing a full solver stack from scratch.
+3. ElasticXxx has not yet demonstrated that LP/ILP/MILP is the best solver family for any concrete runtime planning domain.
+4. The desired boundary may be a generic modelling/interface layer rather than an in-house optimizer implementation.
 
-**General usefulness independent of ElasticXxx:** scheduling, assignment, routing, packing, planning, resource allocation, experimental design and many operations-research problems.
+**General usefulness independent of ElasticXxx:** scheduling, assignment, routing, packing, planning, resource allocation, experimental design, static resource-bound inference and many operations-research problems.
 
-**Next evidence required:** deeper SciRust audit plus state-of-the-art review of Rust-accessible LP/MIP solver interfaces before any implementation decision.
+**Next evidence required:** deeper SciRust audit plus state-of-the-art review of Rust-accessible LP/MIP modelling and solver interfaces before any implementation decision.
 
 ---
 
@@ -92,6 +98,18 @@ No SciRust gap established. FlexMem uses feedback, exponential moving averages, 
 ### Liu et al. (2025) — Tiered Memory Management Beyond Hotness
 
 No SciRust gap established. AOL and the slowdown predictor are mathematically lightweight. Future ElasticXxx experiments may reveal a need for more general online uncertainty-aware performance modelling, but no missing general SciRust capability is demonstrated by this paper alone.
+
+### Hoffmann, Aehlig & Hofmann (2011) — Multivariate amortized resource analysis
+
+No separate gap created. The paper strengthens `SCIRUST-GAP-OPT-001` by showing a general scientific use for LP beyond runtime scheduling: automatic inference of static quantitative resource bounds.
+
+### Das, Hoffmann & Pfenning (2018) — Resource-aware session types
+
+No SciRust gap established. The contribution is primarily type-system and protocol semantics; its linear-resource constraints do not by themselves imply a new missing mathematical primitive beyond the existing LP/MIP investigation.
+
+### Weiss et al. (2021) — Oxide / Rust ownership semantics
+
+No SciRust gap established. Oxide contributes programming-language semantics for ownership and borrowing rather than scientific-computing functionality.
 
 ## Rule for future additions
 
