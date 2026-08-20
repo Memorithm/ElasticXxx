@@ -126,6 +126,18 @@ Therefore neither reinforcement learning nor meta-learning should be described a
 
 AWARE does motivate a possible future scientific question around **safe exploration, controller lifecycle management, policy drift detection and fallback control**, but this is not yet a demonstrated missing SciRust capability. Much of the lifecycle/fallback mechanism may properly belong in project-specific runtime architecture rather than the scientific library.
 
+### Blumofe et al. (1996) — Cilk work stealing
+
+No SciRust gap established. Randomized work stealing and ready-queue management are runtime scheduling mechanisms. Their mathematical analysis informs ElasticXxx, but a dedicated work-stealing scheduler would belong to a systems runtime unless a general scientific-computing requirement independently justifies adding one to SciRust.
+
+### Agrawal, He & Leiserson (2007) — A-STEAL parallelism feedback
+
+No SciRust gap established. The desire-estimation rule is a lightweight feedback controller that can be implemented directly in a runtime. Its broader control-theory implications are already covered by SciRust's existing estimation/control capabilities and the separate advanced-MPC investigation.
+
+### Wang et al. (2023) — BWoS
+
+No SciRust gap established. BWoS contributes concurrent queue structure, weak-memory correctness and systems-level scheduling optimization rather than a missing scientific primitive. The current SciRust repository search did not reveal a dedicated work-stealing runtime, but that absence is not itself a SciRust deficiency under the project's gap rule.
+
 ## Rule for future additions
 
 Before adding a capability to SciRust, ask:
