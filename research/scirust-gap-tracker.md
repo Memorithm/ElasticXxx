@@ -111,6 +111,21 @@ No SciRust gap established. The contribution is primarily type-system and protoc
 
 No SciRust gap established. Oxide contributes programming-language semantics for ownership and borrowing rather than scientific-computing functionality.
 
+### Rzadca et al. (2020) — Google Autopilot
+
+No SciRust gap established. The relevant mechanisms—exponential history weighting, percentile/peak statistics, cost-based model selection, safety margins and stabilization—are straightforward to construct from existing statistical/optimization primitives. Autopilot motivates ElasticXxx transition-cost and churn modelling rather than a new scientific primitive.
+
+### Qiu et al. (2023) — AWARE production RL autoscaling
+
+No SciRust gap established in this review. Current SciRust inspection confirms:
+
+- `scirust-learning/src/rl/` contains deep RL, PPO and tabular RL modules;
+- `scirust-rl-algo` documents REINFORCE, a simplified Actor-Critic, tabular Q-learning and meta-learning / transfer machinery for algorithm search.
+
+Therefore neither reinforcement learning nor meta-learning should be described as generically absent from SciRust.
+
+AWARE does motivate a possible future scientific question around **safe exploration, controller lifecycle management, policy drift detection and fallback control**, but this is not yet a demonstrated missing SciRust capability. Much of the lifecycle/fallback mechanism may properly belong in project-specific runtime architecture rather than the scientific library.
+
 ## Rule for future additions
 
 Before adding a capability to SciRust, ask:
