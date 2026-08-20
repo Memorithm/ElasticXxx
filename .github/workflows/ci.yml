@@ -15,61 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Install pinned Rust toolchain
-        id: toolchain
-        continue-on-error: true
-        shell: bash
         run: |
-          set -o pipefail
-          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy 2>&1 | tee ci-rustup.log
-          rc=${PIPESTATUS[0]}
-          if [ "$rc" -eq 0 ]; then
-            rustup default 1.89.0 2>&1 | tee -a ci-rustup.log
-            rc=${PIPESTATUS[0]}
-          fi
-          exit "$rc"
-
-      - name: Format
-        id: fmt
-        if: steps.toolchain.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          cargo fmt --all -- --check 2>&1 | tee ci-fmt.log
-
-      - name: Clippy
-        id: clippy
-        if: steps.toolchain.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          cargo clippy --workspace --all-targets -- -D warnings 2>&1 | tee ci-clippy.log
-
-      - name: Test
-        id: test
-        if: steps.toolchain.outcome == 'success'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -o pipefail
-          cargo test --workspace 2>&1 | tee ci-test.log
-
-      - name: Upload Rust gate diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-gate-diagnostics
-          path: ci-*.log
-          if-no-files-found: warn
-
-      - name: Enforce Rust gates
-        if: always()
-        shell: bash
-        run: |
-          test "${{ steps.toolchain.outcome }}" = success
-          test "${{ steps.fmt.outcome }}" = success
-          test "${{ steps.clippy.outcome }}" = success
-          test "${{ steps.test.outcome }}" = success
+          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
+          rustup default 1.89.0
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
