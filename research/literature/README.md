@@ -51,6 +51,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Murray et al. (2013), *Naiad: A Timely Dataflow System*
 - [x] Carbone et al. (2015), *Lightweight Asynchronous Snapshots for Distributed Dataflows*
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
+- [x] Hoffmann et al. (2019), *Megaphone: Latency-conscious State Migration for Distributed Streaming Dataflows*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
 - [x] Sheng et al. (2023), *FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU*
@@ -87,7 +88,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Ahmad et al. (2012), *DBToaster: Higher-order Delta Processing for Dynamic, Frequently Fresh Views*
 - [x] Mokhov, Mitchell & Peyton Jones (2018), *Build Systems à la Carte*
 - [x] Derived-resource provenance / incremental repair — representative lineage, change-propagation, delta-maintenance and validity-trace reviews complete; additional incremental-computation systems may be added as mechanisms require
-- [x] Incremental/differential dataflow + consistent checkpointing — representative partial-order versioning, progress-frontier, delta-trace, global-snapshot and topology-aware barrier-snapshot mechanisms reviewed; additional distributed incremental-state systems may be added as required
+- [x] Incremental/differential dataflow + consistent checkpointing — representative partial-order versioning, progress-frontier, delta-trace, global-snapshot, topology-aware barrier-snapshot, and fine-grained live state-migration mechanisms reviewed; additional distributed incremental-state systems may be added as required
 
 ## Classification
 
