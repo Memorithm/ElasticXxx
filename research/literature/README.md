@@ -73,7 +73,8 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Adaptive task runtimes and work stealing — foundational decentralized scheduling, parallelism feedback, fine-grained synchronization and weak-memory correctness reviews complete; further locality/task-graph runtimes may be added as mechanisms require
 - [x] Energy- and thermal-aware execution — representative application-quality adaptation, hierarchical power-budget redistribution and predictive thermal-control reviews complete
 - [x] Qin et al. (2025), *Mooncake: Trading More Storage for Less Computation — A KVCache-centric Architecture for Serving LLM Chatbot*
-- [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
+- [x] Chen et al. (2025), *IMPRESS: An Importance-Informed Multi-Tier Prefix KV Storage System for Large Language Model Inference*
+- [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, importance/selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
 
 ## Classification
 
