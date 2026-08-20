@@ -41,9 +41,12 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 ## Initial review queue
 
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
+- [x] Blumofe et al. (1996), *Cilk: An Efficient Multithreaded Runtime System*
+- [x] Agrawal, He & Leiserson (2007), *Adaptive Work Stealing with Parallelism Feedback*
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
+- [x] Wang et al. (2023), *BWoS: Formally Verified Block-based Work Stealing for Parallel Processing*
 - [x] Huber et al. (2024), *Design Principles of Dynamic Resource Management for High-Performance Parallel Programming Models*
 - [x] Sandås et al. (2026), *Seamless Execution of Malleable Applications in Controlled and Production HPC Environments*
 - [x] Dynamic / malleable HPC runtimes — representative design + production reviews complete; additional papers may be added as mechanisms require
@@ -60,7 +63,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Rzadca et al. (2020), *Autopilot: workload autoscaling at Google*
 - [x] Qiu et al. (2023), *AWARE: Automate Workload Autoscaling with Reinforcement Learning in Production Cloud Systems*
 - [x] Cloud elasticity and autoscaling — representative production cost/risk autoscaling plus learned-policy lifecycle/fallback review complete; additional predictive and uncertainty-aware systems may be added as mechanisms require
-- [ ] Adaptive task runtimes and work stealing
+- [x] Adaptive task runtimes and work stealing — foundational decentralized scheduling, parallelism feedback, fine-grained synchronization and weak-memory correctness reviews complete; further locality/task-graph runtimes may be added as mechanisms require
 - [ ] Energy- and thermal-aware execution
 - [ ] LLM scheduling / KV-cache management / disaggregated serving
 
