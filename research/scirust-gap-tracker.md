@@ -122,7 +122,32 @@ Reliability engineering, predictive maintenance, medical/event-time statistics, 
 
 # Implemented general enrichments revealed by this research
 
-These are **not ElasticXxx dependencies** and are deliberately not KV-specific.
+These are **not ElasticXxx dependencies** and are deliberately not target-specific.
+
+## SCIRUST-ENRICH-ALGEBRA-001 — Generic semiring abstraction
+
+**Status:** IMPLEMENTED on SciRust `master`; no CI status was yet reported for the integration commit when this tracker was updated.
+
+**Origin:** Green, Karvounarakis & Tannen, *Provenance Semirings* (PODS 2007), followed by direct inspection of `scirust-algebra`.
+
+Repository inspection showed `Magma`, `Semigroup`, `Monoid`, `Group`, `Ring` and `Field`, but no general `Semiring` abstraction.
+
+Added:
+
+```text
+scirust-algebra/src/semiring.rs
+```
+
+with:
+
+- `Semiring`;
+- `CommutativeSemiring`;
+- `RingSemiring<T>` as a non-breaking adapter from the existing `Ring` hierarchy;
+- `BooleanSemiring` as an exact concrete example.
+
+The abstraction is intentionally general. No database-specific provenance representation was added.
+
+General uses include algebraic dynamic programming, weighted automata, shortest-path/tropical methods, formal-language algorithms, provenance, probabilistic/algebraic computation and other semiring-generic algorithms.
 
 ## SCIRUST-ENRICH-OPT-001 — Exact additive subset selection under a budget
 
@@ -195,7 +220,10 @@ The following papers primarily revealed target-runtime architecture or were alre
 - InfiniGen / Quest / IMPRESS — attention-specific importance and selection mechanisms;
 - Llumnix / DistServe / Mooncake — live migration, serving disaggregation and distributed physical KV placement;
 - DiffKV — GPU compaction and attention-specific differentiated K/V compression;
-- CacheGen — KV-specific transport codec and streaming adaptation.
+- CacheGen — KV-specific transport codec and streaming adaptation;
+- Adaptive Functional Programming — generic dependency-trace/change-propagation runtime; currently a systems/runtime mechanism rather than a missing scientific primitive;
+- DBToaster — higher-order database-view maintenance and materialization policy; domain/runtime mechanism;
+- Build Systems à la Carte — rebuild traces and scheduling architecture; systems/runtime mechanism.
 
 These mechanisms can motivate experiments, but target-specific code must not be pushed into SciRust merely because it is useful to ElasticXxx.
 
