@@ -53,7 +53,10 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Heterogeneous-memory runtimes — representative transition, feedback, and performance-driven tiering reviews complete; additional papers may be added as mechanisms require
 - [x] Mandal et al. (2020), *Online Adaptive Learning for Runtime Resource Management of Heterogeneous SoCs*
 - [x] Model-predictive and learned resource control — representative online-model, imitation-learning, multi-rate and explicit-NMPC review complete; production safe-RL systems such as AWARE remain relevant to the later cloud-autoscaling review
-- [ ] Resource-aware type systems
+- [x] Hoffmann, Aehlig & Hofmann (2011), *Multivariate Amortized Resource Analysis*
+- [x] Das, Hoffmann & Pfenning (2018), *Work Analysis with Resource-Aware Session Types*
+- [x] Weiss, Gierczak, Patterson & Ahmed (2021), *Oxide: The Essence of Rust*
+- [x] Resource-aware type systems — representative quantitative-bound, linear-protocol and Rust ownership/borrowing reviews complete; further refinement/dependent/effect systems may be added as specific Elastic mechanisms require
 - [ ] Cloud elasticity and autoscaling
 - [ ] Adaptive task runtimes and work stealing
 - [ ] Energy- and thermal-aware execution
