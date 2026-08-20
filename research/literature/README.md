@@ -40,12 +40,16 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 
 ## Initial review queue
 
+- [x] Chandy & Lamport (1985), *Distributed Snapshots: Determining Global States of Distributed Systems*
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
 - [x] Blumofe et al. (1996), *Cilk: An Efficient Multithreaded Runtime System*
 - [x] Agrawal, He & Leiserson (2007), *Adaptive Work Stealing with Parallelism Feedback*
 - [x] Zanini et al. (2009), *Multicore Thermal Management with Model Predictive Control*
 - [x] Hoffmann et al. (2011), *Dynamic Knobs for Responsive Power-Aware Computing*
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
+- [x] McSherry et al. (2013), *Differential Dataflow*
+- [x] Murray et al. (2013), *Naiad: A Timely Dataflow System*
+- [x] Carbone et al. (2015), *Lightweight Asynchronous Snapshots for Distributed Dataflows*
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
@@ -83,6 +87,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Ahmad et al. (2012), *DBToaster: Higher-order Delta Processing for Dynamic, Frequently Fresh Views*
 - [x] Mokhov, Mitchell & Peyton Jones (2018), *Build Systems à la Carte*
 - [x] Derived-resource provenance / incremental repair — representative lineage, change-propagation, delta-maintenance and validity-trace reviews complete; additional incremental-computation systems may be added as mechanisms require
+- [x] Incremental/differential dataflow + consistent checkpointing — representative partial-order versioning, progress-frontier, delta-trace, global-snapshot and topology-aware barrier-snapshot mechanisms reviewed; additional distributed incremental-state systems may be added as required
 
 ## Classification
 
