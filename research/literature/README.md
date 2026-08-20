@@ -78,6 +78,11 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Qin et al. (2025), *Mooncake: Trading More Storage for Less Computation — A KVCache-centric Architecture for Serving LLM Chatbot*
 - [x] Chen et al. (2025), *IMPRESS: An Importance-Informed Multi-Tier Prefix KV Storage System for Large Language Model Inference*
 - [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, joint placement/compression, additive/non-additive selection, query-conditioned utility, selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
+- [x] Acar, Blelloch & Harper (2002), *Adaptive Functional Programming*
+- [x] Green, Karvounarakis & Tannen (2007), *Provenance Semirings*
+- [x] Ahmad et al. (2012), *DBToaster: Higher-order Delta Processing for Dynamic, Frequently Fresh Views*
+- [x] Mokhov, Mitchell & Peyton Jones (2018), *Build Systems à la Carte*
+- [x] Derived-resource provenance / incremental repair — representative lineage, change-propagation, delta-maintenance and validity-trace reviews complete; additional incremental-computation systems may be added as mechanisms require
 
 ## Classification
 
