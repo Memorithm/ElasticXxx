@@ -72,17 +72,26 @@ pub struct KvPageDescriptor {
 }
 
 impl KvPageDescriptor {
-    /// Whether this page can safely be reused for arbitrary future queries.
-    pub const fn reusable_for_future_queries(&self) -> bool {
+    /// Whether the stored key transform is independent of a future query.
+    ///
+    /// This is a **necessary but not sufficient** condition for cross-query KV
+    /// reuse. A caller must still validate derivation provenance, model/schema
+    /// compatibility, epochs/generations, positional context, semantic contract,
+    /// and any other domain-specific reuse requirements before reusing a page.
+    pub const fn key_transform_is_query_independent(&self) -> bool {
         !matches!(self.key_transform_scope, KeyTransformScope::QueryDependent)
     }
 
-    /// Validate a change of representation for this page.
+    /// Validate a representation change intended to remain generally reusable
+    /// across future queries.
     ///
     /// Representation changes are delegated to `elastic-core`; the KV layer
-    /// adds the cache-specific rule that a query-dependent pre-transform is not
-    /// a generally reusable cache state.
-    pub fn validate_representation_change(
+    /// adds one cache-specific necessary condition: a query-dependent
+    /// pre-transform cannot be committed as a generally reusable cache state.
+    /// Successful validation here does **not** by itself prove complete
+    /// cross-query reuse compatibility; provenance and other domain contracts
+    /// must be validated separately.
+    pub fn validate_reusable_representation_change(
         &self,
         target: RepresentationState,
         mechanism: TransitionMechanism,
@@ -162,6 +171,24 @@ mod tests {
     }
 
     #[test]
+    fn query_independent_transform_is_only_a_local_predicate() {
+        let raw = KvPageDescriptor {
+            representation: state("raw", 1),
+            precision: KvPrecision::F16,
+            residency: KvResidency::Accelerator,
+            key_transform_scope: KeyTransformScope::Raw,
+            reconstructible: true,
+        };
+        let query_dependent = KvPageDescriptor {
+            key_transform_scope: KeyTransformScope::QueryDependent,
+            ..raw.clone()
+        };
+
+        assert!(raw.key_transform_is_query_independent());
+        assert!(!query_dependent.key_transform_is_query_independent());
+    }
+
+    #[test]
     fn token_stable_geometry_change_can_be_reencoded() {
         let page = KvPageDescriptor {
             representation: state("epg.so2", 4),
@@ -174,7 +201,7 @@ mod tests {
         let mut caps = CapabilitySet::new();
         caps.insert(target.id.clone(), target.schema_version);
         let plan = page
-            .validate_representation_change(
+            .validate_reusable_representation_change(
                 target,
                 TransitionMechanism::Reencode,
                 &caps,
@@ -189,7 +216,7 @@ mod tests {
     }
 
     #[test]
-    fn query_dependent_target_is_rejected_as_cache_state() {
+    fn query_dependent_target_is_rejected_as_reusable_cache_state() {
         let page = KvPageDescriptor {
             representation: state("epg.so2", 1),
             precision: KvPrecision::F16,
@@ -201,7 +228,7 @@ mod tests {
         let mut caps = CapabilitySet::new();
         caps.insert(target.id.clone(), target.schema_version);
         assert_eq!(
-            page.validate_representation_change(
+            page.validate_reusable_representation_change(
                 target,
                 TransitionMechanism::Recompute,
                 &caps,
