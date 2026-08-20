@@ -8,8 +8,8 @@
 #![forbid(unsafe_code)]
 
 use elastic_core::{
-    CapabilitySet, RepresentationState, RepresentationTransition, TransitionError,
-    TransitionFacts, TransitionMechanism,
+    CapabilitySet, RepresentationState, RepresentationTransition, TransitionAttestations,
+    TransitionError, TransitionMechanism,
 };
 use std::fmt;
 
@@ -68,7 +68,9 @@ pub struct KvPageDescriptor {
     pub residency: KvResidency,
     /// Positional/structural transform scope of K.
     pub key_transform_scope: KeyTransformScope,
-    /// Whether trusted raw/reconstructible state exists outside this materialization.
+    /// Whether reconstructible state is declared to exist outside this
+    /// materialization. This metadata bit does not itself authorize recompute;
+    /// validation still requires an explicit trusted-boundary attestation.
     pub reconstructible: bool,
 }
 
@@ -92,26 +94,27 @@ impl KvPageDescriptor {
     /// Successful validation here does **not** by itself prove complete
     /// cross-query reuse compatibility; provenance and other domain contracts
     /// must be validated separately.
+    ///
+    /// `attestations` must come from the trusted runtime/adapter boundary. In
+    /// particular, `self.reconstructible` is descriptive metadata and is not
+    /// automatically promoted into a recompute-source attestation.
     pub fn validate_reusable_representation_change(
         &self,
         target: RepresentationState,
         mechanism: TransitionMechanism,
         capabilities: &CapabilitySet,
-        mut facts: TransitionFacts,
+        attestations: TransitionAttestations,
         target_key_transform_scope: KeyTransformScope,
     ) -> Result<KvTransitionPlan, KvTransitionError> {
         if matches!(target_key_transform_scope, KeyTransformScope::QueryDependent) {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
-        }
-        if self.reconstructible {
-            facts.recompute_source_available = true;
         }
         let transition = RepresentationTransition {
             from: self.representation.clone(),
             to: target,
             mechanism,
         };
-        transition.validate(capabilities, facts)?;
+        transition.validate(capabilities, attestations)?;
         Ok(KvTransitionPlan {
             representation: transition,
             target_key_transform_scope,
@@ -206,14 +209,38 @@ mod tests {
                 target,
                 TransitionMechanism::Reencode,
                 &caps,
-                TransitionFacts {
-                    reencoder_available: true,
-                    ..TransitionFacts::default()
-                },
+                TransitionAttestations::default().attest_reencoder_available(),
                 KeyTransformScope::TokenStable,
             )
             .unwrap();
         assert_eq!(plan.target_key_transform_scope, KeyTransformScope::TokenStable);
+    }
+
+    #[test]
+    fn reconstructible_metadata_does_not_self_authorize_recompute() {
+        let page = KvPageDescriptor {
+            representation: state("raw", 1),
+            precision: KvPrecision::F16,
+            residency: KvResidency::Host,
+            key_transform_scope: KeyTransformScope::Raw,
+            reconstructible: true,
+        };
+        let target = state("compressed", 2);
+        let mut caps = CapabilitySet::new();
+        caps.insert(target.id.clone(), target.schema_version);
+
+        assert!(matches!(
+            page.validate_reusable_representation_change(
+                target,
+                TransitionMechanism::Recompute,
+                &caps,
+                TransitionAttestations::default(),
+                KeyTransformScope::Raw,
+            ),
+            Err(KvTransitionError::Core(
+                TransitionError::MissingRecomputeSourceAttestation
+            ))
+        ));
     }
 
     #[test]
@@ -233,7 +260,7 @@ mod tests {
                 target,
                 TransitionMechanism::Recompute,
                 &caps,
-                TransitionFacts::default(),
+                TransitionAttestations::default(),
                 KeyTransformScope::QueryDependent,
             ),
             Err(KvTransitionError::QueryDependentCacheRepresentation)
