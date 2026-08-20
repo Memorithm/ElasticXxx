@@ -48,8 +48,9 @@ pub enum KvResidency {
 pub enum KeyTransformScope {
     /// Raw key; positional transformation is deferred to attention execution.
     Raw,
-    /// Key is transformed using metadata intrinsic to the token/page and can be
-    /// reused by future queries without knowing those queries.
+    /// Key is transformed only with metadata intrinsic to the token/page; this
+    /// transform is not itself query-dependent. Full cross-query reuse still
+    /// requires provenance and all other compatibility checks to succeed.
     TokenStable,
     /// Stored key depends on a query or other future context and therefore is
     /// not a generally reusable KV-cache materialization.
