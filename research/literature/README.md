@@ -53,10 +53,12 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
 - [x] Mai et al. (2018), *Chi: A Scalable and Programmable Control Plane for Distributed Stream Processing Systems*
 - [x] Hoffmann et al. (2019), *Megaphone: Latency-conscious State Migration for Distributed Streaming Dataflows*
+- [x] Mao et al. (2021), *Trisk: Task-Centric Data Stream Reconfiguration*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Gu et al. (2022), *Meces: Latency-efficient Rescaling via Prioritized State Migration*
 - [x] Wang et al. (2022), *Fries: Fast and Consistent Runtime Reconfiguration in Dataflow Systems with Transactional Guarantees*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
+- [x] Mao et al. (2023), *StreamOps: Cloud-Native Runtime Management for Streaming Services in ByteDance*
 - [x] Sheng et al. (2023), *FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU*
 - [x] Zhang et al. (2023), *H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models*
 - [x] Kwon et al. (2023), *Efficient Memory Management for Large Language Model Serving with PagedAttention*
@@ -92,6 +94,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Mokhov, Mitchell & Peyton Jones (2018), *Build Systems à la Carte*
 - [x] Derived-resource provenance / incremental repair — representative lineage, change-propagation, delta-maintenance and validity-trace reviews complete; additional incremental-computation systems may be added as mechanisms require
 - [x] Incremental/differential dataflow + consistent checkpointing — representative partial-order versioning, progress-frontier, delta-trace, global-snapshot, topology-aware barrier-snapshot, fine-grained live migration, priority-aware migration and transactional reconfiguration mechanisms reviewed; additional distributed incremental-state systems may be added as required
+- [x] Reconfiguration primitives / production control planes — task-centric primitive composition, policy/mechanism separation, trigger modes, diagnosis-before-act and production policy arbitration reviewed through Trisk and StreamOps
 
 ## Classification
 
