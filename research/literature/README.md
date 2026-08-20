@@ -49,8 +49,11 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
+- [x] Sheng et al. (2023), *FlexGen: High-Throughput Generative Inference of Large Language Models with a Single GPU*
+- [x] Zhang et al. (2023), *H2O: Heavy-Hitter Oracle for Efficient Generative Inference of Large Language Models*
 - [x] Kwon et al. (2023), *Efficient Memory Management for Large Language Model Serving with PagedAttention*
 - [x] Wang et al. (2023), *BWoS: Formally Verified Block-based Work Stealing for Parallel Processing*
+- [x] Tang et al. (2024), *QUEST: Query-Aware Sparsity for Efficient Long-Context LLM Inference*
 - [x] Lee et al. (2024), *InfiniGen: Efficient Generative Inference of Large Language Models with Dynamic KV Cache Management*
 - [x] Sun et al. (2024), *Llumnix: Dynamic Scheduling for Large Language Model Serving*
 - [x] Zhong et al. (2024), *DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving*
@@ -74,7 +77,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Energy- and thermal-aware execution — representative application-quality adaptation, hierarchical power-budget redistribution and predictive thermal-control reviews complete
 - [x] Qin et al. (2025), *Mooncake: Trading More Storage for Less Computation — A KVCache-centric Architecture for Serving LLM Chatbot*
 - [x] Chen et al. (2025), *IMPRESS: An Importance-Informed Multi-Tier Prefix KV Storage System for Large Language Model Inference*
-- [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, importance/selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
+- [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, joint placement/compression, additive/non-additive selection, query-conditioned utility, selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
 
 ## Classification
 
