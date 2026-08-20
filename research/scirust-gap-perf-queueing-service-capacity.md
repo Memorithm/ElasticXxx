@@ -2,65 +2,125 @@
 
 ## Status
 
-**INVESTIGATE — not confirmed, not scheduled for implementation.**
+**PARTIALLY RESOLVED / INVESTIGATE REMAINDER.**
+
+A narrow general operational-analysis layer is now being validated in SciRust PR #1291. Broader queueing-network, fitting, uncertainty, and response-time modelling remain **INVESTIGATE**.
 
 ## Origin
 
-The immediate trigger is the DS2 OSDI 2018 review. DS2 distinguishes observed throughput from an operator's true processing/output rates by removing waiting time and treating the remaining rate as current sustainable service capacity.
+DS2 (OSDI 2018) exposed the distinction between observed throughput and sustainable processing capacity by measuring useful rather than waiting time.
 
-Direct SciRust repository searches during the review found no obvious generic queueing/service-rate modelling family under terms including queueing/queuing, service rate, Little's law, arrival rate, and birth-death models.
+Denning & Buzen (ACM Computing Surveys 1978) independently established a broader operational-performance framework based on measurable/testable quantities, including utilization, Little's law, forced flow, service demand, response-time relations, and bottleneck analysis.
 
-Absence from these searches is not sufficient to declare a confirmed gap.
+Together these sources established that the scientific need is broader than stream autoscaling.
 
-## Candidate scientific scope
+## Important repository-audit correction
 
-A genuinely general capability might eventually cover a subset of:
+The initial search was incomplete.
+
+SciRust **already contains queueing functionality** in:
 
 ```text
-arrival processes
-service-time distributions
-utilization
-service capacity
-Little's law
-M/M/1, M/M/c, M/G/1 or related analytical models
-queue-length / waiting-time / response-time relationships
-bottleneck / operational analysis
-confidence / fitting from traces
+scirust-sim/src/stochastic.rs
 ```
 
-The correct scope is deliberately unresolved.
+including:
 
-## Why this passes the first generality test
+- `MM1Queue`;
+- deterministic discrete-event simulation with explicit seed;
+- traffic intensity `rho = lambda / mu`;
+- time-average system population;
+- utilization;
+- mean sojourn time;
+- tests against classical M/M/1 formulas;
+- an explicit Little's-law cross-check.
+
+Therefore statements such as:
+
+```text
+SciRust has no queueing support
+```
+
+are false and must not be repeated.
+
+## Narrow capability identified as missing
+
+What was not exposed as a reusable API was the **distribution-agnostic operational-analysis layer** used to relate directly measured quantities:
+
+```text
+U = X S
+N = X R
+X_i = V_i X_0
+D_i = V_i S_i
+R = M/X - Z
+```
+
+plus deterministic service-demand/bottleneck analysis.
+
+These relations were partially present only as formulas/oracles around the M/M/1 simulation rather than as a general scientific interface.
+
+## Current SciRust enrichment under validation
+
+SciRust PR **#1291**, branch `feat/operational-performance-laws`, adds a minimal:
+
+```text
+scirust-sim::operational
+```
+
+with:
+
+- utilization law;
+- Little's law in population/response forms;
+- forced-flow law;
+- interactive response-time relation;
+- `ServiceDemand`;
+- deterministic bottleneck analysis;
+- saturation-throughput bound;
+- Denning–Buzen example tests.
+
+The PR deliberately does **not** add an Elastic planner or general queueing-network solver.
+
+Until CI and rustdoc are green and the PR is merged, this enrichment is not release-qualified.
+
+## Remaining scientific scope — INVESTIGATE
+
+Possible future general capabilities include some subset of:
+
+```text
+M/M/c
+M/G/1
+queueing networks
+open/closed network solvers
+multiple service centers/classes
+distribution fitting from traces
+confidence intervals / uncertainty
+bottleneck inference from noisy measurements
+response-time prediction under proposed configuration changes
+```
+
+No claim is made that SciRust needs all of these.
+
+## Why the remainder passes the generality test
 
 Such models remain useful without ElasticXxx in:
 
 - computer/network performance analysis;
-- service systems;
 - operations research;
-- manufacturing;
-- call centers;
+- manufacturing/service systems;
 - storage systems;
-- distributed systems;
-- capacity planning.
+- telecommunications;
+- capacity planning;
+- reliability/availability modelling when queues interact with repair/service resources.
 
-## Why implementation is premature
+## Evidence still required before another implementation
 
-1. DS2 is only one direct motivating system paper.
-2. A broader queueing/performance-modelling literature review is required.
-3. The appropriate API boundary inside SciRust is unknown.
-4. Existing crates or numerical primitives may already be preferable to a new in-house implementation.
-5. ElasticXxx currently only needs the conceptual distinction `observed delivery != effective capacity`; it does not require a queueing-theory runtime dependency.
-
-## Next evidence required
-
-Before promotion to `CONFIRMED GAP` or `IMPLEMENT`:
-
-- inspect SciRust modules more broadly for equivalent functionality under different names;
-- review at least one foundational/general queueing-performance source;
-- identify an independent scientific use case outside stream autoscaling;
-- compare mature Rust/native libraries;
-- define validation against analytical cases and simulation.
+1. broader queueing/performance-modelling literature review;
+2. a concrete independent scientific use case;
+3. repository audit for equivalent functionality under other SciRust modules;
+4. comparison with mature Rust/native libraries;
+5. clear validation against analytical cases and simulation;
+6. evidence that the new abstraction is preferable to simply composing existing SciRust primitives.
 
 ## Architectural rule
 
-Even if SciRust later gains these models, ElasticXxx remains independent. SciRust may be used during R&D to formulate, compare, fit, and validate capacity models; any selected runtime implementation must remain autonomous in the target project.
+ElasticXxx remains independent of SciRust. SciRust may be used during R&D to formulate, compare, fit and validate performance/capacity models; any selected runtime implementation remains autonomous in the target project.
