@@ -149,6 +149,34 @@ The abstraction is intentionally general. No database-specific provenance repres
 
 General uses include algebraic dynamic programming, weighted automata, shortest-path/tropical methods, formal-language algorithms, provenance, probabilistic/algebraic computation and other semiring-generic algorithms.
 
+## SCIRUST-ENRICH-ALGEBRA-002 — Partial orders, lattices, product orders, and antichains
+
+**Status:** IMPLEMENTED on SciRust `master`; GitHub reported no CI status for the integration commit when this tracker was updated.
+
+**Origins:** Differential Dataflow and Naiad, followed by direct inspection of `scirust-algebra`.
+
+Repository searches found no reusable mathematical abstraction for partial orders, joins/meets, lattices, coordinate-wise product orders, or antichains. Rust's standard ordering traits are not sufficient for every scientific order relation; for example, a coordinate-wise product order intentionally permits incomparable tuples.
+
+Added:
+
+```text
+scirust-algebra/src/order.rs
+```
+
+with:
+
+- `PartiallyOrdered`;
+- `JoinSemilattice`;
+- `MeetSemilattice`;
+- `Lattice`;
+- `TotalOrder<T>`;
+- `ProductOrder2<A,B>`;
+- deterministic finite `Antichain<T>` of minimal elements.
+
+The abstraction is intentionally general. No timely-dataflow, differential-dataflow, or Elastic-specific timestamp type was added.
+
+General uses include causal/logical-time orders, distributed progress frontiers, Pareto/minimal boundaries, dependency/version orders, abstract interpretation, order-theoretic algorithms, and fixed-point methods.
+
 ## SCIRUST-ENRICH-OPT-001 — Exact additive subset selection under a budget
 
 **Status:** IMPLEMENTED on SciRust `master`; local/CI validation status must be checked separately before treating the change as release-qualified.
@@ -196,7 +224,7 @@ General uses include coverage, diversity-aware selection, sensor placement, summ
 
 ### Deliberately not generalized yet
 
-No automatic addition has been made for dynamic/streaming submodular optimization, non-monotone variants, knapsack/matroid constraints, distributed submodular algorithms, noisy marginal oracles or automatic submodularity certification. Add them only when independent scientific needs justify them.
+No automatic addition has been made for dynamic/streaming submodular optimization, non-monotone variants, knapsack/matroid constraints, distributed submodular algorithms, noisy marginal oracles, automatic submodularity certification, complete lattices, distributive lattices, fixed-capacity antichains, or a distributed progress tracker. Add them only when independent scientific needs justify them.
 
 ---
 
@@ -223,7 +251,8 @@ The following papers primarily revealed target-runtime architecture or were alre
 - CacheGen — KV-specific transport codec and streaming adaptation;
 - Adaptive Functional Programming — generic dependency-trace/change-propagation runtime; currently a systems/runtime mechanism rather than a missing scientific primitive;
 - DBToaster — higher-order database-view maintenance and materialization policy; domain/runtime mechanism;
-- Build Systems à la Carte — rebuild traces and scheduling architecture; systems/runtime mechanism.
+- Build Systems à la Carte — rebuild traces and scheduling architecture; systems/runtime mechanism;
+- Chandy–Lamport / Asynchronous Barrier Snapshotting — consistent distributed snapshot and recovery protocols; systems/runtime mechanisms rather than missing scientific primitives.
 
 These mechanisms can motivate experiments, but target-specific code must not be pushed into SciRust merely because it is useful to ElasticXxx.
 
