@@ -153,16 +153,7 @@ impl KvPageDescriptor {
     /// A positive rematerialization class describes available metadata only;
     /// transition execution still requires capabilities and attestations.
     pub const fn cache_compatibility(&self) -> KvCacheCompatibility {
-        if matches!(self.key_transform_scope, KeyTransformScope::QueryDependent) {
-            return KvCacheCompatibility::QueryDependent;
-        }
-        match self.recovery_source {
-            KvRecoverySource::StoredCanonicalRaw => KvCacheCompatibility::EpochReencodable,
-            KvRecoverySource::ModelRecompute | KvRecoverySource::ExternalStableSource => {
-                KvCacheCompatibility::RecomputableOnly
-            }
-            KvRecoverySource::None => KvCacheCompatibility::CacheInvariant,
-        }
+        classify_cache_compatibility(self.key_transform_scope, self.recovery_source)
     }
 
     /// Validate a representation change intended to remain generally reusable
@@ -187,6 +178,7 @@ impl KvPageDescriptor {
         attestations: TransitionAttestations,
         target_key_transform_scope: KeyTransformScope,
         target_key_encoding_pipeline: KeyEncodingPipeline,
+        target_recovery_source: KvRecoverySource,
     ) -> Result<KvTransitionPlan, KvTransitionError> {
         self.validate_descriptor()?;
         validate_scope_pipeline(target_key_transform_scope, target_key_encoding_pipeline)?;
@@ -207,15 +199,13 @@ impl KvPageDescriptor {
             mechanism,
         };
         transition.validate(capabilities, attestations)?;
-        let compatibility = match mechanism {
-            TransitionMechanism::Reinterpret => KvCacheCompatibility::CacheInvariant,
-            TransitionMechanism::Reencode => KvCacheCompatibility::EpochReencodable,
-            TransitionMechanism::Recompute => KvCacheCompatibility::RecomputableOnly,
-        };
+        let compatibility =
+            classify_cache_compatibility(target_key_transform_scope, target_recovery_source);
         Ok(KvTransitionPlan {
             representation: transition,
             target_key_transform_scope,
             target_key_encoding_pipeline,
+            target_recovery_source,
             compatibility,
         })
     }
@@ -230,7 +220,9 @@ pub struct KvTransitionPlan {
     pub target_key_transform_scope: KeyTransformScope,
     /// Encoding order after the transition.
     pub target_key_encoding_pipeline: KeyEncodingPipeline,
-    /// Conservative rematerialization class implied by the mechanism.
+    /// Descriptive rematerialization source retained by the target.
+    pub target_recovery_source: KvRecoverySource,
+    /// Conservative future rematerialization class of the target state.
     pub compatibility: KvCacheCompatibility,
 }
 
@@ -369,6 +361,22 @@ pub fn validate_atomic_transition_batch(
         from: first.representation.from.clone(),
         to: first.representation.to.clone(),
     })
+}
+
+const fn classify_cache_compatibility(
+    scope: KeyTransformScope,
+    recovery_source: KvRecoverySource,
+) -> KvCacheCompatibility {
+    if matches!(scope, KeyTransformScope::QueryDependent) {
+        return KvCacheCompatibility::QueryDependent;
+    }
+    match recovery_source {
+        KvRecoverySource::StoredCanonicalRaw => KvCacheCompatibility::EpochReencodable,
+        KvRecoverySource::ModelRecompute | KvRecoverySource::ExternalStableSource => {
+            KvCacheCompatibility::RecomputableOnly
+        }
+        KvRecoverySource::None => KvCacheCompatibility::CacheInvariant,
+    }
 }
 
 fn validate_scope_pipeline(
@@ -583,10 +591,41 @@ mod tests {
                 TransitionAttestations::default().attest_reencoder_available(),
                 KeyTransformScope::TokenStable,
                 KeyEncodingPipeline::TransformThenCodec,
+                KvRecoverySource::StoredCanonicalRaw,
             )
             .unwrap();
         assert_eq!(plan.target_key_transform_scope, KeyTransformScope::TokenStable);
+        assert_eq!(plan.target_recovery_source, KvRecoverySource::StoredCanonicalRaw);
         assert_eq!(plan.compatibility, KvCacheCompatibility::EpochReencodable);
+    }
+
+    #[test]
+    fn transition_compatibility_follows_target_recovery_source_not_mechanism() {
+        let page = KvPageDescriptor {
+            representation: state("epg.so2", 4),
+            precision: KvPrecision::F16,
+            residency: KvResidency::Host,
+            key_transform_scope: KeyTransformScope::TokenStable,
+            key_encoding_pipeline: KeyEncodingPipeline::TransformThenCodec,
+            recovery_source: KvRecoverySource::StoredCanonicalRaw,
+        };
+        let target = state("epg.so4.structural", 5);
+        let mut caps = CapabilitySet::new();
+        caps.insert(target.id.clone(), target.schema_version);
+        let plan = page
+            .validate_reusable_representation_change(
+                target,
+                TransitionMechanism::Reencode,
+                &caps,
+                TransitionAttestations::default().attest_reencoder_available(),
+                KeyTransformScope::TokenStable,
+                KeyEncodingPipeline::TransformThenCodec,
+                KvRecoverySource::None,
+            )
+            .unwrap();
+
+        assert_eq!(plan.target_recovery_source, KvRecoverySource::None);
+        assert_eq!(plan.compatibility, KvCacheCompatibility::CacheInvariant);
     }
 
     #[test]
@@ -607,6 +646,7 @@ mod tests {
                 TransitionAttestations::default(),
                 KeyTransformScope::Raw,
                 KeyEncodingPipeline::Raw,
+                KvRecoverySource::None,
             ),
             Err(KvTransitionError::Core(
                 TransitionError::MissingRecomputeSourceAttestation
@@ -628,6 +668,7 @@ mod tests {
                 TransitionAttestations::default(),
                 KeyTransformScope::QueryDependent,
                 KeyEncodingPipeline::FusedDeclared,
+                KvRecoverySource::ModelRecompute,
             ),
             Err(KvTransitionError::QueryDependentCacheRepresentation)
         );
@@ -652,6 +693,7 @@ mod tests {
                 TransitionAttestations::default(),
                 KeyTransformScope::TokenStable,
                 KeyEncodingPipeline::CodecThenTransform,
+                KvRecoverySource::None,
             ),
             Err(KvTransitionError::KeyMaterializationChangeRequiresMaterialization)
         );
@@ -696,6 +738,7 @@ mod tests {
                 attestations,
                 KeyTransformScope::TokenStable,
                 KeyEncodingPipeline::TransformThenCodec,
+                KvRecoverySource::StoredCanonicalRaw,
             )
             .unwrap();
         let plan_b = page
@@ -706,6 +749,7 @@ mod tests {
                 attestations,
                 KeyTransformScope::TokenStable,
                 KeyEncodingPipeline::TransformThenCodec,
+                KvRecoverySource::StoredCanonicalRaw,
             )
             .unwrap();
 
