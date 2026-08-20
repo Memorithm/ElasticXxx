@@ -44,6 +44,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
 - [x] Blumofe et al. (1996), *Cilk: An Efficient Multithreaded Runtime System*
 - [x] Agrawal, He & Leiserson (2007), *Adaptive Work Stealing with Parallelism Feedback*
+- [x] He & Geng (2008), *Active Learning of Causal Networks with Intervention Experiments and Optimal Designs*
 - [x] Zanini et al. (2009), *Multicore Thermal Management with Model Predictive Control*
 - [x] Hoffmann et al. (2011), *Dynamic Knobs for Responsive Power-Aware Computing*
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
@@ -51,8 +52,10 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Murray et al. (2013), *Naiad: A Timely Dataflow System*
 - [x] Carbone et al. (2015), *Lightweight Asynchronous Snapshots for Distributed Dataflows*
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
+- [x] Lindgren et al. (2018), *Experimental Design for Cost-Aware Learning of Causal Graphs*
 - [x] Mai et al. (2018), *Chi: A Scalable and Programmable Control Plane for Distributed Stream Processing Systems*
 - [x] Hoffmann et al. (2019), *Megaphone: Latency-conscious State Migration for Distributed Streaming Dataflows*
+- [x] Agrawal et al. (2019), *ABCD-Strategy: Budgeted Experimental Design for Targeted Causal Structure Discovery*
 - [x] Mao et al. (2021), *Trisk: Task-Centric Data Stream Reconfiguration*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Gu et al. (2022), *Meces: Latency-efficient Rescaling via Prioritized State Migration*
@@ -95,6 +98,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Derived-resource provenance / incremental repair — representative lineage, change-propagation, delta-maintenance and validity-trace reviews complete; additional incremental-computation systems may be added as mechanisms require
 - [x] Incremental/differential dataflow + consistent checkpointing — representative partial-order versioning, progress-frontier, delta-trace, global-snapshot, topology-aware barrier-snapshot, fine-grained live migration, priority-aware migration and transactional reconfiguration mechanisms reviewed; additional distributed incremental-state systems may be added as required
 - [x] Reconfiguration primitives / production control planes — task-centric primitive composition, policy/mechanism separation, trigger modes, diagnosis-before-act and production policy arbitration reviewed through Trisk and StreamOps
+- [x] Active diagnosis / causal experiment design — representative sequential minimax/entropy intervention selection, minimum-cost structural design, and targeted finite-budget Bayesian experimental design reviewed; production-safe decision-focused probing remains an Elastic hypothesis requiring experiments
 
 ## Classification
 
