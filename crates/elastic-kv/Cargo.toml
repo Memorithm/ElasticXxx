@@ -1,0 +1,11 @@
+[package]
+name = "elastic-kv"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "KV-cache representation contracts for ElasticXxx"
+
+[dependencies]
+elastic-core = { path = "../elastic-core" }
