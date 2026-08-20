@@ -11,5 +11,5 @@ pub mod representation;
 
 pub use representation::{
     CapabilitySet, RepresentationEpoch, RepresentationId, RepresentationState,
-    RepresentationTransition, TransitionError, TransitionFacts, TransitionMechanism,
+    RepresentationTransition, TransitionAttestations, TransitionError, TransitionMechanism,
 };
