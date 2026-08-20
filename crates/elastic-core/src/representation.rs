@@ -150,10 +150,11 @@ pub struct RepresentationTransition {
 impl RepresentationTransition {
     /// Validate this transition against declared capabilities and runtime facts.
     ///
-    /// A contract-changing transition must advance the representation epoch.
-    /// Silent reinterpretation is rejected unless semantic equivalence is
-    /// explicitly proven.  Re-encoding and recomputation require their
-    /// corresponding mechanisms to exist.
+    /// Any contract-changing transition and any transition that creates a new
+    /// materialization (`Reencode` or `Recompute`) must advance the
+    /// representation epoch. Silent reinterpretation is rejected unless
+    /// semantic equivalence is explicitly proven. Re-encoding and recomputation
+    /// require their corresponding mechanisms to exist.
     pub fn validate(
         &self,
         capabilities: &CapabilitySet,
@@ -167,13 +168,19 @@ impl RepresentationTransition {
         }
 
         let contract_changes = !self.from.same_contract(&self.to);
-        if contract_changes && self.to.epoch <= self.from.epoch {
+        let creates_new_materialization = matches!(
+            self.mechanism,
+            TransitionMechanism::Reencode | TransitionMechanism::Recompute
+        );
+        let must_advance_epoch = contract_changes || creates_new_materialization;
+
+        if must_advance_epoch && self.to.epoch <= self.from.epoch {
             return Err(TransitionError::EpochMustAdvance {
                 from: self.from.epoch,
                 to: self.to.epoch,
             });
         }
-        if !contract_changes && self.to.epoch < self.from.epoch {
+        if self.to.epoch < self.from.epoch {
             return Err(TransitionError::EpochRegression {
                 from: self.from.epoch,
                 to: self.to.epoch,
@@ -215,7 +222,8 @@ pub enum TransitionError {
         /// Target schema version.
         schema_version: u32,
     },
-    /// A representation-changing transition failed to advance the epoch.
+    /// A transition that changes the contract or creates a new materialization
+    /// failed to advance the epoch.
     EpochMustAdvance {
         /// Source epoch.
         from: RepresentationEpoch,
@@ -250,7 +258,7 @@ impl fmt::Display for TransitionError {
             ),
             Self::EpochMustAdvance { from, to } => write!(
                 f,
-                "representation-changing transition must advance epoch ({} -> {})",
+                "transition must advance representation epoch ({} -> {})",
                 from.get(),
                 to.get()
             ),
@@ -304,6 +312,48 @@ mod tests {
                 }
             )
             .is_ok());
+    }
+
+    #[test]
+    fn same_contract_reencode_requires_new_materialization_epoch() {
+        let from = RepresentationState::new(id("kv.int4"), 1, RepresentationEpoch::new(3));
+        let to = RepresentationState::new(id("kv.int4"), 1, RepresentationEpoch::new(3));
+        let mut caps = CapabilitySet::new();
+        caps.insert(to.id.clone(), 1);
+        let transition = RepresentationTransition {
+            from,
+            to,
+            mechanism: TransitionMechanism::Reencode,
+        };
+
+        assert_eq!(
+            transition.validate(
+                &caps,
+                TransitionFacts {
+                    reencoder_available: true,
+                    ..TransitionFacts::default()
+                }
+            ),
+            Err(TransitionError::EpochMustAdvance {
+                from: RepresentationEpoch::new(3),
+                to: RepresentationEpoch::new(3),
+            })
+        );
+    }
+
+    #[test]
+    fn same_contract_reinterpretation_may_keep_epoch() {
+        let from = RepresentationState::new(id("kv.raw"), 1, RepresentationEpoch::new(3));
+        let to = RepresentationState::new(id("kv.raw"), 1, RepresentationEpoch::new(3));
+        let mut caps = CapabilitySet::new();
+        caps.insert(to.id.clone(), 1);
+        let transition = RepresentationTransition {
+            from,
+            to,
+            mechanism: TransitionMechanism::Reinterpret,
+        };
+
+        assert!(transition.validate(&caps, TransitionFacts::default()).is_ok());
     }
 
     #[test]
