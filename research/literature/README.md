@@ -57,7 +57,9 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Das, Hoffmann & Pfenning (2018), *Work Analysis with Resource-Aware Session Types*
 - [x] Weiss, Gierczak, Patterson & Ahmed (2021), *Oxide: The Essence of Rust*
 - [x] Resource-aware type systems — representative quantitative-bound, linear-protocol and Rust ownership/borrowing reviews complete; further refinement/dependent/effect systems may be added as specific Elastic mechanisms require
-- [ ] Cloud elasticity and autoscaling
+- [x] Rzadca et al. (2020), *Autopilot: workload autoscaling at Google*
+- [x] Qiu et al. (2023), *AWARE: Automate Workload Autoscaling with Reinforcement Learning in Production Cloud Systems*
+- [x] Cloud elasticity and autoscaling — representative production cost/risk autoscaling plus learned-policy lifecycle/fallback review complete; additional predictive and uncertainty-aware systems may be added as mechanisms require
 - [ ] Adaptive task runtimes and work stealing
 - [ ] Energy- and thermal-aware execution
 - [ ] LLM scheduling / KV-cache management / disaggregated serving
