@@ -174,14 +174,14 @@ impl RepresentationTransition {
         );
         let must_advance_epoch = contract_changes || creates_new_materialization;
 
-        if must_advance_epoch && self.to.epoch <= self.from.epoch {
-            return Err(TransitionError::EpochMustAdvance {
+        if self.to.epoch < self.from.epoch {
+            return Err(TransitionError::EpochRegression {
                 from: self.from.epoch,
                 to: self.to.epoch,
             });
         }
-        if self.to.epoch < self.from.epoch {
-            return Err(TransitionError::EpochRegression {
+        if must_advance_epoch && self.to.epoch == self.from.epoch {
+            return Err(TransitionError::EpochMustAdvance {
                 from: self.from.epoch,
                 to: self.to.epoch,
             });
@@ -336,6 +336,33 @@ mod tests {
             ),
             Err(TransitionError::EpochMustAdvance {
                 from: RepresentationEpoch::new(3),
+                to: RepresentationEpoch::new(3),
+            })
+        );
+    }
+
+    #[test]
+    fn epoch_regression_is_reported_before_missing_advance() {
+        let from = RepresentationState::new(id("kv.int4"), 1, RepresentationEpoch::new(4));
+        let to = RepresentationState::new(id("kv.int4"), 1, RepresentationEpoch::new(3));
+        let mut caps = CapabilitySet::new();
+        caps.insert(to.id.clone(), 1);
+        let transition = RepresentationTransition {
+            from,
+            to,
+            mechanism: TransitionMechanism::Reencode,
+        };
+
+        assert_eq!(
+            transition.validate(
+                &caps,
+                TransitionFacts {
+                    reencoder_available: true,
+                    ..TransitionFacts::default()
+                }
+            ),
+            Err(TransitionError::EpochRegression {
+                from: RepresentationEpoch::new(4),
                 to: RepresentationEpoch::new(3),
             })
         );
