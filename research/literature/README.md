@@ -49,7 +49,11 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
+- [x] Kwon et al. (2023), *Efficient Memory Management for Large Language Model Serving with PagedAttention*
 - [x] Wang et al. (2023), *BWoS: Formally Verified Block-based Work Stealing for Parallel Processing*
+- [x] Lee et al. (2024), *InfiniGen: Efficient Generative Inference of Large Language Models with Dynamic KV Cache Management*
+- [x] Sun et al. (2024), *Llumnix: Dynamic Scheduling for Large Language Model Serving*
+- [x] Zhong et al. (2024), *DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving*
 - [x] Huber et al. (2024), *Design Principles of Dynamic Resource Management for High-Performance Parallel Programming Models*
 - [x] Sandås et al. (2026), *Seamless Execution of Malleable Applications in Controlled and Production HPC Environments*
 - [x] Dynamic / malleable HPC runtimes — representative design + production reviews complete; additional papers may be added as mechanisms require
@@ -68,7 +72,8 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Cloud elasticity and autoscaling — representative production cost/risk autoscaling plus learned-policy lifecycle/fallback review complete; additional predictive and uncertainty-aware systems may be added as mechanisms require
 - [x] Adaptive task runtimes and work stealing — foundational decentralized scheduling, parallelism feedback, fine-grained synchronization and weak-memory correctness reviews complete; further locality/task-graph runtimes may be added as mechanisms require
 - [x] Energy- and thermal-aware execution — representative application-quality adaptation, hierarchical power-budget redistribution and predictive thermal-control reviews complete
-- [ ] LLM scheduling / KV-cache management / disaggregated serving
+- [x] Qin et al. (2025), *Mooncake: Trading More Storage for Less Computation — A KVCache-centric Architecture for Serving LLM Chatbot*
+- [x] LLM scheduling / KV-cache management / disaggregated serving — representative logical paging, selective prefetch, live migration, prefill/decode disaggregation and distributed multi-tier KV-cache reviews complete; further prefix-cache and semantic-compression work may be added as mechanisms require
 
 ## Classification
 
