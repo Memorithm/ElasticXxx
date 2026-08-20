@@ -4,7 +4,7 @@
 
 **ELASTIC PROPOSAL / RESEARCH DESIGN NOTE.**
 
-This note synthesizes Dhalion (PVLDB 2017), DS2 (OSDI 2018), StreamOps, Pollux, FlexMem, Beyond Hotness, predictive-control work, and ElasticXxx's existing transition-cost model. It does not claim novelty for closed-loop policy evaluation, capacity estimation, or timescale separation.
+This note synthesizes Dhalion (PVLDB 2017), Denning & Buzen (ACM Computing Surveys 1978), DS2 (OSDI 2018), Sinan (ASPLOS 2021), StreamOps, Pollux, FlexMem, Beyond Hotness, predictive-control work, and ElasticXxx's existing transition-cost model. It does not claim novelty for closed-loop policy evaluation, capacity estimation, operational performance laws, model-trust fallback, or timescale separation.
 
 ## 1. Three different questions
 
@@ -140,7 +140,40 @@ thermal/power limits
 
 An `ElasticObservation` should therefore not automatically become a capability.
 
-## 5. Candidate estimate contract
+## 5. Operational demand is another distinct quantity
+
+Denning & Buzen's operational analysis introduces directly measurable/testable relationships such as:
+
+```text
+U_i = X_i S_i
+N_i = X_i R_i
+X_i = V_i X_0
+D_i = V_i S_i
+```
+
+where service demand `D_i` measures resource work per system-level completion.
+
+For ElasticXxx, distinguish:
+
+```text
+ObservedDelivery
+EffectiveCapacityEstimate
+ServiceDemandEstimate
+```
+
+A highly utilized resource is not necessarily the limiting resource, and improving a non-bottleneck component may yield little end-to-end benefit.
+
+Operational identities used to reconstruct the current system are also different from transition-effect models used to predict a changed configuration:
+
+```text
+MeasurementIdentity
+CurrentStateEstimate
+TransitionEffectModel
+```
+
+The last object requires assumptions about what remains invariant after the proposed transition.
+
+## 6. Candidate estimate contract
 
 ```text
 Estimate<T> {
@@ -148,6 +181,7 @@ Estimate<T> {
     context,
     observation_window,
     generation_or_epoch,
+    assumptions,
     confidence,
     uncertainty,
     estimation_cost,
@@ -164,7 +198,7 @@ may be derived by a domain adapter/model.
 
 The generic core should not define one formula for every resource.
 
-## 6. Capability, availability, and observed delivery
+## 7. Capability, availability, observed delivery and demand
 
 Distinguish:
 
@@ -177,6 +211,9 @@ AvailableCapacity
 
 ObservedDelivery
     what was actually delivered during the measurement interval
+
+ServiceDemand
+    resource work required per useful system completion
 ```
 
 These can differ substantially.
@@ -187,15 +224,16 @@ Example:
 GPU kernel capability      200 units/s
 available under power cap  150 units/s
 observed under starvation   60 units/s
+service demand               4 ms/useful item
 ```
 
 A planner that treats `60` as intrinsic capability may over-scale or migrate unnecessarily.
 
-## 7. Timescale viability
+## 8. Timescale viability
 
 A legal transition is not automatically worth executing.
 
-Define approximate control latency:
+Separate approximate latencies:
 
 ```text
 T_control =
@@ -203,14 +241,20 @@ T_control =
   + T_diagnosis
   + T_planning
   + T_validation
+
+T_effect =
+    T_control
   + T_transition
+  + T_recovery
   + T_settling
 ```
 
-If the motivating condition is expected to persist for `T_env`, then adaptation is suspect when:
+Sinan independently demonstrates why `T_recovery` matters: after insufficient capacity creates backlog, restoring resources does not remove the accumulated queue immediately.
+
+If the motivating condition is expected to persist for `T_env`, adaptation is suspect when:
 
 ```text
-T_control >= T_env
+T_effect >= T_env
 ```
 
 In uncertain environments use a distribution / probability rather than one exact scalar.
@@ -223,7 +267,7 @@ P(condition persists until useful effect)
 
 and include it in expected benefit/risk.
 
-## 8. Multi-timescale control
+## 9. Multi-timescale control and horizon-specific forecasts
 
 Different resources require different control periods.
 
@@ -240,9 +284,22 @@ slow path
 
 Do not force all actions through the same observation window, settling time or planner.
 
+Sinan adds a further lesson: the prediction target itself may depend on horizon. In that system, detailed near-term latency prediction and longer-horizon violation probability are separate models because precise long-range latency prediction degraded.
+
+Candidate generic structure:
+
+```text
+ForecastBundle {
+    near_term_effect,
+    longer_horizon_risk,
+    horizons,
+    model_trust,
+}
+```
+
 A global planner may publish bounded local policies for fast-path execution rather than participate in every action.
 
-## 9. Settling semantics
+## 10. Settling and recovery semantics
 
 After a transition, metrics may be temporarily misleading because of:
 
@@ -268,7 +325,31 @@ SettlingPolicy {
 
 A fixed sleep is only one implementation.
 
-## 10. Causal caution
+## 11. Model trust is runtime state
+
+Sinan tracks prediction failures and includes a conservative fallback when predictions miss QoS violations. This motivates a general model-trust lifecycle.
+
+Candidate:
+
+```text
+ModelTrustState {
+    model_version,
+    validation_epoch,
+    operating_domain,
+    recent_error,
+    miss_rate,
+    confidence,
+    fallback_policy,
+}
+```
+
+Training/validation provenance may include workload distribution, explored action region, hardware/runtime context and objective definition.
+
+A model outside its validated operating domain should not retain the same trust merely because its artifact bytes are unchanged.
+
+The trusted validator remains authoritative regardless of model trust.
+
+## 12. Causal caution
 
 A before/after performance difference does not prove the action caused it.
 
@@ -279,9 +360,11 @@ At minimum retain:
 - workload phase changes;
 - uncertainty/confidence.
 
+Likewise, a model feature-importance score or queue hotspot is a diagnosis aid, not proof of causal responsibility.
+
 For high-value policies, controlled experiments or causal/statistical models may be warranted. The runtime core should not pretend to solve causal identification generically.
 
-## 11. Planner objective
+## 13. Planner objective
 
 Extend the earlier risk-adjusted formulation conceptually:
 
@@ -290,6 +373,7 @@ ExpectedNetValue(plan) =
     P(effect arrives in time)
   * E[UsefulProgressBenefit]
   - TransitionCost
+  - RecoveryCost
   - ControlCost
   - ResourceCost
   - RiskCost
@@ -299,7 +383,7 @@ subject to semantic and safety invariants.
 
 `DO NOTHING` remains a first-class candidate.
 
-## 12. Model update boundary
+## 14. Model update boundary
 
 A planner/model may learn from `ActionOutcomeRecord`, but learned state never bypasses validation.
 
@@ -317,26 +401,36 @@ actuator
 
 This applies whether the model is analytical, statistical, learned, or heuristic.
 
-## 13. Experiments
+## 15. Experiments
 
 ### A. Observed versus effective capacity
 
 Inject waiting/contention while keeping intrinsic service cost constant. Compare raw-throughput and corrected-capacity planners.
 
-### B. Timescale mismatch
+### B. Bottleneck versus utilization
+
+Create a multi-resource path where the highest-utilization component is not the component whose service demand limits useful throughput. Compare utilization-driven and demand/bottleneck-aware policies.
+
+### C. Timescale mismatch
 
 Generate transient pressure whose lifetime is shorter than a large migration. Confirm that a cost/timescale-aware controller selects `NoAction` or a faster alternative.
 
-### C. Outcome memory
+### D. Outcome memory
 
 Create a diagnosis/action pair that succeeds in one context and fails in another. Compare permanent blacklist, no memory, and contextual memory.
 
-### D. Settling
+### E. Settling/recovery
 
-Measure false policy updates when evaluating immediately after transition versus a domain-appropriate settling condition.
+Measure false policy updates when evaluating immediately after transition versus a domain-appropriate settling/recovery condition.
 
-## 14. SciRust
+### F. Model trust
+
+Induce workload shift outside a model's validation domain. Compare fixed trust against validation-epoch/domain-aware trust with a conservative fallback.
+
+## 16. SciRust
 
 The runtime concepts here belong to ElasticXxx.
 
-A separate possible scientific gap is generic queueing/service-capacity/performance modelling. Repository search did not identify such a SciRust family during the DS2 review. Keep it **INVESTIGATE** until broader scientific literature and an independent domain justify a reusable API.
+SciRust already contains an M/M/1 discrete-event queue simulator. The Denning–Buzen/DS2 review identified a narrower missing R&D layer for generic operational performance identities and bottleneck analysis; SciRust PR #1291 currently adds that minimal layer and is undergoing CI validation.
+
+Broader queueing networks, fitting, uncertainty and response-time modelling remain **INVESTIGATE**, not assumed missing requirements.
