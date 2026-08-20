@@ -43,7 +43,10 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Moreau & Queinnec (2005), *Resource Aware Programming* — initial mechanism review
 - [x] Blumofe et al. (1996), *Cilk: An Efficient Multithreaded Runtime System*
 - [x] Agrawal, He & Leiserson (2007), *Adaptive Work Stealing with Parallelism Feedback*
+- [x] Zanini et al. (2009), *Multicore Thermal Management with Model Predictive Control*
+- [x] Hoffmann et al. (2011), *Dynamic Knobs for Responsive Power-Aware Computing*
 - [x] Teich, Schröder-Preikschat & Herkersdorf (2013), *Invasive Computing — Common Terms and Granularity of Invasion*
+- [x] Eastep et al. (2017), *Global Extensible Open Power Manager*
 - [x] Qiao et al. (2021), *Pollux: Co-adaptive Cluster Scheduling for Goodput-Optimized Deep Learning*
 - [x] Zheng et al. (2022), *Alpa: Automating Inter- and Intra-Operator Parallelism for Distributed Deep Learning*
 - [x] Wang et al. (2023), *BWoS: Formally Verified Block-based Work Stealing for Parallel Processing*
@@ -64,7 +67,7 @@ Do not claim novelty merely because a mechanism has not yet appeared in this rev
 - [x] Qiu et al. (2023), *AWARE: Automate Workload Autoscaling with Reinforcement Learning in Production Cloud Systems*
 - [x] Cloud elasticity and autoscaling — representative production cost/risk autoscaling plus learned-policy lifecycle/fallback review complete; additional predictive and uncertainty-aware systems may be added as mechanisms require
 - [x] Adaptive task runtimes and work stealing — foundational decentralized scheduling, parallelism feedback, fine-grained synchronization and weak-memory correctness reviews complete; further locality/task-graph runtimes may be added as mechanisms require
-- [ ] Energy- and thermal-aware execution
+- [x] Energy- and thermal-aware execution — representative application-quality adaptation, hierarchical power-budget redistribution and predictive thermal-control reviews complete
 - [ ] LLM scheduling / KV-cache management / disaggregated serving
 
 ## Classification
