@@ -183,7 +183,10 @@ impl KvPageDescriptor {
         self.validate_descriptor()?;
         validate_scope_pipeline(target_key_transform_scope, target_key_encoding_pipeline)?;
 
-        if matches!(target_key_transform_scope, KeyTransformScope::QueryDependent) {
+        if matches!(
+            target_key_transform_scope,
+            KeyTransformScope::QueryDependent
+        ) {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
         }
 
@@ -534,7 +537,10 @@ mod tests {
             ..invariant.clone()
         };
 
-        assert_eq!(invariant.cache_compatibility(), KvCacheCompatibility::CacheInvariant);
+        assert_eq!(
+            invariant.cache_compatibility(),
+            KvCacheCompatibility::CacheInvariant
+        );
         assert_eq!(
             canonical.cache_compatibility(),
             KvCacheCompatibility::EpochReencodable
@@ -594,8 +600,14 @@ mod tests {
                 KvRecoverySource::StoredCanonicalRaw,
             )
             .unwrap();
-        assert_eq!(plan.target_key_transform_scope, KeyTransformScope::TokenStable);
-        assert_eq!(plan.target_recovery_source, KvRecoverySource::StoredCanonicalRaw);
+        assert_eq!(
+            plan.target_key_transform_scope,
+            KeyTransformScope::TokenStable
+        );
+        assert_eq!(
+            plan.target_recovery_source,
+            KvRecoverySource::StoredCanonicalRaw
+        );
         assert_eq!(plan.compatibility, KvCacheCompatibility::EpochReencodable);
     }
 
