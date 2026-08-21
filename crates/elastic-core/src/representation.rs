@@ -439,11 +439,9 @@ mod tests {
             mechanism: TransitionMechanism::Reinterpret,
         };
 
-        assert!(
-            transition
-                .validate(&caps, TransitionAttestations::default())
-                .is_ok()
-        );
+        assert!(transition
+            .validate(&caps, TransitionAttestations::default())
+            .is_ok());
     }
 
     #[test]
