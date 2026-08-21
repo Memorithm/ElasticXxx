@@ -221,9 +221,9 @@ impl KvPageDescriptor {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
         }
 
-        let key_materialization_changes =
-            self.key_transform_scope != target_materialization.key_transform_scope
-                || self.key_encoding_pipeline != target_materialization.key_encoding_pipeline;
+        let key_materialization_changes = self.key_transform_scope
+            != target_materialization.key_transform_scope
+            || self.key_encoding_pipeline != target_materialization.key_encoding_pipeline;
         if key_materialization_changes && matches!(mechanism, TransitionMechanism::Reinterpret) {
             return Err(KvTransitionError::KeyMaterializationChangeRequiresMaterialization);
         }
