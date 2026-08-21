@@ -130,6 +130,36 @@ pub struct KvPageDescriptor {
     pub recovery_source: KvRecoverySource,
 }
 
+/// Materialization properties requested for the target K representation.
+///
+/// Keeping scope, transform/codec order, and recovery provenance together makes
+/// the target materialization one explicit contract value instead of three
+/// loosely-associated call arguments.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct KvTargetMaterialization {
+    /// Key-transform scope of the target.
+    pub key_transform_scope: KeyTransformScope,
+    /// Ordered transform/codec pipeline of the target.
+    pub key_encoding_pipeline: KeyEncodingPipeline,
+    /// Source retained for future target rematerialization.
+    pub recovery_source: KvRecoverySource,
+}
+
+impl KvTargetMaterialization {
+    /// Construct target K-materialization metadata.
+    pub const fn new(
+        key_transform_scope: KeyTransformScope,
+        key_encoding_pipeline: KeyEncodingPipeline,
+        recovery_source: KvRecoverySource,
+    ) -> Self {
+        Self {
+            key_transform_scope,
+            key_encoding_pipeline,
+            recovery_source,
+        }
+    }
+}
+
 impl KvPageDescriptor {
     /// Validate the local relationship between transform scope and encoding
     /// pipeline. This does not establish cross-query reuse or provenance.
@@ -176,22 +206,24 @@ impl KvPageDescriptor {
         mechanism: TransitionMechanism,
         capabilities: &CapabilitySet,
         attestations: TransitionAttestations,
-        target_key_transform_scope: KeyTransformScope,
-        target_key_encoding_pipeline: KeyEncodingPipeline,
-        target_recovery_source: KvRecoverySource,
+        target_materialization: KvTargetMaterialization,
     ) -> Result<KvTransitionPlan, KvTransitionError> {
         self.validate_descriptor()?;
-        validate_scope_pipeline(target_key_transform_scope, target_key_encoding_pipeline)?;
+        validate_scope_pipeline(
+            target_materialization.key_transform_scope,
+            target_materialization.key_encoding_pipeline,
+        )?;
 
         if matches!(
-            target_key_transform_scope,
+            target_materialization.key_transform_scope,
             KeyTransformScope::QueryDependent
         ) {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
         }
 
-        let key_materialization_changes = self.key_transform_scope != target_key_transform_scope
-            || self.key_encoding_pipeline != target_key_encoding_pipeline;
+        let key_materialization_changes =
+            self.key_transform_scope != target_materialization.key_transform_scope
+                || self.key_encoding_pipeline != target_materialization.key_encoding_pipeline;
         if key_materialization_changes && matches!(mechanism, TransitionMechanism::Reinterpret) {
             return Err(KvTransitionError::KeyMaterializationChangeRequiresMaterialization);
         }
@@ -202,13 +234,15 @@ impl KvPageDescriptor {
             mechanism,
         };
         transition.validate(capabilities, attestations)?;
-        let compatibility =
-            classify_cache_compatibility(target_key_transform_scope, target_recovery_source);
+        let compatibility = classify_cache_compatibility(
+            target_materialization.key_transform_scope,
+            target_materialization.recovery_source,
+        );
         Ok(KvTransitionPlan {
             representation: transition,
-            target_key_transform_scope,
-            target_key_encoding_pipeline,
-            target_recovery_source,
+            target_key_transform_scope: target_materialization.key_transform_scope,
+            target_key_encoding_pipeline: target_materialization.key_encoding_pipeline,
+            target_recovery_source: target_materialization.recovery_source,
             compatibility,
         })
     }
@@ -595,9 +629,11 @@ mod tests {
                 TransitionMechanism::Reencode,
                 &caps,
                 TransitionAttestations::default().attest_reencoder_available(),
-                KeyTransformScope::TokenStable,
-                KeyEncodingPipeline::TransformThenCodec,
-                KvRecoverySource::StoredCanonicalRaw,
+                KvTargetMaterialization::new(
+                    KeyTransformScope::TokenStable,
+                    KeyEncodingPipeline::TransformThenCodec,
+                    KvRecoverySource::StoredCanonicalRaw,
+                ),
             )
             .unwrap();
         assert_eq!(
@@ -630,9 +666,11 @@ mod tests {
                 TransitionMechanism::Reencode,
                 &caps,
                 TransitionAttestations::default().attest_reencoder_available(),
-                KeyTransformScope::TokenStable,
-                KeyEncodingPipeline::TransformThenCodec,
-                KvRecoverySource::None,
+                KvTargetMaterialization::new(
+                    KeyTransformScope::TokenStable,
+                    KeyEncodingPipeline::TransformThenCodec,
+                    KvRecoverySource::None,
+                ),
             )
             .unwrap();
 
@@ -656,9 +694,11 @@ mod tests {
                 TransitionMechanism::Recompute,
                 &caps,
                 TransitionAttestations::default(),
-                KeyTransformScope::Raw,
-                KeyEncodingPipeline::Raw,
-                KvRecoverySource::None,
+                KvTargetMaterialization::new(
+                    KeyTransformScope::Raw,
+                    KeyEncodingPipeline::Raw,
+                    KvRecoverySource::None,
+                ),
             ),
             Err(KvTransitionError::Core(
                 TransitionError::MissingRecomputeSourceAttestation
@@ -678,9 +718,11 @@ mod tests {
                 TransitionMechanism::Recompute,
                 &caps,
                 TransitionAttestations::default(),
-                KeyTransformScope::QueryDependent,
-                KeyEncodingPipeline::FusedDeclared,
-                KvRecoverySource::ModelRecompute,
+                KvTargetMaterialization::new(
+                    KeyTransformScope::QueryDependent,
+                    KeyEncodingPipeline::FusedDeclared,
+                    KvRecoverySource::ModelRecompute,
+                ),
             ),
             Err(KvTransitionError::QueryDependentCacheRepresentation)
         );
@@ -703,9 +745,11 @@ mod tests {
                 TransitionMechanism::Reinterpret,
                 &caps,
                 TransitionAttestations::default(),
-                KeyTransformScope::TokenStable,
-                KeyEncodingPipeline::CodecThenTransform,
-                KvRecoverySource::None,
+                KvTargetMaterialization::new(
+                    KeyTransformScope::TokenStable,
+                    KeyEncodingPipeline::CodecThenTransform,
+                    KvRecoverySource::None,
+                ),
             ),
             Err(KvTransitionError::KeyMaterializationChangeRequiresMaterialization)
         );
@@ -742,15 +786,18 @@ mod tests {
         let mut caps = CapabilitySet::new();
         caps.insert(target_a.id.clone(), target_a.schema_version);
         let attestations = TransitionAttestations::default().attest_reencoder_available();
+        let target_materialization = KvTargetMaterialization::new(
+            KeyTransformScope::TokenStable,
+            KeyEncodingPipeline::TransformThenCodec,
+            KvRecoverySource::StoredCanonicalRaw,
+        );
         let plan_a = page
             .validate_reusable_representation_change(
                 target_a,
                 TransitionMechanism::Reencode,
                 &caps,
                 attestations,
-                KeyTransformScope::TokenStable,
-                KeyEncodingPipeline::TransformThenCodec,
-                KvRecoverySource::StoredCanonicalRaw,
+                target_materialization,
             )
             .unwrap();
         let plan_b = page
@@ -759,9 +806,7 @@ mod tests {
                 TransitionMechanism::Reencode,
                 &caps,
                 attestations,
-                KeyTransformScope::TokenStable,
-                KeyEncodingPipeline::TransformThenCodec,
-                KvRecoverySource::StoredCanonicalRaw,
+                target_materialization,
             )
             .unwrap();
 
