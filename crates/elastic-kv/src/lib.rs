@@ -11,6 +11,7 @@ use elastic_core::{
     CapabilitySet, RepresentationState, RepresentationTransition, TransitionAttestations,
     TransitionError, TransitionMechanism,
 };
+use std::collections::BTreeSet;
 use std::fmt;
 
 /// Numerical precision of a materialized KV page.
@@ -113,9 +114,38 @@ pub enum KvCacheCompatibility {
     QueryDependent,
 }
 
+/// Stable runtime identity of one materialized KV page/tile.
+///
+/// The identifier survives representation transitions so that delta traces can
+/// record *which* pages moved between epochs. It carries no semantics beyond
+/// identity: two pages may share content but must not share an id while both
+/// are live.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct KvPageId(u64);
+
+impl KvPageId {
+    /// Construct a page identity from its raw handle.
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Raw page handle.
+    pub const fn get(self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Display for KvPageId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "page#{}", self.0)
+    }
+}
+
 /// Versioned metadata for one materialized KV page/tile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KvPageDescriptor {
+    /// Stable identity of this page across epochs.
+    pub page: KvPageId,
     /// Mathematical/numerical representation contract and epoch.
     pub representation: RepresentationState,
     /// Stored precision.
@@ -325,9 +355,15 @@ pub fn validate_reusable_attention_view(
         return Err(KvTransitionError::QueryDependentCacheRepresentation);
     }
 
+    let mut seen_pages = BTreeSet::new();
+    seen_pages.insert(first.page);
+
     let mut homogeneous = true;
     for page in &pages[1..] {
         page.validate_descriptor()?;
+        if !seen_pages.insert(page.page) {
+            return Err(KvTransitionError::DuplicatePage { page: page.page });
+        }
         if !page.key_transform_is_query_independent() {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
         }
@@ -400,6 +436,87 @@ pub fn validate_atomic_transition_batch(
     })
 }
 
+/// One page's validated transition, identified by page.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PageTransition {
+    /// The page this transition applies to.
+    pub page: KvPageId,
+    /// The validated plan for that page.
+    pub plan: KvTransitionPlan,
+}
+
+/// Delta trace between two materialization epochs of one logical KV view.
+///
+/// Records *which* pages moved from the shared source state to the shared
+/// target state. This is the bookkeeping side of the version-frontier design:
+/// the frontier says where the view is, the delta says what changed to get
+/// there. Migrations are sorted by page id for deterministic replay.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KvEpochDelta {
+    /// Shared source representation state of every migrated page.
+    pub from: RepresentationState,
+    /// Shared target representation state of every migrated page.
+    pub to: RepresentationState,
+    /// Ids of pages included in this delta, ascending and unique.
+    pub migrated_pages: Vec<KvPageId>,
+}
+
+impl KvEpochDelta {
+    /// Whether `page` is part of this delta.
+    pub fn contains(&self, page: KvPageId) -> bool {
+        self.migrated_pages.binary_search(&page).is_ok()
+    }
+
+    /// Number of pages recorded in this delta.
+    pub fn len(&self) -> usize {
+        self.migrated_pages.len()
+    }
+
+    /// Whether no page is recorded.
+    pub fn is_empty(&self) -> bool {
+        self.migrated_pages.is_empty()
+    }
+}
+
+/// Build an epoch delta from an atomically-committed batch of page
+/// transitions.
+///
+/// The batch must be non-empty, share exactly one source and one target
+/// representation state (enforced via [`validate_atomic_transition_batch`]),
+/// actually advance the epoch, and mention each page at most once. The result
+/// is a deterministic record suitable for checkpoints and replay.
+pub fn build_epoch_delta(
+    transitions: &[PageTransition],
+) -> Result<KvEpochDelta, KvTransitionError> {
+    if transitions.is_empty() {
+        return Err(KvTransitionError::EmptyTransitionBatch);
+    }
+
+    let plans: Vec<KvTransitionPlan> = transitions.iter().map(|t| t.plan.clone()).collect();
+    let summary = validate_atomic_transition_batch(&plans)?;
+    if summary.to.epoch == summary.from.epoch {
+        return Err(KvTransitionError::Core(TransitionError::EpochMustAdvance {
+            from: summary.from.epoch,
+            to: summary.to.epoch,
+        }));
+    }
+
+    let mut seen = BTreeSet::new();
+    for transition in transitions {
+        if !seen.insert(transition.page) {
+            return Err(KvTransitionError::DuplicatePage {
+                page: transition.page,
+            });
+        }
+    }
+
+    Ok(KvEpochDelta {
+        from: summary.from,
+        to: summary.to,
+        migrated_pages: seen.into_iter().collect(),
+    })
+}
+
 const fn classify_cache_compatibility(
     scope: KeyTransformScope,
     recovery_source: KvRecoverySource,
@@ -459,6 +576,12 @@ pub enum KvTransitionError {
     MixedTransitionSource,
     /// Atomic transition batch does not share one target state.
     MixedTransitionTarget,
+    /// The same page identity appeared twice in one attention view or
+    /// transition batch. A live page may occur only once per logical view.
+    DuplicatePage {
+        /// The repeated page identity.
+        page: KvPageId,
+    },
 }
 
 impl From<TransitionError> for KvTransitionError {
@@ -511,6 +634,9 @@ impl fmt::Display for KvTransitionError {
                 f,
                 "atomic transition batch contains mixed target representation states"
             ),
+            Self::DuplicatePage { page } => {
+                write!(f, "{page} appears more than once in one logical view or batch")
+            }
         }
     }
 }
@@ -532,6 +658,7 @@ mod tests {
 
     fn raw_page(name: &str, epoch: u64) -> KvPageDescriptor {
         KvPageDescriptor {
+            page: KvPageId::new(1),
             representation: state(name, epoch),
             precision: KvPrecision::F16,
             residency: KvResidency::Accelerator,
@@ -613,6 +740,7 @@ mod tests {
     #[test]
     fn token_stable_geometry_change_can_be_reencoded() {
         let page = KvPageDescriptor {
+            page: KvPageId::new(7),
             representation: state("epg.so2", 4),
             precision: KvPrecision::Int4,
             residency: KvResidency::Host,
@@ -650,6 +778,7 @@ mod tests {
     #[test]
     fn transition_compatibility_follows_target_recovery_source_not_mechanism() {
         let page = KvPageDescriptor {
+            page: KvPageId::new(8),
             representation: state("epg.so2", 4),
             precision: KvPrecision::F16,
             residency: KvResidency::Host,
@@ -758,7 +887,10 @@ mod tests {
     #[test]
     fn homogeneous_attention_view_rejects_mixed_epochs() {
         let a = raw_page("epg.so2", 7);
-        let b = raw_page("epg.so2", 8);
+        let b = KvPageDescriptor {
+            page: KvPageId::new(2),
+            ..raw_page("epg.so2", 8)
+        };
         assert_eq!(
             validate_reusable_attention_view(&[a, b], KvAttentionViewPolicy::homogeneous()),
             Err(KvTransitionError::MixedRepresentationEpoch)
@@ -766,9 +898,27 @@ mod tests {
     }
 
     #[test]
+    fn attention_view_rejects_duplicate_page_identity() {
+        let a = raw_page("epg.so2", 7);
+        let duplicate = a.clone();
+        assert_eq!(
+            validate_reusable_attention_view(
+                &[a, duplicate],
+                KvAttentionViewPolicy::per_page_representation()
+            ),
+            Err(KvTransitionError::DuplicatePage {
+                page: KvPageId::new(1)
+            })
+        );
+    }
+
+    #[test]
     fn explicit_per_page_policy_allows_mixed_representation_epochs() {
         let a = raw_page("epg.so2", 7);
-        let b = raw_page("epg.so4", 8);
+        let b = KvPageDescriptor {
+            page: KvPageId::new(2),
+            ..raw_page("epg.so4", 8)
+        };
         let summary = validate_reusable_attention_view(
             &[a, b],
             KvAttentionViewPolicy::per_page_representation(),
@@ -814,5 +964,130 @@ mod tests {
             validate_atomic_transition_batch(&[plan_a, plan_b]),
             Err(KvTransitionError::MixedTransitionTarget)
         );
+    }
+
+    /// Build a token-stable page plus a validated re-encode plan toward
+    /// `target_epoch`, shared by the delta-trace tests.
+    fn reencode_plan(source: &KvPageDescriptor, target_epoch: u64) -> KvTransitionPlan {
+        let mut derived = source.representation.clone();
+        derived.epoch = RepresentationEpoch::new(target_epoch);
+        let mut caps = CapabilitySet::new();
+        caps.insert(derived.id.clone(), derived.schema_version);
+        source
+            .validate_reusable_representation_change(
+                derived,
+                TransitionMechanism::Reencode,
+                &caps,
+                TransitionAttestations::default().attest_reencoder_available(),
+                KvTargetMaterialization::new(
+                    source.key_transform_scope,
+                    source.key_encoding_pipeline,
+                    KvRecoverySource::StoredCanonicalRaw,
+                ),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn epoch_delta_records_migrated_pages_deterministically() {
+        let a = raw_page("epg.so2", 7);
+        let b = KvPageDescriptor {
+            page: KvPageId::new(2),
+            ..raw_page("epg.so2", 7)
+        };
+        let c = KvPageDescriptor {
+            page: KvPageId::new(3),
+            ..raw_page("epg.so2", 7)
+        };
+
+        let plan = reencode_plan(&a, 8);
+        let transitions = vec![
+            PageTransition {
+                page: c.page,
+                plan: plan.clone(),
+            },
+            PageTransition {
+                page: a.page,
+                plan: plan.clone(),
+            },
+            PageTransition { page: b.page, plan },
+        ];
+
+        let delta = build_epoch_delta(&transitions).unwrap();
+        assert_eq!(delta.from, state("epg.so2", 7));
+        assert_eq!(delta.to, state("epg.so2", 8));
+        // Ascending regardless of input order.
+        assert_eq!(
+            delta.migrated_pages,
+            vec![KvPageId::new(1), KvPageId::new(2), KvPageId::new(3)]
+        );
+        assert_eq!(delta.len(), 3);
+        assert!(delta.contains(KvPageId::new(2)));
+        assert!(!delta.contains(KvPageId::new(9)));
+    }
+
+    #[test]
+    fn epoch_delta_rejects_empty_duplicate_and_steady_batches() {
+        let a = raw_page("epg.so2", 7);
+        let plan = reencode_plan(&a, 8);
+
+        assert_eq!(
+            build_epoch_delta(&[]),
+            Err(KvTransitionError::EmptyTransitionBatch)
+        );
+
+        assert_eq!(
+            build_epoch_delta(&[
+                PageTransition {
+                    page: KvPageId::new(1),
+                    plan: plan.clone()
+                },
+                PageTransition {
+                    page: KvPageId::new(1),
+                    plan: plan.clone()
+                },
+            ]),
+            Err(KvTransitionError::DuplicatePage {
+                page: KvPageId::new(1)
+            })
+        );
+
+        // Same-epoch reinterpretation commits no epoch progress, so it is not
+        // a delta between epochs.
+        let reinterpret_target = a.representation.clone();
+        let mut caps = CapabilitySet::new();
+        caps.insert(
+            reinterpret_target.id.clone(),
+            reinterpret_target.schema_version,
+        );
+        let steady_plan = a
+            .validate_reusable_representation_change(
+                reinterpret_target.clone(),
+                TransitionMechanism::Reinterpret,
+                &caps,
+                TransitionAttestations::default(),
+                KvTargetMaterialization::new(
+                    a.key_transform_scope,
+                    a.key_encoding_pipeline,
+                    KvRecoverySource::None,
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            build_epoch_delta(&[PageTransition {
+                page: a.page,
+                plan: steady_plan,
+            }]),
+            Err(KvTransitionError::Core(TransitionError::EpochMustAdvance {
+                from: a.representation.epoch,
+                to: reinterpret_target.epoch,
+            }))
+        );
+    }
+
+    #[test]
+    fn page_ids_display_and_order_are_usable_in_traces() {
+        assert_eq!(KvPageId::new(42).to_string(), "page#42");
+        assert!(KvPageId::new(2) < KvPageId::new(10));
     }
 }

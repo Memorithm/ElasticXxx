@@ -7,9 +7,12 @@
 
 #![forbid(unsafe_code)]
 
+pub mod frontier;
 pub mod representation;
 
+pub use frontier::{FrontierError, VersionFrontier};
 pub use representation::{
-    CapabilitySet, RepresentationEpoch, RepresentationId, RepresentationState,
-    RepresentationTransition, TransitionAttestations, TransitionError, TransitionMechanism,
+    CapabilitySet, EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
+    RepresentationState, RepresentationTransition, TargetContract, TransitionAttestations,
+    TransitionError, TransitionMechanism,
 };
