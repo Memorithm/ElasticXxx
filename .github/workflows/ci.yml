@@ -6,19 +6,38 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   rust:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - name: Install pinned Rust toolchain
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Require trusted persistent runner and pinned Rust
+        shell: bash
         run: |
-          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
-          rustup default 1.89.0
-      - run: cargo fmt --all -- --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::ElasticXxx CI requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          rustup toolchain list | grep -F '1.89.0' >/dev/null
+
+      - name: Format
+        run: cargo +1.89.0 fmt --all -- --check
+
+      - name: Clippy
+        run: cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo +1.89.0 test --workspace
