@@ -106,7 +106,10 @@ impl KvPageDescriptor {
         attestations: TransitionAttestations,
         target_key_transform_scope: KeyTransformScope,
     ) -> Result<KvTransitionPlan, KvTransitionError> {
-        if matches!(target_key_transform_scope, KeyTransformScope::QueryDependent) {
+        if matches!(
+            target_key_transform_scope,
+            KeyTransformScope::QueryDependent
+        ) {
             return Err(KvTransitionError::QueryDependentCacheRepresentation);
         }
         let transition = RepresentationTransition {
@@ -213,7 +216,10 @@ mod tests {
                 KeyTransformScope::TokenStable,
             )
             .unwrap();
-        assert_eq!(plan.target_key_transform_scope, KeyTransformScope::TokenStable);
+        assert_eq!(
+            plan.target_key_transform_scope,
+            KeyTransformScope::TokenStable
+        );
     }
 
     #[test]
