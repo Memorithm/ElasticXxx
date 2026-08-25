@@ -1,0 +1,12 @@
+[package]
+name = "elastic-adapters"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Concrete in-process Elastic resource adapters: RAM budgets and concurrency permits"
+
+[dependencies]
+elastic-core = { path = "../elastic-core" }
+elastic-eir = { path = "../elastic-eir" }
