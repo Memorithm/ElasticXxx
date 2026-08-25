@@ -9,3 +9,6 @@ description = "KV-cache representation contracts for ElasticXxx"
 
 [dependencies]
 elastic-core = { path = "../elastic-core" }
+
+[dev-dependencies]
+elastic = { path = "../elastic" }
