@@ -96,7 +96,9 @@ mod validate;
 pub use document::{lower, EirDocument, EirDocumentBuilder};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
-pub use plan::{FirstGroundedPlanner, PlanOutcome, TransitionCandidate, TransitionPlanner};
+pub use plan::{
+    FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
+};
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use validate::validate_resource_parts;
 

@@ -6,8 +6,8 @@ use elastic_core::resource::{
 };
 use elastic_core::TransitionMechanism::{Reencode, Reinterpret};
 use elastic_eir::{
-    lower, EirResourceParts, FirstGroundedPlanner, PlanOutcome, TransitionCandidate,
-    TransitionPlanner,
+    lower, EirResourceParts, FirstGroundedPlanner, PlanOutcome, PlanningContext,
+    TransitionCandidate, TransitionPlanner,
 };
 
 fn grounded_kv_resource() -> elastic_eir::EirResource {
@@ -156,4 +156,54 @@ fn outcomes_display_and_are_plain_data() {
         .propose_transition(&grounded_kv_resource())
         .to_string();
     assert_eq!(text, "candidate reencode@representation");
+}
+
+#[test]
+fn planning_context_is_typed_deterministic_and_optional_for_planners() {
+    use elastic_core::resource::ObservationSignalId;
+
+    let context = PlanningContext::new()
+        .observe(ObservationSignalId::FREE_CAPACITY, 1024.0)
+        .observe(ObservationSignalId::UTILIZATION, 0.75);
+    assert_eq!(context.get(ObservationSignalId::UTILIZATION), Some(0.75));
+    assert_eq!(context.get(ObservationSignalId::ENERGY_RATE), None);
+
+    // Canonical iteration order regardless of insertion order.
+    let reordered = PlanningContext::new()
+        .observe(ObservationSignalId::UTILIZATION, 0.75)
+        .observe(ObservationSignalId::FREE_CAPACITY, 1024.0);
+    assert_eq!(context, reordered);
+    let signals: Vec<_> = context.iter().map(|(signal, _)| signal.clone()).collect();
+    assert_eq!(
+        signals,
+        vec![
+            ObservationSignalId::FREE_CAPACITY,
+            ObservationSignalId::UTILIZATION
+        ]
+    );
+
+    // Context-aware default: planners without a strategy ignore context and
+    // stay deterministic.
+    let resource = grounded_kv_resource();
+    assert_eq!(
+        FirstGroundedPlanner.propose_transition_with_context(&resource, &context),
+        FirstGroundedPlanner.propose_transition(&resource)
+    );
+}
+
+#[test]
+fn candidates_carry_advisory_target_magnitudes() {
+    let resource = grounded_kv_resource();
+    let outcome = FirstGroundedPlanner.propose_transition(&resource);
+    let PlanOutcome::Candidate(candidate) = outcome else {
+        panic!("expected candidate");
+    };
+    assert_eq!(candidate.magnitude(), None);
+    assert_eq!(candidate.to_string(), "reencode@representation");
+
+    let sized = candidate.with_magnitude(4096);
+    assert_eq!(sized.magnitude(), Some(4096));
+    assert_eq!(sized.to_string(), "reencode@representation≈4096");
+    // Magnitude is advisory: declaredness ignores it.
+    assert!(sized.is_declared_in(&resource));
 }

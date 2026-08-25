@@ -11,7 +11,9 @@
 //! that demonstrates the contract end-to-end; it weighs no objectives.
 
 use crate::resource::{AdmittedTransition, EirResource};
+use elastic_core::resource::ObservationSignalId;
 use elastic_core::TransitionMechanism;
+use std::collections::BTreeMap;
 use std::fmt;
 
 /// One proposed transition.
@@ -23,6 +25,7 @@ pub struct TransitionCandidate {
     mechanism: TransitionMechanism,
     dimension: elastic_core::resource::DimensionId,
     capability_grounded: bool,
+    magnitude: Option<u64>,
 }
 
 impl TransitionCandidate {
@@ -36,7 +39,28 @@ impl TransitionCandidate {
             mechanism: admitted.transition().mechanism(),
             dimension: admitted.transition().dimension().clone(),
             capability_grounded: admitted.capability_grounded(),
+            magnitude: None,
         }
+    }
+
+    /// Attach a proposed target magnitude to the candidate.
+    ///
+    /// The unit is defined by the dimension and its resource adapter (bytes
+    /// for a capacity budget, worker count for a concurrency budget, …); the
+    /// IR carries the value without interpreting it. Quantitatively
+    /// meaningless dimensions leave this unset. Magnitude is advisory intent:
+    /// adapters still validate every proposal against bounds and invariants
+    /// at action time.
+    #[must_use]
+    pub const fn with_magnitude(mut self, magnitude: u64) -> Self {
+        self.magnitude = Some(magnitude);
+        self
+    }
+
+    /// The proposed target magnitude, if any.
+    #[must_use]
+    pub const fn magnitude(&self) -> Option<u64> {
+        self.magnitude
     }
 
     /// The proposed mechanism.
@@ -83,7 +107,11 @@ impl fmt::Display for TransitionCandidate {
             TransitionMechanism::Reencode => "reencode",
             TransitionMechanism::Recompute => "recompute",
         };
-        write!(f, "{}@{}", mechanism, self.dimension)
+        write!(f, "{}@{}", mechanism, self.dimension)?;
+        if let Some(magnitude) = self.magnitude {
+            write!(f, "≈{magnitude}")?;
+        }
+        Ok(())
     }
 }
 
@@ -143,9 +171,66 @@ impl fmt::Display for PlanOutcome {
 ///
 /// Planning never executes anything and never bypasses validation; execution
 /// remains gated by the resource adapter's trusted boundary.
+/// Observations available to a planning decision.
+///
+/// Keys are typed observation signals; values are unit-ful numbers whose
+/// meaning is fixed by the signal and its adapter (utilization as a fraction
+/// in `0.0..=1.0`, free capacity in the dimension's native unit, …). Backed
+/// by a sorted map, so iteration is deterministic.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PlanningContext {
+    observations: BTreeMap<ObservationSignalId, f64>,
+}
+
+impl PlanningContext {
+    /// An empty context.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Record one observation.
+    #[must_use]
+    pub fn observe(mut self, signal: ObservationSignalId, value: f64) -> Self {
+        self.observations.insert(signal, value);
+        self
+    }
+
+    /// Look up one observation.
+    #[must_use]
+    pub fn get(&self, signal: ObservationSignalId) -> Option<f64> {
+        self.observations.get(&signal).copied()
+    }
+
+    /// Iterate observations in canonical signal order.
+    pub fn iter(&self) -> impl Iterator<Item = (&ObservationSignalId, f64)> {
+        self.observations
+            .iter()
+            .map(|(signal, value)| (signal, *value))
+    }
+}
+
 pub trait TransitionPlanner {
     /// Propose at most one transition for `resource`.
+    ///
+    /// Context-free entry point; strategies that need runtime evidence should
+    /// override [`TransitionPlanner::propose_transition_with_context`] and
+    /// make this method return an honest [`PlanOutcome::InsufficientEvidence`].
     fn propose_transition(&self, resource: &EirResource) -> PlanOutcome;
+
+    /// Propose at most one transition using runtime observations.
+    ///
+    /// The default implementation ignores `context` and delegates to
+    /// [`TransitionPlanner::propose_transition`], keeping every existing
+    /// planner source-compatible.
+    fn propose_transition_with_context(
+        &self,
+        resource: &EirResource,
+        context: &PlanningContext,
+    ) -> PlanOutcome {
+        let _ = context;
+        self.propose_transition(resource)
+    }
 }
 
 /// Trivial reference planner: deterministically selects the first
