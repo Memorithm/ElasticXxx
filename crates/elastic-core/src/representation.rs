@@ -195,7 +195,12 @@ impl fmt::Display for RepresentationState {
 }
 
 /// Mechanism used to materialize the target representation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+///
+/// The vocabulary is shared with the general resource model
+/// ([`crate::resource`]): the same three classes describe whether a
+/// transition reuses, transforms, or regenerates a materialization. Ordering
+/// follows declaration order and is structural only.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TransitionMechanism {
     /// Reuse bytes/storage without changing their interpretation.
     /// This is legal across representation contracts only when the trusted

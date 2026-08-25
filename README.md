@@ -60,6 +60,7 @@ The model is intentionally provisional and will evolve as the literature review 
 - [Research White Paper v0.1](docs/whitepaper/elastic-resources-whitepaper-v0.1.md)
 - [Literature review](research/literature/README.md)
 - [Moreau & Queinnec (2005) — Resource Aware Programming](research/literature/2005-moreau-queinnec-resource-aware-programming.md)
+- [Rust Surface Model v0.1](docs/surface/rust-surface-model-v0.1.md) — the first user-facing typed declaration layer (`elastic_core::resource`)
 
 ## Research method
 
