@@ -1,0 +1,5 @@
+error: missing mandatory `class(...)` declaration; expected one of stock, capacity-resource, rate, exclusive, shared, stateful, representational, configurational, or class(custom("..."))
+ --> tests/compile_fail/missing_class.rs:5:8
+  |
+5 | struct MissingClass;
+  |        ^^^^^^^^^^^^

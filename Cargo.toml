@@ -1,9 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/elastic",
+    "crates/elastic-downstream",
     "crates/elastic-core",
     "crates/elastic-eir",
     "crates/elastic-kv",
+    "crates/elastic-macros",
 ]
 
 [workspace.package]

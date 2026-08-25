@@ -1,0 +1,5 @@
+error: #[derive(ElasticResource)] only supports structs
+ --> tests/compile_fail/on_enum.rs:4:1
+  |
+4 | #[elastic(
+  | ^

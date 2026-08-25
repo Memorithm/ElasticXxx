@@ -1,0 +1,5 @@
+error: expected `<mechanism> @ <dimension>` after `admit` (mechanisms: reinterpret, reencode, recompute)
+ --> tests/compile_fail/malformed_admit.rs:7:20
+  |
+7 |     admit(reencode capacity)
+  |                    ^^^^^^^^

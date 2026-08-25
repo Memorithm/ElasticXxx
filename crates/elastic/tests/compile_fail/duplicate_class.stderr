@@ -1,0 +1,5 @@
+error: duplicate mutually exclusive key `class`; declare it once
+ --> tests/compile_fail/duplicate_class.rs:6:5
+  |
+6 |     class(stateful),
+  |     ^^^^^

@@ -1,0 +1,5 @@
+error: unknown dimension `representaton`; expected one of capacity, concurrency, residency, locality, representation, precision, parallelism, routing, redundancy, persistence, recomputability, bandwidth, energy, or custom("...") for an open-set extension
+ --> tests/compile_fail/unknown_dimension.rs:6:21
+  |
+6 |     allow(capacity, representaton)
+  |                     ^^^^^^^^^^^^^

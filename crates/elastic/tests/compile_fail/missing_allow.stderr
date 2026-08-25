@@ -1,0 +1,5 @@
+error: missing mandatory elasticity: declare at least one allow(...) dimension
+ --> tests/compile_fail/missing_allow.rs:5:8
+  |
+5 | struct MissingAllow;
+  |        ^^^^^^^^^^^^

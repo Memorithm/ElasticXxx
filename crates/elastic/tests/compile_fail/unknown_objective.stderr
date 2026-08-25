@@ -1,0 +1,5 @@
+error: unknown objective `latnecy`; expected one of latency, throughput, memory-footprint, energy, migration-cost, stability, or custom("...") for an open-set extension
+ --> tests/compile_fail/unknown_objective.rs:7:14
+  |
+7 |     optimize(latnecy)
+  |              ^^^^^^^
