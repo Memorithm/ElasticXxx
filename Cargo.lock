@@ -31,6 +31,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "elastic-kernel"
+version = "0.1.0"
+dependencies = [
+ "elastic",
+ "elastic-core",
+ "elastic-eir",
+]
+
+[[package]]
 name = "elastic-kv"
 version = "0.1.0"
 dependencies = [

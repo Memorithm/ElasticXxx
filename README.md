@@ -82,6 +82,10 @@ The first executable slices live in dependency-light crates under `crates/`:
 - [`crates/elastic`](crates/elastic) — user-facing facade with a prelude.
 - [`crates/elastic-kv`](crates/elastic-kv) — KV-cache representation
   contracts: page descriptors, reusable attention views, epoch delta traces.
+- [`crates/elastic-kernel`](crates/elastic-kernel) — generic
+  kernel-realization planning: capability snapshots, candidate contracts,
+  deterministic objective-ordered selection with auditable evidence, and the
+  realization lifecycle ([design note](docs/design/kernel-realization-planning.md)).
 
 All crates are `#![forbid(unsafe_code)]`; the semantic core is
 dependency-free and introduces no OS, filesystem, or accelerator assumptions.
