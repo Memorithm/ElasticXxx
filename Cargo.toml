@@ -2,9 +2,9 @@
 resolver = "2"
 members = [
     "crates/elastic-core",
+    "crates/elastic-eir",
     "crates/elastic-kv",
 ]
-default-members = ["crates/elastic-core"]
 
 [workspace.package]
 edition = "2021"
