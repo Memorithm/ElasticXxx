@@ -89,12 +89,14 @@
 mod document;
 mod error;
 mod fingerprint;
+mod plan;
 mod resource;
 mod validate;
 
 pub use document::{lower, EirDocument, EirDocumentBuilder};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
+pub use plan::{FirstGroundedPlanner, PlanOutcome, TransitionCandidate, TransitionPlanner};
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use validate::validate_resource_parts;
 

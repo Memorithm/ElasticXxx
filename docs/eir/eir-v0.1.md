@@ -113,11 +113,24 @@ Not promised yet: wire/storage compatibility across schema versions, stable
 fingerprint values across versions (fingerprints absorb the version), and any
 serialization format. Version upgrades will document migration explicitly.
 
-## 8. Non-goals (v0.1)
+## 8. Planning interface
 
-No execution, no planning algorithms, no observation sampling, no live
-resource state, no distributed concerns, no solver integration. Planning
-interfaces arrive later and may honestly return {candidate, no candidate,
-insufficient evidence, unsupported}. **[H]** Whether EIR needs richer policy
-metadata (budgets, deadlines, arbitration weights) before planners land is an
-open question deliberately deferred until a planner consumes it.
+`elastic-eir` defines the *contract* a planner must satisfy — not any
+algorithm. `TransitionPlanner::propose_transition(&EirResource)` returns one
+of four honest outcomes: `Candidate`, `NoCandidate`, `InsufficientEvidence`,
+or `Unsupported`. Candidates can only restate transitions the resource itself
+admits and that are capability-grounded (`AdmittedTransition` has no external
+constructor); custom planners should verify output with
+`PlanOutcome::declares_valid_candidate`.
+
+The bundled `FirstGroundedPlanner` is a deliberately trivial deterministic
+selector (first grounded admission, canonical order) demonstrating the
+contract; it weighs no objectives and performs no search.
+
+## 9. Non-goals (v0.1)
+
+No execution, no planning algorithms or optimizers, no observation sampling,
+no live resource state, no distributed concerns, no solver integration.
+**[H]** Whether EIR needs richer policy metadata (budgets, deadlines,
+arbitration weights) before real planners land is an open question
+deliberately deferred until a planner consumes it.
