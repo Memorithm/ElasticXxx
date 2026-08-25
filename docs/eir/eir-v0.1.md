@@ -58,7 +58,8 @@ coincide. This is tested by construction-order permutation tests.
 - No hash-map iteration order influences content (`BTreeMap` only).
 - No addresses, thread scheduling, randomness, or environment input.
 - Fingerprints are **FNV-1a 64-bit structural fingerprints** absorbed in a
-  fixed field order with separators. They are suitable for equality checks,
+  fixed field order with unambiguous `[tag][length][payload]` framing, so
+  distinct field sequences cannot collide by concatenation. They are suitable for equality checks,
   caching keys, and tests inside one trust domain. They are explicitly **not**
   cryptographic and must never authenticate anything across trust domains —
   the same disclaimer as the representation-layer evidence fingerprint.

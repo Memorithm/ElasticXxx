@@ -99,7 +99,11 @@ fn normalization_makes_priorities_and_ordering_explicit() {
 }
 
 #[test]
-fn ungrounded_capability_requirement_is_rejected() {
+fn ungrounded_capability_requirement_is_rejected_on_every_path() {
+    use elastic_eir::EirResourceParts;
+
+    // Surface path: the spec builder itself already rejects ungrounded
+    // requirements.
     let spec = ResourceSpec::builder(
         ResourceClassId::STATEFUL,
         LogicalResourceId::new("pool").unwrap(),
@@ -113,11 +117,34 @@ fn ungrounded_capability_requirement_is_rejected() {
         TransitionMechanism::Reinterpret,
         DimensionId::CAPACITY,
     ))
-    .build()
-    .unwrap();
+    .build();
+    assert!(matches!(
+        spec,
+        Err(elastic_core::resource::ResourceSpecError::UngroundedCapabilityRequirement { .. })
+    ));
 
+    // Tooling path: raw parts bypass the spec builder, so EIR validation must
+    // enforce the same rule itself.
+    let parts = EirResourceParts {
+        identity: "buf".to_owned(),
+        class: ResourceClassId::STOCK,
+        dimensions: vec![DimensionId::CAPACITY],
+        invariants: Vec::new(),
+        objectives: Vec::new(),
+        transitions: vec![AdmissibleTransition::new(
+            TransitionMechanism::Reencode,
+            DimensionId::CAPACITY,
+        )],
+        capabilities: vec![CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        )],
+        observations: Vec::new(),
+        labels: Default::default(),
+    };
+    let result = elastic_eir::EirDocument::from_parts(vec![parts]);
     assert_eq!(
-        lower(&spec),
+        result,
         Err(ValidationError::CapabilityNotGroundedInAdmission {
             requirement: CapabilityRequirement::new(
                 TransitionMechanism::Reinterpret,

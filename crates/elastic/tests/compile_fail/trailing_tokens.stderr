@@ -1,0 +1,5 @@
+error: unexpected trailing tokens in `class(...)` payload
+ --> tests/compile_fail/trailing_tokens.rs:5:20
+  |
+5 |     class(stateful not-a-class),
+  |                    ^^^

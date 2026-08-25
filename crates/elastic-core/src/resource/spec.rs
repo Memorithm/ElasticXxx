@@ -347,6 +347,15 @@ impl ResourceSpecBuilder {
                     requirement: capability.clone(),
                 });
             }
+            let grounded = transitions.iter().any(|transition| {
+                transition.mechanism() == capability.mechanism()
+                    && transition.dimension() == capability.dimension()
+            });
+            if !grounded {
+                return Err(ResourceSpecError::UngroundedCapabilityRequirement {
+                    requirement: capability.clone(),
+                });
+            }
         }
         let mut capabilities = self.capabilities;
         capabilities.sort_unstable();

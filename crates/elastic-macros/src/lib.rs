@@ -447,12 +447,15 @@ impl Parse for Entry {
             "class" => {
                 let content;
                 parenthesized!(content in input);
-                EntryKind::Class(parse_class(&content)?)
+                let parsed_class = parse_class(&content)?;
+                expect_exhausted(&content, "class")?;
+                EntryKind::Class(parsed_class)
             }
             "id" => {
                 let content;
                 parenthesized!(content in input);
                 let value: LitStr = content.parse()?;
+                expect_exhausted(&content, "id")?;
                 EntryKind::Id(value.value())
             }
             "allow" => {
@@ -495,11 +498,13 @@ impl Parse for Entry {
                 let content;
                 parenthesized!(content in input);
                 let kind = parse_preserve_kind(&content)?;
+                // `along <dimension>` is consumed inside the branch below.
                 let along = peek_keyword(&content, "along")?;
                 let along = match along {
                     true => Some(parse_term(&content, "dimension", DIMENSIONS)?),
                     false => None,
                 };
+                expect_exhausted(&content, "preserve")?;
                 EntryKind::Fragment(Fragment::Preserve { kind, along })
             }
             "admit" | "capability" => {
@@ -518,6 +523,7 @@ impl Parse for Entry {
                     )
                 })?;
                 let dimension = parse_term(&content, "dimension", DIMENSIONS)?;
+                expect_exhausted(&content, &key.to_string())?;
                 let fragment = if key == "admit" {
                     Fragment::Admit {
                         mechanism,
@@ -537,6 +543,7 @@ impl Parse for Entry {
                 let label_key: LitStr = content.parse()?;
                 content.parse::<Token![,]>()?;
                 let value: LitStr = content.parse()?;
+                expect_exhausted(&content, "label")?;
                 EntryKind::Fragment(Fragment::Label(label_key.value(), value.value()))
             }
             other => {
@@ -570,6 +577,19 @@ fn peek_keyword(input: ParseStream<'_>, keyword: &str) -> syn::Result<bool> {
     Ok(false)
 }
 
+/// Reject any token a payload parser did not consume, so malformed
+/// declarations fail loudly instead of being silently truncated.
+fn expect_exhausted(content: ParseStream<'_>, key: &str) -> syn::Result<()> {
+    if content.is_empty() {
+        Ok(())
+    } else {
+        Err(syn::Error::new(
+            content.span(),
+            format!("unexpected trailing tokens in `{key}(...)` payload"),
+        ))
+    }
+}
+
 fn mech_names() -> Vec<&'static str> {
     MECHANISMS.iter().map(|(name, _)| *name).collect()
 }
@@ -591,6 +611,7 @@ fn parse_term(
         let inner;
         parenthesized!(inner in input);
         let text: LitStr = inner.parse()?;
+        expect_exhausted(&inner, "custom")?;
         return Ok(TermRef::Custom(text.value()));
     }
     lookup(table, &ident)
@@ -637,6 +658,7 @@ fn parse_preserve_kind(input: ParseStream<'_>) -> syn::Result<PreserveRef> {
             let inner;
             parenthesized!(inner in input);
             let text: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "contract")?;
             Ok(PreserveRef::Contract(text.value()))
         }
         other => Err(syn::Error::new(

@@ -344,3 +344,36 @@ fn specs_are_send_sync_cloneable_and_debuggable() {
     let debug = format!("{spec:?}");
     assert!(debug.contains("session-kv"), "{debug}");
 }
+
+#[test]
+fn capability_requirements_must_ground_an_admitted_transition() {
+    let requirement =
+        CapabilityRequirement::new(TransitionMechanism::Reinterpret, DimensionId::CAPACITY);
+    let ungrounded = spec_builder("u")
+        .allow(DimensionId::CAPACITY)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reencode,
+            DimensionId::CAPACITY,
+        ))
+        .require_capability(requirement.clone())
+        .build();
+
+    assert_eq!(
+        ungrounded,
+        Err(ResourceSpecError::UngroundedCapabilityRequirement { requirement })
+    );
+
+    // Declaring the matching admission makes the same requirement valid.
+    let grounded = spec_builder("g")
+        .allow(DimensionId::CAPACITY)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .build();
+    assert!(grounded.is_ok());
+}
