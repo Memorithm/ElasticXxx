@@ -65,11 +65,14 @@ impl TransitionCandidate {
     /// returning it; [`FirstGroundedPlanner`] output always passes.
     #[must_use]
     pub fn is_declared_in(&self, resource: &EirResource) -> bool {
-        resource.transitions().iter().any(|admitted| {
-            admitted.transition().mechanism() == self.mechanism
-                && admitted.transition().dimension() == &self.dimension
-                && admitted.capability_grounded() == self.capability_grounded
-        })
+        // The contract demands grounded candidates, not merely agreeing
+        // flags: an ungrounded admission never justifies a proposal.
+        self.capability_grounded
+            && resource.transitions().iter().any(|admitted| {
+                admitted.transition().mechanism() == self.mechanism
+                    && admitted.transition().dimension() == &self.dimension
+                    && admitted.capability_grounded()
+            })
     }
 }
 

@@ -106,6 +106,15 @@ fn reference_planner_is_deterministic_and_never_invents_transitions() {
 
     // The same candidate is NOT declared by a resource that never admitted it.
     assert!(!first.declares_valid_candidate(&ungrounded_resource()));
+
+    // An ungrounded admission never becomes a valid candidate, even though
+    // the resource itself declares that admission: the contract demands
+    // grounded proposals, not merely agreeing grounding flags.
+    let ungrounded = ungrounded_resource();
+    let rogue = TransitionCandidate::from_admitted(&ungrounded.transitions()[0]);
+    assert!(!rogue.capability_grounded());
+    assert!(!rogue.is_declared_in(&ungrounded));
+    assert!(!PlanOutcome::Candidate(rogue).declares_valid_candidate(&ungrounded));
 }
 
 /// Downstream planners implement the trait; nothing here is sealed.
