@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "crates/elastic",
+    "crates/elastic-adapters",
     "crates/elastic-downstream",
     "crates/elastic-core",
     "crates/elastic-eir",
