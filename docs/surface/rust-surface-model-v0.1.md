@@ -179,7 +179,8 @@ without touching `elastic-core`.
 blank label keys, empty elasticity, duplicate dimensions/objectives/
 invariants/transitions/capabilities/signals, invariants scoped to non-elastic
 dimensions (vacuous), transitions beyond elastic dimensions, capability
-requirements beyond elastic dimensions.
+requirements beyond elastic dimensions, and capability requirements that
+ground no admitted transition.
 
 No panic path exists for ordinary invalid input. Validation proves structural
 consistency of the declaration only — never satisfiability of a plan, never
@@ -201,5 +202,5 @@ authenticity of capabilities.
   attestation issuance, and physical action remain with the trusted runtime,
   exactly as established by the representation layer.
 
-[`LogicalResourceId`]: ../crates/elastic-core/src/resource/terms.rs
-[`ResourceClassId`]: ../crates/elastic-core/src/resource/terms.rs
+[`LogicalResourceId`]: ../../crates/elastic-core/src/resource/terms.rs
+[`ResourceClassId`]: ../../crates/elastic-core/src/resource/terms.rs

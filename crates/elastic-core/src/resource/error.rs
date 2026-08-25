@@ -102,6 +102,15 @@ pub enum ResourceSpecError {
         /// The misplaced requirement.
         requirement: CapabilityRequirement,
     },
+    /// A capability requirement matches no admitted transition of the
+    /// resource (same mechanism and dimension).
+    ///
+    /// Requiring the ability to execute a transition the declaration never
+    /// admits is meaningless intent; declare the admission first.
+    UngroundedCapabilityRequirement {
+        /// The ungrounded requirement.
+        requirement: CapabilityRequirement,
+    },
     /// The same observation signal was declared more than once.
     DuplicateObservation {
         /// The repeated signal.
@@ -149,6 +158,10 @@ impl fmt::Display for ResourceSpecError {
                 f,
                 "capability requirement {requirement} concerns dimension {} which is not declared elastic",
                 requirement.dimension()
+            ),
+            Self::UngroundedCapabilityRequirement { requirement } => write!(
+                f,
+                "capability requirement {requirement} does not match any admitted transition; admit the transition before requiring its capability"
             ),
             Self::DuplicateObservation { signal } => {
                 write!(f, "observation signal {signal} declared more than once")
