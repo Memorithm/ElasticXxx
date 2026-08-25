@@ -611,6 +611,7 @@ fn parse_term(
         let inner;
         parenthesized!(inner in input);
         let text: LitStr = inner.parse()?;
+        expect_exhausted(&inner, "custom")?;
         return Ok(TermRef::Custom(text.value()));
     }
     lookup(table, &ident)
@@ -657,6 +658,7 @@ fn parse_preserve_kind(input: ParseStream<'_>) -> syn::Result<PreserveRef> {
             let inner;
             parenthesized!(inner in input);
             let text: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "contract")?;
             Ok(PreserveRef::Contract(text.value()))
         }
         other => Err(syn::Error::new(

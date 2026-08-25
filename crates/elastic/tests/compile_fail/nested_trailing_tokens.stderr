@@ -1,0 +1,5 @@
+error: unexpected trailing tokens in `custom(...)` payload
+ --> tests/compile_fail/nested_trailing_tokens.rs:5:33
+  |
+5 |     class(custom("agent-memory" junk)),
+  |                                 ^^^^
