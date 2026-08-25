@@ -1,0 +1,15 @@
+[package]
+name = "elastic-kernel"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Generic kernel-realization planning contracts for ElasticXxx"
+
+[dependencies]
+elastic-core = { path = "../elastic-core" }
+elastic-eir = { path = "../elastic-eir" }
+
+[dev-dependencies]
+elastic = { path = "../elastic" }
