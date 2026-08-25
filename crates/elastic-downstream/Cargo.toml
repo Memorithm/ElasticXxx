@@ -1,0 +1,11 @@
+[package]
+name = "elastic-downstream"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Compile-time guard: an Elastic user depending only on the elastic facade"
+
+[dependencies]
+elastic = { path = "../elastic" }

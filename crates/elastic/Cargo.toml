@@ -1,0 +1,16 @@
+[package]
+name = "elastic"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "User-facing facade for the ElasticXxx Rust surface model"
+
+[dependencies]
+elastic-core = { path = "../elastic-core" }
+elastic-eir = { path = "../elastic-eir" }
+elastic-macros = { path = "../elastic-macros" }
+
+[dev-dependencies]
+trybuild = "1"

@@ -1,0 +1,5 @@
+error: allow(...) must declare at least one dimension
+ --> tests/compile_fail/empty_allow.rs:6:5
+  |
+6 |     allow()
+  |     ^^^^^

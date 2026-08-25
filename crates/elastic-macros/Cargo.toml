@@ -1,0 +1,16 @@
+[package]
+name = "elastic-macros"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Procedural macros lowering Elastic resource declarations to the typed semantic model"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1"
+syn = { version = "2", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"] }
+proc-macro2 = "1"

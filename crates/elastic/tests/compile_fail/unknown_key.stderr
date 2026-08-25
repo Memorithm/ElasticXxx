@@ -1,0 +1,5 @@
+error: unknown `elastic` attribute key `clas`; expected one of class, id, allow, preserve, optimize, admit, capability, observe, label
+ --> tests/compile_fail/unknown_key.rs:5:5
+  |
+5 |     clas(representational),
+  |     ^^^^
