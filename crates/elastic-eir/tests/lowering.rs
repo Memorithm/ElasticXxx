@@ -243,3 +243,36 @@ fn ir_nodes_are_send_sync_plain_data() {
     assert_send_sync::<elastic_eir::Fingerprint>();
     assert_send_sync::<elastic_eir::ValidationError>();
 }
+
+#[test]
+fn raw_part_permutation_of_transitions_preserves_determinism() {
+    use elastic_core::resource::{AdmissibleTransition, DimensionId, ResourceClassId};
+    use elastic_eir::EirResourceParts;
+
+    let make_parts = |reversed: bool| EirResourceParts {
+        identity: "buf".to_owned(),
+        class: ResourceClassId::STOCK,
+        dimensions: vec![DimensionId::CAPACITY],
+        invariants: Vec::new(),
+        objectives: vec![ObjectiveId::MEMORY_FOOTPRINT],
+        transitions: if reversed {
+            vec![
+                AdmissibleTransition::new(TransitionMechanism::Reinterpret, DimensionId::CAPACITY),
+                AdmissibleTransition::new(TransitionMechanism::Reencode, DimensionId::CAPACITY),
+            ]
+        } else {
+            vec![
+                AdmissibleTransition::new(TransitionMechanism::Reencode, DimensionId::CAPACITY),
+                AdmissibleTransition::new(TransitionMechanism::Reinterpret, DimensionId::CAPACITY),
+            ]
+        },
+        capabilities: Vec::new(),
+        observations: Vec::new(),
+        labels: Default::default(),
+    };
+
+    let a = elastic_eir::EirDocument::from_parts(vec![make_parts(false)]).unwrap();
+    let b = elastic_eir::EirDocument::from_parts(vec![make_parts(true)]).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a.fingerprint(), b.fingerprint());
+}

@@ -155,7 +155,7 @@ impl EirResource {
             .collect();
         ranking.sort_unstable();
 
-        let transitions: Vec<AdmittedTransition> = parts
+        let mut transitions: Vec<AdmittedTransition> = parts
             .transitions
             .iter()
             .cloned()
@@ -170,6 +170,11 @@ impl EirResource {
                 }
             })
             .collect();
+        // Normalization must hold on every construction path, including
+        // `from_parts` tooling input: sort admitted transitions so permuted
+        // input order cannot change equality or fingerprints.
+        transitions.sort_unstable();
+        transitions.dedup();
 
         let mut capabilities = parts.capabilities;
         capabilities.sort_unstable();
