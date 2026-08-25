@@ -39,11 +39,14 @@
 //! declarations therefore compare equal and iterate identically regardless of
 //! construction order.
 
+mod bridge;
 pub mod error;
 mod invariant;
 mod spec;
 mod terms;
 mod transition;
+
+pub use bridge::{DeclarationError, RepresentationalDeclaration};
 
 pub use error::{ResourceSpecError, TermKind};
 pub use invariant::{Invariant, InvariantKind};

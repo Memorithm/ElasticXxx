@@ -60,7 +60,40 @@ The model is intentionally provisional and will evolve as the literature review 
 - [Research White Paper v0.1](docs/whitepaper/elastic-resources-whitepaper-v0.1.md)
 - [Literature review](research/literature/README.md)
 - [Moreau & Queinnec (2005) — Resource Aware Programming](research/literature/2005-moreau-queinnec-resource-aware-programming.md)
-- [Rust Surface Model v0.1](docs/surface/rust-surface-model-v0.1.md) — the first user-facing typed declaration layer (`elastic_core::resource`)
+- [Rust Surface Model v0.1](docs/surface/rust-surface-model-v0.1.md)
+- [EIR v0.1](docs/eir/eir-v0.1.md)
+- [Macro guide](docs/surface/macro-guide.md)
+
+## Implementation
+
+The first executable slices live in dependency-light crates under `crates/`:
+
+- [`crates/elastic-core`](crates/elastic-core) — the typed Rust surface model
+  (`resource`: dimensions, invariants, objectives, admissible transitions,
+  capability requirements) and the representational-resource layer:
+  materialized states, validated transitions
+  (`PLAN → VALIDATE → COMMIT / ROLLBACK` frontier), capability sets,
+  evidence tokens, and the bridge specializing declarations onto
+  representation transitions.
+- [`crates/elastic-eir`](crates/elastic-eir) — deterministic lowering of
+  declarations into a validated, versioned intermediate representation.
+- [`crates/elastic-macros`](crates/elastic-macros) —
+  `#[derive(ElasticResource)]`, lowering attributes onto the same typed API.
+- [`crates/elastic`](crates/elastic) — user-facing facade with a prelude.
+- [`crates/elastic-kv`](crates/elastic-kv) — KV-cache representation
+  contracts: page descriptors, reusable attention views, epoch delta traces.
+
+All crates are `#![forbid(unsafe_code)]`; the semantic core is
+dependency-free and introduces no OS, filesystem, or accelerator assumptions.
+
+```sh
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo run -p elastic --example manual_declaration
+cargo run -p elastic --example macro_declaration
+cargo run -p elastic --example worker_pool
+cargo run -p elastic-kv --example kv_representation_flow
+```
 
 ## Research method
 
