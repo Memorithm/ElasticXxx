@@ -7,6 +7,13 @@ name = "elastic-core"
 version = "0.1.0"
 
 [[package]]
+name = "elastic-eir"
+version = "0.1.0"
+dependencies = [
+ "elastic-core",
+]
+
+[[package]]
 name = "elastic-kv"
 version = "0.1.0"
 dependencies = [

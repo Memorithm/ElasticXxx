@@ -1,0 +1,11 @@
+[package]
+name = "elastic-eir"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Normalized Elastic Intermediate Representation for declared elastic intent"
+
+[dependencies]
+elastic-core = { path = "../elastic-core" }
