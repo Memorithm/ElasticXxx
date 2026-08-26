@@ -494,6 +494,12 @@ pub fn build_epoch_delta(
 
     let plans: Vec<KvTransitionPlan> = transitions.iter().map(|t| t.plan.clone()).collect();
     let summary = validate_atomic_transition_batch(&plans)?;
+    if summary.to.epoch < summary.from.epoch {
+        return Err(KvTransitionError::Core(TransitionError::EpochRegression {
+            from: summary.from.epoch,
+            to: summary.to.epoch,
+        }));
+    }
     if summary.to.epoch == summary.from.epoch {
         return Err(KvTransitionError::Core(TransitionError::EpochMustAdvance {
             from: summary.from.epoch,
