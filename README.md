@@ -80,14 +80,21 @@ The first executable slices live in dependency-light crates under `crates/`:
 - [`crates/elastic-macros`](crates/elastic-macros) —
   `#[derive(ElasticResource)]`, lowering attributes onto the same typed API.
 - [`crates/elastic`](crates/elastic) — user-facing facade with a prelude.
+- [`crates/elastic-adapters`](crates/elastic-adapters) — concrete in-process
+  actuation boundaries for RAM budgets and concurrency permits; adapters
+  revalidate invariants immediately before applying physical changes.
+- [`crates/elastic-downstream`](crates/elastic-downstream) — compile-time
+  consumer guard proving that downstream users can depend only on the public
+  `elastic` facade rather than internal implementation crates.
 - [`crates/elastic-kv`](crates/elastic-kv) — KV-cache representation
   contracts: page descriptors, reusable attention views, epoch delta traces.
 - [`crates/elastic-kernel`](crates/elastic-kernel) — generic
   kernel-realization planning: capability snapshots, candidate contracts,
-  deterministic objective-ordered selection with auditable evidence, and the
-  realization lifecycle ([design note](docs/design/kernel-realization-planning.md)).
+  deterministic objective-ordered selection with auditable evidence, workload
+  dispatch-grid validation, and the realization lifecycle
+  ([design note](docs/design/kernel-realization-planning.md)).
 
-All crates are `#![forbid(unsafe_code)]`; the semantic core is
+All production crates are `#![forbid(unsafe_code)]`; the semantic core is
 dependency-free and introduces no OS, filesystem, or accelerator assumptions.
 
 ```sh
@@ -98,6 +105,11 @@ cargo run -p elastic --example macro_declaration
 cargo run -p elastic --example worker_pool
 cargo run -p elastic-kv --example kv_representation_flow
 ```
+
+Hardening infrastructure lives outside the production workspace in `fuzz/`.
+Relevant pull requests compile its fuzz targets, while the scheduled/manual
+`continuous-hardening` workflow runs bounded fuzzing and Miri over
+`elastic-core` and `elastic-kv`.
 
 ## Research method
 
