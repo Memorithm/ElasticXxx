@@ -1,17 +1,17 @@
 use std::collections::BTreeSet;
 use std::fmt;
 
+/// Upper bound for representation and issuer identifier length, in bytes.
+const MAX_ID_LEN: usize = 256;
+
 /// Stable identifier for a mathematical or numerical representation.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RepresentationId(String);
 
 impl RepresentationId {
-    /// Construct a non-empty representation identifier.
+    /// Construct a non-empty, trimmed and bounded representation identifier.
     pub fn new(value: impl Into<String>) -> Result<Self, TransitionError> {
-        let value = value.into();
-        if value.trim().is_empty() {
-            return Err(TransitionError::EmptyRepresentationId);
-        }
+        let value = validate_identifier(value.into(), TransitionError::EmptyRepresentationId)?;
         Ok(Self(value))
     }
 
@@ -19,6 +19,25 @@ impl RepresentationId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+/// Validate one identifier without silently normalizing caller input.
+fn validate_identifier(
+    value: String,
+    empty_error: TransitionError,
+) -> Result<String, TransitionError> {
+    if value.trim().is_empty() {
+        return Err(empty_error);
+    }
+    if value.len() > MAX_ID_LEN {
+        return Err(TransitionError::IdentifierTooLong { len: value.len() });
+    }
+    if value.chars().next().is_some_and(char::is_whitespace)
+        || value.chars().next_back().is_some_and(char::is_whitespace)
+    {
+        return Err(TransitionError::UntrimmedIdentifier);
+    }
+    Ok(value)
 }
 
 /// Monotonic epoch attached to materialized representation state.
@@ -311,12 +330,9 @@ impl TransitionAttestations {
 pub struct IssuerId(String);
 
 impl IssuerId {
-    /// Construct a non-empty issuer identity.
+    /// Construct a non-empty, trimmed and bounded issuer identity.
     pub fn new(value: impl Into<String>) -> Result<Self, TransitionError> {
-        let value = value.into();
-        if value.trim().is_empty() {
-            return Err(TransitionError::EmptyIssuerId);
-        }
+        let value = validate_identifier(value.into(), TransitionError::EmptyIssuerId)?;
         Ok(Self(value))
     }
 
@@ -499,6 +515,13 @@ pub enum TransitionError {
     EmptyRepresentationId,
     /// Issuer identities may not be blank.
     EmptyIssuerId,
+    /// An identifier exceeded the 256-byte input bound.
+    IdentifierTooLong {
+        /// Rejected length in bytes.
+        len: usize,
+    },
+    /// An identifier carried leading or trailing whitespace.
+    UntrimmedIdentifier,
     /// Epoch counter cannot be advanced further.
     EpochOverflow,
     /// Target representation is not declared as supported.
@@ -536,6 +559,14 @@ impl fmt::Display for TransitionError {
         match self {
             Self::EmptyRepresentationId => write!(f, "representation identifier must not be empty"),
             Self::EmptyIssuerId => write!(f, "issuer identifier must not be empty"),
+            Self::IdentifierTooLong { len } => write!(
+                f,
+                "identifier of {len} bytes exceeds the {MAX_ID_LEN} byte limit"
+            ),
+            Self::UntrimmedIdentifier => write!(
+                f,
+                "identifier must not carry leading or trailing whitespace"
+            ),
             Self::EpochOverflow => write!(f, "representation epoch overflow"),
             Self::UnsupportedTarget { id, schema_version } => write!(
                 f,
