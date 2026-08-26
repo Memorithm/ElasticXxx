@@ -54,6 +54,12 @@ pub struct SelectionPolicy {
     /// [`SelectionOutcome::InsufficientEvidence`] unless measured evidence
     /// exists.
     allow_static_estimates: bool,
+    /// When `true`, a *single* surviving candidate may be selected even
+    /// without comparable evidence, recorded as an uncontested safe-fallback
+    /// decision. This is not a silent success: the record states that no
+    /// comparison happened. Selecting among several unevidenced candidates
+    /// stays impossible regardless of this flag.
+    accept_uncontested_fallback: bool,
 }
 
 impl SelectionPolicy {
@@ -71,6 +77,20 @@ impl SelectionPolicy {
         contract: ContractId,
         allow_static_estimates: bool,
     ) -> Result<Self, PolicyError> {
+        Self::with_options(objectives, contract, allow_static_estimates, false)
+    }
+
+    /// Assemble a policy with explicit evidence options.
+    ///
+    /// # Errors
+    ///
+    /// Same rules as [`SelectionPolicy::new`].
+    pub fn with_options(
+        objectives: Vec<ObjectiveId>,
+        contract: ContractId,
+        allow_static_estimates: bool,
+        accept_uncontested_fallback: bool,
+    ) -> Result<Self, PolicyError> {
         if objectives.is_empty() {
             return Err(PolicyError::NoObjectives);
         }
@@ -86,6 +106,7 @@ impl SelectionPolicy {
             objectives,
             contract,
             allow_static_estimates,
+            accept_uncontested_fallback,
         })
     }
 
@@ -105,6 +126,13 @@ impl SelectionPolicy {
     #[must_use]
     pub const fn allows_static_estimates(&self) -> bool {
         self.allow_static_estimates
+    }
+
+    /// Whether an uncontested single survivor may be selected without
+    /// comparable evidence.
+    #[must_use]
+    pub const fn accepts_uncontested_fallback(&self) -> bool {
+        self.accept_uncontested_fallback
     }
 }
 
@@ -329,6 +357,10 @@ pub enum DecisiveEvidence {
         /// Winning quantity.
         quantity: StaticQuantity,
     },
+    /// Exactly one candidate survived filtering and the policy accepts the
+    /// uncontested safe fallback. No comparison occurred; this is stated,
+    /// never hidden behind a fabricated number.
+    UncontestedFallback,
 }
 
 /// Auditable record of one successful selection.
@@ -487,6 +519,32 @@ pub fn plan(
             offered: candidates.len(),
             rejections,
         };
+    }
+
+    // Uncontested safe fallback: exactly one survivor, the policy permits,
+    // and no comparison is required or performed. This is how a known-safe
+    // portable path gets selected on a minimal boundary without pretending
+    // an optimized candidate was evaluated.
+    if admitted.len() == 1 && policy.accept_uncontested_fallback {
+        let winner = admitted[0];
+        let record = SelectionRecord {
+            logical_resource_id: logical_resource_id.clone(),
+            workload_fingerprint,
+            capability_fingerprint: snapshot.fingerprint(),
+            candidate_set_fingerprint: candidate_set_fingerprint(candidates),
+            selected_realization: winner.realization().clone(),
+            selected_schema_version: winner.schema_version(),
+            selected_contract: winner.contract().clone(),
+            rejected: rejections,
+            objectives: policy.objectives().to_vec(),
+            decisive_evidence: Some(DecisiveEvidence::UncontestedFallback),
+            planner_version: PLANNER_VERSION,
+            fingerprint: Fingerprint::EMPTY,
+        };
+        let fingerprint = record_fingerprint(&record);
+        let mut record = record;
+        record.fingerprint = fingerprint;
+        return SelectionOutcome::Selected(Box::new(record));
     }
 
     // Lexicographic comparison along the policy's objective order.
@@ -672,6 +730,7 @@ fn record_fingerprint(record: &SelectionRecord) -> Fingerprint {
             .text("static")
             .number(quantity.magnitude)
             .text(quantity.unit.canonical()),
+        Some(DecisiveEvidence::UncontestedFallback) => fp.text("uncontested-fallback"),
         None => fp.text("none"),
     };
     fp
@@ -997,6 +1056,64 @@ mod tests {
                 objective: "latency".to_string(),
             }
         );
+    }
+
+    #[test]
+    fn uncontested_single_survivor_can_be_selected_as_declared_fallback() {
+        let candidates = vec![
+            candidate("portable-q4", false, ObjectiveEvidence::new()),
+            candidate("subgroup-q4", true, static_latency(50)),
+        ];
+        // Profile A: the subgroup candidate is infeasible; exactly one
+        // survivor remains with no evidence at all.
+        let permissive = SelectionPolicy::with_options(vec![latency()], contract_a(), true, true)
+            .expect("valid policy");
+        let outcome = plan(
+            &resource(),
+            workload(),
+            &portable_snapshot(),
+            &permissive,
+            &candidates,
+        );
+        let SelectionOutcome::Selected(record) = outcome else {
+            panic!("uncontested fallback must be selectable when permitted");
+        };
+        assert_eq!(record.selected_realization().as_str(), "portable-q4");
+        assert_eq!(
+            record.decisive_evidence(),
+            Some(&DecisiveEvidence::UncontestedFallback)
+        );
+
+        // Without the flag, the same world stays honestly undecided.
+        let strict = policy(vec![latency()]);
+        let outcome = plan(
+            &resource(),
+            workload(),
+            &portable_snapshot(),
+            &strict,
+            &candidates,
+        );
+        assert!(matches!(
+            outcome,
+            SelectionOutcome::InsufficientEvidence { .. }
+        ));
+
+        // Two unevidenced survivors can never be separated by the flag.
+        let both_portable = vec![
+            candidate("portable-q4", false, ObjectiveEvidence::new()),
+            candidate("vec4-q4", false, ObjectiveEvidence::new()),
+        ];
+        let outcome = plan(
+            &resource(),
+            workload(),
+            &portable_snapshot(),
+            &permissive,
+            &both_portable,
+        );
+        assert!(matches!(
+            outcome,
+            SelectionOutcome::InsufficientEvidence { .. }
+        ));
     }
 
     #[test]
