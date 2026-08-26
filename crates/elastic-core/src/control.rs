@@ -109,17 +109,14 @@ impl RecommendationContext {
         resource: LogicalResourceId,
         generation: ResourceGeneration,
     ) -> Self {
-        self.insert_resource_generation(resource, generation);
+        let _ = self.insert_resource_generation(resource, generation);
         self
     }
 
     /// Generation assumed for one logical resource, when that resource was a
     /// recommendation dependency.
     #[must_use]
-    pub fn resource_generation(
-        &self,
-        resource: &LogicalResourceId,
-    ) -> Option<ResourceGeneration> {
+    pub fn resource_generation(&self, resource: &LogicalResourceId) -> Option<ResourceGeneration> {
         self.resource_generations.get(resource).copied()
     }
 
@@ -228,16 +225,13 @@ impl FreshnessSnapshot {
         resource: LogicalResourceId,
         generation: ResourceGeneration,
     ) -> Self {
-        self.insert_resource_generation(resource, generation);
+        let _ = self.insert_resource_generation(resource, generation);
         self
     }
 
     /// Current generation for one resource when known to this snapshot.
     #[must_use]
-    pub fn resource_generation(
-        &self,
-        resource: &LogicalResourceId,
-    ) -> Option<ResourceGeneration> {
+    pub fn resource_generation(&self, resource: &LogicalResourceId) -> Option<ResourceGeneration> {
         self.resource_generations.get(resource).copied()
     }
 }
@@ -384,10 +378,11 @@ mod tests {
 
     #[test]
     fn resource_dependency_iteration_is_deterministic() {
-        let mut context = RecommendationContext::new(PlannerEpoch::new(1), ObservationEpoch::new(2));
-        context.insert_resource_generation(resource("z"), ResourceGeneration::new(3));
-        context.insert_resource_generation(resource("a"), ResourceGeneration::new(1));
-        context.insert_resource_generation(resource("m"), ResourceGeneration::new(2));
+        let mut context =
+            RecommendationContext::new(PlannerEpoch::new(1), ObservationEpoch::new(2));
+        let _ = context.insert_resource_generation(resource("z"), ResourceGeneration::new(3));
+        let _ = context.insert_resource_generation(resource("a"), ResourceGeneration::new(1));
+        let _ = context.insert_resource_generation(resource("m"), ResourceGeneration::new(2));
 
         assert_eq!(
             context
