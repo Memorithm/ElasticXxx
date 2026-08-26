@@ -32,6 +32,11 @@ jobs:
               ;;
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          install -d -m 700 "$rust_tmp"
+          test -w "$rust_tmp"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'Rust temporary directory: %s\n' "$rust_tmp"
 
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
