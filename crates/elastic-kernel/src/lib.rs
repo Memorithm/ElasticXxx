@@ -21,6 +21,10 @@
 //!   execution extents without baking one workload shape into candidate
 //!   identity; adapters should validate the grid before actuation/pipeline
 //!   creation, not treat planner admission as proof that an arbitrary grid fits;
+//! - recommendation freshness stays separate from ranking through
+//!   [`ContextualSelection`]: planner outputs can be audited immediately, but
+//!   a selected realization is exposed for downstream use only after its
+//!   planner/observation/resource-generation assumptions are revalidated;
 //! - the semantic core (`elastic-core`) remains untouched by compute-domain
 //!   concepts; where core vocabulary fits ([`ObjectiveId`],
 //!   [`ContractId`], fingerprints), this crate reuses it instead of
@@ -45,6 +49,7 @@
 
 pub mod candidate;
 pub mod capability;
+pub mod contextual;
 pub mod lifecycle;
 pub mod planner;
 pub mod requirements;
@@ -57,6 +62,7 @@ pub use capability::{
     BindingLimits, CapabilityError, CapabilitySnapshot, Feature, FeatureSupport, LimitKind,
     SubgroupSupport, WorkgroupLimits,
 };
+pub use contextual::{plan_with_context, ContextualSelection};
 pub use lifecycle::{
     Activated, CommittedRealization, Proposed, RolledBackRealization, StageAttestations,
     StageFailure, StageRejection, Validated, Verified,
