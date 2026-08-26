@@ -17,6 +17,8 @@ use crate::capability::{CapabilitySnapshot, Feature};
 
 /// Canonical namespace tag for requirement fingerprints.
 pub(crate) const REQUIREMENTS_FINGERPRINT_DOMAIN: &str = "elastic-kernel/requirements/v1";
+/// Canonical namespace tag for dispatch-grid fingerprints.
+pub(crate) const DISPATCH_GRID_FINGERPRINT_DOMAIN: &str = "elastic-kernel/dispatch-grid/v1";
 
 /// How strongly a candidate depends on one optional [`Feature`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -58,6 +60,63 @@ pub struct KernelRequirements {
     pub shader_f16: FeatureRequirement,
     /// Dependence on matrix-operation acceleration.
     pub matrix_ops: FeatureRequirement,
+}
+
+/// Workload-dependent dispatch geometry for one candidate realization.
+///
+/// Unlike [`KernelRequirements`], this is not an intrinsic static property of
+/// the kernel implementation: the grid usually depends on the current
+/// workload shape. Keeping it separate avoids baking workload facts into a
+/// candidate identity while still letting the generic Elastic layer validate
+/// dispatch limits before execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct DispatchGrid {
+    /// Number of workgroups dispatched on each axis `[x, y, z]`.
+    pub workgroups_per_axis: [u32; 3],
+}
+
+impl DispatchGrid {
+    /// Create one explicit dispatch grid.
+    #[must_use]
+    pub const fn new(workgroups_per_axis: [u32; 3]) -> Self {
+        Self {
+            workgroups_per_axis,
+        }
+    }
+
+    /// Decide whether this workload-dependent grid fits `snapshot`.
+    ///
+    /// A zero extent is legal here: some execution APIs use zero-work grids
+    /// to represent an intentional no-op. Domain adapters remain responsible
+    /// for deciding whether that is semantically valid for their workload.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RejectionReason::DispatchGridExceeded`] for the first axis
+    /// whose workgroup count exceeds the boundary limit.
+    pub fn check_against(&self, snapshot: &CapabilitySnapshot) -> Result<(), RejectionReason> {
+        let available = snapshot.workgroup_limits.max_workgroups_per_axis;
+        for (axis, &required) in self.workgroups_per_axis.iter().enumerate() {
+            if required > available {
+                return Err(RejectionReason::DispatchGridExceeded {
+                    axis,
+                    required_workgroups: required,
+                    available_workgroups: available,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// Deterministic structural fingerprint of this dispatch grid.
+    #[must_use]
+    pub fn fingerprint(&self) -> elastic_eir::Fingerprint {
+        let mut fp = elastic_eir::Fingerprint::EMPTY.text(DISPATCH_GRID_FINGERPRINT_DOMAIN);
+        for workgroups in self.workgroups_per_axis {
+            fp = fp.number(u64::from(workgroups));
+        }
+        fp
+    }
 }
 
 impl KernelRequirements {
@@ -298,6 +357,16 @@ pub enum RejectionReason {
         /// Device limit.
         available: u32,
     },
+    /// Workload-dependent dispatch workgroups exceed the per-axis boundary
+    /// limit.
+    DispatchGridExceeded {
+        /// Axis index (`0` = x, `1` = y, `2` = z).
+        axis: usize,
+        /// Workgroups the workload requires on this axis.
+        required_workgroups: u32,
+        /// Workgroups the boundary permits on this axis.
+        available_workgroups: u32,
+    },
     /// Staged workgroup storage exceeds the device limit.
     WorkgroupStorageExceeded {
         /// Required bytes.
@@ -358,6 +427,14 @@ impl fmt::Display for RejectionReason {
             } => write!(
                 f,
                 "requires {required} invocations on axis {axis}, boundary allows {available}"
+            ),
+            Self::DispatchGridExceeded {
+                axis,
+                required_workgroups,
+                available_workgroups,
+            } => write!(
+                f,
+                "requires {required_workgroups} dispatch workgroups on axis {axis}, boundary allows {available_workgroups}"
             ),
             Self::WorkgroupStorageExceeded {
                 required_bytes,
@@ -441,6 +518,39 @@ mod tests {
         assert_eq!(
             portable_requirements().check_against(&portable_snapshot()),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn dispatch_grid_accepts_exact_limit_on_every_axis() {
+        let grid = DispatchGrid::new([65_535, 65_535, 65_535]);
+        assert_eq!(grid.check_against(&portable_snapshot()), Ok(()));
+    }
+
+    #[test]
+    fn dispatch_grid_rejects_first_axis_over_limit_with_typed_reason() {
+        let grid = DispatchGrid::new([65_535, 65_536, 1]);
+        assert_eq!(
+            grid.check_against(&portable_snapshot()),
+            Err(RejectionReason::DispatchGridExceeded {
+                axis: 1,
+                required_workgroups: 65_536,
+                available_workgroups: 65_535,
+            })
+        );
+    }
+
+    #[test]
+    fn dispatch_grid_fingerprint_is_deterministic_and_geometry_sensitive() {
+        let baseline = DispatchGrid::new([128, 2, 1]);
+        assert_eq!(baseline.fingerprint(), baseline.fingerprint());
+        assert_ne!(
+            baseline.fingerprint(),
+            DispatchGrid::new([129, 2, 1]).fingerprint()
+        );
+        assert_ne!(
+            baseline.fingerprint(),
+            DispatchGrid::new([128, 1, 2]).fingerprint()
         );
     }
 
