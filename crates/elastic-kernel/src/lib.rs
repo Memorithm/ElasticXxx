@@ -16,6 +16,10 @@
 //! - domain adapters (today: FLAT-ATTENTION) translate their concrete kernel
 //!   variants into [`KernelCandidate`] records and their device discovery
 //!   into [`CapabilitySnapshot`] values;
+//! - workload-dependent dispatch geometry stays separate from intrinsic
+//!   [`KernelRequirements`] through [`DispatchGrid`], so adapters can validate
+//!   execution extents without baking one workload shape into candidate
+//!   identity;
 //! - the semantic core (`elastic-core`) remains untouched by compute-domain
 //!   concepts; where core vocabulary fits ([`ObjectiveId`],
 //!   [`ContractId`], fingerprints), this crate reuses it instead of
@@ -61,6 +65,6 @@ pub use planner::{
     SelectionOutcome, SelectionPolicy, SelectionRecord, UnsupportedReason, PLANNER_VERSION,
 };
 pub use requirements::{
-    FeatureRequirement, KernelRequirements, RejectionReason as CapabilityRejectionReason,
-    RequirementsError,
+    DispatchGrid, FeatureRequirement, KernelRequirements,
+    RejectionReason as CapabilityRejectionReason, RequirementsError,
 };
