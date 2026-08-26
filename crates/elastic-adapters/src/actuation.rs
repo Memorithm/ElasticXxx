@@ -118,8 +118,8 @@ mod tests {
 
     #[test]
     fn fresh_context_allows_ram_effect() {
-        let mut budget = RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048))
-            .expect("valid RAM fixture");
+        let mut budget =
+            RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048)).expect("valid RAM fixture");
         let resource = budget.spec().resource_id().clone();
         let context = context_for(resource.clone());
         let current = current_for(resource.clone());
@@ -150,8 +150,8 @@ mod tests {
 
     #[test]
     fn stale_planner_epoch_blocks_valid_ram_effect_without_mutation() {
-        let mut budget = RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048))
-            .expect("valid RAM fixture");
+        let mut budget =
+            RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048)).expect("valid RAM fixture");
         let resource = budget.spec().resource_id().clone();
         let context = context_for(resource.clone());
         let current = FreshnessSnapshot::new(PlannerEpoch::new(8), ObservationEpoch::new(11))
