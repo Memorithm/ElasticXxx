@@ -19,7 +19,8 @@
 //! - workload-dependent dispatch geometry stays separate from intrinsic
 //!   [`KernelRequirements`] through [`DispatchGrid`], so adapters can validate
 //!   execution extents without baking one workload shape into candidate
-//!   identity;
+//!   identity; adapters should validate the grid before actuation/pipeline
+//!   creation, not treat planner admission as proof that an arbitrary grid fits;
 //! - the semantic core (`elastic-core`) remains untouched by compute-domain
 //!   concepts; where core vocabulary fits ([`ObjectiveId`],
 //!   [`ContractId`], fingerprints), this crate reuses it instead of
