@@ -1,0 +1,34 @@
+[package]
+name = "elastic-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.elastic-core]
+path = "../crates/elastic-core"
+
+[dependencies.elastic-kv]
+path = "../crates/elastic-kv"
+
+[[bin]]
+name = "transition_pipeline"
+path = "fuzz_targets/transition_pipeline.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "identifier_validation"
+path = "fuzz_targets/identifier_validation.rs"
+test = false
+doc = false
+bench = false

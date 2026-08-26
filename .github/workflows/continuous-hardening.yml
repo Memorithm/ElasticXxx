@@ -1,0 +1,66 @@
+name: continuous-hardening
+
+on:
+  pull_request:
+    paths:
+      - "crates/elastic-core/**"
+      - "crates/elastic-kv/**"
+      - "fuzz/**"
+      - ".github/workflows/continuous-hardening.yml"
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: cargo-fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: nightly
+
+      - name: Install pinned cargo-fuzz
+        run: cargo +nightly install cargo-fuzz --locked --version 0.13.2
+
+      - name: Compile fuzz targets
+        run: cargo +nightly fuzz build
+
+      - name: Fuzz identifier validation
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run identifier_validation -- -max_total_time=45
+
+      - name: Fuzz transition pipeline
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run transition_pipeline -- -max_total_time=60
+
+  miri:
+    name: miri-core-kv
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Install nightly with Miri
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: nightly
+          components: miri
+
+      - name: Build Miri sysroot
+        run: cargo +nightly miri setup
+
+      - name: Interpret core and KV tests
+        run: cargo +nightly miri test -p elastic-core -p elastic-kv
