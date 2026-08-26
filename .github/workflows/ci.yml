@@ -17,8 +17,6 @@ jobs:
   rust:
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 30
-    env:
-      TMPDIR: ${{ runner.temp }}/elasticxxx-rust-tmp
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
@@ -34,9 +32,11 @@ jobs:
               ;;
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
-          install -d -m 700 "$TMPDIR"
-          test -w "$TMPDIR"
-          printf 'Rust temporary directory: %s\n' "$TMPDIR"
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          install -d -m 700 "$rust_tmp"
+          test -w "$rust_tmp"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'Rust temporary directory: %s\n' "$rust_tmp"
 
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
