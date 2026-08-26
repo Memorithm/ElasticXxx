@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// Upper bound for representation and issuer identifier length, in bytes.
@@ -148,25 +148,32 @@ pub enum TargetContract {
 /// input.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CapabilitySet {
-    entries: BTreeSet<(RepresentationId, u32)>,
+    entries: BTreeMap<RepresentationId, BTreeSet<u32>>,
 }
 
 impl CapabilitySet {
     /// Empty capability set.
     pub const fn new() -> Self {
         Self {
-            entries: BTreeSet::new(),
+            entries: BTreeMap::new(),
         }
     }
 
     /// Add one declared supported representation contract.
     pub fn insert(&mut self, id: RepresentationId, schema_version: u32) {
-        self.entries.insert((id, schema_version));
+        self.entries.entry(id).or_default().insert(schema_version);
     }
 
     /// Remove one declared contract; returns whether it was present.
     pub fn remove(&mut self, id: &RepresentationId, schema_version: u32) -> bool {
-        self.entries.remove(&(id.clone(), schema_version))
+        let Some(versions) = self.entries.get_mut(id) else {
+            return false;
+        };
+        let removed = versions.remove(&schema_version);
+        if versions.is_empty() {
+            self.entries.remove(id);
+        }
+        removed
     }
 
     /// Check whether a representation contract is explicitly declared supported.
@@ -176,17 +183,21 @@ impl CapabilitySet {
 
     /// Check whether a contract/version pair is explicitly declared supported.
     pub fn supports_contract(&self, id: &RepresentationId, schema_version: u32) -> bool {
-        self.entries.contains(&(id.clone(), schema_version))
+        self.entries
+            .get(id)
+            .is_some_and(|versions| versions.contains(&schema_version))
     }
 
     /// Iterate over all declared contracts.
     pub fn iter(&self) -> impl Iterator<Item = (&RepresentationId, u32)> {
-        self.entries.iter().map(|(id, version)| (id, *version))
+        self.entries
+            .iter()
+            .flat_map(|(id, versions)| versions.iter().map(move |version| (id, *version)))
     }
 
     /// Number of declared contracts.
     pub fn len(&self) -> usize {
-        self.entries.len()
+        self.entries.values().map(BTreeSet::len).sum()
     }
 
     /// Whether no contracts are declared.
