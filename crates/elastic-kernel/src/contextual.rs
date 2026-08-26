@@ -119,14 +119,12 @@ pub fn plan_with_context(
 mod tests {
     use super::*;
     use elastic_core::{
-        BuiltinObjective, ContractId, ObservationEpoch, ObjectiveId, PlannerEpoch,
+        BuiltinObjective, ContractId, ObjectiveId, ObservationEpoch, PlannerEpoch,
         ResourceGeneration,
     };
 
     use crate::candidate::{ObjectiveEvidence, RealizationIdentity};
-    use crate::capability::{
-        BindingLimits, FeatureSupport, SubgroupSupport, WorkgroupLimits,
-    };
+    use crate::capability::{BindingLimits, FeatureSupport, SubgroupSupport, WorkgroupLimits};
     use crate::requirements::{FeatureRequirement, KernelRequirements};
 
     fn resource() -> LogicalResourceId {
