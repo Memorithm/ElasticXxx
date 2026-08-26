@@ -544,8 +544,14 @@ mod tests {
     fn dispatch_grid_fingerprint_is_deterministic_and_geometry_sensitive() {
         let baseline = DispatchGrid::new([128, 2, 1]);
         assert_eq!(baseline.fingerprint(), baseline.fingerprint());
-        assert_ne!(baseline.fingerprint(), DispatchGrid::new([129, 2, 1]).fingerprint());
-        assert_ne!(baseline.fingerprint(), DispatchGrid::new([128, 1, 2]).fingerprint());
+        assert_ne!(
+            baseline.fingerprint(),
+            DispatchGrid::new([129, 2, 1]).fingerprint()
+        );
+        assert_ne!(
+            baseline.fingerprint(),
+            DispatchGrid::new([128, 1, 2]).fingerprint()
+        );
     }
 
     #[test]
