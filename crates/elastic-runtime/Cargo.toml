@@ -1,0 +1,15 @@
+[package]
+name = "elastic-runtime"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+
+[dependencies]
+elastic-core = { workspace = true }
+elastic-eir = { workspace = true }
+elastic-adapters = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
