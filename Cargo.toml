@@ -3,15 +3,27 @@ resolver = "2"
 members = [
     "crates/elastic",
     "crates/elastic-adapters",
+    "crates/elastic-cli",
     "crates/elastic-downstream",
     "crates/elastic-core",
     "crates/elastic-eir",
     "crates/elastic-kv",
     "crates/elastic-kernel",
     "crates/elastic-macros",
+    "crates/elastic-runtime",
 ]
 
 [workspace.package]
 edition = "2021"
 rust-version = "1.89"
 repository = "https://github.com/Memorithm/ElasticXxx"
+
+[workspace.dependencies]
+elastic-core = { path = "crates/elastic-core" }
+elastic-eir = { path = "crates/elastic-eir" }
+elastic-adapters = { path = "crates/elastic-adapters" }
+serde = { version = "1.0", features = ["derive"] }
+thiserror = { version = "2.0" }
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
