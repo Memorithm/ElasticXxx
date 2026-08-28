@@ -3,10 +3,12 @@
 use crate::actuation::Actuation;
 use crate::commit::{CommitRecord, RollbackRecord};
 use crate::config::RuntimeConfig;
+use crate::control_loop::observe_and_plan;
 use crate::error::RuntimeError;
 use crate::events::{RuntimeEvent, RuntimeEventKind};
 use crate::observation::{ObservationSnapshot, Observer};
-use crate::plan::{Plan, ValidatedPlan};
+use crate::plan::{validate_with_checks, ValidatedPlan};
+use crate::transaction::TransactionalActuator;
 use crate::verification::VerificationResult;
 use elastic_eir::{EirResource, TransitionPlanner};
 
@@ -25,32 +27,209 @@ impl Runtime {
         &self.config
     }
 
-    /// Run one cycle: observe → plan → validate → actuate → verify → commit/rollback
-    pub fn cycle<P: TransitionPlanner, O: Observer>(
+    /// Run one transaction cycle:
+    /// observe → plan → validate → prepare → actuate → verify → commit/rollback.
+    ///
+    /// A plan without a candidate is an honest non-actuating cycle. A plan is
+    /// never actuated unless the trusted actuator supplies successful checks
+    /// for every applicable invariant. Verification failure or inconclusive
+    /// verification always triggers rollback. Rollback failure is returned as
+    /// an explicit [`RuntimeError::Rollback`].
+    pub fn cycle<P, O, A>(
         &self,
         resource: &EirResource,
         planner: &P,
         observer: &O,
-    ) -> Result<CycleResult, RuntimeError> {
-        let events = vec![RuntimeEvent::new(RuntimeEventKind::CycleStarted, "cycle started")];
-        // Planning
-        let plan = crate::control_loop::run_planning_cycle(planner, resource, observer)?;
-        let validated = crate::control_loop::validate_plan(plan.clone());
-        let actuation = if validated.validated {
-            Some(Actuation::new(validated.clone(), None, "default"))
-        } else {
-            None
+        actuator: &mut A,
+    ) -> Result<CycleResult, RuntimeError>
+    where
+        P: TransitionPlanner,
+        O: Observer,
+        A: TransactionalActuator,
+    {
+        let mut events = vec![RuntimeEvent::new(
+            RuntimeEventKind::CycleStarted,
+            "cycle started",
+        )];
+
+        let (snapshot, plan) = observe_and_plan(planner, resource, observer)?;
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::ObservationCollected,
+            format!("collected {} observations", snapshot.len()),
+        ));
+
+        if plan.candidate().is_none() {
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::PlanRejected,
+                plan.outcome.to_string(),
+            ));
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::CycleCompleted,
+                "cycle completed without actuation",
+            ));
+            return Ok(CycleResult {
+                observations: vec![snapshot],
+                plan: Some(ValidatedPlan::new(plan, Vec::new(), false)),
+                actuation: None,
+                verification: None,
+                commit: None,
+                rollback: None,
+                events,
+            });
+        }
+
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::PlanSelected,
+            plan.reasoning.clone(),
+        ));
+
+        let checks = actuator.validate(&plan)?;
+        for check in &checks {
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::InvariantChecked,
+                format!("{}: {}", check.invariant, check.holds),
+            ));
+        }
+        let validated = validate_with_checks(plan, checks);
+
+        if !validated.validated {
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::PlanRejected,
+                "trusted invariant validation did not authorize actuation",
+            ));
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::CycleCompleted,
+                "cycle completed without actuation",
+            ));
+            return Ok(CycleResult {
+                observations: vec![snapshot],
+                plan: Some(validated),
+                actuation: None,
+                verification: None,
+                commit: None,
+                rollback: None,
+                events,
+            });
+        }
+
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::PlanValidated,
+            "trusted validation authorized candidate",
+        ));
+
+        if self.config.dry_run {
+            events.push(RuntimeEvent::new(
+                RuntimeEventKind::CycleCompleted,
+                "dry run completed before physical actuation",
+            ));
+            return Ok(CycleResult {
+                observations: vec![snapshot],
+                plan: Some(validated),
+                actuation: None,
+                verification: None,
+                commit: None,
+                rollback: None,
+                events,
+            });
+        }
+
+        let actuation = actuator.prepare(&validated)?;
+        if !actuation.is_valid() {
+            return Err(RuntimeError::validation(
+                "trusted actuator prepared an invalid actuation",
+            ));
+        }
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::ActuationPrepared,
+            format!("prepared by {}", actuator.name()),
+        ));
+
+        actuator.actuate(&actuation)?;
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::ActuationApplied,
+            format!("applied by {}", actuator.name()),
+        ));
+
+        let verification = match actuator.verify(&actuation) {
+            Ok(result) => result,
+            Err(error) => VerificationResult::Inconclusive {
+                detail: error.to_string(),
+            },
         };
-        // Dummy verification
-        let verification = Some(VerificationResult::Pass);
-        let commit = Some(CommitRecord::new("transition", "cycle complete"));
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::VerificationPerformed,
+            format!("{verification:?}"),
+        ));
+
+        if verification.is_pass() {
+            match actuator.commit(&actuation) {
+                Ok(commit) => {
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::CommitExecuted,
+                        commit.rationale.clone(),
+                    ));
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::CycleCompleted,
+                        "cycle committed",
+                    ));
+                    return Ok(CycleResult {
+                        observations: vec![snapshot],
+                        plan: Some(validated),
+                        actuation: Some(actuation),
+                        verification: Some(verification),
+                        commit: Some(commit),
+                        rollback: None,
+                        events,
+                    });
+                }
+                Err(commit_error) => {
+                    let rollback = actuator.rollback(&actuation, &verification).map_err(|error| {
+                        RuntimeError::rollback(format!(
+                            "commit failed ({commit_error}); rollback also failed ({error})"
+                        ))
+                    })?;
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::RollbackExecuted,
+                        rollback.rationale.clone(),
+                    ));
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::CycleCompleted,
+                        "commit failed; actuation rolled back",
+                    ));
+                    return Ok(CycleResult {
+                        observations: vec![snapshot],
+                        plan: Some(validated),
+                        actuation: Some(actuation),
+                        verification: Some(verification),
+                        commit: None,
+                        rollback: Some(rollback),
+                        events,
+                    });
+                }
+            }
+        }
+
+        let rollback = actuator.rollback(&actuation, &verification).map_err(|error| {
+            RuntimeError::rollback(format!(
+                "verification did not pass ({verification:?}); rollback failed ({error})"
+            ))
+        })?;
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::RollbackExecuted,
+            rollback.rationale.clone(),
+        ));
+        events.push(RuntimeEvent::new(
+            RuntimeEventKind::CycleCompleted,
+            "verification did not pass; actuation rolled back",
+        ));
+
         Ok(CycleResult {
-            observations: vec![],
+            observations: vec![snapshot],
             plan: Some(validated),
-            actuation,
-            verification,
-            commit,
-            rollback: None,
+            actuation: Some(actuation),
+            verification: Some(verification),
+            commit: None,
+            rollback: Some(rollback),
             events,
         })
     }
@@ -66,4 +245,153 @@ pub struct CycleResult {
     pub commit: Option<CommitRecord>,
     pub rollback: Option<RollbackRecord>,
     pub events: Vec<RuntimeEvent>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{InvariantCheck, Plan};
+    use elastic_eir::FirstGroundedPlanner;
+
+    struct MockActuator {
+        verification: VerificationResult,
+        fail_rollback: bool,
+        committed: bool,
+        rolled_back: bool,
+    }
+
+    impl MockActuator {
+        fn new(verification: VerificationResult) -> Self {
+            Self {
+                verification,
+                fail_rollback: false,
+                committed: false,
+                rolled_back: false,
+            }
+        }
+    }
+
+    impl TransactionalActuator for MockActuator {
+        fn name(&self) -> &str {
+            "mock"
+        }
+
+        fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+            Ok(plan
+                .resource
+                .invariants()
+                .iter()
+                .cloned()
+                .map(|invariant| InvariantCheck::new(invariant, true, None))
+                .collect())
+        }
+
+        fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
+            let target = plan.plan.candidate().and_then(|candidate| candidate.magnitude());
+            Ok(Actuation::new(plan.clone(), target, self.name()))
+        }
+
+        fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+            Ok(())
+        }
+
+        fn verify(&self, _actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
+            Ok(self.verification.clone())
+        }
+
+        fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+            self.committed = true;
+            Ok(CommitRecord::new("mock", "verified mock transition"))
+        }
+
+        fn rollback(
+            &mut self,
+            _actuation: &Actuation,
+            _verification: &VerificationResult,
+        ) -> Result<RollbackRecord, RuntimeError> {
+            if self.fail_rollback {
+                return Err(RuntimeError::rollback("mock rollback failure"));
+            }
+            self.rolled_back = true;
+            Ok(RollbackRecord::new(
+                "mock",
+                "restored mock state",
+                true,
+            ))
+        }
+    }
+
+    fn applying_runtime() -> Runtime {
+        let mut config = RuntimeConfig::default();
+        config.dry_run = false;
+        Runtime::new(config)
+    }
+
+    #[test]
+    fn verified_transaction_commits() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+
+        let result = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect("verified transaction should complete");
+
+        assert!(actuator.committed);
+        assert!(!actuator.rolled_back);
+        assert!(result.commit.is_some());
+        assert!(result.rollback.is_none());
+    }
+
+    #[test]
+    fn failed_verification_rolls_back_without_commit() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Fail {
+            detail: "injected verification failure".to_owned(),
+        });
+
+        let result = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect("rollback should restore the transaction");
+
+        assert!(!actuator.committed);
+        assert!(actuator.rolled_back);
+        assert!(result.commit.is_none());
+        assert!(result.rollback.is_some());
+    }
+
+    #[test]
+    fn rollback_failure_is_never_swallowed() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Inconclusive {
+            detail: "injected inconclusive verification".to_owned(),
+        });
+        actuator.fail_rollback = true;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("rollback failure must escape the cycle");
+
+        assert!(matches!(error, RuntimeError::Rollback(_)));
+        assert!(!actuator.committed);
+    }
+
+    #[test]
+    fn dry_run_stops_before_prepare_and_actuation() {
+        let runtime = Runtime::new(RuntimeConfig::default());
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+
+        let result = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect("dry run should complete");
+
+        assert!(result.plan.as_ref().is_some_and(|plan| plan.validated));
+        assert!(result.actuation.is_none());
+        assert!(result.verification.is_none());
+        assert!(result.commit.is_none());
+        assert!(!actuator.committed);
+    }
 }
