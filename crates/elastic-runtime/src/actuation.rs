@@ -12,7 +12,11 @@ pub struct Actuation {
 
 impl Actuation {
     pub fn new(plan: ValidatedPlan, target: Option<u64>, adapter_name: impl Into<String>) -> Self {
-        Self { plan, target, adapter_name: adapter_name.into() }
+        Self {
+            plan,
+            target,
+            adapter_name: adapter_name.into(),
+        }
     }
 
     pub fn is_valid(&self) -> bool {
