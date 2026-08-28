@@ -12,7 +12,11 @@ pub struct CommitRecord {
 
 impl CommitRecord {
     pub fn new(transition: impl Into<String>, rationale: impl Into<String>) -> Self {
-        Self { transition: transition.into(), timestamp: Instant::now(), rationale: rationale.into() }
+        Self {
+            transition: transition.into(),
+            timestamp: Instant::now(),
+            rationale: rationale.into(),
+        }
     }
 }
 
@@ -26,7 +30,16 @@ pub struct RollbackRecord {
 }
 
 impl RollbackRecord {
-    pub fn new(transition: impl Into<String>, rationale: impl Into<String>, invariants_restored: bool) -> Self {
-        Self { transition: transition.into(), timestamp: Instant::now(), rationale: rationale.into(), invariants_restored }
+    pub fn new(
+        transition: impl Into<String>,
+        rationale: impl Into<String>,
+        invariants_restored: bool,
+    ) -> Self {
+        Self {
+            transition: transition.into(),
+            timestamp: Instant::now(),
+            rationale: rationale.into(),
+            invariants_restored,
+        }
     }
 }
