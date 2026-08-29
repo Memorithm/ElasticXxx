@@ -183,11 +183,14 @@ impl Runtime {
                     });
                 }
                 Err(commit_error) => {
-                    let rollback = actuator.rollback(&actuation, &verification).map_err(|error| {
-                        RuntimeError::rollback(format!(
-                            "commit failed ({commit_error}); rollback also failed ({error})"
-                        ))
-                    })?;
+                    let rollback =
+                        actuator
+                            .rollback(&actuation, &verification)
+                            .map_err(|error| {
+                                RuntimeError::rollback(format!(
+                                    "commit failed ({commit_error}); rollback also failed ({error})"
+                                ))
+                            })?;
                     events.push(RuntimeEvent::new(
                         RuntimeEventKind::RollbackExecuted,
                         rollback.rationale.clone(),
@@ -209,11 +212,13 @@ impl Runtime {
             }
         }
 
-        let rollback = actuator.rollback(&actuation, &verification).map_err(|error| {
-            RuntimeError::rollback(format!(
-                "verification did not pass ({verification:?}); rollback failed ({error})"
-            ))
-        })?;
+        let rollback = actuator
+            .rollback(&actuation, &verification)
+            .map_err(|error| {
+                RuntimeError::rollback(format!(
+                    "verification did not pass ({verification:?}); rollback failed ({error})"
+                ))
+            })?;
         events.push(RuntimeEvent::new(
             RuntimeEventKind::RollbackExecuted,
             rollback.rationale.clone(),
@@ -287,7 +292,10 @@ mod tests {
         }
 
         fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
-            let target = plan.plan.candidate().and_then(|candidate| candidate.magnitude());
+            let target = plan
+                .plan
+                .candidate()
+                .and_then(|candidate| candidate.magnitude());
             Ok(Actuation::new(plan.clone(), target, self.name()))
         }
 
@@ -313,11 +321,7 @@ mod tests {
                 return Err(RuntimeError::rollback("mock rollback failure"));
             }
             self.rolled_back = true;
-            Ok(RollbackRecord::new(
-                "mock",
-                "restored mock state",
-                true,
-            ))
+            Ok(RollbackRecord::new("mock", "restored mock state", true))
         }
     }
 
