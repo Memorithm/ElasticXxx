@@ -2,7 +2,7 @@
 
 use crate::actuation::Actuation;
 use crate::commit::{CommitRecord, RollbackRecord};
-use crate::config::RuntimeConfig;
+use crate::config::{RuntimeConfig, RuntimeMode};
 use crate::control_loop::observe_and_plan;
 use crate::error::RuntimeError;
 use crate::events::{RuntimeEvent, RuntimeEventKind};
@@ -117,10 +117,15 @@ impl Runtime {
             "trusted validation authorized candidate",
         ));
 
-        if self.config.dry_run {
+        if self.config.dry_run
+            || matches!(
+                self.config.mode,
+                RuntimeMode::DryRun | RuntimeMode::ObserveOnly
+            )
+        {
             events.push(RuntimeEvent::new(
                 RuntimeEventKind::CycleCompleted,
-                "dry run completed before physical actuation",
+                "non-actuating runtime mode completed before physical actuation",
             ));
             return Ok(CycleResult {
                 observations: vec![snapshot],
@@ -144,16 +149,21 @@ impl Runtime {
             format!("prepared by {}", actuator.name()),
         ));
 
-        actuator.actuate(&actuation)?;
-        events.push(RuntimeEvent::new(
-            RuntimeEventKind::ActuationApplied,
-            format!("applied by {}", actuator.name()),
-        ));
-
-        let verification = match actuator.verify(&actuation) {
-            Ok(result) => result,
+        let verification = match actuator.actuate(&actuation) {
+            Ok(()) => {
+                events.push(RuntimeEvent::new(
+                    RuntimeEventKind::ActuationApplied,
+                    format!("applied by {}", actuator.name()),
+                ));
+                match actuator.verify(&actuation) {
+                    Ok(result) => result,
+                    Err(error) => VerificationResult::Inconclusive {
+                        detail: error.to_string(),
+                    },
+                }
+            }
             Err(error) => VerificationResult::Inconclusive {
-                detail: error.to_string(),
+                detail: format!("actuation failed and may be partial: {error}"),
             },
         };
         events.push(RuntimeEvent::new(
@@ -191,6 +201,10 @@ impl Runtime {
                                     "commit failed ({commit_error}); rollback also failed ({error})"
                                 ))
                             })?;
+                    let rollback = require_restored_rollback(
+                        rollback,
+                        &format!("commit failed ({commit_error})"),
+                    )?;
                     events.push(RuntimeEvent::new(
                         RuntimeEventKind::RollbackExecuted,
                         rollback.rationale.clone(),
@@ -219,6 +233,10 @@ impl Runtime {
                     "verification did not pass ({verification:?}); rollback failed ({error})"
                 ))
             })?;
+        let rollback = require_restored_rollback(
+            rollback,
+            &format!("verification did not pass ({verification:?})"),
+        )?;
         events.push(RuntimeEvent::new(
             RuntimeEventKind::RollbackExecuted,
             rollback.rationale.clone(),
@@ -237,6 +255,19 @@ impl Runtime {
             rollback: Some(rollback),
             events,
         })
+    }
+}
+
+fn require_restored_rollback(
+    rollback: RollbackRecord,
+    failure_context: &str,
+) -> Result<RollbackRecord, RuntimeError> {
+    if rollback.invariants_restored {
+        Ok(rollback)
+    } else {
+        Err(RuntimeError::rollback(format!(
+            "{failure_context}; rollback completed without restoring invariants"
+        )))
     }
 }
 
@@ -260,7 +291,10 @@ mod tests {
 
     struct MockActuator {
         verification: VerificationResult,
+        fail_actuation: bool,
+        fail_commit: bool,
         fail_rollback: bool,
+        restore_invariants: bool,
         committed: bool,
         rolled_back: bool,
     }
@@ -269,7 +303,10 @@ mod tests {
         fn new(verification: VerificationResult) -> Self {
             Self {
                 verification,
+                fail_actuation: false,
+                fail_commit: false,
                 fail_rollback: false,
+                restore_invariants: true,
                 committed: false,
                 rolled_back: false,
             }
@@ -300,6 +337,9 @@ mod tests {
         }
 
         fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+            if self.fail_actuation {
+                return Err(RuntimeError::actuation("mock actuation failure"));
+            }
             Ok(())
         }
 
@@ -308,6 +348,9 @@ mod tests {
         }
 
         fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+            if self.fail_commit {
+                return Err(RuntimeError::commit("mock commit failure"));
+            }
             self.committed = true;
             Ok(CommitRecord::new("mock", "verified mock transition"))
         }
@@ -321,7 +364,11 @@ mod tests {
                 return Err(RuntimeError::rollback("mock rollback failure"));
             }
             self.rolled_back = true;
-            Ok(RollbackRecord::new("mock", "restored mock state", true))
+            Ok(RollbackRecord::new(
+                "mock",
+                "restored mock state",
+                self.restore_invariants,
+            ))
         }
     }
 
@@ -366,6 +413,26 @@ mod tests {
     }
 
     #[test]
+    fn actuation_failure_attempts_rollback() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        actuator.fail_actuation = true;
+
+        let result = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect("partial actuation failure should be recovered by rollback");
+
+        assert!(!actuator.committed);
+        assert!(actuator.rolled_back);
+        assert!(matches!(
+            result.verification,
+            Some(VerificationResult::Inconclusive { .. })
+        ));
+        assert!(result.rollback.is_some());
+    }
+
+    #[test]
     fn rollback_failure_is_never_swallowed() {
         let runtime = applying_runtime();
         let resource = runtime.config().ir_resource.clone();
@@ -379,6 +446,41 @@ mod tests {
             .expect_err("rollback failure must escape the cycle");
 
         assert!(matches!(error, RuntimeError::Rollback(_)));
+        assert!(!actuator.committed);
+    }
+
+    #[test]
+    fn rollback_without_restored_invariants_is_an_error() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Fail {
+            detail: "injected verification failure".to_owned(),
+        });
+        actuator.restore_invariants = false;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("unrestored invariants must escape the cycle");
+
+        assert!(matches!(error, RuntimeError::Rollback(_)));
+        assert!(actuator.rolled_back);
+        assert!(!actuator.committed);
+    }
+
+    #[test]
+    fn commit_failure_with_unrestored_rollback_is_an_error() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        actuator.fail_commit = true;
+        actuator.restore_invariants = false;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("unrestored commit rollback must escape the cycle");
+
+        assert!(matches!(error, RuntimeError::Rollback(_)));
+        assert!(actuator.rolled_back);
         assert!(!actuator.committed);
     }
 
@@ -397,5 +499,28 @@ mod tests {
         assert!(result.verification.is_none());
         assert!(result.commit.is_none());
         assert!(!actuator.committed);
+    }
+
+    #[test]
+    fn non_actuating_modes_override_the_legacy_dry_run_flag() {
+        for mode in [RuntimeMode::DryRun, RuntimeMode::ObserveOnly] {
+            let mut config = RuntimeConfig::default();
+            config.dry_run = false;
+            config.mode = mode;
+            let runtime = Runtime::new(config);
+            let resource = runtime.config().ir_resource.clone();
+            let mut actuator = MockActuator::new(VerificationResult::Pass);
+
+            let result = runtime
+                .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+                .expect("non-actuating mode should complete");
+
+            assert!(result.plan.as_ref().is_some_and(|plan| plan.validated));
+            assert!(result.actuation.is_none());
+            assert!(result.verification.is_none());
+            assert!(result.commit.is_none());
+            assert!(!actuator.committed);
+            assert!(!actuator.rolled_back);
+        }
     }
 }
