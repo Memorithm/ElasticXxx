@@ -373,9 +373,10 @@ mod tests {
     }
 
     fn applying_runtime() -> Runtime {
-        let mut config = RuntimeConfig::default();
-        config.dry_run = false;
-        Runtime::new(config)
+        Runtime::new(RuntimeConfig {
+            dry_run: false,
+            ..RuntimeConfig::default()
+        })
     }
 
     #[test]
@@ -504,9 +505,11 @@ mod tests {
     #[test]
     fn non_actuating_modes_override_the_legacy_dry_run_flag() {
         for mode in [RuntimeMode::DryRun, RuntimeMode::ObserveOnly] {
-            let mut config = RuntimeConfig::default();
-            config.dry_run = false;
-            config.mode = mode;
+            let config = RuntimeConfig {
+                dry_run: false,
+                mode,
+                ..RuntimeConfig::default()
+            };
             let runtime = Runtime::new(config);
             let resource = runtime.config().ir_resource.clone();
             let mut actuator = MockActuator::new(VerificationResult::Pass);
