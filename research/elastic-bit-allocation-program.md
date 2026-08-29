@@ -170,11 +170,34 @@ contract defines their legal domain.
 
 ### 5.1 Constraint forms
 
-Examples, to be instantiated by the benchmark rather than baked into the IR:
+Examples, to be instantiated by the benchmark rather than baked into the IR.
+Storage constraints must operate on physical segment identity rather than a
+per-candidate sum, because several selected candidates may reference the same
+codebook, dictionary, factor, metadata table, or other shared segment.
 
-`sum_i B_resident(i, r_i) <= memory_budget`
+For a selected candidate `r_i`, let `S(i, r_i)` be the set of physical segment
+identities needed by that candidate in the declared accounting scope, and let
 
-`sum_i B_serialized(i, r_i) <= storage_budget`
+`U(r_1...r_n) = union_i S(i, r_i)`.
+
+Every segment identity in `U` must resolve to exactly one physical owner in the
+scope. All references to the same identity must agree on its representation,
+content identity, serialized size, resident size, alignment and lifetime.
+Private candidate storage is modeled as uniquely owned segment identities, so
+it is naturally counted once as well.
+
+The storage constraints are therefore
+
+`sum_{s in U(r_1...r_n)} B_resident(s) <= memory_budget`
+
+`sum_{s in U(r_1...r_n)} B_serialized(s) <= storage_budget`
+
+not `sum_i B(i, r_i)`, which would double-count a shared segment once per
+consumer. An implementation may encode this union with explicit ownership and
+reference decision variables, but it must preserve the same exact-once
+accounting semantics.
+
+Other example constraints are
 
 `quality_loss(r_1...r_n) <= epsilon`
 
