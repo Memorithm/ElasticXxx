@@ -20,6 +20,16 @@ use elastic_core::resource::{
 use elastic_core::TransitionMechanism;
 use elastic_eir::{lower, EirResource, PlanningContext, TransitionCandidate};
 
+pub(crate) fn committed_bytes_signal() -> ObservationSignalId {
+    ObservationSignalId::custom("committed-bytes")
+        .expect("committed-bytes is a valid non-empty observation signal")
+}
+
+pub(crate) fn host_total_bytes_signal() -> ObservationSignalId {
+    ObservationSignalId::custom("host-total-bytes")
+        .expect("host-total-bytes is a valid non-empty observation signal")
+}
+
 /// A validated RAM-budget declaration plus its live materialization.
 ///
 /// Effects are real: [`RamBudget::apply`] resizes an actual allocation.
@@ -114,6 +124,12 @@ impl RamBudget {
         self.bounds
     }
 
+    /// Maximum permitted absolute resize step, when configured.
+    #[must_use]
+    pub const fn max_step(&self) -> Option<u64> {
+        self.max_step
+    }
+
     /// Currently committed bytes (the real allocation size).
     #[must_use]
     pub fn committed(&self) -> u64 {
@@ -164,7 +180,9 @@ impl RamBudget {
     /// Current observations for planners.
     ///
     /// - `free-capacity`: host total minus committed bytes;
-    /// - `utilization`: committed divided by host total, in `0.0..=1.0`.
+    /// - `utilization`: committed divided by host total, in `0.0..=1.0`;
+    /// - `committed-bytes`: exact current commitment;
+    /// - `host-total-bytes`: exact operator-supplied hosting limit.
     #[must_use]
     pub fn observe(&self) -> PlanningContext {
         let committed = self.committed();
@@ -177,6 +195,8 @@ impl RamBudget {
         PlanningContext::new()
             .observe(ObservationSignalId::FREE_CAPACITY, free as f64)
             .observe(ObservationSignalId::UTILIZATION, utilization)
+            .observe(committed_bytes_signal(), committed as f64)
+            .observe(host_total_bytes_signal(), self.host_total as f64)
     }
 
     /// Validate a resize proposal without acting.
