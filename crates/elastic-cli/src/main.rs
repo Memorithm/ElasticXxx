@@ -12,14 +12,31 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Inspect { id: String },
-    Observe { id: String },
-    Plan { id: String },
-    Validate { id: String },
-    Apply { id: String },
-    Run { id: String },
-    Watch { id: String, interval_ms: Option<u64> },
-    Explain { id: String },
+    Inspect {
+        id: String,
+    },
+    Observe {
+        id: String,
+    },
+    Plan {
+        id: String,
+    },
+    Validate {
+        id: String,
+    },
+    Apply {
+        id: String,
+    },
+    Run {
+        id: String,
+    },
+    Watch {
+        id: String,
+        interval_ms: Option<u64>,
+    },
+    Explain {
+        id: String,
+    },
 }
 
 fn main() {

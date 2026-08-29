@@ -16,25 +16,36 @@ pub enum RuntimeError {
     Verification(String),
     #[error("commit error: {0}")]
     Commit(String),
+    #[error("rollback error: {0}")]
+    Rollback(String),
 }
 
 impl RuntimeError {
     pub fn observation(msg: impl Into<String>) -> Self {
         Self::Observation(msg.into())
     }
+
     pub fn planning(msg: impl Into<String>) -> Self {
         Self::Planning(msg.into())
     }
+
     pub fn validation(msg: impl Into<String>) -> Self {
         Self::Validation(msg.into())
     }
+
     pub fn actuation(msg: impl Into<String>) -> Self {
         Self::Actuation(msg.into())
     }
+
     pub fn verification(msg: impl Into<String>) -> Self {
         Self::Verification(msg.into())
     }
+
     pub fn commit(msg: impl Into<String>) -> Self {
         Self::Commit(msg.into())
+    }
+
+    pub fn rollback(msg: impl Into<String>) -> Self {
+        Self::Rollback(msg.into())
     }
 }

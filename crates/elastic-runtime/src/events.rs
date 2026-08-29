@@ -11,7 +11,11 @@ pub struct RuntimeEvent {
 
 impl RuntimeEvent {
     pub fn new(kind: RuntimeEventKind, details: impl Into<String>) -> Self {
-        Self { kind, timestamp: Instant::now(), details: details.into() }
+        Self {
+            kind,
+            timestamp: Instant::now(),
+            details: details.into(),
+        }
     }
 }
 

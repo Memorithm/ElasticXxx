@@ -28,9 +28,11 @@
 pub mod actuation;
 pub mod error;
 pub mod permits;
+pub mod planners;
 pub mod ram;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
 pub use error::AdapterError;
 pub use permits::ConcurrencyPermits;
+pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
