@@ -64,9 +64,10 @@ fn threshold_planner_decision_table_is_honest() {
         PlanOutcome::InsufficientEvidence { .. }
     ));
 
-    // High pressure: reservation 80% full -> grow by the step fraction.
-    let mut budget = RamBudget::new("cache", 30_000, 100, 20_000, 5_000, None).unwrap();
-    budget.record_use(4_000).unwrap();
+    // High committed pressure: reservation is 80% of host total -> grow by
+    // the step fraction. Numeric adapter bounds remain a separate action-time
+    // concern, so the advisory target may exceed this test adapter's max.
+    let budget = RamBudget::new("cache", 6_250, 100, 6_000, 5_000, None).unwrap();
     match planner.propose_transition_with_context(&resource, &context_of(&budget)) {
         PlanOutcome::Candidate(candidate) => {
             assert_eq!(candidate.magnitude(), Some(7500));
@@ -75,7 +76,7 @@ fn threshold_planner_decision_table_is_honest() {
         other => panic!("expected grow candidate, got {other}"),
     }
 
-    // Low pressure: empty reservation -> shrink.
+    // Low pressure: a 25% commitment -> shrink.
     let low = RamBudget::new("cache", 10_000, 100, 10_000, 2_500, None).unwrap();
     match planner.propose_transition_with_context(&resource, &context_of(&low)) {
         PlanOutcome::Candidate(candidate) => {
@@ -84,10 +85,9 @@ fn threshold_planner_decision_table_is_honest() {
         other => panic!("expected shrink candidate, got {other}"),
     }
 
-    // Inside the band -> explicit stability (40% usage sits between the
+    // Inside the band -> explicit stability (50% commitment sits between the
     // watermarks).
-    let mut mid = RamBudget::new("cache", 10_000, 100, 10_000, 5_000, None).unwrap();
-    mid.record_use(2_000).unwrap();
+    let mid = RamBudget::new("cache", 10_000, 100, 10_000, 5_000, None).unwrap();
     assert_eq!(
         planner.propose_transition_with_context(&resource, &context_of(&mid)),
         PlanOutcome::NoCandidate
