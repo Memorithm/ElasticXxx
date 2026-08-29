@@ -19,13 +19,15 @@ fn mib(bytes: u64) -> String {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    const MAX_STEP: u64 = 16 << 20;
+
     let mut budget = RamBudget::new(
         "inference-cache",
         256 << 20,
         1 << 20,
         128 << 20,
         16 << 20,
-        Some(16 << 20),
+        Some(MAX_STEP),
     )?;
     let planner = ThresholdPlanner::new(0.25, 0.70, 0.5)?;
     let ir = budget.ir().clone();
@@ -72,11 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if current_use > served {
             budget.release_use(current_use - served)?;
         } else {
-            // Growth respects the same step limit the planner sees.
-            let step = budget.max_step().unwrap_or(served);
+            // Growth respects the same step limit configured above.
             while budget.committed() < served {
                 let remaining = served - budget.committed();
-                let step_to = budget.committed() + step.min(remaining);
+                let step_to = budget.committed() + MAX_STEP.min(remaining);
                 budget.apply(step_to)?;
             }
             budget.record_use(served - current_use)?;
