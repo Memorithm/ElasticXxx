@@ -27,10 +27,10 @@ pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
     Actuation, Cadence, CancellationToken, CommitRecord, ConcurrencyPermitsObserver, CycleResult,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
-    ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig, RamBudgetObserver,
-    RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError, RuntimeEvent,
-    RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
-    TransactionalActuator, ValidatedPlan, VerificationResult,
+    ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig,
+    RamBudgetObserver, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
+    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
+    RuntimeTimingObserver, SystemClock, TransactionalActuator, ValidatedPlan, VerificationResult,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -56,7 +56,7 @@ pub mod prelude {
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
         CancellationToken, ConcurrencyPermitsObserver, HostMemoryObserver, Observation, Observer,
-        RamBudgetObserver, Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
-        VerificationResult,
+        RamBudgetObserver, Runtime, RuntimeConfig, RuntimeError, RuntimeMode,
+        TransactionalActuator, VerificationResult,
     };
 }
