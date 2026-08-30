@@ -233,13 +233,7 @@ fn run_adaptive(
         ..RuntimeConfig::default()
     });
     let cancellation = CancellationToken::new();
-    let result = runtime.run(
-        &resource,
-        &planner,
-        &observer,
-        &mut actuator,
-        &cancellation,
-    )?;
+    let result = runtime.run(&resource, &planner, &observer, &mut actuator, &cancellation)?;
 
     print_json(json!({
         "command": command,
