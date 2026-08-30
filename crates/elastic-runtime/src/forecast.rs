@@ -173,7 +173,9 @@ impl Forecaster for EwmaForecaster {
                 .iter_mut()
                 .find(|(known_signal, _)| known_signal == signal)
             {
-                let smoothed = self.alpha.mul_add(current_value, (1.0 - self.alpha) * *previous);
+                let smoothed = self
+                    .alpha
+                    .mul_add(current_value, (1.0 - self.alpha) * *previous);
                 *previous = smoothed;
                 smoothed
             } else {
