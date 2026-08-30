@@ -32,8 +32,8 @@ impl OperatorConfig {
     ///
     /// Returns [`RuntimeError::Configuration`] for unsupported schema versions,
     /// invalid/duplicate resource ids, invalid adapter bounds, unresolved
-    /// controller resources, invalid planner/forecaster parameters, or
-    /// unbounded/zero-interval periodic cadence.
+    /// controller resources, incompatible/invalid planner/forecaster parameters,
+    /// or unbounded/zero-interval periodic cadence.
     pub fn validate(&self) -> Result<(), RuntimeError> {
         if self.version != OPERATOR_CONFIG_VERSION {
             return Err(RuntimeError::configuration(format!(
@@ -56,12 +56,17 @@ impl OperatorConfig {
         let mut controller_resources = BTreeSet::new();
         for controller in &self.controllers {
             controller.validate()?;
-            if !resource_ids.contains(controller.resource.as_str()) {
-                return Err(RuntimeError::configuration(format!(
-                    "controller references unknown resource '{}'",
-                    controller.resource
-                )));
-            }
+            let resource = self
+                .resources
+                .iter()
+                .find(|resource| resource.id() == controller.resource)
+                .ok_or_else(|| {
+                    RuntimeError::configuration(format!(
+                        "controller references unknown resource '{}'",
+                        controller.resource
+                    ))
+                })?;
+            controller.validate_resource_compatibility(resource)?;
             if !controller_resources.insert(controller.resource.clone()) {
                 return Err(RuntimeError::configuration(format!(
                     "resource '{}' has more than one configured controller",
@@ -166,6 +171,24 @@ impl ControllerConfig {
         self.planner.validate()?;
         self.forecaster.validate()?;
         self.cadence.validate()?;
+        Ok(())
+    }
+
+    fn validate_resource_compatibility(
+        &self,
+        resource: &ResourceConfig,
+    ) -> Result<(), RuntimeError> {
+        if matches!(resource, ResourceConfig::Concurrency { .. })
+            && matches!(
+                &self.planner,
+                PlannerSelection::Headroom { .. } | PlannerSelection::Threshold { .. }
+            )
+        {
+            return Err(RuntimeError::configuration(format!(
+                "planner for resource '{}' requires a capacity resource, but the configured adapter is concurrency",
+                self.resource
+            )));
+        }
         Ok(())
     }
 }
@@ -358,6 +381,54 @@ mod tests {
         let mut config = valid_config();
         config.controllers[0].resource = "missing".into();
         assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn capacity_planner_on_concurrency_resource_is_rejected() {
+        let config = OperatorConfig {
+            version: OPERATOR_CONFIG_VERSION,
+            resources: vec![ResourceConfig::Concurrency {
+                id: "workers".into(),
+                max_width: 8,
+                initial_width: 4,
+            }],
+            controllers: vec![ControllerConfig {
+                resource: "workers".into(),
+                planner: PlannerSelection::Headroom {
+                    headroom_fraction: 0.5,
+                    deadband_fraction: 0.05,
+                },
+                forecaster: ForecasterSelection::CurrentState,
+                cadence: CadenceConfig::OneShot,
+                mode: ExecutionModeConfig::DryRun,
+            }],
+        };
+
+        assert!(matches!(
+            config.validate(),
+            Err(RuntimeError::Configuration(_))
+        ));
+    }
+
+    #[test]
+    fn first_grounded_planner_is_allowed_for_concurrency_resource() {
+        let config = OperatorConfig {
+            version: OPERATOR_CONFIG_VERSION,
+            resources: vec![ResourceConfig::Concurrency {
+                id: "workers".into(),
+                max_width: 8,
+                initial_width: 4,
+            }],
+            controllers: vec![ControllerConfig {
+                resource: "workers".into(),
+                planner: PlannerSelection::FirstGrounded,
+                forecaster: ForecasterSelection::CurrentState,
+                cadence: CadenceConfig::OneShot,
+                mode: ExecutionModeConfig::DryRun,
+            }],
+        };
+
+        config.validate().unwrap();
     }
 
     #[test]
