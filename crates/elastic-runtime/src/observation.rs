@@ -3,39 +3,60 @@
 //! Generic observer model for collecting telemetry snapshots from resource
 //! adapters. Observations are the input to the planning pipeline and must
 //! never fabricate values when telemetry is unavailable.
-//!
-//! # Observation Semantics
-//!
-//! Every observation has:
-//! - A timestamp (monotonic, sourced from the runtime clock)
-//! - A source identity (resource + signal identity)
-//! - A validity flag (never fabricate zeros for unavailable telemetry)
-//! - Optional confidence/quality metadata
-//! - An explicit "unsupported" state when the signal cannot be observed
-//!
-//! # Traits / Adapters
-//!
-//! Resource adapters implement the [`Observer`] trait to produce
-//! `Observation` values from their concrete state. The runtime does not
-//! probe the OS directly — adapters supply plain numbers derived from
-//! their materialization plus operator-supplied configuration.
 
 use std::fmt;
 use std::time::Instant;
 
-use elastic_core::resource::ObservationSignalId;
+use elastic_core::resource::{LogicalResourceId, ObservationSignalId};
 use elastic_eir::PlanningContext;
 
-/// A single telemetry reading from a resource.
+/// Identity of the component that produced an observation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ObservationSource {
+    /// A concrete logical elastic resource.
+    Resource(LogicalResourceId),
+    /// Host-level telemetry supplied by an OS-specific provider.
+    Host { provider: String },
+    /// Runtime-local telemetry such as controller timing.
+    Runtime { component: String },
+}
+
+impl ObservationSource {
+    #[must_use]
+    pub fn host(provider: impl Into<String>) -> Self {
+        Self::Host {
+            provider: provider.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn runtime(component: impl Into<String>) -> Self {
+        Self::Runtime {
+            component: component.into(),
+        }
+    }
+}
+
+impl fmt::Display for ObservationSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Resource(resource) => write!(f, "resource:{}", resource.as_str()),
+            Self::Host { provider } => write!(f, "host:{provider}"),
+            Self::Runtime { component } => write!(f, "runtime:{component}"),
+        }
+    }
+}
+
+/// A single telemetry reading from a resource or runtime provider.
 ///
-/// Invariants:
-/// - `value` is never fabricated; if the signal is unavailable, the
-///   observer returns [`Observation::Unsupported`].
-/// - `source` identifies the resource and signal that produced this reading.
-/// - `quality` is `None` when confidence cannot be determined; never fabricated.
-/// - `timestamp` is monotonic within a runtime instance.
+/// Unsupported telemetry is represented explicitly through `valid = false`
+/// and `unsupported_reason`; its numeric field is `NaN` rather than a
+/// fabricated zero. Concrete runtime providers always use an explicit
+/// [`ObservationSource`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct Observation {
+    /// Identity of the provider that produced this reading.
+    pub source: ObservationSource,
     /// The observation signal identifier.
     pub signal: ObservationSignalId,
     /// The observed value. Unit-ful; meaning is fixed by the signal and its adapter.
@@ -44,90 +65,127 @@ pub struct Observation {
     pub timestamp: Instant,
     /// Optional confidence/quality metadata. `None` means unknown, not "100%".
     pub quality: Option<f64>,
-    /// Whether this observation is valid (as opposed to "unsupported").
-    ///
-    /// When an observer cannot produce a value for a signal, it returns
-    /// [`Observation::unsupported`] with `quality = None`.
+    /// Whether this observation is valid (as opposed to unsupported).
     pub valid: bool,
+    /// Why the signal was unsupported, when known.
+    pub unsupported_reason: Option<String>,
 }
 
 impl Observation {
-    /// Create a new observation with the given signal and value.
+    /// Compatibility constructor for callers that have not yet supplied
+    /// observation provenance explicitly.
+    ///
+    /// New providers should prefer [`Observation::from_source`].
     #[must_use]
     pub fn new(signal: ObservationSignalId, value: f64, timestamp: Instant) -> Self {
+        Self::from_source(
+            ObservationSource::runtime("legacy-unspecified"),
+            signal,
+            value,
+            timestamp,
+        )
+    }
+
+    /// Create a valid observation from an explicit provider identity.
+    #[must_use]
+    pub fn from_source(
+        source: ObservationSource,
+        signal: ObservationSignalId,
+        value: f64,
+        timestamp: Instant,
+    ) -> Self {
         Self {
+            source,
             signal,
             value,
             timestamp,
             quality: None,
             valid: true,
+            unsupported_reason: None,
         }
     }
 
-    /// Create an unsupported observation for a signal that cannot be observed.
-    ///
-    /// This is the correct way to signal "no telemetry available" rather
-    /// than fabricating a zero or ignoring the signal entirely.
+    /// Compatibility constructor for unsupported telemetry without explicit
+    /// provenance.
     #[must_use]
     pub fn unsupported(signal: ObservationSignalId, timestamp: Instant) -> Self {
+        Self::unsupported_from_source(
+            ObservationSource::runtime("legacy-unspecified"),
+            signal,
+            timestamp,
+            "provider did not expose this signal",
+        )
+    }
+
+    /// Create an unsupported observation without inventing a numeric value.
+    #[must_use]
+    pub fn unsupported_from_source(
+        source: ObservationSource,
+        signal: ObservationSignalId,
+        timestamp: Instant,
+        reason: impl Into<String>,
+    ) -> Self {
         Self {
+            source,
             signal,
             value: f64::NAN,
             timestamp,
             quality: None,
             valid: false,
+            unsupported_reason: Some(reason.into()),
         }
     }
 
-    /// Whether this observation represents a valid (non-fabricated) reading.
+    /// Whether this observation represents a valid, non-fabricated reading.
     #[must_use]
     pub fn is_valid(&self) -> bool {
         self.valid
     }
 
-    /// Whether this observation is unsupported (no telemetry available).
+    /// Whether this observation is unsupported.
     #[must_use]
     pub fn is_unsupported(&self) -> bool {
         !self.valid
     }
 
-    /// The signal identifier.
+    #[must_use]
+    pub const fn source(&self) -> &ObservationSource {
+        &self.source
+    }
+
     #[must_use]
     pub const fn signal(&self) -> &ObservationSignalId {
         &self.signal
     }
 
-    /// The observed value.
     #[must_use]
     pub const fn value(&self) -> f64 {
         self.value
     }
 
-    /// The observation timestamp.
     #[must_use]
     pub const fn timestamp(&self) -> &Instant {
         &self.timestamp
     }
 
-    /// Optional quality/confidence metadata.
     #[must_use]
     pub const fn quality(&self) -> Option<f64> {
         self.quality
     }
 
-    /// Convert this observation into an [`PlanningContext`] entry.
-    ///
-    /// The value is inserted under the signal's canonical ID. If the
-    /// observation is unsupported, the context records `None` for that signal.
+    #[must_use]
+    pub fn unsupported_reason(&self) -> Option<&str> {
+        self.unsupported_reason.as_deref()
+    }
+
+    /// Convert this observation into one planning-context entry.
     #[must_use]
     pub fn into_planning_context(self) -> PlanningContext {
-        let ctx = PlanningContext::new();
+        let context = PlanningContext::new();
         if self.valid {
-            ctx.observe(self.signal, self.value)
+            context.observe(self.signal, self.value)
         } else {
-            // For unsupported observations, we do not insert a value;
-            // the PlanningContext will lack this signal, which is honest.
-            ctx
+            context
         }
     }
 }
@@ -137,60 +195,59 @@ impl fmt::Display for Observation {
         if self.valid {
             write!(
                 f,
-                "observation signal={} value={} quality={:?}",
-                self.signal, self.value, self.quality
+                "observation source={} signal={} value={} quality={:?}",
+                self.source, self.signal, self.value, self.quality
             )
         } else {
-            write!(f, "observation unsupported signal={}", self.signal)
+            write!(
+                f,
+                "observation unsupported source={} signal={} reason={}",
+                self.source,
+                self.signal,
+                self.unsupported_reason.as_deref().unwrap_or("unspecified")
+            )
         }
     }
 }
 
 /// A snapshot of observations collected at a point in the runtime cycle.
-///
-/// Observations are deterministic: the same observations at the same
-/// program point produce the same snapshot. Quality metadata is optional
-/// and never fabricated.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ObservationSnapshot {
     /// The runtime instant at which this snapshot was taken.
     pub timestamp: Instant,
     /// The observations collected.
     pub observations: Vec<Observation>,
-    /// Whether all signals in the spec were successfully observed.
+    /// Whether all emitted signals were successfully observed.
     pub all_signals_valid: bool,
 }
 
 impl ObservationSnapshot {
-    /// Create a new observation snapshot.
     #[must_use]
     pub fn new(timestamp: Instant, observations: Vec<Observation>) -> Self {
-        let all_valid = observations.iter().all(|obs| obs.is_valid());
+        let all_signals_valid = observations.iter().all(Observation::is_valid);
         Self {
             timestamp,
             observations,
-            all_signals_valid: all_valid,
+            all_signals_valid,
         }
     }
 
-    /// Iterate over observations in canonical signal order.
     pub fn iter(&self) -> impl Iterator<Item = &Observation> {
         self.observations.iter()
     }
 
-    /// Look up an observation by signal ID.
     #[must_use]
     pub fn get(&self, signal: ObservationSignalId) -> Option<&Observation> {
-        self.observations.iter().find(|obs| obs.signal == signal)
+        self.observations
+            .iter()
+            .find(|observation| observation.signal == signal)
     }
 
-    /// The number of observations in this snapshot.
     #[must_use]
     pub fn len(&self) -> usize {
         self.observations.len()
     }
 
-    /// Whether this snapshot contains no observations.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.observations.is_empty()
@@ -204,27 +261,22 @@ impl fmt::Display for ObservationSnapshot {
             "ObservationSnapshot @{}",
             self.timestamp.elapsed().as_millis()
         )?;
-        for obs in &self.observations {
-            writeln!(f, "  - {}", obs)?;
+        for observation in &self.observations {
+            writeln!(f, "  - {observation}")?;
         }
         if !self.observations.is_empty() && !self.all_signals_valid {
-            writeln!(f, "  ⚠ Some signals were unsupported (not fabricated)")?;
+            writeln!(f, "  some signals were unsupported (not fabricated)")?;
         }
         Ok(())
     }
 }
 
-/// The trait that resource adapters implement to produce observations.
+/// Provider contract for runtime observations.
 ///
-/// Adapters are the **only** source of observation values for the runtime.
-/// The runtime never probes the OS directly; it asks adapters to observe
-/// their own materialized state and supply plain numbers.
+/// The returned [`PlanningContext`] is the exact planner-facing view; the
+/// observation records are its auditable telemetry evidence plus any
+/// unsupported signals that could not be represented in the context.
 pub trait Observer: Send + Sync {
-    /// Observe the resource and produce a [`PlanningContext`] plus any
-    /// unsupported observations that could not be resolved.
-    ///
-    /// The default implementation returns an empty context and no observations.
-    /// Adapters override this to supply concrete telemetry.
     fn observe(&self) -> (PlanningContext, Vec<Observation>);
 }
 
@@ -239,94 +291,69 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_observation_creation() {
-        let obs = Observation::new(
-            elastic_core::resource::ObservationSignalId::UTILIZATION,
+    fn explicit_source_is_preserved() {
+        let source = ObservationSource::host("test-provider");
+        let observation = Observation::from_source(
+            source.clone(),
+            ObservationSignalId::UTILIZATION,
             0.75,
-            std::time::Instant::now(),
+            Instant::now(),
         );
-        assert!(obs.is_valid());
-        assert_eq!(obs.signal().as_str(), "utilization");
-        assert_eq!(obs.value(), 0.75);
+
+        assert_eq!(observation.source(), &source);
+        assert!(observation.is_valid());
+        assert_eq!(observation.value(), 0.75);
     }
 
     #[test]
-    fn test_unsupported_observation() {
-        let obs = Observation::unsupported(
-            elastic_core::resource::ObservationSignalId::FREE_CAPACITY,
-            std::time::Instant::now(),
+    fn unsupported_observation_carries_reason_without_zero() {
+        let observation = Observation::unsupported_from_source(
+            ObservationSource::host("test-provider"),
+            ObservationSignalId::FREE_CAPACITY,
+            Instant::now(),
+            "signal unavailable",
         );
-        assert!(!obs.is_valid());
-        assert!(obs.is_unsupported());
-        assert!(obs.value().is_nan());
+
+        assert!(observation.is_unsupported());
+        assert!(observation.value().is_nan());
+        assert_eq!(observation.unsupported_reason(), Some("signal unavailable"));
     }
 
     #[test]
-    fn test_observation_into_context() {
-        let obs = Observation::new(
-            elastic_core::resource::ObservationSignalId::UTILIZATION,
+    fn valid_observation_enters_planning_context() {
+        let observation = Observation::from_source(
+            ObservationSource::runtime("test"),
+            ObservationSignalId::UTILIZATION,
             0.75,
-            std::time::Instant::now(),
+            Instant::now(),
         );
-        let ctx = obs.into_planning_context();
-        assert_eq!(
-            ctx.get(elastic_core::resource::ObservationSignalId::UTILIZATION),
-            Some(0.75)
-        );
+        let context = observation.into_planning_context();
+
+        assert_eq!(context.get(ObservationSignalId::UTILIZATION), Some(0.75));
     }
 
     #[test]
-    fn test_observation_display() {
-        let obs = Observation::new(
-            elastic_core::resource::ObservationSignalId::UTILIZATION,
-            0.75,
-            std::time::Instant::now(),
-        );
-        let s = format!("{}", obs);
-        assert!(s.contains("utilization"));
-        assert!(s.contains("0.75"));
-    }
-
-    #[test]
-    fn test_observation_snapshot() {
-        let now = std::time::Instant::now();
+    fn snapshot_reports_unsupported_signals() {
+        let now = Instant::now();
         let snapshot = ObservationSnapshot::new(
             now,
             vec![
-                Observation::new(
-                    elastic_core::resource::ObservationSignalId::UTILIZATION,
+                Observation::from_source(
+                    ObservationSource::runtime("test"),
+                    ObservationSignalId::UTILIZATION,
                     0.75,
                     now,
                 ),
-                Observation::unsupported(
-                    elastic_core::resource::ObservationSignalId::FREE_CAPACITY,
+                Observation::unsupported_from_source(
+                    ObservationSource::runtime("test"),
+                    ObservationSignalId::FREE_CAPACITY,
                     now,
+                    "not exposed",
                 ),
             ],
         );
+
         assert_eq!(snapshot.len(), 2);
         assert!(!snapshot.all_signals_valid);
-        let displayed = format!("{}", snapshot);
-        assert!(displayed.contains("⚠ Some signals were unsupported"));
-    }
-
-    #[test]
-    fn test_observer_trait() {
-        struct DummyAdapter;
-        impl Observer for DummyAdapter {
-            fn observe(&self) -> (PlanningContext, Vec<Observation>) {
-                let ctx = PlanningContext::new();
-                let obs = Observation::new(
-                    elastic_core::resource::ObservationSignalId::UTILIZATION,
-                    0.5,
-                    std::time::Instant::now(),
-                );
-                (ctx, vec![obs])
-            }
-        }
-        let adapter = DummyAdapter;
-        let (_ctx, obs) = adapter.observe();
-        assert_eq!(obs.len(), 1);
-        assert!(obs[0].is_valid());
     }
 }

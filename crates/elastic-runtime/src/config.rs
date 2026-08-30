@@ -25,9 +25,13 @@ pub struct RuntimeConfig {
     pub cadence: Cadence,
     /// Mode flags for the control loop.
     pub mode: RuntimeMode,
-    /// Maximum number of cycles to run before stopping (0 = infinite).
+    /// Maximum number of cycles for periodic operation.
+    ///
+    /// Bounded periodic execution requires this to be greater than zero.
+    /// One-shot modes always execute at most one cycle.
     pub max_cycles: u64,
-    /// Cycle interval in milliseconds for periodic mode.
+    /// Compatibility interval used when `mode = Periodic` and `cadence` has
+    /// not supplied an explicit duration.
     pub interval_ms: u64,
     /// Whether to collect and emit structured events.
     pub emit_events: bool,
@@ -38,9 +42,6 @@ pub struct RuntimeConfig {
 impl RuntimeConfig {}
 
 /// Planner configuration parameters.
-///
-/// Currently supports the `ThresholdPlanner` parameters, but is designed
-/// to be extensible with `#[serde(flatten)]` for future planner types.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlannerConfig {
     /// Threshold planner with high/low watermarks and step fraction.
@@ -49,22 +50,24 @@ pub enum PlannerConfig {
         low_watermark: f64,
         step_fraction: f64,
     },
-    /// No planner configured (observe-only mode will produce no candidates).
+    /// No planner configured.
     None,
 }
 
 /// Control loop execution mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RuntimeMode {
-    /// One-shot: run a single cycle and stop.
+    /// One-shot full cycle, still subject to the `dry_run` flag.
     OneShot,
-    /// Periodic: run cycles at the configured interval.
+    /// Periodic full cycles, bounded by `max_cycles`.
     Periodic,
-    /// Dry-run: plan and validate but never actuate physical resources.
+    /// Plan and validate but never actuate physical resources.
     DryRun,
-    /// Observe-only: collect observations, produce plans, but never commit.
+    /// Collect observations only; do not invoke the planner or validator.
     ObserveOnly,
-    /// Apply mode: full cycle with commit/rollback.
+    /// Collect observations and run the planner, but do not validate or actuate.
+    PlanOnly,
+    /// Full cycle with commit/rollback.
     Apply,
 }
 
@@ -114,10 +117,10 @@ impl Default for RuntimeConfig {
 /// Control loop cadence / timing.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub enum Cadence {
-    /// Run one cycle immediately and stop (one-shot).
+    /// Run one cycle immediately and stop.
     #[default]
     OneShot,
-    /// Run cycles periodically at the configured interval (milliseconds).
+    /// Run bounded cycles periodically at the configured interval.
     Periodic(Duration),
 }
 

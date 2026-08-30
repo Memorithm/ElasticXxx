@@ -93,6 +93,12 @@ impl ConcurrencyPermits {
         &self.ir
     }
 
+    /// Maximum concurrency width allowed by the trusted configuration.
+    #[must_use]
+    pub const fn max_width(&self) -> usize {
+        self.max_width
+    }
+
     /// The currently licensed width.
     #[must_use]
     pub const fn width(&self) -> usize {
