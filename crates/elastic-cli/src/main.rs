@@ -1,3 +1,5 @@
+use std::process::ExitCode;
+
 use clap::{Parser, Subcommand};
 
 mod commands;
@@ -12,43 +14,30 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    Inspect {
-        id: String,
-    },
-    Observe {
-        id: String,
-    },
-    Plan {
-        id: String,
-    },
-    Validate {
-        id: String,
-    },
-    Apply {
-        id: String,
-    },
-    Run {
-        id: String,
-    },
-    Watch {
-        id: String,
-        interval_ms: Option<u64>,
-    },
-    Explain {
-        id: String,
-    },
+    /// Inspect the normalized declaration and runtime configuration.
+    Inspect { id: String },
+    /// Collect real host observations with explicit provenance.
+    Observe { id: String },
+    /// Produce an auditable, non-actuating plan.
+    Plan { id: String },
+    /// Explain the planner outcome and its observation evidence.
+    Explain { id: String },
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cli = Cli::parse();
-    match cli.command {
+    let result = match cli.command {
         Commands::Inspect { id } => inspect(&id),
         Commands::Observe { id } => observe(&id),
         Commands::Plan { id } => plan(&id),
-        Commands::Validate { id } => validate(&id),
-        Commands::Apply { id } => apply(&id),
-        Commands::Run { id } => run(&id),
-        Commands::Watch { id, interval_ms } => watch(&id, interval_ms),
         Commands::Explain { id } => explain(&id),
+    };
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("elastic: {error}");
+            ExitCode::from(2)
+        }
     }
 }
