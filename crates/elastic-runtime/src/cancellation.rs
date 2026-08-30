@@ -1,7 +1,7 @@
 //! Cooperative cancellation for bounded runtime loops.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Cloneable cancellation signal shared with a running controller.
 #[derive(Clone, Debug, Default)]
