@@ -33,6 +33,11 @@ pub fn ram_in_use_bytes_signal() -> ObservationSignalId {
 }
 
 #[must_use]
+pub fn concurrency_capacity_signal() -> ObservationSignalId {
+    signal("concurrency-capacity")
+}
+
+#[must_use]
 pub fn concurrency_width_signal() -> ObservationSignalId {
     signal("concurrency-width")
 }
@@ -138,6 +143,7 @@ impl Observer for ConcurrencyPermitsObserver<'_> {
             .collect::<Vec<_>>();
 
         let extra = [
+            (concurrency_capacity_signal(), self.permits.max_width() as f64),
             (concurrency_width_signal(), self.permits.width() as f64),
             (active_permits_signal(), self.permits.active() as f64),
         ];
@@ -418,7 +424,7 @@ mod tests {
     }
 
     #[test]
-    fn concurrency_observer_exposes_width_and_active_permits() {
+    fn concurrency_observer_exposes_capacity_width_and_active_permits() {
         let mut permits = ConcurrencyPermits::new("workers", 8, 4).expect("valid permits");
         permits.acquire().expect("first permit");
         permits.acquire().expect("second permit");
@@ -426,6 +432,7 @@ mod tests {
 
         let (context, _) = observer.observe();
 
+        assert_eq!(context.get(concurrency_capacity_signal()), Some(8.0));
         assert_eq!(context.get(concurrency_width_signal()), Some(4.0));
         assert_eq!(context.get(active_permits_signal()), Some(2.0));
         assert_eq!(context.get(ObservationSignalId::UTILIZATION), Some(0.5));
