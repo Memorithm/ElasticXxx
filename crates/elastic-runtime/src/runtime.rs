@@ -275,14 +275,13 @@ impl Runtime {
                     });
                 }
                 Err(commit_error) => {
-                    let rollback =
-                        actuator
-                            .rollback(&actuation, &verification)
-                            .map_err(|error| {
-                                RuntimeError::rollback(format!(
-                                    "commit failed ({commit_error}); rollback also failed ({error})"
-                                ))
-                            })?;
+                    let rollback = actuator
+                        .rollback(&actuation, &verification)
+                        .map_err(|error| {
+                            RuntimeError::rollback(format!(
+                                "commit failed ({commit_error}); rollback also failed ({error})"
+                            ))
+                        })?;
                     let rollback = require_restored_rollback(
                         rollback,
                         &format!("commit failed ({commit_error})"),
@@ -420,7 +419,10 @@ impl Runtime {
         S: RuntimeEventSink,
     {
         let (cycle_limit, interval) = self.loop_schedule()?;
-        let mut cycles = Vec::with_capacity(usize::try_from(cycle_limit).unwrap_or(usize::MAX));
+        // Do not reserve from an operator-controlled cycle count. A very large
+        // bound must not cause a large allocation before cancellation or the
+        // first cycle has even been observed.
+        let mut cycles = Vec::new();
         let mut events = Vec::new();
 
         record_event(
@@ -637,7 +639,7 @@ mod tests {
             "mock"
         }
 
-        fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+        fn validate(&self, plan: &crate::Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
             self.validation_calls
                 .set(self.validation_calls.get().saturating_add(1));
             Ok(plan
@@ -960,6 +962,41 @@ mod tests {
             .expect("cancelled loop should stop cleanly");
 
         assert_eq!(result.cycles.len(), 1);
+        assert_eq!(result.stop_reason, LoopStopReason::Cancelled);
+        assert!(clock
+            .sleeps
+            .lock()
+            .expect("fake clock mutex should not be poisoned")
+            .is_empty());
+    }
+
+    #[test]
+    fn pre_cancelled_extreme_cycle_limit_does_not_preallocate() {
+        let runtime = Runtime::new(RuntimeConfig {
+            cadence: Cadence::Periodic(Duration::from_millis(1)),
+            mode: RuntimeMode::DryRun,
+            max_cycles: u64::MAX,
+            dry_run: false,
+            ..RuntimeConfig::default()
+        });
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        let clock = FakeClock::default();
+        let cancellation = CancellationToken::new();
+        cancellation.cancel();
+
+        let result = runtime
+            .run_with_clock(
+                &resource,
+                &FirstGroundedPlanner,
+                &(),
+                &mut actuator,
+                &cancellation,
+                &clock,
+            )
+            .expect("pre-cancelled loop should stop without allocating from the cycle limit");
+
+        assert!(result.cycles.is_empty());
         assert_eq!(result.stop_reason, LoopStopReason::Cancelled);
         assert!(clock
             .sleeps
