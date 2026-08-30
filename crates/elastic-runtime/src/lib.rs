@@ -1,13 +1,15 @@
 //! Operational runtime layer for ElasticXxx.
 //!
-//! This crate provides the observe-plan-actuate control loop and generic
-//! observer model for Elastic resources.
+//! This crate provides the observe-forecast-plan-actuate control loop and
+//! generic observer/forecaster model for Elastic resources.
 //!
 //! # Design
 //!
 //! The runtime wires together:
 //! - `ResourceSpec` describes what may change and what must be preserved;
 //! - EIR lowering produces a validated, fingerprinted IR node;
+//! - observers produce explicit telemetry evidence;
+//! - forecasters project that evidence without fabricating unavailable facts;
 //! - `TransitionPlanner` proposals flow through the planning contract;
 //! - adapters provide the trusted boundary for physical effects;
 //! - the control loop coordinates one-shot or bounded periodic evaluation.
@@ -22,6 +24,7 @@ pub mod config;
 pub mod control_loop;
 pub mod error;
 pub mod events;
+pub mod forecast;
 pub mod observation;
 pub mod observers;
 pub mod plan;
@@ -36,6 +39,7 @@ pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
+pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, Forecaster, ForecastStatus};
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
     active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
