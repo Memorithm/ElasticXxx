@@ -25,7 +25,13 @@ pub struct Controller<P, O, A> {
 
 impl<P, O, A> Controller<P, O, A> {
     #[must_use]
-    pub fn new(runtime: Runtime, resource: EirResource, planner: P, observer: O, actuator: A) -> Self {
+    pub fn new(
+        runtime: Runtime,
+        resource: EirResource,
+        planner: P,
+        observer: O,
+        actuator: A,
+    ) -> Self {
         Self {
             runtime,
             resource,
