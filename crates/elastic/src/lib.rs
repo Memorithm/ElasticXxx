@@ -26,7 +26,7 @@ pub use elastic_eir::{
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
     Actuation, Cadence, CancellationToken, CommitRecord, ConcurrencyPermitsObserver,
-    CurrentStateForecaster, CycleResult, EwmaForecaster, Forecast, Forecaster, ForecastStatus,
+    CurrentStateForecaster, CycleResult, EwmaForecaster, Forecast, ForecastStatus, Forecaster,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig,
     RamBudgetObserver, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
