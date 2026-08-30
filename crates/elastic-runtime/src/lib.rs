@@ -39,7 +39,7 @@ pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
-pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, Forecaster, ForecastStatus};
+pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
     active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
