@@ -6,20 +6,42 @@
 //! introduced.
 
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Instant;
 
 use elastic_adapters::{AdapterError, ConcurrencyPermits, RamBudget};
+use elastic_core::resource::ObservationSignalId;
 use elastic_eir::{EirResource, PlanningContext};
 
 use crate::{
-    Actuation, CommitRecord, ConcurrencyPermitsObserver, InvariantCheck, Observation, Observer,
-    Plan, RamBudgetObserver, RollbackRecord, RuntimeError, TransactionalActuator, ValidatedPlan,
-    VerificationResult,
+    Actuation, CommitRecord, ConcurrencyPermitsObserver, InvariantCheck, Observation,
+    ObservationSource, Observer, Plan, RamBudgetObserver, RollbackRecord, RuntimeError,
+    TransactionalActuator, ValidatedPlan, VerificationResult,
 };
 
 fn lock_error(component: &str) -> RuntimeError {
     RuntimeError::actuation(format!(
         "{component} shared adapter state lock was poisoned"
     ))
+}
+
+fn adapter_state_accessible_signal() -> ObservationSignalId {
+    ObservationSignalId::custom("adapter-state-accessible")
+        .expect("adapter-state-accessible is a valid observation signal")
+}
+
+fn poisoned_observation(
+    source: ObservationSource,
+    component: &str,
+) -> (PlanningContext, Vec<Observation>) {
+    (
+        PlanningContext::new(),
+        vec![Observation::unsupported_from_source(
+            source,
+            adapter_state_accessible_signal(),
+            Instant::now(),
+            format!("{component} shared adapter state lock was poisoned"),
+        )],
+    )
 }
 
 fn candidate_target(plan: &Plan) -> Result<u64, RuntimeError> {
@@ -43,16 +65,23 @@ fn successful_checks(plan: &Plan) -> Vec<InvariantCheck> {
         .collect()
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PreparedRam {
+    previous: u64,
+    target: u64,
+}
+
 #[derive(Debug)]
 struct RamState {
     resource: RamBudget,
-    rollback_target: Option<u64>,
+    prepared: Option<PreparedRam>,
 }
 
 /// Cloneable transactional handle around a real [`RamBudget`].
 #[derive(Clone, Debug)]
 pub struct TransactionalRam {
     state: Arc<Mutex<RamState>>,
+    source: ObservationSource,
 }
 
 impl TransactionalRam {
@@ -70,11 +99,14 @@ impl TransactionalRam {
         initial: u64,
         max_step: Option<u64>,
     ) -> Result<Self, AdapterError> {
+        let resource = RamBudget::new(id, host_total, min, max, initial, max_step)?;
+        let source = ObservationSource::Resource(resource.spec().resource_id().clone());
         Ok(Self {
             state: Arc::new(Mutex::new(RamState {
-                resource: RamBudget::new(id, host_total, min, max, initial, max_step)?,
-                rollback_target: None,
+                resource,
+                prepared: None,
             })),
+            source,
         })
     }
 
@@ -131,7 +163,7 @@ impl Observer for TransactionalRam {
     fn observe(&self) -> (PlanningContext, Vec<Observation>) {
         match self.state.lock() {
             Ok(state) => RamBudgetObserver::new(&state.resource).observe(),
-            Err(_) => (PlanningContext::new(), Vec::new()),
+            Err(_) => poisoned_observation(self.source.clone(), "RAM"),
         }
     }
 }
@@ -164,17 +196,19 @@ impl TransactionalActuator for TransactionalRam {
         }
         let target = candidate_target(&plan.plan)?;
         let mut state = self.lock()?;
-        state
-            .resource
-            .validate_resize(target)
-            .map_err(|error| RuntimeError::validation(error.to_string()))?;
-        if state.rollback_target.is_some() {
+        if state.prepared.is_some() {
             return Err(RuntimeError::actuation(
                 "RAM adapter already has a prepared transaction",
             ));
         }
-        let previous = state.resource.committed();
-        state.rollback_target = Some(previous);
+        state
+            .resource
+            .validate_resize(target)
+            .map_err(|error| RuntimeError::validation(error.to_string()))?;
+        state.prepared = Some(PreparedRam {
+            previous: state.resource.committed(),
+            target,
+        });
         Ok(Actuation::new(plan.clone(), Some(target), self.name()))
     }
 
@@ -183,10 +217,14 @@ impl TransactionalActuator for TransactionalRam {
             .target
             .ok_or_else(|| RuntimeError::actuation("RAM actuation has no target"))?;
         let mut state = self.lock()?;
-        if state.rollback_target.is_none() {
-            return Err(RuntimeError::actuation(
-                "RAM actuation was not prepared transactionally",
-            ));
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::actuation("RAM actuation was not prepared transactionally")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::actuation(format!(
+                "RAM actuation target {target} does not match prepared target {}",
+                prepared.target
+            )));
         }
         state
             .resource
@@ -199,7 +237,17 @@ impl TransactionalActuator for TransactionalRam {
         let target = actuation
             .target
             .ok_or_else(|| RuntimeError::verification("RAM actuation has no target"))?;
-        let current = self.lock()?.resource.committed();
+        let state = self.lock()?;
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::verification("RAM adapter has no prepared transaction to verify")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::verification(format!(
+                "RAM verification target {target} does not match prepared target {}",
+                prepared.target
+            )));
+        }
+        let current = state.resource.committed();
         if current == target {
             Ok(VerificationResult::Pass)
         } else {
@@ -209,13 +257,26 @@ impl TransactionalActuator for TransactionalRam {
         }
     }
 
-    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+    fn commit(&mut self, actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+        let target = actuation
+            .target
+            .ok_or_else(|| RuntimeError::commit("RAM actuation has no target"))?;
         let mut state = self.lock()?;
-        if state.rollback_target.take().is_none() {
-            return Err(RuntimeError::commit(
-                "RAM adapter has no prepared transaction to commit",
-            ));
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::commit("RAM adapter has no prepared transaction to commit")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::commit(format!(
+                "RAM commit target {target} does not match prepared target {}",
+                prepared.target
+            )));
         }
+        if state.resource.committed() != target {
+            return Err(RuntimeError::commit(format!(
+                "RAM target {target} is not the current committed state"
+            )));
+        }
+        state.prepared = None;
         Ok(CommitRecord::new(
             self.name(),
             "verified RAM resize committed",
@@ -224,36 +285,55 @@ impl TransactionalActuator for TransactionalRam {
 
     fn rollback(
         &mut self,
-        _actuation: &Actuation,
+        actuation: &Actuation,
         _verification: &VerificationResult,
     ) -> Result<RollbackRecord, RuntimeError> {
+        let target = actuation
+            .target
+            .ok_or_else(|| RuntimeError::rollback("RAM actuation has no target"))?;
         let mut state = self.lock()?;
-        let previous = state.rollback_target.take().ok_or_else(|| {
+        let prepared = state.prepared.ok_or_else(|| {
             RuntimeError::rollback("RAM adapter has no prepared transaction to roll back")
         })?;
+        if prepared.target != target {
+            return Err(RuntimeError::rollback(format!(
+                "RAM rollback target {target} does not match prepared target {}",
+                prepared.target
+            )));
+        }
         state
             .resource
-            .apply(previous)
+            .apply(prepared.previous)
             .map_err(|error| RuntimeError::rollback(error.to_string()))?;
-        let restored = state.resource.committed() == previous;
+        let restored = state.resource.committed() == prepared.previous;
+        if restored {
+            state.prepared = None;
+        }
         Ok(RollbackRecord::new(
             self.name(),
-            format!("restored RAM commitment to {previous}"),
+            format!("restored RAM commitment to {}", prepared.previous),
             restored,
         ))
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct PreparedConcurrency {
+    previous: usize,
+    target: usize,
+}
+
 #[derive(Debug)]
 struct ConcurrencyState {
     resource: ConcurrencyPermits,
-    rollback_target: Option<usize>,
+    prepared: Option<PreparedConcurrency>,
 }
 
 /// Cloneable transactional handle around [`ConcurrencyPermits`].
 #[derive(Clone, Debug)]
 pub struct TransactionalConcurrency {
     state: Arc<Mutex<ConcurrencyState>>,
+    source: ObservationSource,
 }
 
 impl TransactionalConcurrency {
@@ -263,11 +343,14 @@ impl TransactionalConcurrency {
     ///
     /// Returns the underlying [`AdapterError`] for invalid width bounds.
     pub fn new(id: &str, max_width: usize, initial_width: usize) -> Result<Self, AdapterError> {
+        let resource = ConcurrencyPermits::new(id, max_width, initial_width)?;
+        let source = ObservationSource::Resource(resource.spec().resource_id().clone());
         Ok(Self {
             state: Arc::new(Mutex::new(ConcurrencyState {
-                resource: ConcurrencyPermits::new(id, max_width, initial_width)?,
-                rollback_target: None,
+                resource,
+                prepared: None,
             })),
+            source,
         })
     }
 
@@ -322,7 +405,7 @@ impl Observer for TransactionalConcurrency {
     fn observe(&self) -> (PlanningContext, Vec<Observation>) {
         match self.state.lock() {
             Ok(state) => ConcurrencyPermitsObserver::new(&state.resource).observe(),
-            Err(_) => (PlanningContext::new(), Vec::new()),
+            Err(_) => poisoned_observation(self.source.clone(), "concurrency"),
         }
     }
 }
@@ -357,17 +440,19 @@ impl TransactionalActuator for TransactionalConcurrency {
         let target = usize::try_from(candidate_target(&plan.plan)?)
             .map_err(|_| RuntimeError::validation("concurrency target does not fit usize"))?;
         let mut state = self.lock()?;
-        state
-            .resource
-            .validate_resize(target)
-            .map_err(|error| RuntimeError::validation(error.to_string()))?;
-        if state.rollback_target.is_some() {
+        if state.prepared.is_some() {
             return Err(RuntimeError::actuation(
                 "concurrency adapter already has a prepared transaction",
             ));
         }
-        let previous = state.resource.width();
-        state.rollback_target = Some(previous);
+        state
+            .resource
+            .validate_resize(target)
+            .map_err(|error| RuntimeError::validation(error.to_string()))?;
+        state.prepared = Some(PreparedConcurrency {
+            previous: state.resource.width(),
+            target,
+        });
         Ok(Actuation::new(
             plan.clone(),
             Some(target as u64),
@@ -383,10 +468,14 @@ impl TransactionalActuator for TransactionalConcurrency {
         )
         .map_err(|_| RuntimeError::actuation("concurrency target does not fit usize"))?;
         let mut state = self.lock()?;
-        if state.rollback_target.is_none() {
-            return Err(RuntimeError::actuation(
-                "concurrency actuation was not prepared transactionally",
-            ));
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::actuation("concurrency actuation was not prepared transactionally")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::actuation(format!(
+                "concurrency actuation target {target} does not match prepared target {}",
+                prepared.target
+            )));
         }
         state
             .resource
@@ -401,7 +490,17 @@ impl TransactionalActuator for TransactionalConcurrency {
                 RuntimeError::verification("concurrency actuation has no target")
             })?)
             .map_err(|_| RuntimeError::verification("concurrency target does not fit usize"))?;
-        let current = self.lock()?.resource.width();
+        let state = self.lock()?;
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::verification("concurrency adapter has no prepared transaction to verify")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::verification(format!(
+                "concurrency verification target {target} does not match prepared target {}",
+                prepared.target
+            )));
+        }
+        let current = state.resource.width();
         if current == target {
             Ok(VerificationResult::Pass)
         } else {
@@ -411,13 +510,29 @@ impl TransactionalActuator for TransactionalConcurrency {
         }
     }
 
-    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+    fn commit(&mut self, actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+        let target = usize::try_from(
+            actuation
+                .target
+                .ok_or_else(|| RuntimeError::commit("concurrency actuation has no target"))?,
+        )
+        .map_err(|_| RuntimeError::commit("concurrency target does not fit usize"))?;
         let mut state = self.lock()?;
-        if state.rollback_target.take().is_none() {
-            return Err(RuntimeError::commit(
-                "concurrency adapter has no prepared transaction to commit",
-            ));
+        let prepared = state.prepared.ok_or_else(|| {
+            RuntimeError::commit("concurrency adapter has no prepared transaction to commit")
+        })?;
+        if prepared.target != target {
+            return Err(RuntimeError::commit(format!(
+                "concurrency commit target {target} does not match prepared target {}",
+                prepared.target
+            )));
         }
+        if state.resource.width() != target {
+            return Err(RuntimeError::commit(format!(
+                "concurrency target {target} is not the current licensed width"
+            )));
+        }
+        state.prepared = None;
         Ok(CommitRecord::new(
             self.name(),
             "verified concurrency resize committed",
@@ -426,21 +541,36 @@ impl TransactionalActuator for TransactionalConcurrency {
 
     fn rollback(
         &mut self,
-        _actuation: &Actuation,
+        actuation: &Actuation,
         _verification: &VerificationResult,
     ) -> Result<RollbackRecord, RuntimeError> {
+        let target = usize::try_from(
+            actuation
+                .target
+                .ok_or_else(|| RuntimeError::rollback("concurrency actuation has no target"))?,
+        )
+        .map_err(|_| RuntimeError::rollback("concurrency target does not fit usize"))?;
         let mut state = self.lock()?;
-        let previous = state.rollback_target.take().ok_or_else(|| {
+        let prepared = state.prepared.ok_or_else(|| {
             RuntimeError::rollback("concurrency adapter has no prepared transaction to roll back")
         })?;
+        if prepared.target != target {
+            return Err(RuntimeError::rollback(format!(
+                "concurrency rollback target {target} does not match prepared target {}",
+                prepared.target
+            )));
+        }
         state
             .resource
-            .apply(previous)
+            .apply(prepared.previous)
             .map_err(|error| RuntimeError::rollback(error.to_string()))?;
-        let restored = state.resource.width() == previous;
+        let restored = state.resource.width() == prepared.previous;
+        if restored {
+            state.prepared = None;
+        }
         Ok(RollbackRecord::new(
             self.name(),
-            format!("restored concurrency width to {previous}"),
+            format!("restored concurrency width to {}", prepared.previous),
             restored,
         ))
     }
@@ -490,6 +620,54 @@ mod tests {
     }
 
     #[test]
+    fn transactional_ram_rejects_actuation_that_differs_from_prepared_target() {
+        let adapter = TransactionalRam::new("ram", 4096, 512, 4096, 1024, Some(2048)).unwrap();
+        let mut actuator = adapter.clone();
+        let resource = adapter.ir().unwrap();
+        let planner = HeadroomPlanner::new(0.5, 0.0).unwrap();
+        let (context, _) = adapter.observe();
+        let plan = plan_with_context(&planner, &resource, &context);
+        let checks = actuator.validate(&plan).unwrap();
+        let validated = validate_with_checks(plan, checks);
+        let actuation = actuator.prepare(&validated).unwrap();
+        let forged_target = actuation.target.unwrap().saturating_add(1);
+        let forged = Actuation::new(validated, Some(forged_target), actuator.name());
+
+        assert!(actuator.actuate(&forged).is_err());
+        assert_eq!(adapter.committed().unwrap(), 1024);
+        actuator
+            .rollback(
+                &actuation,
+                &VerificationResult::Inconclusive {
+                    detail: "forged actuation rejected".into(),
+                },
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn poisoned_ram_observer_reports_unsupported_evidence() {
+        let adapter = TransactionalRam::new("ram", 4096, 512, 4096, 1024, None).unwrap();
+        let poison = adapter.clone();
+        let joined = std::thread::spawn(move || {
+            let _guard = poison.state.lock().unwrap();
+            panic!("poison RAM state for observer test");
+        })
+        .join();
+        assert!(joined.is_err());
+
+        let (context, observations) = adapter.observe();
+        assert!(context.iter().next().is_none());
+        assert_eq!(observations.len(), 1);
+        assert!(observations[0].is_unsupported());
+        assert_eq!(observations[0].source, adapter.source);
+        assert!(observations[0]
+            .unsupported_reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("poisoned")));
+    }
+
+    #[test]
     fn transactional_concurrency_rolls_back_to_previous_width() {
         let adapter = TransactionalConcurrency::new("workers", 8, 4).unwrap();
         let mut actuator = adapter.clone();
@@ -513,5 +691,32 @@ mod tests {
             )
             .unwrap();
         assert_eq!(adapter.width().unwrap(), 4);
+    }
+
+    #[test]
+    fn transactional_concurrency_rejects_actuation_that_differs_from_prepared_target() {
+        let adapter = TransactionalConcurrency::new("workers", 8, 4).unwrap();
+        let mut actuator = adapter.clone();
+        let resource = adapter.ir().unwrap();
+        let plan = plan_with_context(
+            &ConcurrencyTargetPlanner(2),
+            &resource,
+            &PlanningContext::new(),
+        );
+        let checks = actuator.validate(&plan).unwrap();
+        let validated = validate_with_checks(plan, checks);
+        let actuation = actuator.prepare(&validated).unwrap();
+        let forged = Actuation::new(validated, Some(3), actuator.name());
+
+        assert!(actuator.actuate(&forged).is_err());
+        assert_eq!(adapter.width().unwrap(), 4);
+        actuator
+            .rollback(
+                &actuation,
+                &VerificationResult::Inconclusive {
+                    detail: "forged actuation rejected".into(),
+                },
+            )
+            .unwrap();
     }
 }
