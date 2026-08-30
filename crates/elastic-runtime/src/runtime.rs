@@ -275,13 +275,14 @@ impl Runtime {
                     });
                 }
                 Err(commit_error) => {
-                    let rollback = actuator
-                        .rollback(&actuation, &verification)
-                        .map_err(|error| {
-                            RuntimeError::rollback(format!(
-                                "commit failed ({commit_error}); rollback also failed ({error})"
-                            ))
-                        })?;
+                    let rollback =
+                        actuator
+                            .rollback(&actuation, &verification)
+                            .map_err(|error| {
+                                RuntimeError::rollback(format!(
+                                    "commit failed ({commit_error}); rollback also failed ({error})"
+                                ))
+                            })?;
                     let rollback = require_restored_rollback(
                         rollback,
                         &format!("commit failed ({commit_error})"),
