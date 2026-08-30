@@ -106,12 +106,7 @@ impl Observer for RamBudgetObserver<'_> {
         ];
         for (signal, value) in extra {
             context = context.observe(signal.clone(), value);
-            observations.push(Observation::from_source(
-                source.clone(),
-                signal,
-                value,
-                now,
-            ));
+            observations.push(Observation::from_source(source.clone(), signal, value, now));
         }
 
         (context, observations)
@@ -144,18 +139,16 @@ impl Observer for ConcurrencyPermitsObserver<'_> {
             .collect::<Vec<_>>();
 
         let extra = [
-            (concurrency_capacity_signal(), self.permits.max_width() as f64),
+            (
+                concurrency_capacity_signal(),
+                self.permits.max_width() as f64,
+            ),
             (concurrency_width_signal(), self.permits.width() as f64),
             (active_permits_signal(), self.permits.active() as f64),
         ];
         for (signal, value) in extra {
             context = context.observe(signal.clone(), value);
-            observations.push(Observation::from_source(
-                source.clone(),
-                signal,
-                value,
-                now,
-            ));
+            observations.push(Observation::from_source(source.clone(), signal, value, now));
         }
 
         (context, observations)
@@ -307,9 +300,7 @@ fn unsupported_host_memory(
         host_memory_utilization_signal(),
     ]
     .into_iter()
-    .map(|signal| {
-        Observation::unsupported_from_source(source.clone(), signal, now, reason.clone())
-    })
+    .map(|signal| Observation::unsupported_from_source(source.clone(), signal, now, reason.clone()))
     .collect()
 }
 
@@ -322,7 +313,8 @@ fn observations_from_meminfo(
     let total = meminfo_bytes(content, "MemTotal:");
     let available = meminfo_bytes(content, "MemAvailable:");
     let used = total.zip(available).and_then(|(total, available)| {
-        total.checked_sub(available)
+        total
+            .checked_sub(available)
             .map(|used| (total, available, used))
     });
 
@@ -417,8 +409,8 @@ mod tests {
 
     #[test]
     fn ram_observer_exposes_budget_and_usage() {
-        let mut budget = RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048))
-            .expect("valid RAM budget");
+        let mut budget =
+            RamBudget::new("ram", 4096, 512, 4096, 1024, Some(2048)).expect("valid RAM budget");
         budget.record_use(256).expect("usage fits budget");
         let observer = RamBudgetObserver::new(&budget);
 
@@ -451,8 +443,7 @@ mod tests {
 
     #[test]
     fn observer_set_merges_disjoint_provider_contexts() {
-        let budget =
-            RamBudget::new("ram", 4096, 512, 4096, 1024, None).expect("valid RAM budget");
+        let budget = RamBudget::new("ram", 4096, 512, 4096, 1024, None).expect("valid RAM budget");
         let timing = RuntimeTimingObserver::default();
         let ram = RamBudgetObserver::new(&budget);
         let mut set = ObserverSet::new();
@@ -503,11 +494,8 @@ mod tests {
     fn meminfo_parser_uses_bytes_and_never_missing_field_zero() {
         let sample = "MemTotal:       1000 kB\nMemAvailable:    250 kB\n";
         let now = Instant::now();
-        let observations = observations_from_meminfo(
-            sample,
-            ObservationSource::host("test:/proc/meminfo"),
-            now,
-        );
+        let observations =
+            observations_from_meminfo(sample, ObservationSource::host("test:/proc/meminfo"), now);
 
         let total = observations
             .iter()
