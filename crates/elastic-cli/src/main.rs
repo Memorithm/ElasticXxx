@@ -47,6 +47,45 @@ impl From<RamArgs> for RamCommandOptions {
     }
 }
 
+#[derive(Clone, Copy, Debug, Args)]
+struct AdaptiveRamArgs {
+    /// Operator-supplied maximum memory available to this resource, in bytes.
+    #[arg(long)]
+    host_total: u64,
+    /// Minimum permitted commitment, in bytes.
+    #[arg(long)]
+    min: u64,
+    /// Maximum permitted commitment, in bytes.
+    #[arg(long)]
+    max: u64,
+    /// Initial real allocation, in bytes.
+    #[arg(long)]
+    initial: u64,
+    /// Optional maximum absolute resize step, in bytes.
+    #[arg(long)]
+    max_step: Option<u64>,
+    /// Desired free-memory fraction of the configured host total.
+    #[arg(long)]
+    headroom: f64,
+    /// Fractional deadband around the desired headroom.
+    #[arg(long, default_value_t = 0.0)]
+    deadband: f64,
+}
+
+impl From<AdaptiveRamArgs> for AdaptiveRamOptions {
+    fn from(args: AdaptiveRamArgs) -> Self {
+        Self {
+            host_total: args.host_total,
+            min: args.min,
+            max: args.max,
+            initial: args.initial,
+            max_step: args.max_step,
+            headroom: args.headroom,
+            deadband: args.deadband,
+        }
+    }
+}
+
 #[derive(Subcommand)]
 enum Commands {
     /// Inspect the normalized declaration and runtime configuration.
@@ -67,6 +106,24 @@ enum Commands {
         #[command(flatten)]
         ram: RamArgs,
     },
+    /// Run one adaptive transactional control cycle.
+    Run {
+        id: String,
+        #[command(flatten)]
+        ram: AdaptiveRamArgs,
+    },
+    /// Run a bounded periodic adaptive controller.
+    Watch {
+        id: String,
+        #[command(flatten)]
+        ram: AdaptiveRamArgs,
+        /// Milliseconds between completed cycles. Must be greater than zero.
+        #[arg(long)]
+        interval_ms: u64,
+        /// Maximum number of cycles. Must be greater than zero.
+        #[arg(long)]
+        max_cycles: u64,
+    },
     /// Explain the planner outcome and its observation evidence.
     Explain { id: String },
 }
@@ -79,6 +136,13 @@ fn main() -> ExitCode {
         Commands::Plan { id } => plan(&id),
         Commands::Validate { id, ram } => validate(&id, ram.into()),
         Commands::Apply { id, ram } => apply(&id, ram.into()),
+        Commands::Run { id, ram } => run(&id, ram.into()),
+        Commands::Watch {
+            id,
+            ram,
+            interval_ms,
+            max_cycles,
+        } => watch(&id, ram.into(), interval_ms, max_cycles),
         Commands::Explain { id } => explain(&id),
     };
 
