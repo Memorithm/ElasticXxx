@@ -29,9 +29,13 @@ where
 {
     let (current, snapshot) = collect_observations(observer);
     let forecast = forecaster.forecast(&snapshot, &current)?;
-    let plan = forecast
-        .planning_context()
-        .map(|context| plan_with_context(planner, resource, context));
+    let plan = if forecast.is_available() {
+        forecast
+            .planning_context()
+            .map(|context| plan_with_context(planner, resource, context))
+    } else {
+        None
+    };
     Ok((snapshot, forecast, plan))
 }
 
@@ -103,6 +107,27 @@ mod tests {
         }
     }
 
+    struct InconsistentUnsupportedForecaster;
+
+    impl Forecaster for InconsistentUnsupportedForecaster {
+        fn forecast(
+            &self,
+            _observations: &ObservationSnapshot,
+            _current: &PlanningContext,
+        ) -> Result<Forecast, RuntimeError> {
+            Ok(Forecast {
+                status: ForecastStatus::Unsupported,
+                context: Some(
+                    PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 1.0),
+                ),
+                horizon: Duration::from_secs(1),
+                method: "malformed-test".to_owned(),
+                confidence: None,
+                detail: Some("unsupported status must dominate stray context".to_owned()),
+            })
+        }
+    }
+
     #[test]
     fn collect_observations_preserves_context_and_evidence() {
         let (context, snapshot) = collect_observations(&TestObserver);
@@ -137,6 +162,22 @@ mod tests {
         .expect("unsupported forecast is an explicit outcome, not a runtime error");
 
         assert_eq!(forecast.status, ForecastStatus::Unsupported);
+        assert!(plan.is_none());
+    }
+
+    #[test]
+    fn unavailable_status_dominates_stray_forecast_context() {
+        let resource = crate::RuntimeConfig::default().ir_resource;
+        let (_snapshot, forecast, plan) = observe_forecast_and_plan(
+            &FirstGroundedPlanner,
+            &resource,
+            &TestObserver,
+            &InconsistentUnsupportedForecaster,
+        )
+        .expect("malformed unavailable forecast must fail closed without a plan");
+
+        assert_eq!(forecast.status, ForecastStatus::Unsupported);
+        assert!(forecast.planning_context().is_some());
         assert!(plan.is_none());
     }
 }

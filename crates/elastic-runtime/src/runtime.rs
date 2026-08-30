@@ -402,6 +402,10 @@ impl Runtime {
     }
 
     /// Run a bounded controller with deterministic timing and streamed events.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "trust-boundary dependencies stay explicit for auditability"
+    )]
     pub fn run_with_clock_and_sink<P, O, A, C, S>(
         &self,
         resource: &EirResource,
@@ -606,7 +610,7 @@ mod tests {
     use std::sync::Mutex;
 
     use super::*;
-    use crate::{InvariantCheck, Plan};
+    use crate::InvariantCheck;
     use elastic_eir::FirstGroundedPlanner;
 
     struct MockActuator {
