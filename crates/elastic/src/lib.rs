@@ -25,14 +25,16 @@ pub use elastic_eir::{
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
-    Actuation, Cadence, CancellationToken, CommitRecord, ConcurrencyPermitsObserver, Controller,
-    CurrentStateForecaster, CycleResult, EwmaForecaster, Forecast, ForecastStatus, Forecaster,
+    Actuation, Cadence, CadenceConfig, CancellationToken, CommitRecord, ConcurrencyPermitsObserver,
+    Controller, ControllerConfig, CurrentStateForecaster, CycleResult, EwmaForecaster,
+    ExecutionModeConfig, Forecast, ForecastStatus, Forecaster, ForecasterSelection,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
-    ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig,
-    RamBudgetObserver, RegisteredResource, ResourceRegistry, RollbackRecord, RunResult, Runtime,
-    RuntimeClock, RuntimeConfig, RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink,
-    RuntimeMode, RuntimeTimingObserver, SystemClock, TransactionalActuator,
-    TransactionalConcurrency, TransactionalRam, ValidatedPlan, VerificationResult,
+    ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig, Plan,
+    PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
+    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError,
+    RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
+    TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
+    VerificationResult, OPERATOR_CONFIG_VERSION,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -58,10 +60,11 @@ pub mod prelude {
     pub use elastic_eir::{lower, EirDocument, EirResource, TransitionPlanner};
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
-        CancellationToken, ConcurrencyPermitsObserver, Controller, CurrentStateForecaster,
-        EwmaForecaster, Forecast, Forecaster, HostMemoryObserver, Observation, Observer,
-        RamBudgetObserver, RegisteredResource, ResourceRegistry, Runtime, RuntimeConfig,
-        RuntimeError, RuntimeMode, TransactionalActuator, TransactionalConcurrency,
-        TransactionalRam, VerificationResult,
+        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, Controller, ControllerConfig,
+        CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig, Forecast, Forecaster,
+        ForecasterSelection, HostMemoryObserver, Observation, Observer, OperatorConfig,
+        PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry,
+        Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
+        TransactionalConcurrency, TransactionalRam, VerificationResult, OPERATOR_CONFIG_VERSION,
     };
 }
