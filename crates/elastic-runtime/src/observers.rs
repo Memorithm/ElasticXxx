@@ -5,6 +5,7 @@
 //! EIR. Linux memory discovery uses `/proc/meminfo`; unsupported platforms or
 //! unavailable fields produce explicit unsupported observations.
 
+use std::collections::BTreeSet;
 use std::time::Instant;
 
 use elastic_adapters::{ConcurrencyPermits, RamBudget};
@@ -216,6 +217,12 @@ impl Observer for RuntimeTimingObserver {
 }
 
 /// Deterministic ordered composition of several observation providers.
+///
+/// [`PlanningContext`] is keyed only by signal identity, not by source. When
+/// several providers publish the same planner-facing signal, the first
+/// registered provider therefore keeps authority for that signal. All emitted
+/// observations are still retained for auditability, so the disagreement is
+/// visible rather than silently overwriting the planner input.
 pub struct ObserverSet<'a> {
     observers: Vec<&'a dyn Observer>,
 }
@@ -233,7 +240,7 @@ impl<'a> ObserverSet<'a> {
     }
 }
 
-impl Default for ObserverSet<'_> {
+impl<'a> Default for ObserverSet<'a> {
     fn default() -> Self {
         Self::new()
     }
@@ -243,11 +250,14 @@ impl Observer for ObserverSet<'_> {
     fn observe(&self) -> (PlanningContext, Vec<Observation>) {
         let mut context = PlanningContext::new();
         let mut observations = Vec::new();
+        let mut claimed_signals = BTreeSet::new();
 
         for observer in &self.observers {
             let (provider_context, mut provider_observations) = observer.observe();
             for (signal, value) in provider_context.iter() {
-                context = context.observe(signal.clone(), value);
+                if claimed_signals.insert(signal.clone()) {
+                    context = context.observe(signal.clone(), value);
+                }
             }
             observations.append(&mut provider_observations);
         }
@@ -394,10 +404,11 @@ fn meminfo_bytes(content: &str, key: &str) -> Option<u64> {
     let line = content.lines().find(|line| line.starts_with(key))?;
     let mut fields = line[key.len()..].split_whitespace();
     let kib = fields.next()?.parse::<u64>().ok()?;
-    match fields.next() {
-        Some("kB") | None => kib.checked_mul(1024),
-        Some(_) => None,
+    let unit = fields.next()?;
+    if unit != "kB" {
+        return None;
     }
+    kib.checked_mul(1024)
 }
 
 #[cfg(test)]
@@ -439,7 +450,7 @@ mod tests {
     }
 
     #[test]
-    fn observer_set_merges_provider_contexts_in_registration_order() {
+    fn observer_set_merges_disjoint_provider_contexts() {
         let budget =
             RamBudget::new("ram", 4096, 512, 4096, 1024, None).expect("valid RAM budget");
         let timing = RuntimeTimingObserver::default();
@@ -453,6 +464,38 @@ mod tests {
         assert!(context.get(runtime_uptime_seconds_signal()).is_some());
         assert!(context.get(ram_configured_max_bytes_signal()).is_some());
         assert!(!observations.is_empty());
+    }
+
+    #[test]
+    fn observer_set_keeps_first_value_for_duplicate_planning_signal() {
+        struct FixedObserver(f64);
+
+        impl Observer for FixedObserver {
+            fn observe(&self) -> (PlanningContext, Vec<Observation>) {
+                let signal = ObservationSignalId::UTILIZATION;
+                let now = Instant::now();
+                (
+                    PlanningContext::new().observe(signal.clone(), self.0),
+                    vec![Observation::from_source(
+                        ObservationSource::runtime(format!("fixed-{}", self.0)),
+                        signal,
+                        self.0,
+                        now,
+                    )],
+                )
+            }
+        }
+
+        let first = FixedObserver(0.25);
+        let second = FixedObserver(0.75);
+        let mut set = ObserverSet::new();
+        set.push(&first);
+        set.push(&second);
+
+        let (context, observations) = set.observe();
+
+        assert_eq!(context.get(ObservationSignalId::UTILIZATION), Some(0.25));
+        assert_eq!(observations.len(), 2);
     }
 
     #[cfg(target_os = "linux")]
@@ -488,5 +531,27 @@ mod tests {
             .expect("available observation");
         assert!(available.is_unsupported());
         assert!(available.value.is_nan());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn meminfo_parser_rejects_missing_or_unknown_units() {
+        let now = Instant::now();
+        for sample in [
+            "MemTotal: 1000\nMemAvailable: 250 kB\n",
+            "MemTotal: 1000 bytes\nMemAvailable: 250 kB\n",
+        ] {
+            let observations = observations_from_meminfo(
+                sample,
+                ObservationSource::host("test:/proc/meminfo"),
+                now,
+            );
+            let total = observations
+                .iter()
+                .find(|observation| observation.signal == host_memory_total_bytes_signal())
+                .expect("total observation");
+            assert!(total.is_unsupported());
+            assert!(total.value.is_nan());
+        }
     }
 }
