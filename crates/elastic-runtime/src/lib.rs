@@ -39,8 +39,8 @@ pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
     ConcurrencyPermitsObserver, HostMemoryObserver, ObserverSet, RamBudgetObserver,
-    RuntimeTimingObserver, active_permits_signal, concurrency_width_signal,
-    host_memory_available_bytes_signal, host_memory_total_bytes_signal,
+    RuntimeTimingObserver, active_permits_signal, concurrency_capacity_signal,
+    concurrency_width_signal, host_memory_available_bytes_signal, host_memory_total_bytes_signal,
     host_memory_used_bytes_signal, host_memory_utilization_signal, ram_configured_max_bytes_signal,
     ram_configured_min_bytes_signal, ram_in_use_bytes_signal, runtime_uptime_seconds_signal,
 };
