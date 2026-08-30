@@ -8,9 +8,7 @@ use std::time::Instant;
 
 /// Collect one observation snapshot and its exact planner-facing context.
 #[must_use]
-pub fn collect_observations<O: Observer>(
-    observer: &O,
-) -> (PlanningContext, ObservationSnapshot) {
+pub fn collect_observations<O: Observer>(observer: &O) -> (PlanningContext, ObservationSnapshot) {
     let (context, observations) = observer.observe();
     let snapshot = ObservationSnapshot::new(Instant::now(), observations);
     (context, snapshot)
@@ -78,6 +76,9 @@ mod tests {
             .expect("observation and planning should succeed");
 
         assert_eq!(snapshot.len(), 1);
-        assert_eq!(plan.context.get(ObservationSignalId::UTILIZATION), Some(0.5));
+        assert_eq!(
+            plan.context.get(ObservationSignalId::UTILIZATION),
+            Some(0.5)
+        );
     }
 }
