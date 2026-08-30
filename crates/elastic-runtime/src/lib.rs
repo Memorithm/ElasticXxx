@@ -30,6 +30,7 @@ pub mod observation;
 pub mod observers;
 pub mod plan;
 pub mod reference_adapters;
+pub mod registry;
 pub mod runtime;
 pub mod transaction;
 pub mod verification;
@@ -54,6 +55,7 @@ pub use observers::{
 };
 pub use plan::{InvariantCheck, Plan, ValidatedPlan};
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};
+pub use registry::{RegisteredResource, ResourceRegistry};
 pub use runtime::{CycleResult, LoopStopReason, RunResult, Runtime};
 pub use transaction::TransactionalActuator;
 pub use verification::VerificationResult;
