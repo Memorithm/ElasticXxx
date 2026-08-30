@@ -4,6 +4,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
+    #[error("configuration error: {0}")]
+    Configuration(String),
     #[error("observation error: {0}")]
     Observation(String),
     #[error("planning error: {0}")]
@@ -21,6 +23,10 @@ pub enum RuntimeError {
 }
 
 impl RuntimeError {
+    pub fn configuration(msg: impl Into<String>) -> Self {
+        Self::Configuration(msg.into())
+    }
+
     pub fn observation(msg: impl Into<String>) -> Self {
         Self::Observation(msg.into())
     }
