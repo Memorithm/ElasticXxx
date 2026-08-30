@@ -396,12 +396,11 @@ impl TransactionalActuator for TransactionalConcurrency {
     }
 
     fn verify(&self, actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
-        let target = usize::try_from(
-            actuation
-                .target
-                .ok_or_else(|| RuntimeError::verification("concurrency actuation has no target"))?,
-        )
-        .map_err(|_| RuntimeError::verification("concurrency target does not fit usize"))?;
+        let target =
+            usize::try_from(actuation.target.ok_or_else(|| {
+                RuntimeError::verification("concurrency actuation has no target")
+            })?)
+            .map_err(|_| RuntimeError::verification("concurrency target does not fit usize"))?;
         let current = self.lock()?.resource.width();
         if current == target {
             Ok(VerificationResult::Pass)
@@ -474,8 +473,7 @@ mod tests {
 
     #[test]
     fn transactional_ram_observer_and_actuator_share_one_state() {
-        let adapter =
-            TransactionalRam::new("ram", 4096, 512, 4096, 1024, Some(2048)).unwrap();
+        let adapter = TransactionalRam::new("ram", 4096, 512, 4096, 1024, Some(2048)).unwrap();
         let observer = adapter.clone();
         let mut actuator = adapter.clone();
         let resource = adapter.ir().unwrap();
