@@ -34,5 +34,27 @@ pub enum RuntimeEventKind {
     RollbackExecuted,
     CycleStarted,
     CycleCompleted,
+    ControlLoopStarted,
+    ControlLoopStopped,
+    CancellationObserved,
     ErrorEncountered,
+}
+
+/// Streaming boundary for runtime events.
+pub trait RuntimeEventSink {
+    fn emit(&mut self, event: &RuntimeEvent);
+}
+
+/// Event sink that intentionally discards streamed events.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoopEventSink;
+
+impl RuntimeEventSink for NoopEventSink {
+    fn emit(&mut self, _event: &RuntimeEvent) {}
+}
+
+impl RuntimeEventSink for Vec<RuntimeEvent> {
+    fn emit(&mut self, event: &RuntimeEvent) {
+        self.push(event.clone());
+    }
 }
