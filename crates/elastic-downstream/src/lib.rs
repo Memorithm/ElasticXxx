@@ -23,10 +23,11 @@ pub struct DownstreamKv;
 /// Proof that a downstream crate can build and execute a real controller while
 /// depending only on `elastic`.
 pub fn public_surface_smoke() {
-    let adapter =
-        TransactionalRam::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
-            .expect("valid downstream RAM fixture");
-    let resource = adapter.ir().expect("downstream RAM EIR should be available");
+    let adapter = TransactionalRam::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
+        .expect("valid downstream RAM fixture");
+    let resource = adapter
+        .ir()
+        .expect("downstream RAM EIR should be available");
     let observer = adapter.clone();
     let actuator = adapter.clone();
     let planner = HeadroomPlanner::new(0.5, 0.0).expect("valid headroom policy");
