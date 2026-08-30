@@ -267,7 +267,10 @@ mod tests {
             &resource,
             &elastic_eir::PlanningContext::new(),
         );
-        assert_eq!(plan.candidate().and_then(|candidate| candidate.magnitude()), Some(2048));
+        assert_eq!(
+            plan.candidate().and_then(|candidate| candidate.magnitude()),
+            Some(2048)
+        );
     }
 
     #[test]
