@@ -41,9 +41,20 @@ pub struct RuntimeConfig {
 
 impl RuntimeConfig {}
 
-/// Planner configuration parameters.
+/// Planner configuration parameters retained with the runtime for inspection
+/// and audit. The executable planner object is owned separately by the
+/// controller.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlannerConfig {
+    /// Deterministic first grounded transition selector. This carries no
+    /// quantitative target and is therefore suitable only for non-actuating
+    /// configured modes.
+    FirstGrounded,
+    /// Absolute free-capacity headroom regulator.
+    Headroom {
+        headroom_fraction: f64,
+        deadband_fraction: f64,
+    },
     /// Threshold planner with high/low watermarks and step fraction.
     Threshold {
         high_watermark: f64,
