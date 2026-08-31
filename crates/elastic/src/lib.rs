@@ -31,7 +31,8 @@ pub use elastic_runtime::{
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig,
     RamBudgetObserver, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
     RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
-    RuntimeTimingObserver, SystemClock, TransactionalActuator, ValidatedPlan, VerificationResult,
+    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
+    TransactionalRam, ValidatedPlan, VerificationResult,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -42,6 +43,7 @@ pub mod runtime {
 /// Reference in-process adapters and planners.
 pub mod adapters {
     pub use elastic_adapters::*;
+    pub use elastic_runtime::{TransactionalConcurrency, TransactionalRam};
 }
 
 /// Everything needed by a typical Elastic application.
@@ -59,6 +61,6 @@ pub mod prelude {
         CancellationToken, ConcurrencyPermitsObserver, CurrentStateForecaster, EwmaForecaster,
         Forecast, Forecaster, HostMemoryObserver, Observation, Observer, RamBudgetObserver,
         Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
-        VerificationResult,
+        TransactionalConcurrency, TransactionalRam, VerificationResult,
     };
 }
