@@ -1,0 +1,305 @@
+schema_version: 1
+kind: elasticxxx_ecosystem_agent_roadmap
+status: active
+last_updated: "2026-08-31"
+repository: Memorithm/ElasticXxx
+intended_consumer: autonomous_coding_agent
+visibility_note: >-
+  This roadmap is intentionally kept off the default branch on an agent-oriented
+  branch. Never store secrets, credentials, private keys, or sensitive deployment
+  data here.
+merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
+
+mission:
+  primary: >-
+    Turn ElasticXxx from a strong research prototype/library into the first usable
+    end-to-end elastic resource runtime for Rust while preserving the existing
+    typed model, EIR, validation, actuation, representation, kernel, and rollback
+    foundations.
+  operational_loop: OBSERVE -> FORECAST -> PLAN -> VALIDATE -> ACT -> VERIFY -> COMMIT_OR_ROLLBACK
+  ecosystem_goal: >-
+    Become the generic adaptive-control layer of the Memorithm ecosystem. Consume
+    capabilities, measurements, candidates, and evidence from specialized
+    products while leaving their domain semantics and execution internals in their
+    owning repositories.
+
+verified_current_facts:
+  - ElasticXxx_is_a_research_project_for_type_safe_adaptive_computational_resources
+  - elastic_core_elastic_eir_elastic_macros_elastic_facade_elastic_adapters_elastic_downstream_elastic_kv_and_elastic_kernel_exist
+  - PLAN_VALIDATE_COMMIT_or_ROLLBACK_semantics_already_exist_in_the_foundation
+  - RAM_budget_and_concurrency_actuation_boundaries_exist
+  - representation_and_kernel_realization_planning_foundations_exist
+  - production_crates_currently_forbid_unsafe_code
+  - the_semantic_core_is_designed_without_OS_filesystem_or_accelerator_assumptions
+  - SLHAv2_is_documented_as_the_first_demanding_reference_environment
+
+invariants:
+  - correctness_and_declared_semantics_dominate_optimization
+  - no_fabricated_performance_claims
+  - no_fabricated_scientific_novelty
+  - do_not_rewrite_existing_foundations_without_a_demonstrated_contract_gap
+  - every_physical_change_requires_revalidation_of_relevant_invariants
+  - failed_verification_requires_rollback_or_fail_closed_terminal_state
+  - planning_measurement_and_actuation_must_remain_auditable
+  - resource_objectives_must_not_silently_weaken_application_semantics
+  - specialized_product_semantics_remain_owned_by_specialized_repositories
+  - cross_repository_contracts_are_not_assumed_until_versioned_and_tested
+  - required_CI_must_be_green_on_the_exact_PR_head_before_merge
+
+ownership:
+  role: generic_adaptive_resource_runtime_and_policy_execution_layer
+  owns:
+    - generic_elastic_resource_model_and_typed_invariants
+    - EIR_for_elastic_declarations_and_plans
+    - observe_forecast_plan_validate_act_verify_commit_or_rollback_runtime_semantics
+    - generic_resource_objectives_and_transition_policy
+    - generic_actuation_adapter_interfaces
+    - versioned_kernel_and_representation_plan_contracts_when_backend_neutral
+    - rollback_and_verification_coordination_for_elastic_changes
+  does_not_own:
+    - SciRust_scientific_algorithms_tensor_semantics_or_reference_oracles
+    - SLHAv2_compressed_KV_tile_semantics_or_real_model_integration
+    - FLAT_ATTENTION_attention_kernel_implementation
+    - NNIS_CUDA_JIT_model_runtime_or_kernel_internals
+    - Forge_candidate_generation_search_strategy_or_measurement_domain_ownership
+    - SciRust_Hub_registry_workflow_or_global_control_plane
+    - SciCapsule_container_trust_or_execution_product_semantics
+    - SciRust_Verify_evidence_dossier_or_verdict_semantics
+    - nonlocal_relativity_scientific_model_semantics
+
+control_loop_contract:
+  OBSERVE:
+    produces:
+      - immutable_or_versioned_observation_snapshot
+      - capability_snapshot
+      - environment_or_resource_fingerprint_when_relevant
+  FORECAST:
+    rule: forecasts_are_advisory_and_must_never_override_hard_invariants
+  PLAN:
+    rule: plans_must_be_explicit_versioned_and_replayable_when_possible
+  VALIDATE:
+    rule: reject_any_plan_that_cannot_prove_static_admissibility_before_actuation
+  ACT:
+    rule: apply_only_through_declared_actuation_boundaries
+  VERIFY:
+    rule: verify_post_actuation_semantics_and_objective_relevant_observations
+  COMMIT_OR_ROLLBACK:
+    rule: commit_only_after_verification_else_restore_or_fail_closed
+
+ecosystem_interfaces:
+  Memorithm/scirust:
+    relationship: shared_scientific_tensor_and_representation_substrate
+    status: active_integration_direction_contract_to_be_hardened
+    consume:
+      - stable_tensor_representation_and_capability_contracts
+      - deterministic_reference_paths_and_oracles
+    must_not:
+      - move_SciRust_tensor_semantics_into_Elastic_policy
+      - define_scientific_correctness_by_resource_objective
+  Memorithm/SLHAv2:
+    relationship: first_demanding_reference_environment_for_KV_elasticity
+    status: active_reference_environment
+    consume_or_coordinate:
+      - KV_cache_state_and_budget_observations
+      - admissible_KV_representation_transitions_when_published
+    must_not:
+      - redefine_SLHAv2_tile_format_or_quality_semantics
+  Memorithm/FLAT-ATTENTION:
+    relationship: specialized_attention_kernel_provider
+    status: planned_versioned_integration_not_assumed
+    desired_contract:
+      - candidate_kernel_capabilities
+      - workload_fingerprint
+      - correctness_evidence
+      - benchmark_evidence
+      - qualified_kernel_plan
+    must_not:
+      - embed_WGSL_or_attention_algorithm_ownership_in_Elastic_core
+  Memorithm/NVIDIA-Native-Inference-Stack:
+    relationship: native_NVIDIA_runtime_and_candidate_provider
+    status: active_integration_direction
+    desired_contract:
+      - kernel_candidates
+      - representation_candidates
+      - hardware_problem_fingerprints
+      - correctness_and_end_to_end_measurements
+      - validated_replayable_plans
+    constraint: >-
+      Kernel elasticity and physical weight representation elasticity remain
+      separate axes. ElasticXxx must not silently alter logical weights.
+  Memorithm/forge:
+    relationship: execution_driven_candidate_search_engine
+    status: planned_versioned_bridge
+    desired_contract:
+      - ElasticXxx_supplies_objective_invariants_and_candidate_envelope
+      - Forge_searches_and_returns_verified_candidates_with_measurement_evidence
+      - ElasticXxx_revalidates_before_actuation_or_runtime_promotion
+    must_not:
+      - turn_ElasticXxx_into_an_evolutionary_search_engine
+      - trust_LLM_generated_candidate_metadata_without_executed_evidence
+  Memorithm/SciRust-Verify:
+    relationship: evidence_normalization_and_verdict_layer
+    status: planned_versioned_bridge
+    desired_contract:
+      - seal_plan_observation_actuation_and_verification_evidence
+      - keep_Elastic_runtime_commit_decision_distinct_from_Verify_dossier_verdicts
+  Memorithm/scirust-hub:
+    relationship: ecosystem_control_plane
+    status: planned_component_contract
+    desired_contract:
+      - Hub_orchestrates_Elastic_runtime_components_or_jobs
+      - ElasticXxx_controls_resource_adaptation_within_declared_run_scope
+      - no_duplicate_global_registry_or_workflow_scheduler_in_ElasticXxx
+  Memorithm/SciCapsule:
+    relationship: portable_artifact_and_execution_packaging
+    status: planned_not_assumed
+    desired_contract:
+      - package_versioned_elastic_plans_or_replay_inputs_when_useful
+      - keep_capsule_trust_semantics_outside_Elastic_core
+  Memorithm/nonlocal-relativity-v2:
+    relationship: future_resource_aware_numerical_experiment_consumer
+    status: planned_not_assumed
+    constraints:
+      - adaptation_must_not_change_scientific_model_equations
+      - bounded_history_or_approximation_choices_require_explicit_error_contracts
+
+roadmap:
+  - id: EX0
+    name: Baseline and contract audit
+    status: active
+    goals:
+      - audit_current_public_API_and_existing_foundations
+      - map_existing_observation_planning_validation_actuation_and_rollback_types
+      - identify_only_the_missing_operational_runtime_layer
+      - preserve_downstream_public_facade_guards
+    exit_criteria:
+      - no_foundational_subsystem_is_rewritten_without_a_verified_gap
+
+  - id: EX1
+    name: Long-lived runtime state machine
+    status: active
+    goals:
+      - implement_explicit_runtime_cycle_state
+      - make_each_stage_observable_and_testable
+      - support_terminal_commit_rollback_and_fail_closed_outcomes
+      - prevent_reentrant_or_out_of_order_actuation
+      - expose_cancellation_or_shutdown_semantics_without_partial_commit
+    exit_criteria:
+      - one_complete_in_process_resource_cycle_executes_end_to_end
+
+  - id: EX2
+    name: Observation and forecast contracts
+    status: active
+    goals:
+      - define_versioned_observation_snapshots
+      - separate_raw_measurements_from_derived_forecasts
+      - carry_resource_environment_and_workload_identity_needed_for_safe_comparison
+      - make_missing_or_stale_observations_explicit
+      - keep_forecast_models_pluggable_and_non_authoritative
+
+  - id: EX3
+    name: Planner and validation orchestration
+    status: active
+    goals:
+      - compose_existing_resource_kernel_and_representation_planners
+      - produce_one_auditable_plan_envelope
+      - reject_conflicting_or_incompatible_subplans
+      - preserve_objective_ordering_and_hard_invariants
+      - support_dry_run_plan_explanation
+
+  - id: EX4
+    name: Act verify commit rollback runtime
+    status: active
+    goals:
+      - coordinate_existing_actuation_adapters
+      - record_pre_actuation_state_needed_for_rollback
+      - verify_post_actuation_semantics_and_resource_outcomes
+      - rollback_on_failed_verification
+      - surface_irrecoverable_partial_failure_as_explicit_fail_closed_state
+
+  - id: EX5
+    name: Usable Rust API and CLI
+    status: active
+    goals:
+      - expose_runtime_builder_and_driver_through_the_elastic_facade
+      - add_inspect_plan_run_and_explain_cli_surfaces_if_consistent_with_current_product_shape
+      - provide_small_runnable_examples_for_RAM_concurrency_KV_and_kernel_plans
+      - keep_internal_crates_hidden_from_normal_downstream_consumers
+    exit_criteria:
+      - a_downstream_Rust_project_can_run_one_full_elastic_cycle_using_only_public_surfaces
+
+  - id: EX6
+    name: Durable evidence and replay
+    status: pending_after_EX4
+    goals:
+      - version_plan_and_cycle_records
+      - capture_exact_preconditions_observations_actions_verification_and_outcome
+      - support_replay_of_qualified_plans_when_environment_and_capabilities_match
+      - integrate_with_SciRust_Verify_without_reimplementing_dossier_semantics
+
+  - id: EX7
+    name: Ecosystem adapters
+    status: pending_after_EX5
+    sequence:
+      - SLHAv2_KV_reference_adapter
+      - NNIS_kernel_and_representation_candidate_bridge
+      - FLAT_ATTENTION_kernel_capability_bridge
+      - Forge_candidate_search_bridge
+      - SciRust_tensor_representation_bridge
+    rules:
+      - one_versioned_contract_per_real_need
+      - no_dependency_cycle_created_only_for_convenience
+      - adapters_revalidate_invariants_at_the_boundary
+
+  - id: EX8
+    name: Hub orchestration and portable execution
+    status: pending_after_EX6_EX7
+    goals:
+      - expose_ElasticXxx_as_a_Hub_component_without_duplicating_Hub_workflows
+      - package_replayable_inputs_or_plans_with_SciCapsule_when_appropriate
+      - retain_provenance_across_Hub_Elastic_and_Verify_layers
+
+  - id: EX9
+    name: Stable Rust productization
+    status: long_term
+    goals:
+      - define_semver_MSRV_and_compatibility_policy
+      - stabilize_public_facade_and_extension_traits
+      - publish_ecosystem_compatibility_matrix
+      - qualify_releases_with_reproducible_evidence
+      - document_failure_recovery_and_operational_limits
+
+cross_repository_change_protocol:
+  before_editing_another_repository:
+    - read_that_repository_AGENTS_md
+    - read_that_repository_current_off_main_agent_roadmap
+    - verify_ownership_and_contract_status
+    - record_exact_source_and_target_SHAs
+  before_accepting_external_candidate_or_evidence:
+    - verify_schema_version
+    - verify_environment_or_problem_identity
+    - independently_revalidate_hard_invariants
+    - reject_missing_or_incompatible_evidence
+  before_merge:
+    - re_read_relevant_roadmaps
+    - verify_exact_PR_head_SHA
+    - require_all_required_CI_green_on_that_head
+    - fail_closed_on_missing_required_evidence
+
+agent_operating_protocol:
+  must_read_this_file:
+    - at_start_of_every_agent_session_on_this_repository
+    - before_selecting_the_next_major_runtime_phase
+    - before_any_cross_repository_integration
+    - after_any_user_change_to_resource_semantics_invariants_or_ecosystem_role
+    - before_opening_or_merging_a_runtime_representation_kernel_or_contract_PR
+  must_update_this_file:
+    - when_a_roadmap_phase_changes_status
+    - when_a_cross_repository_contract_is_published_changed_or_rejected
+    - when_a_runtime_failure_or_negative_result_changes_the_next_action
+    - when_public_semver_MSRV_or_productization_policy_changes
+  fail_closed: >-
+    If this roadmap cannot be fetched or read, an autonomous agent must not make
+    a major architecture, runtime-state-machine, representation-format,
+    cross-repository integration, or merge decision. Read-only diagnosis is
+    allowed.
