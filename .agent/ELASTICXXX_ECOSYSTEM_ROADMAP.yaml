@@ -17,6 +17,12 @@ mission:
     typed model, EIR, validation, actuation, representation, kernel, and rollback
     foundations.
   operational_loop: OBSERVE -> FORECAST -> PLAN -> VALIDATE -> ACT -> VERIFY -> COMMIT_OR_ROLLBACK
+  rust_programming_goal: >-
+    Make adaptive-resource programming materially easier for ordinary Rust users
+    through a coherent family of typed APIs, derives/macros, diagnostics, examples,
+    and command-line tooling. Ergonomic surfaces are product features, not an
+    excuse to create a second semantic implementation: every convenience surface
+    must lower to the same typed core and preserve the same validation rules.
   ecosystem_goal: >-
     Become the generic adaptive-control layer of the Memorithm ecosystem. Consume
     capabilities, measurements, candidates, and evidence from specialized
@@ -32,6 +38,9 @@ verified_current_facts:
   - production_crates_currently_forbid_unsafe_code
   - the_semantic_core_is_designed_without_OS_filesystem_or_accelerator_assumptions
   - SLHAv2_is_documented_as_the_first_demanding_reference_environment
+  - derive_ElasticResource_is_implemented_and_reexported_by_the_elastic_facade
+  - the_current_derive_is_documented_as_syntax_sugar_over_the_same_typed_builder_and_validation_semantics
+  - a_function_like_elastic_macro_is_currently_deferred_until_real_syntactic_demand_exists
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -44,10 +53,14 @@ invariants:
   - resource_objectives_must_not_silently_weaken_application_semantics
   - specialized_product_semantics_remain_owned_by_specialized_repositories
   - cross_repository_contracts_are_not_assumed_until_versioned_and_tested
+  - every_Rust_ergonomic_surface_must_lower_to_the_single_typed_semantic_core
+  - CLI_commands_must_not_have_hidden_semantics_unavailable_to_the_library_API
+  - macros_must_not_bypass_runtime_or_builder_validation
+  - diagnostics_should_explain_rejected_plans_without_mutating_state
   - required_CI_must_be_green_on_the_exact_PR_head_before_merge
 
 ownership:
-  role: generic_adaptive_resource_runtime_and_policy_execution_layer
+  role: generic_adaptive_resource_runtime_policy_execution_and_Rust_ergonomics_layer
   owns:
     - generic_elastic_resource_model_and_typed_invariants
     - EIR_for_elastic_declarations_and_plans
@@ -56,6 +69,8 @@ ownership:
     - generic_actuation_adapter_interfaces
     - versioned_kernel_and_representation_plan_contracts_when_backend_neutral
     - rollback_and_verification_coordination_for_elastic_changes
+    - user_facing_Rust_builder_derive_macro_and_diagnostic_surfaces_for_Elastic_semantics
+    - ElasticXxx_CLI_and_optional_Cargo_subcommand_surfaces_that_wrap_the_same_public_library_semantics
   does_not_own:
     - SciRust_scientific_algorithms_tensor_semantics_or_reference_oracles
     - SLHAv2_compressed_KV_tile_semantics_or_real_model_integration
@@ -66,6 +81,56 @@ ownership:
     - SciCapsule_container_trust_or_execution_product_semantics
     - SciRust_Verify_evidence_dossier_or_verdict_semantics
     - nonlocal_relativity_scientific_model_semantics
+
+rust_programming_surface:
+  principle: >-
+    A Rust programmer should be able to declare what may adapt, what must remain
+    invariant, what objective matters, inspect the resulting plan, execute it,
+    understand a rejection, and reproduce a qualified decision without depending
+    on ElasticXxx internal crates.
+  existing_surfaces:
+    - ResourceSpec_builder_and_typed_core_validation
+    - derive_ElasticResource_reexported_through_the_elastic_facade
+    - macro_and_manual_declaration_examples
+  required_library_direction:
+    - public_runtime_builder_and_driver_through_the_elastic_facade
+    - typed_observer_forecaster_planner_validator_actuator_and_verifier_extension_points
+    - strongly_typed_plan_and_cycle_outcomes
+    - dry_run_and_explanation_API
+    - stable_error_taxonomy_suitable_for_human_and_machine_consumers
+    - no_requirement_for_downstream_users_to_import_internal_implementation_crates
+  required_command_family:
+    status: planned_not_yet_claimed_as_implemented
+    commands:
+      - name: elastic_inspect
+        intent: inspect_declared_resources_capabilities_and_effective_configuration_without_actuation
+      - name: elastic_plan
+        intent: produce_and_validate_a_dry_run_plan_without_actuation
+      - name: elastic_run
+        intent: execute_one_or_more_full_control_cycles_with_explicit_outcomes
+      - name: elastic_explain
+        intent: explain_plan_selection_rejection_invariants_and_objective_ordering
+      - name: elastic_doctor
+        intent: diagnose_environment_capabilities_adapters_and_missing_prerequisites
+      - name: elastic_replay
+        intent: replay_a_qualified_versioned_plan_only_when_identity_and_capabilities_match
+      - name: elastic_diff
+        intent: compare_plans_observations_or_cycle_records_without_mutating_resources
+    naming_rule: >-
+      Final binary and subcommand spelling must be chosen against the actual crate
+      layout and packaging. The roadmap defines required capabilities, not a claim
+      that these exact spellings already exist.
+  cargo_integration:
+    status: candidate_after_CLI_stabilization
+    direction: >-
+      Consider a cargo-elastic executable so users may invoke the same command
+      family as `cargo elastic ...`; it must remain a thin frontend over the public
+      ElasticXxx API and must not create separate semantics.
+  macro_policy:
+    - preserve_derive_ElasticResource_as_syntax_sugar_over_the_typed_builder
+    - do_not_implement_a_function_like_elastic_macro_only_for_novelty
+    - revisit_function_like_DSL_only_when_multi_resource_group_policy_or_planner_hint_semantics_create_real_ergonomic_need
+    - require_equivalence_tests_between_macro_and_manual_forms
 
 control_loop_contract:
   OBSERVE:
@@ -170,7 +235,8 @@ roadmap:
     goals:
       - audit_current_public_API_and_existing_foundations
       - map_existing_observation_planning_validation_actuation_and_rollback_types
-      - identify_only_the_missing_operational_runtime_layer
+      - inventory_existing_Rust_ergonomic_surfaces_and_diagnostics
+      - identify_only_the_missing_operational_runtime_and_programming_surface_layers
       - preserve_downstream_public_facade_guards
     exit_criteria:
       - no_foundational_subsystem_is_rewritten_without_a_verified_gap
@@ -218,15 +284,23 @@ roadmap:
       - surface_irrecoverable_partial_failure_as_explicit_fail_closed_state
 
   - id: EX5
-    name: Usable Rust API and CLI
+    name: Rust programming ergonomics and command family
     status: active
     goals:
       - expose_runtime_builder_and_driver_through_the_elastic_facade
-      - add_inspect_plan_run_and_explain_cli_surfaces_if_consistent_with_current_product_shape
-      - provide_small_runnable_examples_for_RAM_concurrency_KV_and_kernel_plans
+      - preserve_and_extend_typed_builder_and_derive_workflows_without_duplicate_semantics
+      - implement_inspect_plan_run_explain_doctor_replay_and_diff_command_capabilities
+      - make_dry_run_and_explanation_first_class_for_safe_programming
+      - provide_machine_readable_output_modes_for_agent_and_tooling_consumers
+      - provide_small_runnable_examples_for_RAM_concurrency_KV_kernel_and_representation_plans
       - keep_internal_crates_hidden_from_normal_downstream_consumers
-    exit_criteria:
-      - a_downstream_Rust_project_can_run_one_full_elastic_cycle_using_only_public_surfaces
+      - consider_cargo_elastic_only_after_the_primary_CLI_contract_is_stable
+    acceptance:
+      - every_command_is_a_thin_frontend_over_public_library_semantics
+      - CLI_and_library_paths_have_equivalence_or_shared_core_tests
+      - help_and_error_messages_expose_actionable_invariant_or_capability_failures
+      - no_command_performs_hidden_actuation_when_the_named_operation_is_read_only
+      - downstream_Rust_project_can_run_one_full_elastic_cycle_using_only_public_surfaces
 
   - id: EX6
     name: Durable evidence and replay
@@ -264,10 +338,11 @@ roadmap:
     status: long_term
     goals:
       - define_semver_MSRV_and_compatibility_policy
-      - stabilize_public_facade_and_extension_traits
+      - stabilize_public_facade_extension_traits_and_command_contracts
       - publish_ecosystem_compatibility_matrix
       - qualify_releases_with_reproducible_evidence
       - document_failure_recovery_and_operational_limits
+      - make_the_command_family_and_public_Rust_API_suitable_for_ordinary_Cargo_projects_without_internal_workspace_knowledge
 
 cross_repository_change_protocol:
   before_editing_another_repository:
@@ -289,17 +364,18 @@ cross_repository_change_protocol:
 agent_operating_protocol:
   must_read_this_file:
     - at_start_of_every_agent_session_on_this_repository
-    - before_selecting_the_next_major_runtime_phase
+    - before_selecting_the_next_major_runtime_or_Rust_ergonomics_phase
     - before_any_cross_repository_integration
-    - after_any_user_change_to_resource_semantics_invariants_or_ecosystem_role
-    - before_opening_or_merging_a_runtime_representation_kernel_or_contract_PR
+    - after_any_user_change_to_resource_semantics_Rust_programming_goals_invariants_or_ecosystem_role
+    - before_opening_or_merging_a_runtime_representation_kernel_CLI_macro_or_contract_PR
   must_update_this_file:
     - when_a_roadmap_phase_changes_status
     - when_a_cross_repository_contract_is_published_changed_or_rejected
     - when_a_runtime_failure_or_negative_result_changes_the_next_action
+    - when_the_Rust_command_family_or_public_programming_model_changes
     - when_public_semver_MSRV_or_productization_policy_changes
   fail_closed: >-
     If this roadmap cannot be fetched or read, an autonomous agent must not make
-    a major architecture, runtime-state-machine, representation-format,
-    cross-repository integration, or merge decision. Read-only diagnosis is
-    allowed.
+    a major architecture, runtime-state-machine, Rust-programming-surface,
+    representation-format, cross-repository integration, or merge decision.
+    Read-only diagnosis is allowed.
