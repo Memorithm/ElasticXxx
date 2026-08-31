@@ -3,7 +3,7 @@ use std::io::{Error as IoError, ErrorKind};
 
 use elastic_eir::FirstGroundedPlanner;
 use elastic_runtime::control_loop::{collect_observations, observe_and_plan};
-use elastic_runtime::{HostMemoryObserver, Observation, Observer, RuntimeConfig};
+use elastic_runtime::{HostMemoryObserver, Observation, RuntimeConfig};
 use serde_json::{json, Value};
 
 type CommandResult = Result<(), Box<dyn Error>>;
