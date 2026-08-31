@@ -13,10 +13,10 @@ use elastic_eir::{
 };
 
 use crate::{
-    Actuation, Cadence, CommitRecord, ConfiguredForecaster, ControllerConfig, ForecastController,
-    ForecasterSelection, InvariantCheck, Observation, Observer, OperatorConfig, Plan, PlannerConfig,
-    PlannerSelection, ResourceConfig, RollbackRecord, Runtime, RuntimeConfig, RuntimeError,
-    TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
+    Actuation, CommitRecord, ConfiguredForecaster, ControllerConfig, ForecastController,
+    ForecasterSelection, InvariantCheck, Observation, Observer, OperatorConfig, Plan,
+    PlannerConfig, PlannerSelection, ResourceConfig, RollbackRecord, Runtime, RuntimeConfig,
+    RuntimeError, TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
     VerificationResult,
 };
 
@@ -47,9 +47,7 @@ impl TransitionPlanner for ConfiguredPlanner {
                 planner.propose_transition_with_context(resource, context)
             }
             Self::Headroom(planner) => planner.propose_transition_with_context(resource, context),
-            Self::Threshold(planner) => {
-                planner.propose_transition_with_context(resource, context)
-            }
+            Self::Threshold(planner) => planner.propose_transition_with_context(resource, context),
         }
     }
 }
@@ -187,7 +185,10 @@ impl OperatorConfig {
     ///
     /// Returns a configuration error for invalid configuration, an unknown or
     /// uncontrolled resource id, or a component that cannot be constructed.
-    pub fn build_controller(&self, resource_id: &str) -> Result<ConfiguredController, RuntimeError> {
+    pub fn build_controller(
+        &self,
+        resource_id: &str,
+    ) -> Result<ConfiguredController, RuntimeError> {
         self.validate()?;
         let controller = self
             .controllers
@@ -370,15 +371,15 @@ fn resource_spec_from_eir(ir: &EirResource) -> Result<ResourceSpec, RuntimeError
     for (key, value) in ir.iter_labels() {
         builder = builder.label(key, value);
     }
-    let spec = builder
-        .build()
-        .map_err(|error| RuntimeError::configuration(format!("EIR cannot round-trip to ResourceSpec: {error}")))?;
+    let spec = builder.build().map_err(|error| {
+        RuntimeError::configuration(format!("EIR cannot round-trip to ResourceSpec: {error}"))
+    })?;
     let document = lower(&spec).map_err(|error| {
         RuntimeError::configuration(format!("round-tripped ResourceSpec cannot lower: {error}"))
     })?;
-    let round_tripped = document
-        .resource(ir.identity().as_str())
-        .ok_or_else(|| RuntimeError::configuration("round-tripped ResourceSpec lost its EIR node"))?;
+    let round_tripped = document.resource(ir.identity().as_str()).ok_or_else(|| {
+        RuntimeError::configuration("round-tripped ResourceSpec lost its EIR node")
+    })?;
     if round_tripped.fingerprint() != ir.fingerprint() {
         return Err(RuntimeError::configuration(
             "EIR to ResourceSpec round-trip changed the normalized fingerprint",
