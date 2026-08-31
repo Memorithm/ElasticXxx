@@ -31,10 +31,10 @@ pub use elastic_runtime::{
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig, Plan,
     PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
-    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError,
-    RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
-    TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
-    VerificationResult, OPERATOR_CONFIG_VERSION,
+    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
+    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
+    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
+    TransactionalRam, ValidatedPlan, VerificationResult, OPERATOR_CONFIG_VERSION,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
