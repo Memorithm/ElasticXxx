@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "adapter": "ram",
+      "id": "ram-budget",
+      "host_total": 1073741824,
+      "min": 67108864,
+      "max": 1073741824,
+      "initial": 268435456,
+      "max_step": 134217728
+    }
+  ],
+  "controllers": [
+    {
+      "resource": "ram-budget",
+      "planner": {
+        "kind": "headroom",
+        "headroom_fraction": 0.5,
+        "deadband_fraction": 0.05
+      },
+      "forecaster": {
+        "kind": "ewma",
+        "alpha": 0.5,
+        "horizon_ms": 1000
+      },
+      "cadence": {
+        "kind": "one-shot"
+      },
+      "mode": "dry-run"
+    }
+  ]
+}
