@@ -330,7 +330,9 @@ where
     }
 }
 
-fn forecast_loop_schedule(config: &crate::RuntimeConfig) -> Result<(u64, Option<Duration>), RuntimeError> {
+fn forecast_loop_schedule(
+    config: &crate::RuntimeConfig,
+) -> Result<(u64, Option<Duration>), RuntimeError> {
     let cadence_interval = match &config.cadence {
         Cadence::OneShot => None,
         Cadence::Periodic(interval) => Some(*interval),
@@ -632,7 +634,10 @@ mod tests {
 
     #[test]
     fn planner_consumes_forecast_context_not_raw_observation() {
-        let runtime = ForecastRuntime::new(Runtime::new(crate::RuntimeConfig::default()), OverrideForecaster(0.9));
+        let runtime = ForecastRuntime::new(
+            Runtime::new(crate::RuntimeConfig::default()),
+            OverrideForecaster(0.9),
+        );
         let resource = runtime.runtime().config().ir_resource.clone();
         let planner = RecordingPlanner::new();
         let mut actuator = CountingActuator::new();
@@ -648,7 +653,10 @@ mod tests {
 
     #[test]
     fn unavailable_forecast_gates_even_context_free_planner() {
-        let runtime = ForecastRuntime::new(Runtime::new(crate::RuntimeConfig::default()), UnsupportedForecaster);
+        let runtime = ForecastRuntime::new(
+            Runtime::new(crate::RuntimeConfig::default()),
+            UnsupportedForecaster,
+        );
         let resource = runtime.runtime().config().ir_resource.clone();
         let mut actuator = CountingActuator::new();
 
@@ -711,6 +719,9 @@ mod tests {
         assert_eq!(result.cycles.len(), 2);
         assert_eq!(planner.seen.borrow().as_slice(), &[0.0, 0.5]);
         assert_eq!(result.stop_reason, LoopStopReason::MaxCyclesReached);
-        assert_eq!(clock.sleeps.lock().unwrap().as_slice(), &[Duration::from_millis(1)]);
+        assert_eq!(
+            clock.sleeps.lock().unwrap().as_slice(),
+            &[Duration::from_millis(1)]
+        );
     }
 }
