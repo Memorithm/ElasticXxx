@@ -20,14 +20,29 @@ use elastic::prelude::*;
 )]
 pub struct DownstreamKv;
 
-/// Compile-time proof that a downstream crate can name runtime and adapter
-/// types without directly depending on implementation crates.
+/// Proof that a downstream crate can build and execute a real controller while
+/// depending only on `elastic`.
 pub fn public_surface_smoke() {
-    let _runtime = Runtime::new(RuntimeConfig::default());
-    let _cancellation = CancellationToken::new();
-    let _host = HostMemoryObserver;
-    let _budget = RamBudget::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
+    let adapter = TransactionalRam::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
         .expect("valid downstream RAM fixture");
+    let resource = adapter
+        .ir()
+        .expect("downstream RAM EIR should be available");
+    let observer = adapter.clone();
+    let actuator = adapter.clone();
+    let planner = HeadroomPlanner::new(0.5, 0.0).expect("valid headroom policy");
+    let runtime = Runtime::new(RuntimeConfig {
+        mode: RuntimeMode::Apply,
+        dry_run: false,
+        ..RuntimeConfig::default()
+    });
+    let mut controller = Controller::new(runtime, resource, planner, observer, actuator);
+    let result = controller
+        .cycle()
+        .expect("facade-only controller cycle should succeed");
+
+    assert!(result.commit.is_some());
+    assert_eq!(adapter.committed().unwrap(), 2048);
 }
 
 #[cfg(test)]
