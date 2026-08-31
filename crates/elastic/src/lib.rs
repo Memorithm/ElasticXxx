@@ -26,8 +26,9 @@ pub use elastic_eir::{
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
     Actuation, Cadence, CadenceConfig, CancellationToken, CommitRecord, ConcurrencyPermitsObserver,
-    Controller, ControllerConfig, CurrentStateForecaster, CycleResult, EwmaForecaster,
-    ExecutionModeConfig, Forecast, ForecastStatus, Forecaster, ForecasterSelection,
+    ConfiguredForecaster, Controller, ControllerConfig, CurrentStateForecaster, CycleResult,
+    EwmaForecaster, ExecutionModeConfig, Forecast, ForecastController, ForecastCycleResult,
+    ForecastRunResult, ForecastRuntime, ForecastStatus, Forecaster, ForecasterSelection,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig, Plan,
     PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
@@ -60,9 +61,10 @@ pub mod prelude {
     pub use elastic_eir::{lower, EirDocument, EirResource, TransitionPlanner};
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
-        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, Controller, ControllerConfig,
-        CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig, Forecast, Forecaster,
-        ForecasterSelection, HostMemoryObserver, Observation, Observer, OperatorConfig,
+        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, ConfiguredForecaster,
+        Controller, ControllerConfig, CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig,
+        Forecast, ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
+        Forecaster, ForecasterSelection, HostMemoryObserver, Observation, Observer, OperatorConfig,
         PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry,
         Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
         TransactionalConcurrency, TransactionalRam, VerificationResult, OPERATOR_CONFIG_VERSION,
