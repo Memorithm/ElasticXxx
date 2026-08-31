@@ -42,8 +42,8 @@ pub fn public_surface_smoke() {
     }
     .build()
     .expect("valid configured EWMA forecaster");
-    let mut controller = Controller::new(runtime, resource, planner, observer, actuator)
-        .with_forecaster(forecaster);
+    let mut controller =
+        Controller::new(runtime, resource, planner, observer, actuator).with_forecaster(forecaster);
     let result = controller
         .cycle()
         .expect("facade-only forecast controller cycle should succeed");
