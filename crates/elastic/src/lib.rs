@@ -26,7 +26,8 @@ pub use elastic_eir::{
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
     Actuation, Cadence, CadenceConfig, CancellationToken, CommitRecord, ConcurrencyPermitsObserver,
-    ConfiguredForecaster, Controller, ControllerConfig, CurrentStateForecaster, CycleResult,
+    ConfiguredController, ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource,
+    ConfiguredResourceState, Controller, ControllerConfig, CurrentStateForecaster, CycleResult,
     EwmaForecaster, ExecutionModeConfig, Forecast, ForecastController, ForecastCycleResult,
     ForecastRunResult, ForecastRuntime, ForecastStatus, Forecaster, ForecasterSelection,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
@@ -61,7 +62,8 @@ pub mod prelude {
     pub use elastic_eir::{lower, EirDocument, EirResource, TransitionPlanner};
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
-        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, ConfiguredForecaster,
+        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, ConfiguredController,
+        ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
         Controller, ControllerConfig, CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig,
         Forecast, ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
         Forecaster, ForecasterSelection, HostMemoryObserver, Observation, Observer, OperatorConfig,
