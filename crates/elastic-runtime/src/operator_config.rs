@@ -189,6 +189,16 @@ impl ControllerConfig {
                 self.resource
             )));
         }
+
+        if matches!(&self.planner, PlannerSelection::FirstGrounded)
+            && matches!(self.mode, ExecutionModeConfig::DryRun | ExecutionModeConfig::Apply)
+        {
+            return Err(RuntimeError::configuration(format!(
+                "first-grounded planner for resource '{}' does not provide a quantitative target; use observe-only/plan-only or select an actionable planner",
+                self.resource
+            )));
+        }
+
         Ok(())
     }
 }
@@ -411,7 +421,7 @@ mod tests {
     }
 
     #[test]
-    fn first_grounded_planner_is_allowed_for_concurrency_resource() {
+    fn first_grounded_planner_is_allowed_for_non_actuating_concurrency_mode() {
         let config = OperatorConfig {
             version: OPERATOR_CONFIG_VERSION,
             resources: vec![ResourceConfig::Concurrency {
@@ -424,11 +434,26 @@ mod tests {
                 planner: PlannerSelection::FirstGrounded,
                 forecaster: ForecasterSelection::CurrentState,
                 cadence: CadenceConfig::OneShot,
-                mode: ExecutionModeConfig::DryRun,
+                mode: ExecutionModeConfig::PlanOnly,
             }],
         };
 
         config.validate().unwrap();
+    }
+
+    #[test]
+    fn first_grounded_planner_is_rejected_for_action_modes() {
+        for mode in [ExecutionModeConfig::DryRun, ExecutionModeConfig::Apply] {
+            let mut config = valid_config();
+            config.controllers[0].planner = PlannerSelection::FirstGrounded;
+            config.controllers[0].cadence = CadenceConfig::OneShot;
+            config.controllers[0].mode = mode;
+
+            let error = config
+                .validate()
+                .expect_err("targetless planner must fail before runtime construction");
+            assert!(error.to_string().contains("does not provide a quantitative target"));
+        }
     }
 
     #[test]
