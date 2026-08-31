@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind};
+use std::time::Duration;
 
+use elastic_adapters::HeadroomPlanner;
 use elastic_core::{resource::DimensionId, TransitionMechanism};
 use elastic_eir::{
     EirResource, FirstGroundedPlanner, PlanOutcome, TransitionCandidate, TransitionPlanner,
@@ -8,8 +10,8 @@ use elastic_eir::{
 use elastic_runtime::control_loop::{collect_observations, observe_and_plan};
 use elastic_runtime::plan::{plan_with_context, validate_with_checks};
 use elastic_runtime::{
-    HostMemoryObserver, Observation, Observer, Runtime, RuntimeConfig, RuntimeMode,
-    TransactionalActuator, TransactionalRam,
+    Cadence, CancellationToken, HostMemoryObserver, Observation, Observer, Runtime, RuntimeConfig,
+    RuntimeMode, TransactionalActuator, TransactionalRam,
 };
 use serde_json::{json, Value};
 
@@ -23,6 +25,17 @@ pub struct RamCommandOptions {
     pub initial: u64,
     pub target: u64,
     pub max_step: Option<u64>,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct AdaptiveRamOptions {
+    pub host_total: u64,
+    pub min: u64,
+    pub max: u64,
+    pub initial: u64,
+    pub max_step: Option<u64>,
+    pub headroom: f64,
+    pub deadband: f64,
 }
 
 struct CapacityTargetPlanner {
@@ -143,11 +156,27 @@ pub fn apply(id: &str, options: RamCommandOptions) -> CommandResult {
         "committed": result.commit.is_some(),
         "rolled_back": result.rollback.is_some(),
         "verification": result.verification.as_ref().map(|verification| format!("{verification:?}")),
-        "events": result.events.iter().map(|event| json!({
-            "kind": format!("{:?}", event.kind),
-            "details": event.details,
-        })).collect::<Vec<_>>(),
+        "events": render_events(&result.events),
     }))
+}
+
+pub fn run(id: &str, options: AdaptiveRamOptions) -> CommandResult {
+    run_adaptive(id, options, Cadence::OneShot, 0, "run")
+}
+
+pub fn watch(
+    id: &str,
+    options: AdaptiveRamOptions,
+    interval_ms: u64,
+    max_cycles: u64,
+) -> CommandResult {
+    run_adaptive(
+        id,
+        options,
+        Cadence::Periodic(Duration::from_millis(interval_ms)),
+        max_cycles,
+        "watch",
+    )
 }
 
 pub fn explain(id: &str) -> CommandResult {
@@ -174,6 +203,58 @@ pub fn explain(id: &str) -> CommandResult {
             "all_signals_valid": snapshot.all_signals_valid,
             "observations": render_observations(snapshot.iter()),
         },
+    }))
+}
+
+fn run_adaptive(
+    id: &str,
+    options: AdaptiveRamOptions,
+    cadence: Cadence,
+    max_cycles: u64,
+    command: &str,
+) -> CommandResult {
+    let adapter = TransactionalRam::new(
+        id,
+        options.host_total,
+        options.min,
+        options.max,
+        options.initial,
+        options.max_step,
+    )?;
+    let observer = adapter.clone();
+    let mut actuator = adapter.clone();
+    let resource = adapter.ir()?;
+    let planner = HeadroomPlanner::new(options.headroom, options.deadband)?;
+    let runtime = Runtime::new(RuntimeConfig {
+        cadence,
+        mode: RuntimeMode::Apply,
+        max_cycles,
+        dry_run: false,
+        ..RuntimeConfig::default()
+    });
+    let cancellation = CancellationToken::new();
+    let result = runtime.run(&resource, &planner, &observer, &mut actuator, &cancellation)?;
+
+    print_json(json!({
+        "command": command,
+        "resource_id": resource.identity().as_str(),
+        "planner": "HeadroomPlanner",
+        "headroom": options.headroom,
+        "deadband": options.deadband,
+        "stop_reason": format!("{:?}", result.stop_reason),
+        "cycles": result.cycles.iter().enumerate().map(|(index, cycle)| json!({
+            "index": index,
+            "candidate_target": cycle.plan.as_ref().and_then(|validated| {
+                validated.plan.candidate().and_then(|candidate| candidate.magnitude())
+            }),
+            "validated": cycle.plan.as_ref().is_some_and(|validated| validated.validated),
+            "committed": cycle.commit.is_some(),
+            "rolled_back": cycle.rollback.is_some(),
+            "verification": cycle.verification.as_ref().map(|verification| format!("{verification:?}")),
+            "events": render_events(&cycle.events),
+        })).collect::<Vec<_>>(),
+        "final_committed_bytes": adapter.committed()?,
+        "events": render_events(&result.events),
     }))
 }
 
@@ -221,6 +302,18 @@ fn render_observations<'a>(observations: impl Iterator<Item = &'a Observation>) 
                 "quality": observation.quality(),
                 "valid": observation.is_valid(),
                 "unsupported_reason": observation.unsupported_reason(),
+            })
+        })
+        .collect()
+}
+
+fn render_events(events: &[elastic_runtime::RuntimeEvent]) -> Vec<Value> {
+    events
+        .iter()
+        .map(|event| {
+            json!({
+                "kind": format!("{:?}", event.kind),
+                "details": event.details,
             })
         })
         .collect()
