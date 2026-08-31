@@ -191,7 +191,10 @@ impl ControllerConfig {
         }
 
         if matches!(&self.planner, PlannerSelection::FirstGrounded)
-            && matches!(self.mode, ExecutionModeConfig::DryRun | ExecutionModeConfig::Apply)
+            && matches!(
+                self.mode,
+                ExecutionModeConfig::DryRun | ExecutionModeConfig::Apply
+            )
         {
             return Err(RuntimeError::configuration(format!(
                 "first-grounded planner for resource '{}' does not provide a quantitative target; use observe-only/plan-only or select an actionable planner",
@@ -452,7 +455,9 @@ mod tests {
             let error = config
                 .validate()
                 .expect_err("targetless planner must fail before runtime construction");
-            assert!(error.to_string().contains("does not provide a quantitative target"));
+            assert!(error
+                .to_string()
+                .contains("does not provide a quantitative target"));
         }
     }
 
