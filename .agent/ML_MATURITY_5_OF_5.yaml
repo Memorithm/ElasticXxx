@@ -1,0 +1,71 @@
+schema_version: 1
+kind: memorithm_ml_maturity_program
+status: active
+last_updated: "2026-08-31"
+repository: Memorithm/ElasticXxx
+objective: >-
+  Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
+  actuate real representation, memory, concurrency, batching, placement and
+  kernel choices through explicit contracts while preserving caller invariants
+  and rolling back failed adaptations.
+score_policy:
+  five_of_five_requires:
+    - observe_forecast_plan_validate_act_verify_commit_or_rollback_is_executable_end_to_end
+    - at_least_one_real_ML_workload_and_one_real_specialized_backend_are_controlled
+    - every_adaptive_dimension_has_versioned_capability_state_transition_and_evidence_contracts
+    - policy_quality_is_measured_against_a_static_baseline
+    - exact_head_required_CI_green
+  forbidden:
+    - embedding_SciRust_tensor_semantics_or_SLHA_codec_semantics_into_generic_core
+    - adapting_from_unverified_proxy_metrics
+    - committing_a_transition_before_post_actuation_verification
+priority_program:
+  - id: EXML0
+    name: Operational control loop
+    priority: P0
+    goals:
+      - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
+      - persist_plan_transition_evidence_and_rollback_reason
+      - define_fail_closed_behavior_for_missing_stale_or_incompatible_capabilities
+  - id: EXML1
+    name: ML resource dimensions
+    priority: P0
+    goals:
+      - consume_SciRust_device_dtype_representation_and_kernel_capabilities
+      - support_memory_budget_concurrency_batch_size_device_placement_representation_precision_and_KV_state_dimensions
+      - keep_model_quality_latency_memory_energy_or_other_objectives_explicit_and_user_selected
+  - id: EXML2
+    name: Real representation actuation
+    priority: P0
+    goals:
+      - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
+      - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters
+      - verify_quality_and_budget_invariants_after_every_transition
+  - id: EXML3
+    name: Kernel and backend actuation
+    priority: P0
+    goals:
+      - consume_candidate_capabilities_from_SciRust_FLAT_and_NNIS
+      - choose_only_among_compatible_kernel_realizations
+      - retain_deterministic_plan_selection_for_equal_observations_and_objectives
+      - record_actual_backend_selected_not_only_requested_backend
+  - id: EXML4
+    name: Online policy qualification
+    priority: P1
+    goals:
+      - compare_elastic_policy_against_static_reference_configs_on_same_workload
+      - detect_oscillation_thrashing_and_objective_regression
+      - add_hysteresis_cooldown_and_budgeted_exploration_where_evidence_justifies_it
+      - keep_forecast_or_learned_policy_advisory_until_safe_actuation_gates_pass
+  - id: EXML5
+    name: Ecosystem evidence integration
+    priority: P0
+    goals:
+      - emit_versioned_transition_and_measurement_evidence_for_SciRust_Verify
+      - make_Hub_able_to_orchestrate_elastic_runs_without_absorbing_Elastic_policy
+      - package_reproducible_experiments_through_SciCapsule_when_appropriate
+completion_definition: >-
+  ElasticXxx is 5/5 only when real ML workloads can be observed and safely
+  adapted across multiple resource dimensions, every actuation is verified and
+  rollback-capable, and reproducible evidence shows when adaptation beats or
+  loses to static baselines under declared objectives.
