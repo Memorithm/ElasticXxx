@@ -99,7 +99,11 @@ impl From<AdaptiveRamArgs> for AdaptiveRamOptions {
 /// in canonical resource-id order.
 #[derive(Debug, Args)]
 struct RunArgs {
-    #[arg(value_name = "ID", required_unless_present = "config", conflicts_with = "config")]
+    #[arg(
+        value_name = "ID",
+        required_unless_present = "config",
+        conflicts_with = "config"
+    )]
     id: Option<String>,
 
     /// Versioned JSON operator configuration.
