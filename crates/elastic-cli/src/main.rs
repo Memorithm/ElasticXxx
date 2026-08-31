@@ -236,3 +236,75 @@ fn main() -> ExitCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn configured_run_syntax_parses_without_inline_arguments() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "run",
+            "--config",
+            "docs/config/operator-v1.example.json",
+            "--resource",
+            "ram-budget",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Run { args } => {
+                assert_eq!(
+                    args.config,
+                    Some(PathBuf::from("docs/config/operator-v1.example.json"))
+                );
+                assert_eq!(args.resource.as_deref(), Some("ram-budget"));
+                assert!(args.id.is_none());
+            }
+            _ => panic!("expected run command"),
+        }
+    }
+
+    #[test]
+    fn historical_inline_run_syntax_still_parses() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "run",
+            "ram",
+            "--host-total",
+            "4096",
+            "--min",
+            "512",
+            "--max",
+            "4096",
+            "--initial",
+            "1024",
+            "--headroom",
+            "0.5",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::Run { args } => {
+                assert_eq!(args.id.as_deref(), Some("ram"));
+                assert!(args.config.is_none());
+                assert_eq!(args.host_total, Some(4096));
+                assert_eq!(args.headroom, Some(0.5));
+            }
+            _ => panic!("expected run command"),
+        }
+    }
+
+    #[test]
+    fn configured_and_inline_run_sources_cannot_be_mixed() {
+        let result = Cli::try_parse_from([
+            "elastic",
+            "run",
+            "ram",
+            "--config",
+            "docs/config/operator-v1.example.json",
+        ]);
+        assert!(result.is_err());
+    }
+}
