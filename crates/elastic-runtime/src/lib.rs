@@ -28,6 +28,7 @@ pub mod events;
 pub mod forecast;
 pub mod observation;
 pub mod observers;
+pub mod operator_config;
 pub mod plan;
 pub mod reference_adapters;
 pub mod registry;
@@ -52,6 +53,10 @@ pub use observers::{
     ram_configured_min_bytes_signal, ram_in_use_bytes_signal, runtime_uptime_seconds_signal,
     ConcurrencyPermitsObserver, HostMemoryObserver, ObserverSet, RamBudgetObserver,
     RuntimeTimingObserver,
+};
+pub use operator_config::{
+    CadenceConfig, ControllerConfig, ExecutionModeConfig, ForecasterSelection, OperatorConfig,
+    PlannerSelection, ResourceConfig, OPERATOR_CONFIG_VERSION,
 };
 pub use plan::{InvariantCheck, Plan, ValidatedPlan};
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};
