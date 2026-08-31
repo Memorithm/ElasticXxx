@@ -21,11 +21,13 @@ pub mod cancellation;
 pub mod clock;
 pub mod commit;
 pub mod config;
+pub mod configured_forecaster;
 pub mod control_loop;
 pub mod controller;
 pub mod error;
 pub mod events;
 pub mod forecast;
+pub mod forecast_runtime;
 pub mod observation;
 pub mod observers;
 pub mod operator_config;
@@ -41,10 +43,14 @@ pub use cancellation::CancellationToken;
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
+pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
+pub use forecast_runtime::{
+    ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
+};
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
     active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
