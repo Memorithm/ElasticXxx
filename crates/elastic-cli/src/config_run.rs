@@ -42,7 +42,7 @@ fn execute_operator_config(
     Ok(json!({
         "command": "run",
         "source": "operator-config",
-        "schema_version": config.version,
+        "config_version": config.version,
         "selected_resource": resource,
         "controllers": executions,
     }))
@@ -120,6 +120,8 @@ fn render_resource_state(state: ConfiguredResourceState) -> Value {
 mod tests {
     use super::*;
 
+    const SHIPPED_EXAMPLE: &str = include_str!("../../../docs/config/operator-v1.example.json");
+
     fn apply_ram_json() -> &'static str {
         r#"{
           "version": 1,
@@ -151,11 +153,26 @@ mod tests {
     }
 
     #[test]
+    fn shipped_example_parses_materializes_and_remains_non_actuating() {
+        let config: OperatorConfig = serde_json::from_str(SHIPPED_EXAMPLE).unwrap();
+        let output = execute_operator_config(&config, None).unwrap();
+
+        assert_eq!(output["config_version"], 1);
+        assert_eq!(output["controllers"][0]["resource_id"], "ram-budget");
+        assert_eq!(
+            output["controllers"][0]["final_state"]["committed_bytes"],
+            1_048_576
+        );
+        assert_eq!(output["controllers"][0]["cycles"][0]["committed"], false);
+        assert_eq!(output["controllers"][0]["cycles"][0]["validated"], true);
+    }
+
+    #[test]
     fn json_config_materializes_and_executes_verified_pipeline() {
         let config: OperatorConfig = serde_json::from_str(apply_ram_json()).unwrap();
         let output = execute_operator_config(&config, None).unwrap();
 
-        assert_eq!(output["schema_version"], 1);
+        assert_eq!(output["config_version"], 1);
         assert_eq!(output["controllers"][0]["resource_id"], "ram");
         assert_eq!(
             output["controllers"][0]["final_state"]["committed_bytes"],
