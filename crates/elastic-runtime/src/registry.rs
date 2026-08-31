@@ -135,7 +135,12 @@ mod tests {
             vec!["a-resource", "z-resource"]
         );
         assert_eq!(
-            registry.get("a-resource").unwrap().eir().identity().as_str(),
+            registry
+                .get("a-resource")
+                .unwrap()
+                .eir()
+                .identity()
+                .as_str(),
             "a-resource"
         );
     }
