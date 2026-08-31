@@ -29,10 +29,10 @@ pub use elastic_runtime::{
     CurrentStateForecaster, CycleResult, EwmaForecaster, Forecast, ForecastStatus, Forecaster,
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, Plan, PlannerConfig,
-    RamBudgetObserver, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
-    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
-    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
-    TransactionalRam, ValidatedPlan, VerificationResult,
+    RamBudgetObserver, RegisteredResource, ResourceRegistry, RollbackRecord, RunResult, Runtime,
+    RuntimeClock, RuntimeConfig, RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink,
+    RuntimeMode, RuntimeTimingObserver, SystemClock, TransactionalActuator,
+    TransactionalConcurrency, TransactionalRam, ValidatedPlan, VerificationResult,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -60,7 +60,8 @@ pub mod prelude {
     pub use elastic_runtime::{
         CancellationToken, ConcurrencyPermitsObserver, Controller, CurrentStateForecaster,
         EwmaForecaster, Forecast, Forecaster, HostMemoryObserver, Observation, Observer,
-        RamBudgetObserver, Runtime, RuntimeConfig, RuntimeError, RuntimeMode,
-        TransactionalActuator, TransactionalConcurrency, TransactionalRam, VerificationResult,
+        RamBudgetObserver, RegisteredResource, ResourceRegistry, Runtime, RuntimeConfig,
+        RuntimeError, RuntimeMode, TransactionalActuator, TransactionalConcurrency,
+        TransactionalRam, VerificationResult,
     };
 }
