@@ -20,8 +20,8 @@ use elastic::prelude::*;
 )]
 pub struct DownstreamKv;
 
-/// Proof that a downstream crate can build and execute a real controller while
-/// depending only on `elastic`.
+/// Proof that a downstream crate can build and execute a real forecast-aware
+/// controller while depending only on `elastic`.
 pub fn public_surface_smoke() {
     let adapter = TransactionalRam::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
         .expect("valid downstream RAM fixture");
@@ -36,12 +36,20 @@ pub fn public_surface_smoke() {
         dry_run: false,
         ..RuntimeConfig::default()
     });
-    let mut controller = Controller::new(runtime, resource, planner, observer, actuator);
+    let forecaster = ForecasterSelection::Ewma {
+        alpha: 0.5,
+        horizon_ms: 1_000,
+    }
+    .build()
+    .expect("valid configured EWMA forecaster");
+    let mut controller = Controller::new(runtime, resource, planner, observer, actuator)
+        .with_forecaster(forecaster);
     let result = controller
         .cycle()
-        .expect("facade-only controller cycle should succeed");
+        .expect("facade-only forecast controller cycle should succeed");
 
-    assert!(result.commit.is_some());
+    assert!(result.forecast.is_some());
+    assert!(result.transaction.commit.is_some());
     assert_eq!(adapter.committed().unwrap(), 2048);
 }
 
