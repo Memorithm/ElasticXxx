@@ -1,6 +1,7 @@
 //! Control-loop primitives.
 
 use crate::error::RuntimeError;
+use crate::forecast::{CurrentStateForecaster, Forecast, Forecaster};
 use crate::observation::{ObservationSnapshot, Observer};
 use crate::plan::{plan_with_context, Plan};
 use elastic_eir::{EirResource, PlanningContext, TransitionPlanner};
@@ -14,14 +15,42 @@ pub fn collect_observations<O: Observer>(observer: &O) -> (PlanningContext, Obse
     (context, snapshot)
 }
 
-/// Observe a resource and run one deterministic planning step.
+/// Observe, forecast, and run one deterministic planning step.
+pub fn observe_forecast_and_plan<P, O, F>(
+    planner: &P,
+    resource: &EirResource,
+    observer: &O,
+    forecaster: &F,
+) -> Result<(ObservationSnapshot, Forecast, Option<Plan>), RuntimeError>
+where
+    P: TransitionPlanner,
+    O: Observer,
+    F: Forecaster,
+{
+    let (current, snapshot) = collect_observations(observer);
+    let forecast = forecaster.forecast(&snapshot, &current)?;
+    let plan = if forecast.is_available() {
+        forecast
+            .planning_context()
+            .map(|context| plan_with_context(planner, resource, context))
+    } else {
+        None
+    };
+    Ok((snapshot, forecast, plan))
+}
+
+/// Observe a resource and run one planning step through the explicit forecast
+/// boundary using the zero-horizon compatibility forecaster.
 pub fn observe_and_plan<P: TransitionPlanner, O: Observer>(
     planner: &P,
     resource: &EirResource,
     observer: &O,
 ) -> Result<(ObservationSnapshot, Plan), RuntimeError> {
-    let (context, snapshot) = collect_observations(observer);
-    let plan = plan_with_context(planner, resource, &context);
+    let (snapshot, _forecast, plan) =
+        observe_forecast_and_plan(planner, resource, observer, &CurrentStateForecaster)?;
+    let plan = plan.ok_or_else(|| {
+        RuntimeError::planning("current-state forecaster unexpectedly produced no planning context")
+    })?;
     Ok((snapshot, plan))
 }
 
@@ -39,9 +68,11 @@ pub fn run_planning_cycle<P: TransitionPlanner, O: Observer>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::forecast::{ForecastStatus, Forecaster};
     use crate::observation::{Observation, ObservationSource};
     use elastic_core::resource::ObservationSignalId;
     use elastic_eir::FirstGroundedPlanner;
+    use std::time::Duration;
 
     struct TestObserver;
 
@@ -60,6 +91,43 @@ mod tests {
         }
     }
 
+    struct UnsupportedForecaster;
+
+    impl Forecaster for UnsupportedForecaster {
+        fn forecast(
+            &self,
+            _observations: &ObservationSnapshot,
+            _current: &PlanningContext,
+        ) -> Result<Forecast, RuntimeError> {
+            Ok(Forecast::unsupported(
+                Duration::from_secs(1),
+                "test-unsupported",
+                "forecast unavailable",
+            ))
+        }
+    }
+
+    struct InconsistentUnsupportedForecaster;
+
+    impl Forecaster for InconsistentUnsupportedForecaster {
+        fn forecast(
+            &self,
+            _observations: &ObservationSnapshot,
+            _current: &PlanningContext,
+        ) -> Result<Forecast, RuntimeError> {
+            Ok(Forecast {
+                status: ForecastStatus::Unsupported,
+                context: Some(
+                    PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 1.0),
+                ),
+                horizon: Duration::from_secs(1),
+                method: "malformed-test".to_owned(),
+                confidence: None,
+                detail: Some("unsupported status must dominate stray context".to_owned()),
+            })
+        }
+    }
+
     #[test]
     fn collect_observations_preserves_context_and_evidence() {
         let (context, snapshot) = collect_observations(&TestObserver);
@@ -70,15 +138,46 @@ mod tests {
     }
 
     #[test]
-    fn observe_and_plan_uses_provider_context() {
+    fn observe_and_plan_uses_forecast_boundary() {
         let resource = crate::RuntimeConfig::default().ir_resource;
         let (snapshot, plan) = observe_and_plan(&FirstGroundedPlanner, &resource, &TestObserver)
-            .expect("observation and planning should succeed");
+            .expect("observation, forecast, and planning should succeed");
 
         assert_eq!(snapshot.len(), 1);
         assert_eq!(
             plan.context.get(ObservationSignalId::UTILIZATION),
             Some(0.5)
         );
+    }
+
+    #[test]
+    fn unsupported_forecast_never_fabricates_a_plan() {
+        let resource = crate::RuntimeConfig::default().ir_resource;
+        let (_snapshot, forecast, plan) = observe_forecast_and_plan(
+            &FirstGroundedPlanner,
+            &resource,
+            &TestObserver,
+            &UnsupportedForecaster,
+        )
+        .expect("unsupported forecast is an explicit outcome, not a runtime error");
+
+        assert_eq!(forecast.status, ForecastStatus::Unsupported);
+        assert!(plan.is_none());
+    }
+
+    #[test]
+    fn unavailable_status_dominates_stray_forecast_context() {
+        let resource = crate::RuntimeConfig::default().ir_resource;
+        let (_snapshot, forecast, plan) = observe_forecast_and_plan(
+            &FirstGroundedPlanner,
+            &resource,
+            &TestObserver,
+            &InconsistentUnsupportedForecaster,
+        )
+        .expect("malformed unavailable forecast must fail closed without a plan");
+
+        assert_eq!(forecast.status, ForecastStatus::Unsupported);
+        assert!(forecast.planning_context().is_some());
+        assert!(plan.is_none());
     }
 }
