@@ -5,12 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 publish = false
-description = "User-facing facade for the ElasticXxx Rust surface model"
+description = "User-facing facade for ElasticXxx declarations, runtime, and reference adapters"
 
 [dependencies]
 elastic-core = { path = "../elastic-core" }
 elastic-eir = { path = "../elastic-eir" }
 elastic-macros = { path = "../elastic-macros" }
+elastic-runtime = { path = "../elastic-runtime" }
+elastic-adapters = { path = "../elastic-adapters" }
 
 [dev-dependencies]
 trybuild = "1"

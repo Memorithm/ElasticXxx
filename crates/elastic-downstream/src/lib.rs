@@ -1,12 +1,8 @@
 //! Compile-time guard for the advertised single-dependency contract.
 //!
-//! This crate deliberately depends **only** on [`elastic`]. If the
-//! `ElasticResource` expansion ever emits paths through a crate that is not a
-//! direct dependency of downstream users (for example `elastic-core`), this
-//! member stops compiling and `cargo check --workspace` fails, protecting the
-//! facade contract.
-//!
-//! [`elastic`]: https://docs.rs/elastic
+//! This crate deliberately depends **only** on [`elastic`]. It exercises both
+//! declaration and operational runtime types so workspace CI catches accidental
+//! leaks of implementation-crate dependencies into downstream code.
 
 #![forbid(unsafe_code)]
 
@@ -24,18 +20,29 @@ use elastic::prelude::*;
 )]
 pub struct DownstreamKv;
 
+/// Compile-time proof that a downstream crate can name runtime and adapter
+/// types without directly depending on implementation crates.
+pub fn public_surface_smoke() {
+    let _runtime = Runtime::new(RuntimeConfig::default());
+    let _cancellation = CancellationToken::new();
+    let _host = HostMemoryObserver;
+    let _budget = RamBudget::new("downstream-ram", 4096, 512, 4096, 1024, Some(2048))
+        .expect("valid downstream RAM fixture");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn derive_works_through_the_facade_alone() {
+    fn derive_and_runtime_work_through_the_facade_alone() {
         let spec = DownstreamKv::resource_spec().unwrap();
         assert_eq!(spec.resource_id().as_str(), "downstream-kv");
         assert!(spec.admits(TransitionMechanism::Reencode, &DimensionId::REPRESENTATION));
 
-        // EIR lowering is also part of the public facade surface.
         let document = lower(&spec).unwrap();
         assert!(document.resource("downstream-kv").unwrap().transitions()[0].capability_grounded());
+
+        public_surface_smoke();
     }
 }
