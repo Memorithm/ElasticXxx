@@ -21,6 +21,7 @@ pub mod cancellation;
 pub mod clock;
 pub mod commit;
 pub mod config;
+pub mod configured_controller;
 pub mod configured_forecaster;
 pub mod control_loop;
 pub mod controller;
@@ -43,6 +44,9 @@ pub use cancellation::CancellationToken;
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
+pub use configured_controller::{
+    ConfiguredController, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
+};
 pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
 pub use error::RuntimeError;
