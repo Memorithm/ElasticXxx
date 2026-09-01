@@ -181,6 +181,8 @@ enum Commands {
     Observe { id: String },
     /// Produce an auditable, non-actuating plan.
     Plan { id: String },
+    /// Check runtime prerequisites without mutating state.
+    Doctor { id: String },
     /// Validate an explicit RAM target through the trusted adapter boundary.
     Validate {
         id: String,
@@ -220,6 +222,7 @@ fn main() -> ExitCode {
         Commands::Inspect { id } => inspect(&id),
         Commands::Observe { id } => observe(&id),
         Commands::Plan { id } => plan(&id),
+        Commands::Doctor { id } => doctor(&id),
         Commands::Validate { id, ram } => validate(&id, ram.into()),
         Commands::Apply { id, ram } => apply(&id, ram.into()),
         Commands::Run { args } => args.execute(),
@@ -244,6 +247,16 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn doctor_syntax_parses_with_resource_id() {
+        let cli = Cli::try_parse_from(["elastic", "doctor", "default"]).unwrap();
+
+        assert!(matches!(
+            cli.command,
+            Commands::Doctor { id } if id == "default"
+        ));
+    }
 
     #[test]
     fn configured_run_syntax_parses_without_inline_arguments() {

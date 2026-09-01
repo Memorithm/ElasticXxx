@@ -83,6 +83,28 @@ pub fn observe(id: &str) -> CommandResult {
     }))
 }
 
+/// Check runtime prerequisites without mutating state.
+pub fn doctor(id: &str) -> CommandResult {
+    let config = config_for(id)?;
+    let (_context, snapshot) = collect_observations(&HostMemoryObserver);
+    let ready = snapshot.all_signals_valid;
+
+    print_json(json!({
+        "command": "doctor",
+        "resource_id": config.resource_spec.resource_id().as_str(),
+        "status": if ready { "ready" } else { "blocked" },
+        "all_signals_valid": ready,
+        "observation_count": snapshot.iter().count(),
+        "observations": render_observations(snapshot.iter()),
+    }))?;
+
+    if ready {
+        Ok(())
+    } else {
+        Err(IoError::other("doctor blocked: one or more required observations are invalid").into())
+    }
+}
+
 pub fn plan(id: &str) -> CommandResult {
     let config = config_for(id)?;
     let (snapshot, plan) = observe_and_plan(
