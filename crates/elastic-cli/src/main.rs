@@ -7,8 +7,10 @@ use clap::{Args, Parser, Subcommand};
 
 mod commands;
 mod config_run;
+mod evidence;
 use commands::*;
 use config_run::run_config;
+use evidence::{diff, replay};
 
 #[derive(Parser)]
 #[command(name = "elastic", about = "Elastic runtime CLI")]
@@ -214,6 +216,10 @@ enum Commands {
     },
     /// Explain the planner outcome and its observation evidence.
     Explain { id: String },
+    /// Validate a captured JSON evidence record without actuating resources.
+    Replay { input: PathBuf },
+    /// Compare two captured JSON evidence records deterministically.
+    Diff { left: PathBuf, right: PathBuf },
 }
 
 fn main() -> ExitCode {
@@ -233,6 +239,8 @@ fn main() -> ExitCode {
             max_cycles,
         } => watch(&id, ram.into(), interval_ms, max_cycles),
         Commands::Explain { id } => explain(&id),
+        Commands::Replay { input } => replay(&input),
+        Commands::Diff { left, right } => diff(&left, &right),
     };
 
     match result {
@@ -323,5 +331,18 @@ mod tests {
             "docs/config/operator-v1.example.json",
         ]);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn replay_and_diff_syntax_parse_with_paths() {
+        let replay = Cli::try_parse_from(["elastic", "replay", "run.json"]).unwrap();
+        assert!(
+            matches!(replay.command, Commands::Replay { input } if input.as_path() == std::path::Path::new("run.json"))
+        );
+
+        let diff = Cli::try_parse_from(["elastic", "diff", "left.json", "right.json"]).unwrap();
+        assert!(
+            matches!(diff.command, Commands::Diff { left, right } if left.as_path() == std::path::Path::new("left.json") && right.as_path() == std::path::Path::new("right.json"))
+        );
     }
 }
