@@ -2,6 +2,7 @@ use std::error::Error;
 use std::io::{Error as IoError, ErrorKind};
 use std::time::Duration;
 
+use crate::evidence::print_json;
 use elastic_adapters::HeadroomPlanner;
 use elastic_core::{resource::DimensionId, TransitionMechanism};
 use elastic_eir::{
@@ -339,11 +340,6 @@ fn render_events(events: &[elastic_runtime::RuntimeEvent]) -> Vec<Value> {
             })
         })
         .collect()
-}
-
-fn print_json(value: Value) -> CommandResult {
-    println!("{}", serde_json::to_string_pretty(&value)?);
-    Ok(())
 }
 
 #[cfg(test)]
