@@ -2,6 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
+use crate::evidence::{print_json, EVIDENCE_SCHEMA};
 use elastic_runtime::{
     CancellationToken, ConfiguredController, ConfiguredResourceState, Forecast, OperatorConfig,
     RuntimeEvent,
@@ -20,8 +21,7 @@ pub fn run_config(path: &Path, resource: Option<&str>) -> CommandResult {
     let contents = fs::read_to_string(path)?;
     let config: OperatorConfig = serde_json::from_str(&contents)?;
     let output = execute_operator_config(&config, resource)?;
-    println!("{}", serde_json::to_string_pretty(&output)?);
-    Ok(())
+    print_json(output)
 }
 
 fn execute_operator_config(
@@ -42,6 +42,7 @@ fn execute_operator_config(
     Ok(json!({
         "command": "run",
         "source": "operator-config",
+        "evidence_schema": EVIDENCE_SCHEMA,
         "config_version": config.version,
         "selected_resource": resource,
         "controllers": executions,
