@@ -101,8 +101,7 @@ pub fn doctor(id: &str) -> CommandResult {
     if ready {
         Ok(())
     } else {
-        Err(IoError::new(
-            ErrorKind::Other,
+        Err(IoError::other(
             "doctor blocked: one or more required observations are invalid",
         )
         .into())
