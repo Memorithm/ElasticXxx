@@ -7,6 +7,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod benchmark;
+
+pub use benchmark::{
+    run_fixed_baseline, BenchmarkError, BenchmarkResult, BlockBenchmarkResult, CandidateId,
+    ReconstructionMetrics, RepresentationFamily, SyntheticCorpus, BENCHMARK_PROTOCOL_VERSION,
+    FIXED_CANDIDATES, RESIDENT_ALIGNMENT_BITS, SERIALIZED_ALIGNMENT_BITS,
+};
+
 use elastic_core::{
     CapabilitySet, RepresentationState, RepresentationTransition, TransitionAttestations,
     TransitionError, TransitionMechanism,
