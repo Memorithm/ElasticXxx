@@ -1,0 +1,53 @@
+name: Temporary EX6 roadmap staging
+
+on:
+  push:
+    branches: [agent/ex6-roadmap-staging]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record merged EX6 evidence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          roadmap = Path('.agent/ELASTICXXX_ECOSYSTEM_ROADMAP.yaml')
+          s = roadmap.read_text()
+          assert 'last_updated: "2026-08-31"' in s
+          s = s.replace('last_updated: "2026-08-31"', 'last_updated: "2026-09-02"', 1)
+          fact_anchor = '  - a_function_like_elastic_macro_is_currently_deferred_until_real_syntactic_demand_exists\n'
+          assert fact_anchor in s
+          s = s.replace(fact_anchor, fact_anchor + '''  - typed_elastic_runtime_evidence_v1_is_library_owned_bounded_and_reexported_through_the_elastic_facade\n  - CLI_replay_and_diff_are_read_only_frontends_over_the_shared_typed_evidence_contract\n''', 1)
+          ex6 = '''  - id: EX6\n    name: Durable evidence and replay\n    status: pending_after_EX4\n    goals:\n'''
+          assert ex6 in s
+          replacement = '''  - id: EX6\n    name: Durable evidence and replay\n    status: active\n    completed_slices:\n      - id: EX6a\n        name: Typed bounded durable runtime evidence envelope\n        status: complete\n        completion_evidence:\n          - issue_49_defined_library_owned_durable_evidence_scope\n          - PR_50_merged_to_main_as_f1ce41b96e608f83e1163d4208d018d8e924a843\n          - exact_head_b929e63845ba53a3fdbc106875f47a0fdcf0ffdd_official_CI_191_completed_success_before_merge\n          - elastic_runtime_owns_elastic_runtime_evidence_v1_schema_command_event_summary_diff_and_bounds\n          - legacy_flat_v1_shape_remains_supported_without_silent_schema_migration\n          - replay_and_diff_are_bounded_read_only_and_perform_no_physical_actuation\n          - facade_and_downstream_single_dependency_guard_cover_the_shared_evidence_contract\n          - workspace_all_targets_and_clippy_D_warnings_completed_success_on_Rust_1_89_0_before_PR_publication\n    goals:\n'''
+          s = s.replace(ex6, replacement, 1)
+          roadmap.write_text(s)
+
+          overlay = Path('.agent/ML_MATURITY_5_OF_5.yaml')
+          m = overlay.read_text()
+          assert 'last_updated: "2026-08-31"' in m
+          m = m.replace('last_updated: "2026-08-31"', 'last_updated: "2026-09-02"', 1)
+          anchor = '''  - id: EXML5\n    name: Ecosystem evidence integration\n    priority: P0\n    goals:\n'''
+          assert anchor in m
+          repl = '''  - id: EXML5\n    name: Ecosystem evidence integration\n    priority: P0\n    status: active\n    completed_slices:\n      - id: EXML5a\n        name: Shared versioned runtime evidence contract\n        status: complete\n        completion_evidence:\n          - PR_50_merged_to_main_as_f1ce41b96e608f83e1163d4208d018d8e924a843\n          - exact_head_b929e63845ba53a3fdbc106875f47a0fdcf0ffdd_CI_191_success\n          - evidence_contract_is_owned_by_elastic_runtime_and_exported_through_elastic\n          - SciRust_Verify_verdict_semantics_remain_outside_ElasticXxx\n          - physical_qualified_plan_replay_remains_pending_and_non_actuating_replay_is_not_counted_as_that_gate\n    goals:\n'''
+          m = m.replace(anchor, repl, 1)
+          overlay.write_text(m)
+          PY
+          grep -q 'PR_50_merged_to_main_as_f1ce41b96e608f83e1163d4208d018d8e924a843' .agent/ELASTICXXX_ECOSYSTEM_ROADMAP.yaml
+          grep -q 'physical_qualified_plan_replay_remains_pending' .agent/ML_MATURITY_5_OF_5.yaml
+      - name: Commit roadmap files only
+        run: |
+          git config user.name "MEMOPERF"
+          git config user.email "contact@checkupauto.fr"
+          git add .agent/ELASTICXXX_ECOSYSTEM_ROADMAP.yaml .agent/ML_MATURITY_5_OF_5.yaml
+          git diff --cached --quiet && { echo "no roadmap changes"; exit 1; }
+          git commit -m "docs(agent): record EX6 typed evidence slice"
+          git push origin HEAD:agent/ex6-roadmap-staging
