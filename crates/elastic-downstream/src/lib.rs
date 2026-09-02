@@ -64,6 +64,16 @@ pub fn public_surface_smoke() {
     );
 }
 
+/// Compile-time proof that durable runtime evidence is available through only
+/// the public `elastic` facade.
+pub fn public_evidence_surface_smoke() {
+    let schema = EvidenceSchema::V1;
+    let command = EvidenceCommand::Run;
+    assert_eq!(schema.as_str(), EVIDENCE_SCHEMA_V1);
+    assert_eq!(command.as_str(), "run");
+    let _bounded_ingest_limit = MAX_EVIDENCE_BYTES;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +88,6 @@ mod tests {
         assert!(document.resource("downstream-kv").unwrap().transitions()[0].capability_grounded());
 
         public_surface_smoke();
+        public_evidence_surface_smoke();
     }
 }

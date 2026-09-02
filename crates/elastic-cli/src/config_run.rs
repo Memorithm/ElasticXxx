@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::evidence::{print_json, EVIDENCE_SCHEMA};
+use crate::evidence::print_json;
 use elastic_runtime::{
     CancellationToken, ConfiguredController, ConfiguredResourceState, Forecast, OperatorConfig,
     RuntimeEvent,
@@ -42,7 +42,6 @@ fn execute_operator_config(
     Ok(json!({
         "command": "run",
         "source": "operator-config",
-        "evidence_schema": EVIDENCE_SCHEMA,
         "config_version": config.version,
         "selected_resource": resource,
         "controllers": executions,
