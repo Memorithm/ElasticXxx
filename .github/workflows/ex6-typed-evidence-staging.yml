@@ -18,7 +18,9 @@ jobs:
         run: |
           rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
       - name: Apply EX6 typed evidence patch
-        run: python3 tools/ex6-typed-evidence-patch.py
+        run: |
+          python3 tools/ex6-typed-evidence-patch.py
+          python3 tools/ex6-fix-clippy.py
       - name: Format generated product
         run: cargo +1.89.0 fmt --all
       - name: Format check
