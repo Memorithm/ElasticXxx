@@ -1,0 +1,48 @@
+name: Temporary EX6 typed evidence staging
+
+on:
+  push:
+    branches: [feat/ex6-typed-evidence-staging]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - name: Install pinned Rust
+        run: |
+          rustup toolchain install 1.89.0 --profile minimal --component rustfmt,clippy
+      - name: Apply EX6 typed evidence patch
+        run: python3 tools/ex6-typed-evidence-patch.py
+      - name: Format generated product
+        run: cargo +1.89.0 fmt --all
+      - name: Format check
+        run: cargo +1.89.0 fmt --all -- --check
+      - name: Check
+        run: cargo +1.89.0 check --workspace --all-targets
+      - name: Tests
+        run: cargo +1.89.0 test --workspace --all-targets
+      - name: Downstream facade guard
+        run: cargo +1.89.0 test -p elastic-downstream --all-targets
+      - name: Clippy
+        run: cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
+      - name: Commit validated product only
+        run: |
+          git config user.name "ZEKRITI Tarek"
+          git config user.email "194770978+CHECKUPAUTO@users.noreply.github.com"
+          git add Cargo.lock \
+            crates/elastic-runtime/Cargo.toml \
+            crates/elastic-runtime/src/lib.rs \
+            crates/elastic-runtime/src/evidence.rs \
+            crates/elastic-cli/src/evidence.rs \
+            crates/elastic-cli/src/config_run.rs \
+            crates/elastic/src/lib.rs \
+            crates/elastic-downstream/src/lib.rs
+          git diff --cached --quiet && { echo "no EX6 product changes generated"; exit 1; }
+          git commit -m "feat(evidence): add typed durable runtime envelope"
+          git push origin HEAD:feat/ex6-typed-evidence-staging
