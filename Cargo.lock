@@ -198,6 +198,7 @@ dependencies = [
  "elastic-eir",
  "log",
  "serde",
+ "serde_json",
  "thiserror",
  "tracing",
  "tracing-subscriber",

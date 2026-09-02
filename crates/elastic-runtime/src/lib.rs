@@ -27,6 +27,7 @@ pub mod control_loop;
 pub mod controller;
 pub mod error;
 pub mod events;
+pub mod evidence;
 pub mod forecast;
 pub mod forecast_runtime;
 pub mod observation;
@@ -51,6 +52,12 @@ pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
+pub use evidence::{
+    EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
+    EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
+    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
+    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+};
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use forecast_runtime::{
     ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,

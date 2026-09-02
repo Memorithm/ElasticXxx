@@ -38,6 +38,12 @@ pub use elastic_runtime::{
     RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
     TransactionalRam, ValidatedPlan, VerificationResult, OPERATOR_CONFIG_VERSION,
 };
+pub use elastic_runtime::{
+    EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
+    EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
+    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
+    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+};
 
 /// Operational runtime surface for users that prefer an explicit namespace.
 pub mod runtime {
@@ -70,5 +76,9 @@ pub mod prelude {
         PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry,
         Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
         TransactionalConcurrency, TransactionalRam, VerificationResult, OPERATOR_CONFIG_VERSION,
+    };
+    pub use elastic_runtime::{
+        EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
+        EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
     };
 }
