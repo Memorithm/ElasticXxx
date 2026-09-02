@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-08-31"
+last_updated: "2026-09-02"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -41,6 +41,8 @@ verified_current_facts:
   - derive_ElasticResource_is_implemented_and_reexported_by_the_elastic_facade
   - the_current_derive_is_documented_as_syntax_sugar_over_the_same_typed_builder_and_validation_semantics
   - a_function_like_elastic_macro_is_currently_deferred_until_real_syntactic_demand_exists
+  - typed_elastic_runtime_evidence_v1_is_library_owned_bounded_and_reexported_through_the_elastic_facade
+  - CLI_replay_and_diff_are_read_only_frontends_over_the_shared_typed_evidence_contract
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -304,7 +306,20 @@ roadmap:
 
   - id: EX6
     name: Durable evidence and replay
-    status: pending_after_EX4
+    status: active
+    completed_slices:
+      - id: EX6a
+        name: Typed bounded durable runtime evidence envelope
+        status: complete
+        completion_evidence:
+          - issue_49_defined_library_owned_durable_evidence_scope
+          - PR_50_merged_to_main_as_f1ce41b96e608f83e1163d4208d018d8e924a843
+          - exact_head_b929e63845ba53a3fdbc106875f47a0fdcf0ffdd_official_CI_191_completed_success_before_merge
+          - elastic_runtime_owns_elastic_runtime_evidence_v1_schema_command_event_summary_diff_and_bounds
+          - legacy_flat_v1_shape_remains_supported_without_silent_schema_migration
+          - replay_and_diff_are_bounded_read_only_and_perform_no_physical_actuation
+          - facade_and_downstream_single_dependency_guard_cover_the_shared_evidence_contract
+          - workspace_all_targets_and_clippy_D_warnings_completed_success_on_Rust_1_89_0_before_PR_publication
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome
