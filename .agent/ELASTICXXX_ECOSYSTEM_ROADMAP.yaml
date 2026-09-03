@@ -48,6 +48,8 @@ verified_current_facts:
   - a_runnable_kernel_planning_example_exists_without_physical_actuation_or_performance_claims
   - SOUP_run_resource_plan_v1_is_published_through_the_public_elastic_facade
   - SOUP_resource_plan_v1_is_pre_execution_only_and_pinned_to_upstream_05b646523727925990530667e7012ede50bd30b2
+  - SOUP_resource_plan_wire_v1_is_published_as_application_vnd_elastic_soup_run_resource_plan_v1_json
+  - SOUP_wire_v1_reuses_native_validation_and_rejects_unknown_JSON_fields_contracts_and_unqualified_revisions
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -103,6 +105,7 @@ rust_programming_surface:
     - public_runtime_builder_driver_and_operator_config_surfaces_reexported_through_elastic
     - CLI_commands_route_through_public_elastic_semantics_after_PR_51
     - SOUP_run_resource_plan_v1_reexported_through_elastic_after_PR_52
+    - SOUP_run_resource_plan_wire_v1_reexported_through_elastic_after_PR_53
   required_library_direction:
     - public_runtime_builder_and_driver_through_the_elastic_facade
     - typed_observer_forecaster_planner_validator_actuator_and_verifier_extension_points
@@ -174,19 +177,24 @@ ecosystem_interfaces:
       - define_scientific_correctness_by_resource_objective
   MakazhanAlpamys/Soup:
     relationship: external_LLM_post_training_product_with_resource_adaptation_seam
-    status: resource_plan_v1_published
+    status: resource_plan_v1_and_wire_v1_published
     qualified_revision: 05b646523727925990530667e7012ede50bd30b2
     contract: elastic.soup.run-resource-plan@1.0.0
+    wire_media_type: application/vnd.elastic.soup.run-resource-plan.v1+json
     published_by:
       - PR_52_exact_head_9118048e30e691962889c4839423ea0aa30e40a5
       - PR_52_CI_203_completed_success
       - PR_52_merge_70f86f80cb90afb62241d8fff2d7df8f38aaeb5b
+      - PR_53_exact_head_7cf280f051a1405166c424bbb30d812291b3f250
+      - PR_53_CI_207_completed_success
+      - PR_53_merge_6e0952e59842eb9c14f808266d6f3eb0b1f33014
     consume:
       - batch_size_auto_or_positive_fixed_capacity_choice
       - auto_batch_strategy_auto_static_or_probe
       - optional_layer_streaming_residency_choice
       - stream_source_auto_ram_or_disk
       - stream_buffer_count_2_through_8
+      - strict_versioned_JSON_wire_envelope_for_cross_repository_handoff
     must_not:
       - claim_mid_step_batch_or_streaming_actuation_from_the_v1_pre_execution_contract
       - move_SOUP_training_model_reward_optimizer_quantization_dataset_or_checkpoint_semantics_into_ElasticXxx
@@ -383,6 +391,17 @@ roadmap:
           - batch_capacity_and_optional_streaming_residency_are_mapped_to_generic_Elastic_dimensions
           - unreviewed_SOUP_revisions_and_invalid_streaming_bounds_tasks_fail_closed
           - v1_explicitly_does_not_claim_mid_step_actuation
+      - id: EX7_SOUP_wire_v1
+        name: SOUP resource plan cross-repository JSON wire envelope
+        status: complete
+        completion_evidence:
+          - media_type_application_vnd_elastic_soup_run_resource_plan_v1_json
+          - PR_53_exact_head_7cf280f051a1405166c424bbb30d812291b3f250
+          - PR_53_CI_207_completed_success_on_exact_head
+          - PR_53_merged_to_main_as_6e0952e59842eb9c14f808266d6f3eb0b1f33014
+          - wire_deserialization_denies_unknown_fields
+          - wire_conversion_reuses_native_fail_closed_validation
+          - public_elastic_facade_exposes_wire_types_and_media_type
     sequence:
       - SOUP_resource_plan_and_Hub_handoff
       - SLHAv2_KV_reference_adapter
