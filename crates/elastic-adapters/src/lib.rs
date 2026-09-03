@@ -38,8 +38,10 @@ pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
 pub use soup::{
-    SoupAutoBatchStrategy, SoupBatchSize, SoupContractError, SoupLayerStreamingV1,
-    SoupRunResourcePlanV1, SoupStreamSource, SOUP_DEFAULT_STREAM_BUFFERS,
+    SoupAutoBatchStrategy, SoupBatchSize, SoupBatchSizeWireV1, SoupContractError,
+    SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
+    SoupRunResourcePlanWireV1, SoupStreamSource, SOUP_DEFAULT_STREAM_BUFFERS,
     SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS,
-    SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS,
+    SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1, SOUP_RESOURCE_PLAN_V1,
+    SOUP_STREAM_TASKS,
 };
