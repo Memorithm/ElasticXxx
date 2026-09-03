@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::evidence::print_json;
-use elastic_runtime::{
+use elastic::{
     CancellationToken, ConfiguredController, ConfiguredResourceState, Forecast, OperatorConfig,
     RuntimeEvent,
 };

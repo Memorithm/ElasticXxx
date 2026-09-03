@@ -138,10 +138,7 @@ name = "elastic-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "elastic-adapters",
- "elastic-core",
- "elastic-eir",
- "elastic-runtime",
+ "elastic",
  "serde_json",
 ]
 

@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{Error as IoError, ErrorKind, Read};
 use std::path::Path;
 
-use elastic_runtime::{EvidenceEnvelope, MAX_EVIDENCE_BYTES};
+use elastic::{EvidenceEnvelope, MAX_EVIDENCE_BYTES};
 use serde_json::{json, Value};
 
 type CommandResult = Result<(), Box<dyn Error>>;
