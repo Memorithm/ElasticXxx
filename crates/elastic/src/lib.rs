@@ -38,10 +38,10 @@ pub use elastic_runtime::{
     HostMemoryObserver, InvariantCheck, LoopStopReason, NoopEventSink, Observation,
     ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig, Plan,
     PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
-    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError,
-    RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
-    TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
-    VerificationResult, OPERATOR_CONFIG_VERSION,
+    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
+    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
+    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
+    TransactionalRam, ValidatedPlan, VerificationResult, OPERATOR_CONFIG_VERSION,
 };
 pub use elastic_runtime::{
     EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
@@ -65,8 +65,8 @@ pub mod adapters {
 pub mod prelude {
     pub use elastic_adapters::{
         ConcurrencyPermits, HeadroomPlanner, RamBudget, SoupAutoBatchStrategy, SoupBatchSize,
-        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1,
-        SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
+        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
+        SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
     };
     pub use elastic_core::resource::{
         AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
