@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-02"
+last_updated: "2026-09-03"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -43,6 +43,11 @@ verified_current_facts:
   - a_function_like_elastic_macro_is_currently_deferred_until_real_syntactic_demand_exists
   - typed_elastic_runtime_evidence_v1_is_library_owned_bounded_and_reexported_through_the_elastic_facade
   - CLI_replay_and_diff_are_read_only_frontends_over_the_shared_typed_evidence_contract
+  - EX5_public_programming_and_CLI_boundary_completed_through_PR_51_merge_164248eea758ce58a9e645975f9e98916176fe7e
+  - elastic_cli_now_consumes_the_public_elastic_facade_instead_of_internal_runtime_core_eir_or_adapter_crates
+  - a_runnable_kernel_planning_example_exists_without_physical_actuation_or_performance_claims
+  - SOUP_run_resource_plan_v1_is_published_through_the_public_elastic_facade
+  - SOUP_resource_plan_v1_is_pre_execution_only_and_pinned_to_upstream_05b646523727925990530667e7012ede50bd30b2
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -82,6 +87,7 @@ ownership:
     - SciRust_Hub_registry_workflow_or_global_control_plane
     - SciCapsule_container_trust_or_execution_product_semantics
     - SciRust_Verify_evidence_dossier_or_verdict_semantics
+    - SOUP_training_quantization_reward_optimizer_dataset_checkpoint_or_evaluation_semantics
     - nonlocal_relativity_scientific_model_semantics
 
 rust_programming_surface:
@@ -94,6 +100,9 @@ rust_programming_surface:
     - ResourceSpec_builder_and_typed_core_validation
     - derive_ElasticResource_reexported_through_the_elastic_facade
     - macro_and_manual_declaration_examples
+    - public_runtime_builder_driver_and_operator_config_surfaces_reexported_through_elastic
+    - CLI_commands_route_through_public_elastic_semantics_after_PR_51
+    - SOUP_run_resource_plan_v1_reexported_through_elastic_after_PR_52
   required_library_direction:
     - public_runtime_builder_and_driver_through_the_elastic_facade
     - typed_observer_forecaster_planner_validator_actuator_and_verifier_extension_points
@@ -102,7 +111,7 @@ rust_programming_surface:
     - stable_error_taxonomy_suitable_for_human_and_machine_consumers
     - no_requirement_for_downstream_users_to_import_internal_implementation_crates
   required_command_family:
-    status: planned_not_yet_claimed_as_implemented
+    status: implemented_primary_contract_after_PR_51
     commands:
       - name: elastic_inspect
         intent: inspect_declared_resources_capabilities_and_effective_configuration_without_actuation
@@ -119,9 +128,9 @@ rust_programming_surface:
       - name: elastic_diff
         intent: compare_plans_observations_or_cycle_records_without_mutating_resources
     naming_rule: >-
-      Final binary and subcommand spelling must be chosen against the actual crate
-      layout and packaging. The roadmap defines required capabilities, not a claim
-      that these exact spellings already exist.
+      Final binary and subcommand spelling follows the actual elastic CLI layout;
+      any future cargo-elastic wrapper must remain a thin frontend over the same
+      public library semantics.
   cargo_integration:
     status: candidate_after_CLI_stabilization
     direction: >-
@@ -163,6 +172,25 @@ ecosystem_interfaces:
     must_not:
       - move_SciRust_tensor_semantics_into_Elastic_policy
       - define_scientific_correctness_by_resource_objective
+  MakazhanAlpamys/Soup:
+    relationship: external_LLM_post_training_product_with_resource_adaptation_seam
+    status: resource_plan_v1_published
+    qualified_revision: 05b646523727925990530667e7012ede50bd30b2
+    contract: elastic.soup.run-resource-plan@1.0.0
+    published_by:
+      - PR_52_exact_head_9118048e30e691962889c4839423ea0aa30e40a5
+      - PR_52_CI_203_completed_success
+      - PR_52_merge_70f86f80cb90afb62241d8fff2d7df8f38aaeb5b
+    consume:
+      - batch_size_auto_or_positive_fixed_capacity_choice
+      - auto_batch_strategy_auto_static_or_probe
+      - optional_layer_streaming_residency_choice
+      - stream_source_auto_ram_or_disk
+      - stream_buffer_count_2_through_8
+    must_not:
+      - claim_mid_step_batch_or_streaming_actuation_from_the_v1_pre_execution_contract
+      - move_SOUP_training_model_reward_optimizer_quantization_dataset_or_checkpoint_semantics_into_ElasticXxx
+      - accept_unreviewed_SOUP_revisions_silently
   Memorithm/SLHAv2:
     relationship: first_demanding_reference_environment_for_KV_elasticity
     status: active_reference_environment
@@ -212,10 +240,11 @@ ecosystem_interfaces:
       - keep_Elastic_runtime_commit_decision_distinct_from_Verify_dossier_verdicts
   Memorithm/scirust-hub:
     relationship: ecosystem_control_plane
-    status: planned_component_contract
+    status: active_SOUP_resource_handoff_direction
     desired_contract:
       - Hub_orchestrates_Elastic_runtime_components_or_jobs
       - ElasticXxx_controls_resource_adaptation_within_declared_run_scope
+      - Hub_consumes_versioned_Elastic_resource_plans_without_owning_adaptation_policy
       - no_duplicate_global_registry_or_workflow_scheduler_in_ElasticXxx
   Memorithm/SciCapsule:
     relationship: portable_artifact_and_execution_packaging
@@ -287,7 +316,18 @@ roadmap:
 
   - id: EX5
     name: Rust programming ergonomics and command family
-    status: active
+    status: complete
+    completed_slices:
+      - id: EX5a
+        name: Public facade CLI closure and runnable kernel example
+        status: complete
+        completion_evidence:
+          - PR_51_exact_head_71c4eaaf66d8d242e75b7a8c6a21cd4b18f53fe2
+          - PR_51_CI_197_completed_success_on_exact_head
+          - PR_51_merged_to_main_as_164248eea758ce58a9e645975f9e98916176fe7e
+          - elastic_cli_depends_on_public_elastic_facade_not_internal_core_eir_runtime_or_adapter_crates
+          - kernel_plan_example_is_runnable_and_non_actuating
+          - downstream_public_surface_guard_remains_in_place
     goals:
       - expose_runtime_builder_and_driver_through_the_elastic_facade
       - preserve_and_extend_typed_builder_and_derive_workflows_without_duplicate_semantics
@@ -328,8 +368,23 @@ roadmap:
 
   - id: EX7
     name: Ecosystem adapters
-    status: pending_after_EX5
+    status: active
+    completed_slices:
+      - id: EX7_SOUP_resource_plan_v1
+        name: SOUP pre-execution run resource plan boundary
+        status: complete
+        completion_evidence:
+          - contract_elastic_soup_run_resource_plan_1_0_0_published
+          - qualified_SOUP_commit_05b646523727925990530667e7012ede50bd30b2
+          - PR_52_exact_head_9118048e30e691962889c4839423ea0aa30e40a5
+          - PR_52_CI_203_completed_success_on_exact_head
+          - PR_52_merged_to_main_as_70f86f80cb90afb62241d8fff2d7df8f38aaeb5b
+          - public_elastic_facade_exposes_the_contract
+          - batch_capacity_and_optional_streaming_residency_are_mapped_to_generic_Elastic_dimensions
+          - unreviewed_SOUP_revisions_and_invalid_streaming_bounds_tasks_fail_closed
+          - v1_explicitly_does_not_claim_mid_step_actuation
     sequence:
+      - SOUP_resource_plan_and_Hub_handoff
       - SLHAv2_KV_reference_adapter
       - NNIS_kernel_and_representation_candidate_bridge
       - FLAT_ATTENTION_kernel_capability_bridge
