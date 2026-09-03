@@ -3,9 +3,9 @@
 #![forbid(unsafe_code)]
 
 use elastic::{
-    DimensionId, SoupAutoBatchStrategy, SoupBatchSize, SoupLayerStreamingV1,
-    SoupRunResourcePlanV1, SoupStreamSource, SOUP_HUB_RESOURCE_CONTRACT_V1,
-    SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_V1,
+    DimensionId, SoupAutoBatchStrategy, SoupBatchSize, SoupLayerStreamingV1, SoupRunResourcePlanV1,
+    SoupStreamSource, SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_QUALIFIED_UPSTREAM_COMMIT,
+    SOUP_RESOURCE_PLAN_V1,
 };
 
 #[test]
