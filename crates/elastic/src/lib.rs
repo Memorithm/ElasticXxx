@@ -3,13 +3,17 @@
 //! Downstream applications should depend on this crate rather than importing
 //! implementation crates directly. The facade re-exports the typed resource
 //! declaration API, deterministic EIR lowering, the operational runtime, and
-//! the reference in-process adapters.
+//! reviewed adapter boundaries.
 
 #![forbid(unsafe_code)]
 
 pub use elastic_adapters::{
     actuate_if_fresh, ActuationGateError, AdapterError, ConcurrencyPermits, HeadroomPlanner,
-    PlannerConfigError, RamBudget, ThresholdPlanner,
+    PlannerConfigError, RamBudget, SoupAutoBatchStrategy, SoupBatchSize, SoupContractError,
+    SoupLayerStreamingV1, SoupRunResourcePlanV1, SoupStreamSource, ThresholdPlanner,
+    SOUP_DEFAULT_STREAM_BUFFERS, SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS,
+    SOUP_MIN_STREAM_BUFFERS, SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_V1,
+    SOUP_STREAM_TASKS,
 };
 pub use elastic_core::resource;
 pub use elastic_core::resource::{
@@ -50,7 +54,7 @@ pub mod runtime {
     pub use elastic_runtime::*;
 }
 
-/// Reference in-process adapters and planners.
+/// Reference in-process adapters, planners, and reviewed ecosystem boundaries.
 pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{TransactionalConcurrency, TransactionalRam};
@@ -58,7 +62,10 @@ pub mod adapters {
 
 /// Everything needed by a typical Elastic application.
 pub mod prelude {
-    pub use elastic_adapters::{ConcurrencyPermits, HeadroomPlanner, RamBudget, ThresholdPlanner};
+    pub use elastic_adapters::{
+        ConcurrencyPermits, HeadroomPlanner, RamBudget, SoupAutoBatchStrategy, SoupBatchSize,
+        SoupLayerStreamingV1, SoupRunResourcePlanV1, SoupStreamSource, ThresholdPlanner,
+    };
     pub use elastic_core::resource::{
         AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
         InvariantKind, LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId,
