@@ -63,13 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let policy = SelectionPolicy::new(vec![latency], contract, true)?;
     let workload = Fingerprint::EMPTY.text("example/attention/b=1/h=8/n=128/d=64");
 
-    match plan(
-        &resource,
-        workload,
-        &capabilities,
-        &policy,
-        &[candidate],
-    ) {
+    match plan(&resource, workload, &capabilities, &policy, &[candidate]) {
         SelectionOutcome::Selected(record) => {
             println!(
                 "resource={} realization={} capability_fingerprint={}",
