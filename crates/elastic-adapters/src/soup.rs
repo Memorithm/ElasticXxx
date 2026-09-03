@@ -626,7 +626,10 @@ mod tests {
             .unwrap()
             .into_validated()
             .unwrap_err();
-        assert!(matches!(error, SoupContractError::UnsupportedContract { .. }));
+        assert!(matches!(
+            error,
+            SoupContractError::UnsupportedContract { .. }
+        ));
 
         let invalid_buffers = format!(
             r#"{{"contract":"{SOUP_RESOURCE_PLAN_V1}","upstream_commit":"{SOUP_QUALIFIED_UPSTREAM_COMMIT}","task":"sft","batch_size":{{"mode":"fixed","value":1}},"auto_batch_strategy":"auto","streaming":{{"source":"ram","buffers":1}}}}"#
@@ -635,6 +638,9 @@ mod tests {
             .unwrap()
             .into_validated()
             .unwrap_err();
-        assert_eq!(error, SoupContractError::InvalidStreamBuffers { buffers: 1 });
+        assert_eq!(
+            error,
+            SoupContractError::InvalidStreamBuffers { buffers: 1 }
+        );
     }
 }
