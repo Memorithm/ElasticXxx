@@ -3,16 +3,13 @@ use std::io::{Error as IoError, ErrorKind};
 use std::time::Duration;
 
 use crate::evidence::print_json;
-use elastic_adapters::HeadroomPlanner;
-use elastic_core::{resource::DimensionId, TransitionMechanism};
-use elastic_eir::{
-    EirResource, FirstGroundedPlanner, PlanOutcome, TransitionCandidate, TransitionPlanner,
-};
-use elastic_runtime::control_loop::{collect_observations, observe_and_plan};
-use elastic_runtime::plan::{plan_with_context, validate_with_checks};
-use elastic_runtime::{
-    Cadence, CancellationToken, HostMemoryObserver, Observation, Observer, Runtime, RuntimeConfig,
-    RuntimeMode, TransactionalActuator, TransactionalRam,
+use elastic::runtime::control_loop::{collect_observations, observe_and_plan};
+use elastic::runtime::plan::{plan_with_context, validate_with_checks};
+use elastic::{
+    Cadence, CancellationToken, DimensionId, EirResource, FirstGroundedPlanner, HeadroomPlanner,
+    HostMemoryObserver, Observation, PlanOutcome, Runtime, RuntimeConfig, RuntimeMode,
+    TransactionalActuator, TransactionalRam, TransitionCandidate, TransitionMechanism,
+    TransitionPlanner,
 };
 use serde_json::{json, Value};
 
@@ -330,7 +327,7 @@ fn render_observations<'a>(observations: impl Iterator<Item = &'a Observation>) 
         .collect()
 }
 
-fn render_events(events: &[elastic_runtime::RuntimeEvent]) -> Vec<Value> {
+fn render_events(events: &[elastic::RuntimeEvent]) -> Vec<Value> {
     events
         .iter()
         .map(|event| {
@@ -376,7 +373,7 @@ mod tests {
         let plan = plan_with_context(
             &CapacityTargetPlanner { target: 2048 },
             &resource,
-            &elastic_eir::PlanningContext::new(),
+            &elastic::PlanningContext::new(),
         );
         assert_eq!(
             plan.candidate().and_then(|candidate| candidate.magnitude()),
@@ -391,7 +388,7 @@ mod tests {
         let plan = plan_with_context(
             &CapacityTargetPlanner { target: 8192 },
             &resource,
-            &elastic_eir::PlanningContext::new(),
+            &elastic::PlanningContext::new(),
         );
         assert!(adapter.validate(&plan).is_err());
         assert_eq!(adapter.committed().unwrap(), 1024);
@@ -400,8 +397,8 @@ mod tests {
     #[test]
     fn unsupported_observation_serializes_without_nan() {
         let observation = Observation::unsupported_from_source(
-            elastic_runtime::ObservationSource::host("test"),
-            elastic_core::resource::ObservationSignalId::FREE_CAPACITY,
+            elastic::ObservationSource::host("test"),
+            elastic::ObservationSignalId::FREE_CAPACITY,
             std::time::Instant::now(),
             "unavailable",
         );
