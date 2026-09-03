@@ -12,9 +12,8 @@
 //! closed until separately reviewed.
 
 use elastic_core::resource::{
-    AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
-    InvariantKind, LogicalResourceId, ObservationSignalId, ResourceClassId, ResourceSpec,
-    ResourceSpecError,
+    AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant, InvariantKind,
+    LogicalResourceId, ObservationSignalId, ResourceClassId, ResourceSpec, ResourceSpecError,
 };
 use elastic_core::TransitionMechanism;
 use std::fmt;
@@ -23,8 +22,7 @@ use std::fmt;
 pub const SOUP_RESOURCE_PLAN_V1: &str = "elastic.soup.run-resource-plan@1.0.0";
 
 /// SOUP revision qualified for [`SoupRunResourcePlanV1`].
-pub const SOUP_QUALIFIED_UPSTREAM_COMMIT: &str =
-    "05b646523727925990530667e7012ede50bd30b2";
+pub const SOUP_QUALIFIED_UPSTREAM_COMMIT: &str = "05b646523727925990530667e7012ede50bd30b2";
 
 /// Hub resource-declaration contract carried by the published SOUP components.
 ///
@@ -233,7 +231,9 @@ impl SoupRunResourcePlanV1 {
         let mut builder = ResourceSpec::builder(ResourceClassId::CONFIGURATIONAL, resource_id)
             .allow(DimensionId::CAPACITY)
             .preserve(Invariant::new(InvariantKind::PreserveIdentity))
-            .preserve(Invariant::new(InvariantKind::UpholdContract(contract.clone())))
+            .preserve(Invariant::new(InvariantKind::UpholdContract(
+                contract.clone(),
+            )))
             .admit(AdmissibleTransition::new(
                 TransitionMechanism::Reinterpret,
                 DimensionId::CAPACITY,
@@ -382,10 +382,7 @@ mod tests {
             None,
         )
         .unwrap_err();
-        assert_eq!(
-            error,
-            SoupContractError::InvalidBatchSize { batch_size: 0 }
-        );
+        assert_eq!(error, SoupContractError::InvalidBatchSize { batch_size: 0 });
     }
 
     #[test]
