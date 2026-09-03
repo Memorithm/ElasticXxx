@@ -20,8 +20,8 @@ pub use elastic_core::resource::{
 };
 pub use elastic_core::TransitionMechanism;
 pub use elastic_eir::{
-    lower, EirDocument, EirDocumentBuilder, EirResource, PlanOutcome, PlanningContext,
-    TransitionCandidate, TransitionPlanner,
+    lower, EirDocument, EirDocumentBuilder, EirResource, Fingerprint, FirstGroundedPlanner,
+    PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
@@ -65,7 +65,9 @@ pub mod prelude {
         ResourceSpec, ResourceSpecError,
     };
     pub use elastic_core::TransitionMechanism;
-    pub use elastic_eir::{lower, EirDocument, EirResource, TransitionPlanner};
+    pub use elastic_eir::{
+        lower, EirDocument, EirResource, Fingerprint, FirstGroundedPlanner, TransitionPlanner,
+    };
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
         CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, ConfiguredController,
