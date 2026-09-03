@@ -1,12 +1,10 @@
-//! Concrete, in-process resource adapters.
+//! Concrete, in-process resource adapters and reviewed ecosystem boundaries.
 //!
 //! An adapter is the **trusted boundary** between validated Elastic intent
-//! and physical action. These adapters are deliberately portable and
-//! dependency-free: they demonstrate the full
-//! declaration → plan → freshness gate → action → verify discipline with real
-//! (but local) effects — actual allocations for the RAM budget, licensed width
-//! for CPU concurrency — without OS-specific discovery, NUMA migration, or
-//! accelerator code.
+//! and physical action. The local RAM/concurrency adapters deliberately remain
+//! portable and dependency-free. Ecosystem boundary modules may additionally
+//! validate versioned external resource-plan envelopes without claiming a
+//! physical effect that the owning product does not expose safely.
 //!
 //! Normative adapter contract demonstrated here:
 //!
@@ -21,7 +19,9 @@
 //!    proposal is re-validated against bounds, step limits, and invariants
 //!    immediately before the effect;
 //! 5. an adapter may refuse any action that would violate a declared
-//!    invariant — planners and freshness checks cannot override refusals.
+//!    invariant — planners and freshness checks cannot override refusals;
+//! 6. a pre-execution ecosystem plan must stay pre-execution unless the owning
+//!    product publishes a separately qualified live-actuation contract.
 
 #![forbid(unsafe_code)]
 
@@ -30,9 +30,16 @@ pub mod error;
 pub mod permits;
 pub mod planners;
 pub mod ram;
+pub mod soup;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
 pub use error::AdapterError;
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
+pub use soup::{
+    SoupAutoBatchStrategy, SoupBatchSize, SoupContractError, SoupLayerStreamingV1,
+    SoupRunResourcePlanV1, SoupStreamSource, SOUP_DEFAULT_STREAM_BUFFERS,
+    SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS,
+    SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS,
+};
