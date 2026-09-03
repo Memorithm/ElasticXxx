@@ -16,10 +16,14 @@ use elastic_core::resource::{
     LogicalResourceId, ObservationSignalId, ResourceClassId, ResourceSpec, ResourceSpecError,
 };
 use elastic_core::TransitionMechanism;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// ElasticXxx's first versioned SOUP resource-planning contract.
 pub const SOUP_RESOURCE_PLAN_V1: &str = "elastic.soup.run-resource-plan@1.0.0";
+/// JSON media type for the wire representation of [`SOUP_RESOURCE_PLAN_V1`].
+pub const SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1: &str =
+    "application/vnd.elastic.soup.run-resource-plan.v1+json";
 
 /// SOUP revision qualified for [`SoupRunResourcePlanV1`].
 pub const SOUP_QUALIFIED_UPSTREAM_COMMIT: &str = "05b646523727925990530667e7012ede50bd30b2";
@@ -49,8 +53,37 @@ pub enum SoupBatchSize {
     Fixed(u32),
 }
 
+/// Stable JSON representation of [`SoupBatchSize`].
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub enum SoupBatchSizeWireV1 {
+    /// SOUP resolves the concrete batch size during its own preflight.
+    Auto,
+    /// One fixed positive per-device batch size.
+    Fixed { value: u32 },
+}
+
+impl From<SoupBatchSize> for SoupBatchSizeWireV1 {
+    fn from(value: SoupBatchSize) -> Self {
+        match value {
+            SoupBatchSize::Auto => Self::Auto,
+            SoupBatchSize::Fixed(value) => Self::Fixed { value },
+        }
+    }
+}
+
+impl From<SoupBatchSizeWireV1> for SoupBatchSize {
+    fn from(value: SoupBatchSizeWireV1) -> Self {
+        match value {
+            SoupBatchSizeWireV1::Auto => Self::Auto,
+            SoupBatchSizeWireV1::Fixed { value } => Self::Fixed(value),
+        }
+    }
+}
+
 /// SOUP strategy for resolving [`SoupBatchSize::Auto`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum SoupAutoBatchStrategy {
     /// SOUP chooses probe on CUDA and static estimation on CPU.
     Auto,
@@ -61,7 +94,8 @@ pub enum SoupAutoBatchStrategy {
 }
 
 /// Storage tier requested for the frozen streamed base.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum SoupStreamSource {
     /// Let SOUP resolve RAM vs disk from its own preflight.
     Auto,
@@ -110,6 +144,118 @@ impl Default for SoupLayerStreamingV1 {
             source: SoupStreamSource::Auto,
             buffers: SOUP_DEFAULT_STREAM_BUFFERS,
         }
+    }
+}
+
+/// Wire form of an optional SOUP layer-streaming choice.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SoupLayerStreamingWireV1 {
+    source: SoupStreamSource,
+    buffers: u8,
+}
+
+impl SoupLayerStreamingWireV1 {
+    /// Requested source tier before semantic validation.
+    #[must_use]
+    pub const fn source(&self) -> SoupStreamSource {
+        self.source
+    }
+
+    /// Requested stream-buffer count before semantic validation.
+    #[must_use]
+    pub const fn buffers(&self) -> u8 {
+        self.buffers
+    }
+}
+
+impl From<SoupLayerStreamingV1> for SoupLayerStreamingWireV1 {
+    fn from(value: SoupLayerStreamingV1) -> Self {
+        Self {
+            source: value.source(),
+            buffers: value.buffers(),
+        }
+    }
+}
+
+/// Stable wire envelope for `elastic.soup.run-resource-plan@1.0.0`.
+///
+/// Deserialization only validates the JSON shape. Call [`Self::into_validated`]
+/// before trusting its semantics; that conversion reuses the same fail-closed
+/// checks as native Rust construction.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SoupRunResourcePlanWireV1 {
+    contract: String,
+    upstream_commit: String,
+    task: String,
+    batch_size: SoupBatchSizeWireV1,
+    auto_batch_strategy: SoupAutoBatchStrategy,
+    streaming: Option<SoupLayerStreamingWireV1>,
+}
+
+impl SoupRunResourcePlanWireV1 {
+    /// Versioned contract identity carried by this wire envelope.
+    #[must_use]
+    pub fn contract(&self) -> &str {
+        &self.contract
+    }
+
+    /// Qualified upstream SOUP revision carried by this wire envelope.
+    #[must_use]
+    pub fn upstream_commit(&self) -> &str {
+        &self.upstream_commit
+    }
+
+    /// SOUP task identity carried by this wire envelope.
+    #[must_use]
+    pub fn task(&self) -> &str {
+        &self.task
+    }
+
+    /// Wire batch-size choice.
+    #[must_use]
+    pub const fn batch_size(&self) -> SoupBatchSizeWireV1 {
+        self.batch_size
+    }
+
+    /// SOUP-owned auto-batch strategy.
+    #[must_use]
+    pub const fn auto_batch_strategy(&self) -> SoupAutoBatchStrategy {
+        self.auto_batch_strategy
+    }
+
+    /// Optional wire layer-streaming choice.
+    #[must_use]
+    pub const fn streaming(&self) -> Option<SoupLayerStreamingWireV1> {
+        self.streaming
+    }
+
+    /// Revalidate the wire envelope into the native typed contract.
+    ///
+    /// # Errors
+    ///
+    /// Fails closed on an unknown contract, unknown upstream revision, invalid
+    /// batch size, invalid stream buffers, blank task, or unsupported streamed
+    /// task.
+    pub fn into_validated(self) -> Result<SoupRunResourcePlanV1, SoupContractError> {
+        if self.contract != SOUP_RESOURCE_PLAN_V1 {
+            return Err(SoupContractError::UnsupportedContract {
+                contract: self.contract,
+            });
+        }
+
+        let streaming = self
+            .streaming
+            .map(|streaming| SoupLayerStreamingV1::new(streaming.source, streaming.buffers))
+            .transpose()?;
+        SoupRunResourcePlanV1::from_external(
+            &self.upstream_commit,
+            self.task,
+            self.batch_size.into(),
+            self.auto_batch_strategy,
+            streaming,
+        )
     }
 }
 
@@ -216,6 +362,19 @@ impl SoupRunResourcePlanV1 {
         self.streaming.is_some()
     }
 
+    /// Convert this validated plan to the stable v1 JSON envelope.
+    #[must_use]
+    pub fn to_wire(&self) -> SoupRunResourcePlanWireV1 {
+        SoupRunResourcePlanWireV1 {
+            contract: SOUP_RESOURCE_PLAN_V1.to_owned(),
+            upstream_commit: SOUP_QUALIFIED_UPSTREAM_COMMIT.to_owned(),
+            task: self.task.clone(),
+            batch_size: self.batch_size.into(),
+            auto_batch_strategy: self.auto_batch_strategy,
+            streaming: self.streaming.map(Into::into),
+        }
+    }
+
     /// Map the external resource knobs into a generic Elastic declaration.
     ///
     /// Batch size is a capacity axis. Layer streaming adds a residency axis.
@@ -268,6 +427,8 @@ impl SoupRunResourcePlanV1 {
 /// Fail-closed errors at the SOUP/ElasticXxx contract boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SoupContractError {
+    /// The wire envelope carries an unknown Elastic/SOUP contract identity.
+    UnsupportedContract { contract: String },
     /// The external plan names a SOUP revision that v1 has not qualified.
     UnsupportedUpstreamRevision { revision: String },
     /// SOUP task identity is empty after trimming.
@@ -285,6 +446,10 @@ pub enum SoupContractError {
 impl fmt::Display for SoupContractError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::UnsupportedContract { contract } => write!(
+                f,
+                "SOUP resource-plan contract {contract:?} is not supported; expected {SOUP_RESOURCE_PLAN_V1}"
+            ),
             Self::UnsupportedUpstreamRevision { revision } => write!(
                 f,
                 "SOUP revision {revision:?} is not qualified by {SOUP_RESOURCE_PLAN_V1}; expected {SOUP_QUALIFIED_UPSTREAM_COMMIT}"
@@ -423,5 +588,59 @@ mod tests {
             None,
         )
         .is_ok());
+    }
+
+    #[test]
+    fn wire_json_round_trip_revalidates_native_contract() {
+        let plan = SoupRunResourcePlanV1::qualified(
+            "sft",
+            SoupBatchSize::Fixed(3),
+            SoupAutoBatchStrategy::Static,
+            Some(SoupLayerStreamingV1::new(SoupStreamSource::Ram, 2).unwrap()),
+        )
+        .unwrap();
+
+        let json = serde_json::to_string(&plan.to_wire()).unwrap();
+        let wire: SoupRunResourcePlanWireV1 = serde_json::from_str(&json).unwrap();
+        let decoded = wire.into_validated().unwrap();
+        assert_eq!(decoded, plan);
+        assert!(json.contains(SOUP_RESOURCE_PLAN_V1));
+        assert!(json.contains(SOUP_QUALIFIED_UPSTREAM_COMMIT));
+    }
+
+    #[test]
+    fn wire_shape_rejects_unknown_fields() {
+        let raw = format!(
+            r#"{{"contract":"{SOUP_RESOURCE_PLAN_V1}","upstream_commit":"{SOUP_QUALIFIED_UPSTREAM_COMMIT}","task":"sft","batch_size":{{"mode":"auto"}},"auto_batch_strategy":"auto","streaming":null,"extra":true}}"#
+        );
+        let error = serde_json::from_str::<SoupRunResourcePlanWireV1>(&raw).unwrap_err();
+        assert!(error.to_string().contains("unknown field"));
+    }
+
+    #[test]
+    fn wire_semantics_reject_unknown_contract_and_invalid_stream_buffers() {
+        let unknown = format!(
+            r#"{{"contract":"future","upstream_commit":"{SOUP_QUALIFIED_UPSTREAM_COMMIT}","task":"sft","batch_size":{{"mode":"auto"}},"auto_batch_strategy":"auto","streaming":null}}"#
+        );
+        let error = serde_json::from_str::<SoupRunResourcePlanWireV1>(&unknown)
+            .unwrap()
+            .into_validated()
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            SoupContractError::UnsupportedContract { .. }
+        ));
+
+        let invalid_buffers = format!(
+            r#"{{"contract":"{SOUP_RESOURCE_PLAN_V1}","upstream_commit":"{SOUP_QUALIFIED_UPSTREAM_COMMIT}","task":"sft","batch_size":{{"mode":"fixed","value":1}},"auto_batch_strategy":"auto","streaming":{{"source":"ram","buffers":1}}}}"#
+        );
+        let error = serde_json::from_str::<SoupRunResourcePlanWireV1>(&invalid_buffers)
+            .unwrap()
+            .into_validated()
+            .unwrap_err();
+        assert_eq!(
+            error,
+            SoupContractError::InvalidStreamBuffers { buffers: 1 }
+        );
     }
 }

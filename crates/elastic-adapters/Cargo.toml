@@ -10,3 +10,7 @@ description = "Concrete in-process Elastic resource adapters: RAM budgets and co
 [dependencies]
 elastic-core = { path = "../elastic-core" }
 elastic-eir = { path = "../elastic-eir" }
+serde.workspace = true
+
+[dev-dependencies]
+serde_json = "1.0"
