@@ -7,7 +7,7 @@ use elastic::runtime::control_loop::{collect_observations, observe_and_plan};
 use elastic::runtime::plan::{plan_with_context, validate_with_checks};
 use elastic::{
     Cadence, CancellationToken, DimensionId, EirResource, FirstGroundedPlanner, HeadroomPlanner,
-    HostMemoryObserver, Observation, PlanOutcome, Runtime, RuntimeConfig, RuntimeMode,
+    HostMemoryObserver, Observation, Observer, PlanOutcome, Runtime, RuntimeConfig, RuntimeMode,
     TransactionalActuator, TransactionalRam, TransitionCandidate, TransitionMechanism,
     TransitionPlanner,
 };
