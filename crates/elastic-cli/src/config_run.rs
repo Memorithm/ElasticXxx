@@ -2,7 +2,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::evidence::print_json;
+use crate::evidence::{print_json, write_json};
 use elastic::{
     CancellationToken, ConfiguredController, ConfiguredResourceState, Forecast, OperatorConfig,
     RuntimeEvent,
@@ -11,17 +11,31 @@ use serde_json::{json, Value};
 
 type CommandResult = Result<(), Box<dyn Error>>;
 
-/// Execute one versioned JSON operator configuration.
+/// Execute one versioned JSON operator configuration and print the shared
+/// runtime-evidence envelope.
 ///
 /// When `resource` is omitted, every configured controller is materialized and
 /// run in canonical resource-id order. Each controller remains its own trusted
 /// transaction boundary; this command does not invent a cross-resource atomic
 /// transaction.
 pub fn run_config(path: &Path, resource: Option<&str>) -> CommandResult {
+    print_json(load_and_execute(path, resource)?)
+}
+
+/// Execute the same operator configuration path as [`run_config`] and
+/// materialize its shared runtime-evidence envelope as one declared artifact.
+pub fn run_config_to_file(
+    path: &Path,
+    resource: Option<&str>,
+    evidence_output: &Path,
+) -> CommandResult {
+    write_json(evidence_output, load_and_execute(path, resource)?)
+}
+
+fn load_and_execute(path: &Path, resource: Option<&str>) -> Result<Value, Box<dyn Error>> {
     let contents = fs::read_to_string(path)?;
     let config: OperatorConfig = serde_json::from_str(&contents)?;
-    let output = execute_operator_config(&config, resource)?;
-    print_json(output)
+    execute_operator_config(&config, resource)
 }
 
 fn execute_operator_config(

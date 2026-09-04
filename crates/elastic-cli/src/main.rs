@@ -9,7 +9,7 @@ mod commands;
 mod config_run;
 mod evidence;
 use commands::*;
-use config_run::run_config;
+use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
 
 #[derive(Parser)]
@@ -165,6 +165,31 @@ impl RunArgs {
     }
 }
 
+#[derive(Debug, Args)]
+struct HubRunArgs {
+    /// Versioned JSON operator configuration.
+    #[arg(long, value_name = "FILE")]
+    config: PathBuf,
+
+    /// Run only this configured resource. By default all controllers run.
+    #[arg(long, value_name = "ID")]
+    resource: Option<String>,
+
+    /// New path that will receive one elastic-runtime-evidence-v1 artifact.
+    #[arg(long, value_name = "FILE")]
+    evidence_output: PathBuf,
+}
+
+impl HubRunArgs {
+    fn execute(self) -> Result<(), Box<dyn Error>> {
+        run_config_to_file(
+            &self.config,
+            self.resource.as_deref(),
+            &self.evidence_output,
+        )
+    }
+}
+
 fn required<T>(value: Option<T>, name: &str) -> Result<T, Box<dyn Error>> {
     value.ok_or_else(|| {
         IoError::new(
@@ -202,6 +227,11 @@ enum Commands {
         #[command(flatten)]
         args: RunArgs,
     },
+    /// Run a versioned operator configuration and materialize bounded evidence.
+    HubRun {
+        #[command(flatten)]
+        args: HubRunArgs,
+    },
     /// Run a bounded periodic adaptive controller.
     Watch {
         id: String,
@@ -232,6 +262,7 @@ fn main() -> ExitCode {
         Commands::Validate { id, ram } => validate(&id, ram.into()),
         Commands::Apply { id, ram } => apply(&id, ram.into()),
         Commands::Run { args } => args.execute(),
+        Commands::HubRun { args } => args.execute(),
         Commands::Watch {
             id,
             ram,
@@ -288,6 +319,30 @@ mod tests {
                 assert!(args.id.is_none());
             }
             _ => panic!("expected run command"),
+        }
+    }
+
+    #[test]
+    fn hub_run_requires_explicit_config_and_evidence_artifact() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "hub-run",
+            "--config",
+            "operator.json",
+            "--resource",
+            "ram",
+            "--evidence-output",
+            "runtime-evidence.json",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::HubRun { args } => {
+                assert_eq!(args.config, PathBuf::from("operator.json"));
+                assert_eq!(args.resource.as_deref(), Some("ram"));
+                assert_eq!(args.evidence_output, PathBuf::from("runtime-evidence.json"));
+            }
+            _ => panic!("expected hub-run command"),
         }
     }
 
