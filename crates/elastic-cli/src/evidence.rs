@@ -200,7 +200,9 @@ mod tests {
         )
         .unwrap_err();
 
-        assert!(error.to_string().contains("cannot create runtime evidence output"));
+        assert!(error
+            .to_string()
+            .contains("cannot create runtime evidence output"));
         assert_eq!(fs::read(&path).unwrap(), b"sentinel");
         fs::remove_file(path).unwrap();
     }
