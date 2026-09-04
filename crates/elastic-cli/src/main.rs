@@ -340,10 +340,7 @@ mod tests {
             Commands::HubRun { args } => {
                 assert_eq!(args.config, PathBuf::from("operator.json"));
                 assert_eq!(args.resource.as_deref(), Some("ram"));
-                assert_eq!(
-                    args.evidence_output,
-                    PathBuf::from("runtime-evidence.json")
-                );
+                assert_eq!(args.evidence_output, PathBuf::from("runtime-evidence.json"));
             }
             _ => panic!("expected hub-run command"),
         }
