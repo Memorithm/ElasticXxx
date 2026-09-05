@@ -450,23 +450,20 @@ where
         match run_attempt {
             ForecastRunAttempt::Completed(run) => {
                 let run = *run;
-                let evidence = match capture_completed_model_evidence(
-                    &contracts,
-                    &resource_id,
-                    &run.cycles,
-                ) {
-                    Ok(evidence) => evidence,
-                    Err((completed_evidence, error)) => {
-                        return ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
-                            ModelExecutionRunEvidenceFailureV1::Evidence {
-                                completed_evidence,
-                                run: Some(Box::new(run)),
-                                runtime_failure: None,
-                                error,
-                            },
-                        ));
-                    }
-                };
+                let evidence =
+                    match capture_completed_model_evidence(&contracts, &resource_id, &run.cycles) {
+                        Ok(evidence) => evidence,
+                        Err((completed_evidence, error)) => {
+                            return ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
+                                ModelExecutionRunEvidenceFailureV1::Evidence {
+                                    completed_evidence,
+                                    run: Some(Box::new(run)),
+                                    runtime_failure: None,
+                                    error,
+                                },
+                            ));
+                        }
+                    };
 
                 if let Some(last) = evidence.last() {
                     let physical_rank = match self.current_profile_rank() {
@@ -509,27 +506,21 @@ where
                         completed_cycles, ..
                     } => completed_cycles.as_slice(),
                 };
-                match capture_completed_model_evidence(
-                    &contracts,
-                    &resource_id,
-                    completed_cycles,
-                ) {
+                match capture_completed_model_evidence(&contracts, &resource_id, completed_cycles) {
                     Ok(completed_evidence) => ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
                         ModelExecutionRunEvidenceFailureV1::Runtime {
                             completed_evidence,
                             failure: Box::new(failure),
                         },
                     )),
-                    Err((completed_evidence, error)) => {
-                        ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
-                            ModelExecutionRunEvidenceFailureV1::Evidence {
-                                completed_evidence,
-                                run: None,
-                                runtime_failure: Some(Box::new(failure)),
-                                error,
-                            },
-                        ))
-                    }
+                    Err((completed_evidence, error)) => ModelExecutionRunEvidenceAttemptV1::Failed(
+                        Box::new(ModelExecutionRunEvidenceFailureV1::Evidence {
+                            completed_evidence,
+                            run: None,
+                            runtime_failure: Some(Box::new(failure)),
+                            error,
+                        }),
+                    ),
                 }
             }
         }
@@ -562,14 +553,14 @@ fn model_evidence_failure_after_run_attempt(
                 error,
             },
         )),
-        ForecastRunAttempt::Failed(failure) => ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
-            ModelExecutionRunEvidenceFailureV1::Evidence {
+        ForecastRunAttempt::Failed(failure) => ModelExecutionRunEvidenceAttemptV1::Failed(
+            Box::new(ModelExecutionRunEvidenceFailureV1::Evidence {
                 completed_evidence,
                 run: None,
                 runtime_failure: Some(failure),
                 error,
-            },
-        )),
+            }),
+        ),
     }
 }
 
@@ -577,7 +568,8 @@ fn capture_completed_model_evidence(
     contracts: &ModelExecutionControllerContractsV1,
     resource_id: &str,
     cycles: &[ForecastCycleResult],
-) -> Result<Vec<ModelExecutionCycleEvidenceV1>, (Vec<ModelExecutionCycleEvidenceV1>, RuntimeError)> {
+) -> Result<Vec<ModelExecutionCycleEvidenceV1>, (Vec<ModelExecutionCycleEvidenceV1>, RuntimeError)>
+{
     let mut evidence = Vec::with_capacity(cycles.len());
     for cycle in cycles {
         let final_profile_rank = match completed_cycle_terminal_profile_rank(cycle) {
