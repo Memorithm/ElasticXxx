@@ -62,12 +62,7 @@ fn downstream_runtime_user_can_retain_catastrophic_cycle_audit_events() {
     let resource = runtime.config().ir_resource.clone();
     let mut actuator = PublicFailingRollback;
 
-    let attempt = runtime.cycle_attempt(
-        &resource,
-        &FirstGroundedPlanner,
-        &(),
-        &mut actuator,
-    );
+    let attempt = runtime.cycle_attempt(&resource, &FirstGroundedPlanner, &(), &mut actuator);
 
     let CycleAttempt::Failed(failure) = attempt else {
         panic!("rollback failure must be retained as failed attempt")
