@@ -65,9 +65,7 @@ pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastSta
 pub use forecast_runtime::{
     ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
 };
-pub use model_execution_controller::{
-    ModelExecutionControllerV1, ModelExecutionObserverBundleV1,
-};
+pub use model_execution_controller::{ModelExecutionControllerV1, ModelExecutionObserverBundleV1};
 pub use model_execution_observer::{
     ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1,
 };
