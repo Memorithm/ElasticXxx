@@ -218,7 +218,10 @@ mod tests {
 
         let (context, observations) = observer.observe();
 
-        assert_eq!(context.get(ObservationSignalId::FREE_CAPACITY), Some(3_000.0));
+        assert_eq!(
+            context.get(ObservationSignalId::FREE_CAPACITY),
+            Some(3_000.0)
+        );
         assert_eq!(context.get(ObservationSignalId::UTILIZATION), Some(0.8));
         assert_eq!(observations.len(), 2);
         assert!(observations.iter().all(Observation::is_valid));
