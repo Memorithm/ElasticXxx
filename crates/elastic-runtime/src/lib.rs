@@ -30,6 +30,7 @@ pub mod events;
 pub mod evidence;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod model_execution_transaction;
 pub mod observation;
 pub mod observers;
 pub mod operator_config;
@@ -61,6 +62,9 @@ pub use evidence::{
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use forecast_runtime::{
     ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
+};
+pub use model_execution_transaction::{
+    ModelExecutionProfileBackendV1, TransactionalModelExecution,
 };
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
