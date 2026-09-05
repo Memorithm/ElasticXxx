@@ -57,6 +57,18 @@ priority_program:
           - observation_freshness_is_persisted_as_monotonic_age_without_fabricated_wall_clock_time
           - correlated_E_S_A_selected_profile_tuple_is_persisted_and_revalidated_against_current_contracts
           - offline_revalidation_is_read_only_and_never_authorizes_physical_replay
+      - id: EXML0d
+        name: Bounded model run cycle evidence
+        status: complete
+        completion_evidence:
+          - PR_70_exact_head_0f1b9e6eedcca222b1fd7bb6a5aa54b3a7bd4b79
+          - PR_70_CI_274_completed_success_on_exact_head
+          - PR_70_merged_to_main_as_0c2905c2e690f6e2be461e2b6286f44ec7e15be0
+          - run_with_evidence_reuses_the_existing_ForecastController_bounded_loop_without_duplicate_cadence_or_transaction_semantics
+          - every_completed_cycle_gets_one_contract_bound_ModelExecutionCycleEvidenceV1_artifact
+          - per_cycle_terminal_rank_is_derived_only_from_verified_commit_restored_rollback_or_no_actuation_state
+          - final_evidence_rank_is_checked_against_a_fresh_backend_physical_profile_read
+          - catastrophic_RuntimeError_attempt_evidence_remains_an_explicit_open_gap
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
@@ -115,6 +127,16 @@ priority_program:
           - model_cycle_evidence_reuses_shared_bounded_runtime_evidence_v1_envelope
           - replay_validation_rejects_foreign_contract_or_resource_identity
           - historical_evidence_is_not_counted_as_physical_qualified_plan_replay
+      - id: EXML5c
+        name: Bounded run evidence chain
+        status: complete
+        completion_evidence:
+          - PR_70_exact_head_0f1b9e6eedcca222b1fd7bb6a5aa54b3a7bd4b79
+          - PR_70_CI_274_completed_success_on_exact_head
+          - PR_70_merged_to_main_as_0c2905c2e690f6e2be461e2b6286f44ec7e15be0
+          - successful_or_cooperatively_cancelled_bounded_runs_preserve_one_evidence_artifact_per_completed_cycle
+          - final_evidence_chain_state_is_reconciled_with_the_backend_physical_profile
+          - catastrophic_attempt_evidence_is_not_fabricated_and_remains_pending
     goals:
       - emit_versioned_transition_and_measurement_evidence_for_SciRust_Verify
       - make_Hub_able_to_orchestrate_elastic_runs_without_absorbing_Elastic_policy
