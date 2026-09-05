@@ -30,6 +30,7 @@ pub mod error;
 pub mod model_execution;
 pub mod model_execution_envelope;
 pub mod model_execution_profiles;
+pub mod model_execution_runtime;
 pub mod permits;
 pub mod planners;
 pub mod ram;
@@ -59,6 +60,12 @@ pub use model_execution_profiles::{
     ModelExecutionProfileV1, ModelExecutionProfileWireV1,
     MODEL_EXECUTION_PROFILE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_PROFILE_PLAN_V1,
     MODEL_EXECUTION_PROFILE_SET_MEDIA_TYPE_V1, MODEL_EXECUTION_PROFILE_SET_V1,
+};
+pub use model_execution_runtime::{
+    model_execution_current_profile_rank_signal, model_execution_profile_dimension,
+    ModelExecutionAtomicProfileError, ModelExecutionAtomicProfilePlannerV1,
+    MODEL_EXECUTION_ATOMIC_PROFILE_V1, MODEL_EXECUTION_CURRENT_PROFILE_RANK_SIGNAL,
+    MODEL_EXECUTION_PROFILE_DIMENSION,
 };
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
