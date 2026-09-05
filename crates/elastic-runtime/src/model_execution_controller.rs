@@ -14,7 +14,7 @@ use elastic_adapters::{
     ModelExecutionAdaptivePlannerV1, ModelExecutionEnvelopePolicyV1,
     ModelExecutionProfileSetV1,
 };
-use elastic_eir::{PlanningContext, TransitionPlanner};
+use elastic_eir::PlanningContext;
 
 use crate::{
     CadenceConfig, CancellationToken, CurrentStateForecaster, ExecutionModeConfig, ForecastController,
