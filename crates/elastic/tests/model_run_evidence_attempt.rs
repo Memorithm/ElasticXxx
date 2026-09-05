@@ -9,9 +9,9 @@ use elastic::{
     ModelExecutionCapabilitiesV1, ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
     ModelExecutionCycleEvidenceV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
     ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1,
-    ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1,
-    ModelExecutionResourceTelemetryV1, ModelExecutionRunEvidenceAttemptV1,
-    ModelExecutionRunEvidenceFailureV1, ObservationSource, RuntimeError, VerificationResult,
+    ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetryV1,
+    ModelExecutionRunEvidenceAttemptV1, ModelExecutionRunEvidenceFailureV1, ObservationSource,
+    RuntimeError, VerificationResult,
 };
 
 #[derive(Clone, Copy, Debug)]
