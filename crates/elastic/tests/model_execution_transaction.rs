@@ -2,12 +2,11 @@ use std::error::Error;
 use std::fmt;
 
 use elastic::{
-    Cadence, Fingerprint, ModelExecutionAtomicProfilePlannerV1,
-    ModelExecutionCapabilitiesV1, ModelExecutionProfileBackendV1,
-    ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSelectionV1,
-    ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
-    PlannerConfig, Runtime, RuntimeConfig, RuntimeMode, TransactionalModelExecution,
-    VerificationResult,
+    Cadence, Fingerprint, ModelExecutionAtomicProfilePlannerV1, ModelExecutionCapabilitiesV1,
+    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1,
+    ModelExecutionProfileSelectionV1, ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1,
+    ModelExecutionProfileV1, PlannerConfig, Runtime, RuntimeConfig, RuntimeMode,
+    TransactionalModelExecution, VerificationResult,
 };
 
 #[derive(Debug)]
