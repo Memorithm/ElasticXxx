@@ -174,9 +174,8 @@ fn profile_by_rank(
 mod tests {
     use super::*;
     use elastic::{
-        ModelExecutionCapabilitiesV1, ModelExecutionEnvelopePolicyV1,
-        ModelExecutionEnvelopeRuleV1, ModelExecutionProfileEnvelopeV1,
-        ModelExecutionProfileSetV1, ModelExecutionProfileV1,
+        ModelExecutionCapabilitiesV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
+        ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
     };
 
     fn documents() -> (String, String, String) {
@@ -240,16 +239,8 @@ mod tests {
     #[test]
     fn constrained_snapshot_selects_balanced_profile() {
         let (capabilities, profiles, policy) = documents();
-        let value = plan_documents(
-            &capabilities,
-            &profiles,
-            &policy,
-            "bytes",
-            3_000,
-            8_000,
-            0,
-        )
-        .unwrap();
+        let value =
+            plan_documents(&capabilities, &profiles, &policy, "bytes", 3_000, 8_000, 0).unwrap();
 
         assert_eq!(value["outcome"], "selected");
         assert_eq!(value["selected_profile"]["id"], "balanced");
@@ -260,16 +251,8 @@ mod tests {
     #[test]
     fn selected_current_profile_reports_no_change() {
         let (capabilities, profiles, policy) = documents();
-        let value = plan_documents(
-            &capabilities,
-            &profiles,
-            &policy,
-            "bytes",
-            3_000,
-            8_000,
-            10,
-        )
-        .unwrap();
+        let value =
+            plan_documents(&capabilities, &profiles, &policy, "bytes", 3_000, 8_000, 10).unwrap();
 
         assert_eq!(value["outcome"], "no-change");
         assert_eq!(value["selected_profile"]["id"], "balanced");
@@ -294,16 +277,8 @@ mod tests {
     #[test]
     fn policy_capacity_unit_is_enforced() {
         let (capabilities, profiles, policy) = documents();
-        let error = plan_documents(
-            &capabilities,
-            &profiles,
-            &policy,
-            "mib",
-            3_000,
-            8_000,
-            0,
-        )
-        .unwrap_err();
+        let error =
+            plan_documents(&capabilities, &profiles, &policy, "mib", 3_000, 8_000, 0).unwrap_err();
         assert!(error.to_string().contains("capacity unit mismatch"));
     }
 }
