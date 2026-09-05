@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-03"
+last_updated: "2026-09-05"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -50,6 +50,10 @@ verified_current_facts:
   - SOUP_resource_plan_v1_is_pre_execution_only_and_pinned_to_upstream_05b646523727925990530667e7012ede50bd30b2
   - SOUP_resource_plan_wire_v1_is_published_as_application_vnd_elastic_soup_run_resource_plan_v1_json
   - SOUP_wire_v1_reuses_native_validation_and_rejects_unknown_JSON_fields_contracts_and_unqualified_revisions
+  - model_execution_controller_contracts_are_persistable_and_fail_closed_through_PR_64_merge_05403e5319d2bfd872613ee5e064a74878f2770f
+  - model_plan_accepts_the_aggregate_controller_contract_bundle_through_PR_65_merge_d0d52613a971b03a6643fa0399df2b4ddf887817
+  - model_contracts_build_and_validate_CLI_surfaces_exist_through_PR_66_merge_c69060accf9da600b3c8af5411d618459b77aab6
+  - timestamped_model_resource_telemetry_preserves_provider_measurement_time_and_expired_samples_fail_closed_through_PR_67_merge_9d5664d1208532301637222f1ba430eda0f9a6b2
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -180,7 +184,7 @@ ecosystem_interfaces:
     status: resource_plan_v1_and_wire_v1_published
     qualified_revision: 05b646523727925990530667e7012ede50bd30b2
     contract: elastic.soup.run-resource-plan@1.0.0
-    wire_media_type: application/vnd.elastic.soup.run-resource-plan.v1+json
+    wire_media_type: application/vnd.elastic.soup_run_resource_plan_v1+json
     published_by:
       - PR_52_exact_head_9118048e30e691962889c4839423ea0aa30e40a5
       - PR_52_CI_203_completed_success
@@ -295,6 +299,16 @@ roadmap:
   - id: EX2
     name: Observation and forecast contracts
     status: active
+    completed_slices:
+      - id: EX2a
+        name: Model execution timestamped telemetry freshness gate
+        status: complete
+        completion_evidence:
+          - PR_67_exact_head_578cd01cf7c016e61236a044837a32507e196a5c
+          - PR_67_CI_265_completed_success_on_exact_head
+          - PR_67_merged_to_main_as_9d5664d1208532301637222f1ba430eda0f9a6b2
+          - stale_or_invalid_timestamped_resource_samples_are_explicitly_unsupported_and_excluded_from_PlanningContext
+          - assembled_controller_test_proves_expired_telemetry_cannot_actuate_or_commit
     goals:
       - define_versioned_observation_snapshots
       - separate_raw_measurements_from_derived_forecasts
