@@ -6,7 +6,7 @@ use std::sync::Arc;
 use elastic::{
     Cadence, Fingerprint, FixedModelExecutionTransitionPolicyV1,
     ModelExecutionAtomicProfilePlannerV1, ModelExecutionCapabilitiesV1,
-    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1,
+    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfilePlanV1,
     ModelExecutionProfileSelectionV1, ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1,
     ModelExecutionProfileV1, ModelExecutionTransitionModeV1, ModelExecutionTransitionPolicyV1,
     PlannerConfig, Runtime, RuntimeConfig, RuntimeMode, TransactionalModelExecution,
@@ -108,7 +108,7 @@ impl ModelExecutionTransitionPolicyV1 for FlipBeforeApplyPolicy {
     }
 }
 
-fn profiles_and_target() -> (ModelExecutionProfileSetV1, ModelExecutionProfileV1) {
+fn profiles_and_target() -> (ModelExecutionProfileSetV1, ModelExecutionProfilePlanV1) {
     let capabilities = ModelExecutionCapabilitiesV1::new(
         "reference-backend",
         "model-rev-a",
