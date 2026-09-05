@@ -215,7 +215,9 @@ impl TransactionalActuator for FailingRollbackActuator {
         _actuation: &Actuation,
         _verification: &VerificationResult,
     ) -> Result<RollbackRecord, RuntimeError> {
-        Err(RuntimeError::rollback("injected transaction rollback failure"))
+        Err(RuntimeError::rollback(
+            "injected transaction rollback failure",
+        ))
     }
 }
 
@@ -290,12 +292,7 @@ fn forecast_failure_attempt_preserves_input_before_transaction_entry() {
     let planner = RecordingPlanner::new();
     let mut actuator = CountingActuator::new();
 
-    let attempt = runtime.cycle_attempt(
-        &resource,
-        &planner,
-        &FixedObserver(0.4),
-        &mut actuator,
-    );
+    let attempt = runtime.cycle_attempt(&resource, &planner, &FixedObserver(0.4), &mut actuator);
 
     let ForecastCycleAttempt::Failed(failure) = attempt else {
         panic!("forecast error must remain a failed forecast attempt")
@@ -345,8 +342,14 @@ fn transaction_failure_attempt_preserves_forecast_and_runtime_audit() {
             forecast_event,
             failure,
         } => {
-            assert_eq!(forecast_input.as_ref().map(ObservationSnapshot::len), Some(1));
-            assert_eq!(forecast.as_ref().map(|value| value.method.as_str()), Some("override-test"));
+            assert_eq!(
+                forecast_input.as_ref().map(ObservationSnapshot::len),
+                Some(1)
+            );
+            assert_eq!(
+                forecast.as_ref().map(|value| value.method.as_str()),
+                Some("override-test")
+            );
             assert!(forecast_event
                 .as_ref()
                 .is_some_and(|event| event.kind == RuntimeEventKind::ForecastGenerated));
