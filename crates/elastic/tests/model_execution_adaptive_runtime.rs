@@ -184,7 +184,8 @@ fn runtime_reselects_and_commits_profiles_from_current_resource_evidence() {
     let mut actuator =
         TransactionalModelExecution::new("model-runtime", profiles.clone(), backend).unwrap();
     let ir = actuator.ir();
-    let planner = ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
+    let planner =
+        ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
     let runtime = Runtime::new(RuntimeConfig {
         resource_spec: profiles.atomic_resource_spec("model-runtime").unwrap(),
         ir_resource: ir.clone(),
@@ -213,9 +214,7 @@ fn runtime_reselects_and_commits_profiles_from_current_resource_evidence() {
         free_capacity: 9_000.0,
         utilization: 0.60,
     };
-    let second = runtime
-        .cycle(&ir, &planner, &rich, &mut actuator)
-        .unwrap();
+    let second = runtime.cycle(&ir, &planner, &rich, &mut actuator).unwrap();
     assert!(second.commit.is_some());
     assert_eq!(actuator.current_profile_rank().unwrap(), 0);
 }
