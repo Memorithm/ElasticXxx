@@ -45,6 +45,18 @@ priority_program:
           - backend_identity_and_complete_target_profile_are_revalidated_inside_actuate_immediately_before_apply_profile
           - regression_test_rejects_third_validation_and_proves_apply_profile_call_count_remains_zero
           - prepared_transaction_follows_fail_closed_rollback_path_when_pre_apply_validation_changes
+      - id: EXML0c
+        name: Durable model execution cycle evidence
+        status: complete
+        completion_evidence:
+          - PR_69_exact_head_ed49b06054724813813bee0f51dfabefd3151878
+          - PR_69_CI_270_completed_success_on_exact_head
+          - PR_69_merged_to_main_as_0f05cd1d56b37939df3255ae757e73ea17406376
+          - completed_model_cycles_capture_observation_forecast_plan_validation_actuation_verification_and_terminal_outcome
+          - evidence_is_bound_to_exact_resource_EIR_provider_model_capability_profile_set_and_policy_identity
+          - observation_freshness_is_persisted_as_monotonic_age_without_fabricated_wall_clock_time
+          - correlated_E_S_A_selected_profile_tuple_is_persisted_and_revalidated_against_current_contracts
+          - offline_revalidation_is_read_only_and_never_authorizes_physical_replay
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
@@ -93,6 +105,16 @@ priority_program:
           - evidence_contract_is_owned_by_elastic_runtime_and_exported_through_elastic
           - SciRust_Verify_verdict_semantics_remain_outside_ElasticXxx
           - physical_qualified_plan_replay_remains_pending_and_non_actuating_replay_is_not_counted_as_that_gate
+      - id: EXML5b
+        name: Model cycle evidence bound to exact controller contracts
+        status: complete
+        completion_evidence:
+          - PR_69_exact_head_ed49b06054724813813bee0f51dfabefd3151878
+          - PR_69_CI_270_completed_success_on_exact_head
+          - PR_69_merged_to_main_as_0f05cd1d56b37939df3255ae757e73ea17406376
+          - model_cycle_evidence_reuses_shared_bounded_runtime_evidence_v1_envelope
+          - replay_validation_rejects_foreign_contract_or_resource_identity
+          - historical_evidence_is_not_counted_as_physical_qualified_plan_replay
     goals:
       - emit_versioned_transition_and_measurement_evidence_for_SciRust_Verify
       - make_Hub_able_to_orchestrate_elastic_runs_without_absorbing_Elastic_policy
