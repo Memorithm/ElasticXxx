@@ -273,7 +273,10 @@ fn stale_timestamped_telemetry_never_actuates_model_profile() {
     assert!(result.transaction.commit.is_none());
     assert_eq!(controller.current_profile_rank().unwrap(), 0);
     let plan = result.transaction.plan.as_ref().unwrap();
-    assert!(matches!(plan.plan.outcome, PlanOutcome::InsufficientEvidence { .. }));
+    assert!(matches!(
+        plan.plan.outcome,
+        PlanOutcome::InsufficientEvidence { .. }
+    ));
     let source = ObservationSource::host("timestamped-controller-test");
     let stale = result.transaction.observations[0]
         .iter()
