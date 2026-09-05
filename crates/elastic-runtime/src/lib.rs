@@ -32,6 +32,7 @@ pub mod forecast;
 pub mod forecast_runtime;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
+pub mod model_execution_evidence;
 pub mod model_execution_observer;
 pub mod model_execution_transaction;
 pub mod observation;
@@ -71,6 +72,16 @@ pub use model_execution_contracts::{
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
 };
 pub use model_execution_controller::{ModelExecutionControllerV1, ModelExecutionObserverBundleV1};
+pub use model_execution_evidence::{
+    ModelExecutionActuationEvidenceV1, ModelExecutionCycleEvidenceV1,
+    ModelExecutionForecastEvidenceV1, ModelExecutionForecastStatusEvidenceV1,
+    ModelExecutionInvariantEvidenceV1, ModelExecutionObservationEvidenceV1,
+    ModelExecutionObservationSnapshotEvidenceV1, ModelExecutionPlanEvidenceV1,
+    ModelExecutionPlanOutcomeEvidenceV1, ModelExecutionRollbackEvidenceV1,
+    ModelExecutionSelectedProfileEvidenceV1, ModelExecutionSignalEvidenceV1,
+    ModelExecutionVerificationEvidenceV1, MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1,
+    MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
+};
 pub use model_execution_observer::{
     ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetrySampleV1,
     ModelExecutionResourceTelemetryV1,
