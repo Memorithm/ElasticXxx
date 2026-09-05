@@ -12,9 +12,10 @@ use std::time::{Duration, Instant};
 use elastic_eir::{EirResource, PlanOutcome, PlanningContext, TransitionPlanner};
 
 use crate::{
-    Cadence, CancellationToken, Controller, CurrentStateForecaster, CycleResult, Forecast,
-    Forecaster, LoopStopReason, Observation, ObservationSnapshot, Observer, Runtime, RuntimeClock,
-    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeMode, SystemClock, TransactionalActuator,
+    Cadence, CancellationToken, Controller, CurrentStateForecaster, CycleAttempt, CycleFailure,
+    CycleResult, Forecast, Forecaster, LoopStopReason, Observation, ObservationSnapshot, Observer,
+    Runtime, RuntimeClock, RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeMode, SystemClock,
+    TransactionalActuator,
 };
 
 #[derive(Clone, Debug)]
@@ -102,6 +103,64 @@ impl ForecastCycleResult {
     }
 }
 
+/// One completed or failed forecast-aware cycle attempt.
+#[derive(Debug)]
+pub enum ForecastCycleAttempt {
+    /// Forecasting and the trusted runtime completed normally.
+    Completed(Box<ForecastCycleResult>),
+    /// The attempt failed either before entering the trusted transaction or
+    /// inside the trusted transaction.
+    Failed(Box<ForecastCycleFailure>),
+}
+
+impl ForecastCycleAttempt {
+    /// Convert back to the existing `Result<ForecastCycleResult, RuntimeError>`
+    /// surface without changing success/error semantics.
+    pub fn into_result(self) -> Result<ForecastCycleResult, RuntimeError> {
+        match self {
+            Self::Completed(result) => Ok(*result),
+            Self::Failed(failure) => match *failure {
+                ForecastCycleFailure::Forecast { error, .. } => Err(error),
+                ForecastCycleFailure::Transaction { failure, .. } => {
+                    let failure = *failure;
+                    Err(failure.error)
+                }
+            },
+        }
+    }
+
+    #[must_use]
+    pub const fn is_completed(&self) -> bool {
+        matches!(self, Self::Completed(_))
+    }
+}
+
+/// Auditable failure phase for a forecast-aware cycle.
+#[derive(Debug)]
+pub enum ForecastCycleFailure {
+    /// The forecaster returned an error before the trusted runtime was entered.
+    Forecast {
+        /// Exact resource for which forecasting was attempted.
+        resource: EirResource,
+        /// Raw observation snapshot supplied to the forecaster.
+        forecast_input: ObservationSnapshot,
+        /// Authoritative forecast/runtime error.
+        error: RuntimeError,
+    },
+    /// Forecasting completed and the trusted runtime later returned an error.
+    Transaction {
+        /// Raw observation snapshot supplied to the forecaster. `None` is used
+        /// only in `ObserveOnly`, where forecasting is intentionally skipped.
+        forecast_input: Option<ObservationSnapshot>,
+        /// Forecast that gated planning, absent only in `ObserveOnly`.
+        forecast: Option<Forecast>,
+        /// Audit event describing the forecast, absent only in `ObserveOnly`.
+        forecast_event: Option<RuntimeEvent>,
+        /// Exact trusted-runtime failure audit retained by [`CycleFailure`].
+        failure: Box<CycleFailure>,
+    },
+}
+
 /// Result of a bounded forecast-aware controller invocation.
 #[derive(Clone, Debug)]
 pub struct ForecastRunResult {
@@ -173,18 +232,63 @@ where
         O: Observer,
         A: TransactionalActuator,
     {
+        self.cycle_attempt(resource, planner, observer, actuator)
+            .into_result()
+    }
+
+    /// Execute one forecast-aware cycle while preserving the exact failure phase
+    /// and the audit context that exists at that phase.
+    ///
+    /// This method owns the single forecast orchestration path used by
+    /// [`ForecastRuntime::cycle`]. The trusted transaction itself is still
+    /// executed only by [`Runtime::cycle_attempt`]/`Runtime::cycle_with_sink`.
+    pub fn cycle_attempt<P, O, A>(
+        &self,
+        resource: &EirResource,
+        planner: &P,
+        observer: &O,
+        actuator: &mut A,
+    ) -> ForecastCycleAttempt
+    where
+        P: TransitionPlanner,
+        O: Observer,
+        A: TransactionalActuator,
+    {
         if matches!(self.runtime.config().mode, RuntimeMode::ObserveOnly) {
-            let transaction = self.runtime.cycle(resource, planner, observer, actuator)?;
-            return Ok(ForecastCycleResult {
-                forecast: None,
-                forecast_event: None,
-                transaction,
-            });
+            return match self
+                .runtime
+                .cycle_attempt(resource, planner, observer, actuator)
+            {
+                CycleAttempt::Completed(transaction) => {
+                    ForecastCycleAttempt::Completed(Box::new(ForecastCycleResult {
+                        forecast: None,
+                        forecast_event: None,
+                        transaction: *transaction,
+                    }))
+                }
+                CycleAttempt::Failed(failure) => ForecastCycleAttempt::Failed(Box::new(
+                    ForecastCycleFailure::Transaction {
+                        forecast_input: None,
+                        forecast: None,
+                        forecast_event: None,
+                        failure,
+                    },
+                )),
+            };
         }
 
         let (current, observations) = observer.observe();
-        let snapshot = ObservationSnapshot::new(Instant::now(), observations.clone());
-        let forecast = self.forecaster.forecast(&snapshot, &current)?;
+        let forecast_input = ObservationSnapshot::new(Instant::now(), observations.clone());
+        let forecast = match self.forecaster.forecast(&forecast_input, &current) {
+            Ok(forecast) => forecast,
+            Err(error) => {
+                return ForecastCycleAttempt::Failed(Box::new(ForecastCycleFailure::Forecast {
+                    resource: resource.clone(),
+                    forecast_input,
+                    error,
+                }));
+            }
+        };
         let available = forecast.is_available();
         let context = forecast
             .planning_context()
@@ -211,15 +315,26 @@ where
             ),
         );
 
-        let transaction =
-            self.runtime
-                .cycle(resource, &gated_planner, &frozen_observer, actuator)?;
-
-        Ok(ForecastCycleResult {
-            forecast: Some(forecast),
-            forecast_event: Some(forecast_event),
-            transaction,
-        })
+        match self
+            .runtime
+            .cycle_attempt(resource, &gated_planner, &frozen_observer, actuator)
+        {
+            CycleAttempt::Completed(transaction) => {
+                ForecastCycleAttempt::Completed(Box::new(ForecastCycleResult {
+                    forecast: Some(forecast),
+                    forecast_event: Some(forecast_event),
+                    transaction: *transaction,
+                }))
+            }
+            CycleAttempt::Failed(failure) => {
+                ForecastCycleAttempt::Failed(Box::new(ForecastCycleFailure::Transaction {
+                    forecast_input: Some(forecast_input),
+                    forecast: Some(forecast),
+                    forecast_event: Some(forecast_event),
+                    failure,
+                }))
+            }
+        }
     }
 
     /// Execute a bounded forecast-aware loop using the system clock.
@@ -429,6 +544,15 @@ where
 {
     pub fn cycle(&mut self) -> Result<ForecastCycleResult, RuntimeError> {
         self.runtime.cycle(
+            &self.resource,
+            &self.planner,
+            &self.observer,
+            &mut self.actuator,
+        )
+    }
+
+    pub fn cycle_attempt(&mut self) -> ForecastCycleAttempt {
+        self.runtime.cycle_attempt(
             &self.resource,
             &self.planner,
             &self.observer,
