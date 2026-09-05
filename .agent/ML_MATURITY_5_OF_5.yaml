@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-02"
+last_updated: "2026-09-05"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -23,6 +23,18 @@ priority_program:
   - id: EXML0
     name: Operational control loop
     priority: P0
+    completed_slices:
+      - id: EXML0a
+        name: Model execution telemetry freshness gate
+        status: complete
+        completion_evidence:
+          - PR_67_exact_head_578cd01cf7c016e61236a044837a32507e196a5c
+          - PR_67_CI_265_completed_success_on_exact_head
+          - PR_67_merged_to_main_as_9d5664d1208532301637222f1ba430eda0f9a6b2
+          - provider_measurement_timestamp_is_preserved_in_runtime_observations
+          - provider_declared_expiry_future_timestamps_and_invalid_validity_intervals_fail_closed_before_planning
+          - expired_timestamped_telemetry_is_proven_not_to_reach_model_actuation_or_commit
+          - cached_async_or_remote_providers_must_override_sample_to_preserve_real_measurement_time
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
