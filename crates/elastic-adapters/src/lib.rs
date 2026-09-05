@@ -46,8 +46,9 @@ pub use model_execution::{
     MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_RESOURCE_PLAN_V1,
 };
 pub use model_execution_envelope::{
-    ModelExecutionEnvelopeError, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopePolicyWireV1,
-    ModelExecutionEnvelopeRuleV1, ModelExecutionEnvelopeRuleWireV1, ModelExecutionHardwarePlannerV1,
+    ModelExecutionEnvelopeError, ModelExecutionEnvelopePolicyV1,
+    ModelExecutionEnvelopePolicyWireV1, ModelExecutionEnvelopeRuleV1,
+    ModelExecutionEnvelopeRuleWireV1, ModelExecutionHardwarePlannerV1,
     ModelExecutionHardwareSelectionV1, ModelExecutionResourceSnapshotV1,
     MODEL_EXECUTION_ENVELOPE_POLICY_MEDIA_TYPE_V1, MODEL_EXECUTION_ENVELOPE_POLICY_V1,
 };
