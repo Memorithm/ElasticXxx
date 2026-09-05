@@ -75,9 +75,8 @@ pub use model_execution_contracts::{
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
 };
 pub use model_execution_controller::{
-    ModelExecutionControllerV1, ModelExecutionObserverBundleV1,
-    ModelExecutionRunEvidenceAttemptV1, ModelExecutionRunEvidenceFailureV1,
-    ModelExecutionRunEvidenceResultV1,
+    ModelExecutionControllerV1, ModelExecutionObserverBundleV1, ModelExecutionRunEvidenceAttemptV1,
+    ModelExecutionRunEvidenceFailureV1, ModelExecutionRunEvidenceResultV1,
 };
 pub use model_execution_evidence::{
     ModelExecutionActuationEvidenceV1, ModelExecutionCycleEvidenceV1,
