@@ -72,7 +72,8 @@ pub use model_execution_contracts::{
 };
 pub use model_execution_controller::{ModelExecutionControllerV1, ModelExecutionObserverBundleV1};
 pub use model_execution_observer::{
-    ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1,
+    ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetrySampleV1,
+    ModelExecutionResourceTelemetryV1,
 };
 pub use model_execution_transaction::{
     ModelExecutionProfileBackendV1, TransactionalModelExecution,
