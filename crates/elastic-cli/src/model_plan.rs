@@ -164,6 +164,7 @@ fn plan_validated_contracts(
     }
 }
 
+#[cfg(test)]
 fn plan_documents(
     capabilities_json: &str,
     profiles_json: &str,
@@ -183,6 +184,7 @@ fn plan_documents(
     )
 }
 
+#[cfg(test)]
 fn plan_bundle_document(
     contracts_json: &str,
     capacity_unit: &str,
