@@ -55,7 +55,8 @@ pub use elastic_runtime::{
     ConfiguredResourceState, Controller, ControllerConfig, CurrentStateForecaster, CycleResult,
     EwmaForecaster, ExecutionModeConfig, Forecast, ForecastController, ForecastCycleResult,
     ForecastRunResult, ForecastRuntime, ForecastStatus, Forecaster, ForecasterSelection,
-    HostMemoryObserver, InvariantCheck, LoopStopReason, ModelExecutionProfileBackendV1,
+    HostMemoryObserver, InvariantCheck, LoopStopReason, ModelExecutionControllerV1,
+    ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
     ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, NoopEventSink,
     Observation, ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig,
     Plan, PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
@@ -81,9 +82,9 @@ pub mod runtime {
 pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{
-        ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
-        ModelExecutionResourceTelemetryV1, TransactionalConcurrency, TransactionalModelExecution,
-        TransactionalRam,
+        ModelExecutionControllerV1, ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
+        ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1,
+        TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
     };
 }
 
@@ -118,7 +119,8 @@ pub mod prelude {
         ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
         Controller, ControllerConfig, CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig,
         Forecast, ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
-        Forecaster, ForecasterSelection, HostMemoryObserver, ModelExecutionProfileBackendV1,
+        Forecaster, ForecasterSelection, HostMemoryObserver, ModelExecutionControllerV1,
+        ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
         ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, Observation, Observer,
         OperatorConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
         ResourceRegistry, Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,

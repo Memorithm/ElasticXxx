@@ -1,0 +1,216 @@
+use std::error::Error;
+use std::fmt;
+use std::sync::{Arc, Mutex};
+
+use elastic::{
+    CadenceConfig, ExecutionModeConfig, Fingerprint, ModelExecutionCapabilitiesV1,
+    ModelExecutionControllerV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
+    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1,
+    ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetryV1,
+    ObservationSource, VerificationResult,
+};
+
+#[derive(Clone, Copy, Debug)]
+struct BackendError;
+
+impl fmt::Display for BackendError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("backend error")
+    }
+}
+
+impl Error for BackendError {}
+
+struct FakeBackend {
+    provider: String,
+    revision: String,
+    capabilities: Fingerprint,
+    profiles: Fingerprint,
+    current_rank: u32,
+}
+
+impl ModelExecutionProfileBackendV1 for FakeBackend {
+    type Error = BackendError;
+
+    fn name(&self) -> &str {
+        "assembled-controller-test"
+    }
+
+    fn provider_id(&self) -> &str {
+        &self.provider
+    }
+
+    fn model_revision(&self) -> &str {
+        &self.revision
+    }
+
+    fn capability_fingerprint(&self) -> Fingerprint {
+        self.capabilities
+    }
+
+    fn profile_set_fingerprint(&self) -> Fingerprint {
+        self.profiles
+    }
+
+    fn current_profile_rank(&self) -> Result<u32, Self::Error> {
+        Ok(self.current_rank)
+    }
+
+    fn validate_profile(&self, _target: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn apply_profile(&mut self, target: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+        self.current_rank = target.preference_rank();
+        Ok(())
+    }
+
+    fn verify_profile(
+        &self,
+        target: &ModelExecutionProfileV1,
+    ) -> Result<VerificationResult, Self::Error> {
+        if self.current_rank == target.preference_rank() {
+            Ok(VerificationResult::Pass)
+        } else {
+            Ok(VerificationResult::Fail {
+                detail: "current profile does not match target".to_owned(),
+            })
+        }
+    }
+
+    fn restore_profile(&mut self, previous: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+        self.current_rank = previous.preference_rank();
+        Ok(())
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct TelemetryError;
+
+impl fmt::Display for TelemetryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("telemetry error")
+    }
+}
+
+impl Error for TelemetryError {}
+
+#[derive(Clone)]
+struct MutableTelemetry {
+    state: Arc<Mutex<(u64, u16)>>,
+}
+
+impl MutableTelemetry {
+    fn new(free_capacity: u64, utilization_bps: u16) -> Self {
+        Self {
+            state: Arc::new(Mutex::new((free_capacity, utilization_bps))),
+        }
+    }
+
+    fn set(&self, free_capacity: u64, utilization_bps: u16) {
+        *self.state.lock().unwrap() = (free_capacity, utilization_bps);
+    }
+}
+
+impl ModelExecutionResourceTelemetryV1 for MutableTelemetry {
+    type Error = TelemetryError;
+
+    fn source(&self) -> ObservationSource {
+        ObservationSource::host("assembled-controller-test")
+    }
+
+    fn snapshot(&self) -> Result<ModelExecutionResourceSnapshotV1, Self::Error> {
+        let (free_capacity, utilization_bps) = *self.state.lock().map_err(|_| TelemetryError)?;
+        ModelExecutionResourceSnapshotV1::new("bytes", free_capacity, utilization_bps)
+            .map_err(|_| TelemetryError)
+    }
+}
+
+fn profiles() -> ModelExecutionProfileSetV1 {
+    let capabilities = ModelExecutionCapabilitiesV1::new(
+        "reference-backend",
+        "model-rev-a",
+        64,
+        vec![1, 2, 4],
+        vec![2_500, 5_000, 10_000],
+        vec![2_500, 5_000, 10_000],
+    )
+    .unwrap();
+    ModelExecutionProfileSetV1::new(
+        &capabilities,
+        vec![
+            ModelExecutionProfileV1::new("full", 0, 4, 10_000, 10_000).unwrap(),
+            ModelExecutionProfileV1::new("balanced", 10, 2, 5_000, 5_000).unwrap(),
+            ModelExecutionProfileV1::new("minimal", 20, 1, 2_500, 2_500).unwrap(),
+        ],
+    )
+    .unwrap()
+}
+
+fn policy(profiles: &ModelExecutionProfileSetV1) -> ModelExecutionEnvelopePolicyV1 {
+    ModelExecutionEnvelopePolicyV1::new(
+        profiles,
+        "bytes",
+        vec![
+            ModelExecutionEnvelopeRuleV1::new(
+                "rich",
+                0,
+                8_000,
+                7_000,
+                ModelExecutionProfileEnvelopeV1::new(4, 10_000, 10_000).unwrap(),
+            )
+            .unwrap(),
+            ModelExecutionEnvelopeRuleV1::new(
+                "balanced",
+                10,
+                2_000,
+                9_000,
+                ModelExecutionProfileEnvelopeV1::new(2, 5_000, 5_000).unwrap(),
+            )
+            .unwrap(),
+            ModelExecutionEnvelopeRuleV1::new(
+                "survival",
+                20,
+                0,
+                10_000,
+                ModelExecutionProfileEnvelopeV1::new(1, 2_500, 2_500).unwrap(),
+            )
+            .unwrap(),
+        ],
+    )
+    .unwrap()
+}
+
+#[test]
+fn assembled_controller_replans_and_commits_from_live_resource_telemetry() {
+    let profiles = profiles();
+    let backend = FakeBackend {
+        provider: profiles.provider_id().to_owned(),
+        revision: profiles.model_revision().to_owned(),
+        capabilities: profiles.capability_fingerprint(),
+        profiles: profiles.fingerprint(),
+        current_rank: 0,
+    };
+    let telemetry = MutableTelemetry::new(3_000, 8_000);
+    let telemetry_handle = telemetry.clone();
+
+    let mut controller = ModelExecutionControllerV1::current_state(
+        "model-runtime",
+        profiles.clone(),
+        policy(&profiles),
+        backend,
+        telemetry,
+        CadenceConfig::OneShot,
+        ExecutionModeConfig::Apply,
+    )
+    .unwrap();
+
+    let constrained = controller.cycle().unwrap();
+    assert!(constrained.transaction.commit.is_some());
+    assert_eq!(controller.current_profile_rank().unwrap(), 10);
+
+    telemetry_handle.set(9_000, 6_000);
+    let rich = controller.cycle().unwrap();
+    assert!(rich.transaction.commit.is_some());
+    assert_eq!(controller.current_profile_rank().unwrap(), 0);
+}
