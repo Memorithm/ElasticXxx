@@ -157,6 +157,7 @@ pub struct ModelExecutionRollbackEvidenceV1 {
 struct ModelExecutionCycleEvidenceWireV1 {
     evidence_kind: String,
     resource_id: String,
+    resource_fingerprint: String,
     provider_id: String,
     model_revision: String,
     capability_fingerprint: String,
@@ -199,6 +200,8 @@ impl ModelExecutionCycleEvidenceV1 {
     ) -> Result<Self, RuntimeError> {
         let profiles = contracts.profiles();
         require_profile_rank(profiles, final_profile_rank)?;
+        let resource_id = resource_id.into();
+        let resource_fingerprint = expected_resource_fingerprint(profiles, &resource_id)?;
 
         let observation_snapshots = result
             .transaction
@@ -272,7 +275,8 @@ impl ModelExecutionCycleEvidenceV1 {
 
         let wire = ModelExecutionCycleEvidenceWireV1 {
             evidence_kind: MODEL_EXECUTION_CYCLE_EVIDENCE_V1.to_owned(),
-            resource_id: resource_id.into(),
+            resource_id,
+            resource_fingerprint,
             provider_id: profiles.provider_id().to_owned(),
             model_revision: profiles.model_revision().to_owned(),
             capability_fingerprint: profiles.capability_fingerprint().to_string(),
@@ -315,8 +319,9 @@ impl ModelExecutionCycleEvidenceV1 {
         })?;
         object.remove("evidence_schema");
         object.remove("command");
-        let wire: ModelExecutionCycleEvidenceWireV1 = serde_json::from_value(value)
-            .map_err(|error| RuntimeError::validation(format!("invalid model cycle evidence: {error}")))?;
+        let wire: ModelExecutionCycleEvidenceWireV1 = serde_json::from_value(value).map_err(|error| {
+            RuntimeError::validation(format!("invalid model cycle evidence: {error}"))
+        })?;
         validate_wire(&wire, contracts)?;
         Ok(Self { wire })
     }
@@ -341,8 +346,7 @@ impl ModelExecutionCycleEvidenceV1 {
             RuntimeError::validation("model cycle evidence did not serialize as an object")
         })?;
         object.insert("command".to_owned(), Value::String("run".to_owned()));
-        EvidenceEnvelope::capture(value)
-            .map_err(|error| RuntimeError::validation(error.to_string()))
+        EvidenceEnvelope::capture(value).map_err(|error| RuntimeError::validation(error.to_string()))
     }
 
     /// Serialize this artifact through the shared bounded runtime evidence
@@ -356,6 +360,11 @@ impl ModelExecutionCycleEvidenceV1 {
     #[must_use]
     pub fn resource_id(&self) -> &str {
         &self.wire.resource_id
+    }
+
+    #[must_use]
+    pub fn resource_fingerprint(&self) -> &str {
+        &self.wire.resource_fingerprint
     }
 
     #[must_use]
@@ -547,7 +556,10 @@ fn initial_profile_rank(snapshots: &[ObservationSnapshot]) -> Result<Option<u32>
         for observation in &snapshot.observations {
             if observation.signal() == &signal && observation.is_valid() {
                 let value = observation.value();
-                if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > u32::MAX as f64
+                if !value.is_finite()
+                    || value < 0.0
+                    || value.fract() != 0.0
+                    || value > u32::MAX as f64
                 {
                     return Err(RuntimeError::observation(format!(
                         "model current-profile observation is not an exact u32 rank: {value}"
@@ -583,6 +595,21 @@ fn require_profile_rank(
                 "model cycle evidence references unpublished profile rank {rank}"
             ))
         })
+}
+
+fn expected_resource_fingerprint(
+    profiles: &ModelExecutionProfileSetV1,
+    resource_id: &str,
+) -> Result<String, RuntimeError> {
+    let spec = profiles
+        .atomic_resource_spec(resource_id)
+        .map_err(|error| RuntimeError::validation(error.to_string()))?;
+    let document =
+        elastic_eir::lower(&spec).map_err(|error| RuntimeError::validation(error.to_string()))?;
+    let resource = document.resource(resource_id).ok_or_else(|| {
+        RuntimeError::validation("model cycle resource missing after exact evidence lowering")
+    })?;
+    Ok(resource.fingerprint().to_string())
 }
 
 fn duration_nanos(duration: Duration, name: &str) -> Result<u64, RuntimeError> {
@@ -632,11 +659,21 @@ fn validate_wire(
         )));
     }
     let profiles = contracts.profiles();
+    let expected_resource = expected_resource_fingerprint(profiles, &wire.resource_id)?;
+    if wire.resource_fingerprint != expected_resource {
+        return Err(RuntimeError::validation(
+            "model cycle resource fingerprint mismatch",
+        ));
+    }
     if wire.provider_id != profiles.provider_id() {
-        return Err(RuntimeError::validation("model cycle provider identity mismatch"));
+        return Err(RuntimeError::validation(
+            "model cycle provider identity mismatch",
+        ));
     }
     if wire.model_revision != profiles.model_revision() {
-        return Err(RuntimeError::validation("model cycle revision identity mismatch"));
+        return Err(RuntimeError::validation(
+            "model cycle revision identity mismatch",
+        ));
     }
     if wire.capability_fingerprint != profiles.capability_fingerprint().to_string() {
         return Err(RuntimeError::validation(
@@ -683,18 +720,24 @@ fn validate_wire(
     }
 
     for snapshot in &wire.observation_snapshots {
+        let all_valid = snapshot.observations.iter().all(|observation| observation.valid);
+        if snapshot.all_signals_valid != all_valid {
+            return Err(RuntimeError::validation(
+                "model cycle snapshot all_signals_valid contradicts observation validity",
+            ));
+        }
         for observation in &snapshot.observations {
-            match (observation.valid, observation.value) {
-                (true, Some(value)) if value.is_finite() => {}
-                (true, _) => {
+            match (observation.valid, observation.value.as_ref(), observation.unsupported_reason.as_ref()) {
+                (true, Some(value), None) if value.is_finite() => {}
+                (true, _, _) => {
                     return Err(RuntimeError::validation(
-                        "valid model cycle observation requires one finite value",
+                        "valid model cycle observation requires one finite value and no unsupported reason",
                     ));
                 }
-                (false, None) => {}
-                (false, Some(_)) => {
+                (false, None, Some(reason)) if !reason.trim().is_empty() => {}
+                (false, _, _) => {
                     return Err(RuntimeError::validation(
-                        "unsupported model cycle observation must not persist a numeric value",
+                        "unsupported model cycle observation requires no numeric value and a nonblank reason",
                     ));
                 }
             }
@@ -702,25 +745,69 @@ fn validate_wire(
     }
 
     let candidate = wire.plan.as_ref().and_then(|plan| match &plan.outcome {
-        ModelExecutionPlanOutcomeEvidenceV1::Candidate { profile, .. } => Some(profile),
+        ModelExecutionPlanOutcomeEvidenceV1::Candidate {
+            mechanism,
+            dimension,
+            profile,
+        } => Some((plan, mechanism, dimension, profile)),
         _ => None,
     });
-    if let Some(candidate) = candidate {
+    if let Some((plan, mechanism, dimension, candidate)) = candidate {
+        if mechanism != "reinterpret" || dimension != &model_execution_profile_dimension().to_string() {
+            return Err(RuntimeError::validation(
+                "model cycle candidate mechanism or dimension does not match atomic profile contract",
+            ));
+        }
         let profile = require_profile_rank(profiles, candidate.preference_rank)?;
         if candidate != &profile_evidence(profile) {
             return Err(RuntimeError::validation(
                 "model cycle selected profile tuple does not match current qualified profile set",
             ));
         }
+        if plan.validated && plan.invariant_checks.iter().any(|check| !check.holds) {
+            return Err(RuntimeError::validation(
+                "validated model cycle plan contains a failing invariant check",
+            ));
+        }
+    } else if wire.plan.as_ref().is_some_and(|plan| plan.validated) {
+        return Err(RuntimeError::validation(
+            "model cycle plan cannot be validated without a candidate",
+        ));
     }
+
     if let Some(actuation) = &wire.actuation {
         require_profile_rank(profiles, actuation.target_profile_rank)?;
-        if candidate.is_none_or(|profile| profile.preference_rank != actuation.target_profile_rank) {
+        let Some((plan, _, _, profile)) = candidate else {
+            return Err(RuntimeError::validation(
+                "model cycle actuation requires selected profile evidence",
+            ));
+        };
+        if !plan.validated {
+            return Err(RuntimeError::validation(
+                "model cycle actuation requires a trusted validated plan",
+            ));
+        }
+        if profile.preference_rank != actuation.target_profile_rank {
             return Err(RuntimeError::validation(
                 "model cycle actuation target does not match selected profile",
             ));
         }
+        if wire.verification.is_none() {
+            return Err(RuntimeError::validation(
+                "completed model cycle actuation requires verification evidence",
+            ));
+        }
+        if !wire.committed && !wire.rolled_back {
+            return Err(RuntimeError::validation(
+                "completed model cycle actuation requires terminal commit or rollback evidence",
+            ));
+        }
+    } else if wire.verification.is_some() || wire.committed || wire.rolled_back {
+        return Err(RuntimeError::validation(
+            "model cycle without actuation cannot contain verification, commit, or rollback",
+        ));
     }
+
     if wire.committed {
         let actuation = wire.actuation.as_ref().ok_or_else(|| {
             RuntimeError::validation("committed model cycle requires actuation evidence")
@@ -736,14 +823,17 @@ fn validate_wire(
             ));
         }
     }
-    if wire.rolled_back
-        && wire
-            .initial_profile_rank
-            .is_some_and(|rank| rank != wire.final_profile_rank)
-    {
-        return Err(RuntimeError::validation(
-            "rolled-back model cycle final rank does not match observed initial rank",
-        ));
+    if wire.rolled_back {
+        let initial = wire.initial_profile_rank.ok_or_else(|| {
+            RuntimeError::validation(
+                "rolled-back model cycle requires observed initial profile rank",
+            )
+        })?;
+        if initial != wire.final_profile_rank {
+            return Err(RuntimeError::validation(
+                "rolled-back model cycle final rank does not match observed initial rank",
+            ));
+        }
     }
     if wire
         .plan
@@ -826,6 +916,35 @@ mod tests {
         ModelExecutionControllerContractsV1::new(profiles, policy).unwrap()
     }
 
+    fn idle_wire(contracts: &ModelExecutionControllerContractsV1) -> ModelExecutionCycleEvidenceWireV1 {
+        ModelExecutionCycleEvidenceWireV1 {
+            evidence_kind: MODEL_EXECUTION_CYCLE_EVIDENCE_V1.to_owned(),
+            resource_id: "model-runtime".to_owned(),
+            resource_fingerprint: expected_resource_fingerprint(
+                contracts.profiles(),
+                "model-runtime",
+            )
+            .unwrap(),
+            provider_id: contracts.profiles().provider_id().to_owned(),
+            model_revision: contracts.profiles().model_revision().to_owned(),
+            capability_fingerprint: contracts.profiles().capability_fingerprint().to_string(),
+            profile_set_fingerprint: contracts.profiles().fingerprint().to_string(),
+            policy_fingerprint: contracts.policy().fingerprint().to_string(),
+            forecast: None,
+            observation_snapshots: Vec::new(),
+            initial_profile_rank: Some(0),
+            plan: None,
+            actuation: None,
+            verification: None,
+            committed: false,
+            commit_rationale: None,
+            rolled_back: false,
+            rollback: None,
+            final_profile_rank: 0,
+            events: Vec::new(),
+        }
+    }
+
     #[test]
     fn strict_replay_rejects_foreign_contract_identity() {
         let left = contracts();
@@ -862,29 +981,17 @@ mod tests {
         let right =
             ModelExecutionControllerContractsV1::new(foreign_profiles, foreign_policy).unwrap();
 
-        let wire = ModelExecutionCycleEvidenceWireV1 {
-            evidence_kind: MODEL_EXECUTION_CYCLE_EVIDENCE_V1.to_owned(),
-            resource_id: "model-runtime".to_owned(),
-            provider_id: left.profiles().provider_id().to_owned(),
-            model_revision: left.profiles().model_revision().to_owned(),
-            capability_fingerprint: left.profiles().capability_fingerprint().to_string(),
-            profile_set_fingerprint: left.profiles().fingerprint().to_string(),
-            policy_fingerprint: left.policy().fingerprint().to_string(),
-            forecast: None,
-            observation_snapshots: Vec::new(),
-            initial_profile_rank: Some(0),
-            plan: None,
-            actuation: None,
-            verification: None,
-            committed: false,
-            commit_rationale: None,
-            rolled_back: false,
-            rollback: None,
-            final_profile_rank: 0,
-            events: Vec::new(),
-        };
-
+        let wire = idle_wire(&left);
         assert!(validate_wire(&wire, &left).is_ok());
         assert!(validate_wire(&wire, &right).is_err());
+    }
+
+    #[test]
+    fn strict_replay_rejects_resource_identity_tampering() {
+        let contracts = contracts();
+        let mut wire = idle_wire(&contracts);
+        wire.resource_id = "other-model-runtime".to_owned();
+
+        assert!(validate_wire(&wire, &contracts).is_err());
     }
 }
