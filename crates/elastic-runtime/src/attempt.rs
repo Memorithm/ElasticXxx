@@ -19,7 +19,7 @@ use crate::{CycleResult, Observer, Runtime, RuntimeError, RuntimeEvent, Transact
 pub enum CycleAttempt {
     /// The trusted runtime completed normally and returned its authoritative
     /// structured [`CycleResult`].
-    Completed(CycleResult),
+    Completed(Box<CycleResult>),
     /// The trusted runtime returned an error after possibly emitting partial
     /// audit events.
     Failed(CycleFailure),
@@ -32,7 +32,7 @@ impl CycleAttempt {
     /// semantics: it only preserves additional failure audit context.
     pub fn into_result(self) -> Result<CycleResult, RuntimeError> {
         match self {
-            Self::Completed(result) => Ok(result),
+            Self::Completed(result) => Ok(*result),
             Self::Failed(failure) => Err(failure.error),
         }
     }
@@ -79,7 +79,7 @@ impl Runtime {
     {
         let mut events = Vec::new();
         match self.cycle_with_sink(resource, planner, observer, actuator, &mut events) {
-            Ok(result) => CycleAttempt::Completed(result),
+            Ok(result) => CycleAttempt::Completed(Box::new(result)),
             Err(error) => CycleAttempt::Failed(CycleFailure {
                 resource: resource.clone(),
                 error,
