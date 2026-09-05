@@ -28,6 +28,7 @@
 pub mod actuation;
 pub mod error;
 pub mod model_execution;
+pub mod model_execution_adaptive;
 pub mod model_execution_envelope;
 pub mod model_execution_profiles;
 pub mod model_execution_runtime;
@@ -46,6 +47,7 @@ pub use model_execution::{
     MODEL_EXECUTION_CAPABILITIES_V1, MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
     MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_RESOURCE_PLAN_V1,
 };
+pub use model_execution_adaptive::ModelExecutionAdaptivePlannerV1;
 pub use model_execution_envelope::{
     ModelExecutionEnvelopeError, ModelExecutionEnvelopePolicyV1,
     ModelExecutionEnvelopePolicyWireV1, ModelExecutionEnvelopeRuleV1,
