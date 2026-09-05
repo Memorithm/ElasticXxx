@@ -465,7 +465,10 @@ where
                         }
                     };
 
-                if let Some(last) = evidence.last() {
+                if let Some(last_profile_rank) = evidence
+                    .last()
+                    .map(ModelExecutionCycleEvidenceV1::final_profile_rank)
+                {
                     let physical_rank = match self.current_profile_rank() {
                         Ok(rank) => rank,
                         Err(error) => {
@@ -479,15 +482,14 @@ where
                             ));
                         }
                     };
-                    if physical_rank != last.final_profile_rank() {
+                    if physical_rank != last_profile_rank {
                         return ModelExecutionRunEvidenceAttemptV1::Failed(Box::new(
                             ModelExecutionRunEvidenceFailureV1::Evidence {
                                 completed_evidence: evidence,
                                 run: Some(Box::new(run)),
                                 runtime_failure: None,
                                 error: RuntimeError::verification(format!(
-                                    "bounded model run ended at physical profile rank {physical_rank}, but durable cycle evidence ended at {}",
-                                    last.final_profile_rank()
+                                    "bounded model run ended at physical profile rank {physical_rank}, but durable cycle evidence ended at {last_profile_rank}"
                                 )),
                             },
                         ));
