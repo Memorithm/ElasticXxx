@@ -79,6 +79,18 @@ priority_program:
           - catastrophic_RuntimeError_retains_exact_EIR_resource_and_ordered_events_already_emitted_before_failure
           - unrecoverable_rollback_test_retains_ActuationApplied_and_VerificationPerformed_without_fabricating_RollbackExecuted_or_CycleCompleted
           - structured_observation_plan_actuation_state_on_escaped_RuntimeError_remains_an_explicit_open_gap
+      - id: EXML0f
+        name: Forecast-aware cycle failure phase audit
+        status: complete_partial_failure_audit
+        completion_evidence:
+          - PR_72_exact_head_692163f9e3db026559e749a1e1cb108eb5e7029b
+          - PR_72_CI_285_completed_success_on_exact_head
+          - PR_72_merged_to_main_as_7e8c4e46623c9e9754540ac6144c03ef67cf162c
+          - ForecastRuntime_cycle_is_implemented_through_cycle_attempt_into_result_without_duplicate_forecast_or_transaction_path
+          - forecast_failure_before_transaction_retains_exact_resource_raw_forecast_input_and_authoritative_error
+          - transaction_failure_after_forecast_retains_forecast_input_forecast_event_and_exact_CycleFailure
+          - observe_only_does_not_fabricate_a_forecast_stage
+          - bounded_run_failure_retention_remains_the_next_explicit_gap
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
@@ -155,6 +167,16 @@ priority_program:
           - PR_71_merged_to_main_as_edfdf4c3f5f11c1db84f571f55809724f9e3c239
           - escaped_RuntimeError_no_longer_forces_callers_to_lose_the_existing_ordered_cycle_event_stream
           - full_structured_catastrophic_attempt_evidence_remains_pending
+      - id: EXML5e
+        name: Forecast-aware catastrophic cycle audit retention
+        status: complete_partial
+        completion_evidence:
+          - PR_72_exact_head_692163f9e3db026559e749a1e1cb108eb5e7029b
+          - PR_72_CI_285_completed_success_on_exact_head
+          - PR_72_merged_to_main_as_7e8c4e46623c9e9754540ac6144c03ef67cf162c
+          - forecast_and_transaction_failure_phases_are_distinguished_without_reconstructing_missing_runtime_state
+          - successful_forecast_context_is_retained_when_the_trusted_transaction_later_fails
+          - bounded_run_failure_history_remains_pending
     goals:
       - emit_versioned_transition_and_measurement_evidence_for_SciRust_Verify
       - make_Hub_able_to_orchestrate_elastic_runs_without_absorbing_Elastic_policy
