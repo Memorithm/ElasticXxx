@@ -2,16 +2,13 @@
 
 `elastic model-plan` performs one **non-actuating** model-execution planning decision from strict versioned JSON contracts.
 
-It validates this identity chain before selecting anything:
+The preferred input is one validated aggregate controller-contract bundle:
 
 ```text
-model-execution capabilities JSON
+model-execution controller-contracts JSON
         |
         v
-correlated profile-set JSON
-        |
-        v
-resource-envelope policy JSON
+capabilities -> correlated profiles -> envelope policy revalidation
         |
         v
 explicit resource snapshot + current profile rank
@@ -20,9 +17,24 @@ explicit resource snapshot + current profile rank
 selected correlated profile / no change / no candidate
 ```
 
+The historical three-file capabilities/profile-set/policy form remains supported and is validated through the same native controller-contract bundle before planning.
+
 The command does not load weights, route tokens, resize experts, probe a GPU, or invoke a physical backend.
 
-## Usage
+## Preferred usage
+
+```text
+elastic model-plan \
+  --contracts model-controller-contracts.json \
+  --capacity-unit bytes \
+  --free-capacity 3000 \
+  --utilization-bps 8000 \
+  --current-profile-rank 0
+```
+
+`--contracts` expects `elastic.model-execution.controller-contracts@1.0.0`. The aggregate contains the strict v1 capabilities, correlated profile set, and envelope policy and revalidates their complete identity/fingerprint chain when loaded.
+
+## Historical split usage
 
 ```text
 elastic model-plan \
@@ -35,11 +47,14 @@ elastic model-plan \
   --current-profile-rank 0
 ```
 
+The contract source modes are exclusive. `--contracts` cannot be combined with any split-contract option. Without `--contracts`, all three of `--capabilities`, `--profiles`, and `--policy` are required.
+
 Inputs:
 
-- `--capabilities`: `elastic.model-execution.capabilities@1.0.0` wire document;
-- `--profiles`: `elastic.model-execution.profile-set@1.0.0` wire document bound to the exact capabilities fingerprint;
-- `--policy`: `elastic.model-execution.envelope-policy@1.0.0` wire document bound to the exact profile-set fingerprint;
+- `--contracts`: preferred aggregate `elastic.model-execution.controller-contracts@1.0.0` document;
+- `--capabilities`: historical `elastic.model-execution.capabilities@1.0.0` wire document;
+- `--profiles`: historical `elastic.model-execution.profile-set@1.0.0` wire document bound to the exact capabilities fingerprint;
+- `--policy`: historical `elastic.model-execution.envelope-policy@1.0.0` wire document bound to the exact profile-set fingerprint;
 - `--capacity-unit`: backend-owned capacity-unit identity; it must exactly match the policy;
 - `--free-capacity`: current free capacity in that declared unit;
 - `--utilization-bps`: current utilization in integer basis points, `0..=10000`;
@@ -65,6 +80,8 @@ The command emits the normal bounded Elastic runtime-evidence envelope, so the r
 
 ## Contract generation
 
-Do not hand-copy structural fingerprints between documents. Construct and validate `ModelExecutionCapabilitiesV1`, `ModelExecutionProfileSetV1`, and `ModelExecutionEnvelopePolicyV1`, then serialize their respective `to_wire()` values. This ensures each downstream contract is bound to the exact preceding declaration.
+Prefer constructing `ModelExecutionControllerContractsV1` from validated `ModelExecutionProfileSetV1` and `ModelExecutionEnvelopePolicyV1`, then serialize it with `to_pretty_json()`. The aggregate uses the existing nested `to_wire()` contracts and avoids manual fingerprint copying.
 
-Physical execution remains a separate step implemented through `ModelExecutionProfileBackendV1` and `TransactionalModelExecution<B>` by a backend that actually owns the model semantics.
+The historical split documents should likewise be generated through their typed `to_wire()` APIs rather than editing structural fingerprints manually.
+
+Physical execution remains a separate step implemented through `ModelExecutionProfileBackendV1` and `ModelExecutionControllerV1` by a backend that actually owns the model semantics.

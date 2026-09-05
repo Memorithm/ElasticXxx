@@ -6,10 +6,10 @@ use std::io::{Error as IoError, ErrorKind};
 use std::path::Path;
 
 use elastic::{
-    ModelExecutionCapabilitiesWireV1, ModelExecutionEnvelopePolicyWireV1,
-    ModelExecutionHardwarePlannerV1, ModelExecutionHardwareSelectionV1,
-    ModelExecutionProfilePlanV1, ModelExecutionProfileSetV1, ModelExecutionProfileSetWireV1,
-    ModelExecutionResourceSnapshotV1,
+    ModelExecutionCapabilitiesWireV1, ModelExecutionControllerContractsV1,
+    ModelExecutionEnvelopePolicyWireV1, ModelExecutionHardwarePlannerV1,
+    ModelExecutionHardwareSelectionV1, ModelExecutionProfilePlanV1, ModelExecutionProfileSetV1,
+    ModelExecutionProfileSetWireV1, ModelExecutionResourceSnapshotV1,
 };
 use serde_json::{json, Value};
 
@@ -20,9 +20,14 @@ type CommandResult = Result<(), Box<dyn Error>>;
 /// Inputs for one non-actuating model-execution planning decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ModelPlanOptions<'a> {
-    pub capabilities: &'a Path,
-    pub profiles: &'a Path,
-    pub policy: &'a Path,
+    /// Preferred aggregate controller-contract bundle.
+    pub contracts: Option<&'a Path>,
+    /// Historical split capability contract source.
+    pub capabilities: Option<&'a Path>,
+    /// Historical split correlated profile-set contract source.
+    pub profiles: Option<&'a Path>,
+    /// Historical split envelope-policy contract source.
+    pub policy: Option<&'a Path>,
     pub capacity_unit: &'a str,
     pub free_capacity: u64,
     pub utilization_bps: u16,
@@ -32,13 +37,9 @@ pub(crate) struct ModelPlanOptions<'a> {
 /// Load strict versioned contracts, revalidate their identity chain, and print
 /// one deterministic non-actuating model-execution planning result.
 pub(crate) fn model_plan(options: ModelPlanOptions<'_>) -> CommandResult {
-    let capabilities = fs::read_to_string(options.capabilities)?;
-    let profiles = fs::read_to_string(options.profiles)?;
-    let policy = fs::read_to_string(options.policy)?;
-    let value = plan_documents(
-        &capabilities,
-        &profiles,
-        &policy,
+    let contracts = load_contracts(&options)?;
+    let value = plan_validated_contracts(
+        &contracts,
         options.capacity_unit,
         options.free_capacity,
         options.utilization_bps,
@@ -47,15 +48,38 @@ pub(crate) fn model_plan(options: ModelPlanOptions<'_>) -> CommandResult {
     print_json(value)
 }
 
-fn plan_documents(
+fn load_contracts(
+    options: &ModelPlanOptions<'_>,
+) -> Result<ModelExecutionControllerContractsV1, Box<dyn Error>> {
+    match (
+        options.contracts,
+        options.capabilities,
+        options.profiles,
+        options.policy,
+    ) {
+        (Some(path), None, None, None) => {
+            let json = fs::read_to_string(path)?;
+            Ok(ModelExecutionControllerContractsV1::from_json(&json)?)
+        }
+        (None, Some(capabilities), Some(profiles), Some(policy)) => {
+            let capabilities = fs::read_to_string(capabilities)?;
+            let profiles = fs::read_to_string(profiles)?;
+            let policy = fs::read_to_string(policy)?;
+            validate_split_documents(&capabilities, &profiles, &policy)
+        }
+        _ => Err(IoError::new(
+            ErrorKind::InvalidInput,
+            "model-plan requires either --contracts or the complete --capabilities/--profiles/--policy set",
+        )
+        .into()),
+    }
+}
+
+fn validate_split_documents(
     capabilities_json: &str,
     profiles_json: &str,
     policy_json: &str,
-    capacity_unit: &str,
-    free_capacity: u64,
-    utilization_bps: u16,
-    current_profile_rank: u32,
-) -> Result<Value, Box<dyn Error>> {
+) -> Result<ModelExecutionControllerContractsV1, Box<dyn Error>> {
     let capabilities_wire: ModelExecutionCapabilitiesWireV1 =
         serde_json::from_str(capabilities_json)?;
     let capabilities = capabilities_wire.into_validated()?;
@@ -66,7 +90,20 @@ fn plan_documents(
     let policy_wire: ModelExecutionEnvelopePolicyWireV1 = serde_json::from_str(policy_json)?;
     let policy = policy_wire.into_validated(&profiles)?;
 
-    if profile_by_rank(&profiles, current_profile_rank).is_none() {
+    Ok(ModelExecutionControllerContractsV1::new(profiles, policy)?)
+}
+
+fn plan_validated_contracts(
+    contracts: &ModelExecutionControllerContractsV1,
+    capacity_unit: &str,
+    free_capacity: u64,
+    utilization_bps: u16,
+    current_profile_rank: u32,
+) -> Result<Value, Box<dyn Error>> {
+    let profiles = contracts.profiles();
+    let policy = contracts.policy();
+
+    if profile_by_rank(profiles, current_profile_rank).is_none() {
         return Err(IoError::new(
             ErrorKind::InvalidInput,
             format!(
@@ -78,7 +115,7 @@ fn plan_documents(
 
     let snapshot =
         ModelExecutionResourceSnapshotV1::new(capacity_unit, free_capacity, utilization_bps)?;
-    let selection = ModelExecutionHardwarePlannerV1.select(&policy, &profiles, &snapshot)?;
+    let selection = ModelExecutionHardwarePlannerV1.select(policy, profiles, &snapshot)?;
 
     let base = json!({
         "command": "model-plan",
@@ -125,6 +162,44 @@ fn plan_documents(
         )
         .into()),
     }
+}
+
+#[cfg(test)]
+fn plan_documents(
+    capabilities_json: &str,
+    profiles_json: &str,
+    policy_json: &str,
+    capacity_unit: &str,
+    free_capacity: u64,
+    utilization_bps: u16,
+    current_profile_rank: u32,
+) -> Result<Value, Box<dyn Error>> {
+    let contracts = validate_split_documents(capabilities_json, profiles_json, policy_json)?;
+    plan_validated_contracts(
+        &contracts,
+        capacity_unit,
+        free_capacity,
+        utilization_bps,
+        current_profile_rank,
+    )
+}
+
+#[cfg(test)]
+fn plan_bundle_document(
+    contracts_json: &str,
+    capacity_unit: &str,
+    free_capacity: u64,
+    utilization_bps: u16,
+    current_profile_rank: u32,
+) -> Result<Value, Box<dyn Error>> {
+    let contracts = ModelExecutionControllerContractsV1::from_json(contracts_json)?;
+    plan_validated_contracts(
+        &contracts,
+        capacity_unit,
+        free_capacity,
+        utilization_bps,
+        current_profile_rank,
+    )
 }
 
 fn merge_selection(
@@ -178,7 +253,7 @@ mod tests {
         ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
     };
 
-    fn documents() -> (String, String, String) {
+    fn native_contracts() -> ModelExecutionControllerContractsV1 {
         let capabilities = ModelExecutionCapabilitiesV1::new(
             "reference-backend",
             "model-rev-a",
@@ -228,11 +303,15 @@ mod tests {
             ],
         )
         .unwrap();
+        ModelExecutionControllerContractsV1::new(profiles, policy).unwrap()
+    }
 
+    fn documents() -> (String, String, String) {
+        let contracts = native_contracts();
         (
-            serde_json::to_string(&capabilities.to_wire()).unwrap(),
-            serde_json::to_string(&profiles.to_wire()).unwrap(),
-            serde_json::to_string(&policy.to_wire()).unwrap(),
+            serde_json::to_string(&contracts.capabilities().to_wire()).unwrap(),
+            serde_json::to_string(&contracts.profiles().to_wire()).unwrap(),
+            serde_json::to_string(&contracts.policy().to_wire()).unwrap(),
         )
     }
 
@@ -246,6 +325,18 @@ mod tests {
         assert_eq!(value["selected_profile"]["id"], "balanced");
         assert_eq!(value["selected_profile"]["rank"], 10);
         assert_eq!(value["selected_profile"]["active_experts"], 2);
+    }
+
+    #[test]
+    fn aggregate_bundle_produces_same_selection_as_split_contracts() {
+        let contracts = native_contracts();
+        let bundle = contracts.to_pretty_json().unwrap();
+        let bundled = plan_bundle_document(&bundle, "bytes", 3_000, 8_000, 0).unwrap();
+        let (capabilities, profiles, policy) = documents();
+        let split =
+            plan_documents(&capabilities, &profiles, &policy, "bytes", 3_000, 8_000, 0).unwrap();
+
+        assert_eq!(bundled, split);
     }
 
     #[test]
@@ -280,5 +371,11 @@ mod tests {
         let error =
             plan_documents(&capabilities, &profiles, &policy, "mib", 3_000, 8_000, 0).unwrap_err();
         assert!(error.to_string().contains("capacity unit mismatch"));
+    }
+
+    #[test]
+    fn malformed_bundle_fails_before_planning() {
+        let error = plan_bundle_document("{}", "bytes", 3_000, 8_000, 0).unwrap_err();
+        assert!(error.to_string().contains("controller contracts JSON"));
     }
 }
