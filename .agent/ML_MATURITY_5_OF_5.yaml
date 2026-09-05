@@ -134,6 +134,21 @@ priority_program:
   - id: EXML3
     name: Kernel and backend actuation
     priority: P0
+    completed_slices:
+      - id: EXML3a
+        name: Specialized backend transition authorization gate
+        status: complete_boundary_gate
+        completion_evidence:
+          - NNIS_PR_117_exact_head_1bde4f7ba292bdd498f7ffd8a12c609d200cbe9e
+          - NNIS_PR_117_CI_344_and_SmolLM2_harness_140_completed_success_on_exact_head
+          - NNIS_PR_117_merged_as_b9d2f1e74bb68dfa90ca499a24ce857d15e7fb02
+          - PR_75_exact_head_cbffdb0cc4a20d8d73013506f9c4f091c1008b1b
+          - PR_75_CI_301_completed_success_on_exact_head
+          - PR_75_merged_to_main_as_2045591663ee797ea4cfa08549ae90fe1fb20c09
+          - specialized_backends_can_declare_live_transactional_or_model_rebuild_required_without_moving_backend_semantics_into_ElasticXxx
+          - model_rebuild_required_is_rejected_before_physical_apply_profile
+          - a_late_transition_policy_change_is_revalidated_before_apply_and_follows_the_existing_restored_rollback_path
+          - current_NNIS_F16_execution_plans_are_explicitly_model_rebuild_required_and_do_not_count_as_live_specialized_backend_actuation
     goals:
       - consume_candidate_capabilities_from_SciRust_FLAT_and_NNIS
       - choose_only_among_compatible_kernel_realizations
