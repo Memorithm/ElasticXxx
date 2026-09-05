@@ -18,9 +18,9 @@ use elastic_eir::PlanningContext;
 use crate::{
     CadenceConfig, CancellationToken, CurrentStateForecaster, ExecutionModeConfig,
     ForecastController, ForecastCycleResult, ForecastRunResult, Forecaster,
-    ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
-    ModelExecutionResourceTelemetryV1, Observation, Observer, ObserverSet, PlannerConfig, Runtime,
-    RuntimeConfig, RuntimeError, TransactionalModelExecution,
+    ModelExecutionControllerContractsV1, ModelExecutionProfileBackendV1,
+    ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, Observation, Observer,
+    ObserverSet, PlannerConfig, Runtime, RuntimeConfig, RuntimeError, TransactionalModelExecution,
 };
 
 /// Owned observation bundle for one adaptive model-execution controller.
@@ -110,6 +110,28 @@ where
             mode,
         )
     }
+
+    /// Assemble a current-state controller from one fully revalidated persisted
+    /// contract bundle.
+    pub fn current_state_from_contracts(
+        resource_id: &str,
+        contracts: ModelExecutionControllerContractsV1,
+        backend: B,
+        telemetry: T,
+        cadence: CadenceConfig,
+        mode: ExecutionModeConfig,
+    ) -> Result<Self, RuntimeError> {
+        let (profiles, policy) = contracts.into_execution_parts();
+        Self::current_state(
+            resource_id,
+            profiles,
+            policy,
+            backend,
+            telemetry,
+            cadence,
+            mode,
+        )
+    }
 }
 
 impl<B, T, F> ModelExecutionControllerV1<B, T, F>
@@ -184,6 +206,31 @@ where
         Ok(Self {
             inner: ForecastController::new(runtime, ir, planner, observer, actuator, forecaster),
         })
+    }
+
+    /// Assemble a controller with an explicit forecaster from one fully
+    /// revalidated persisted contract bundle.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_contracts(
+        resource_id: &str,
+        contracts: ModelExecutionControllerContractsV1,
+        backend: B,
+        telemetry: T,
+        forecaster: F,
+        cadence: CadenceConfig,
+        mode: ExecutionModeConfig,
+    ) -> Result<Self, RuntimeError> {
+        let (profiles, policy) = contracts.into_execution_parts();
+        Self::new(
+            resource_id,
+            profiles,
+            policy,
+            backend,
+            telemetry,
+            forecaster,
+            cadence,
+            mode,
+        )
     }
 
     #[must_use]

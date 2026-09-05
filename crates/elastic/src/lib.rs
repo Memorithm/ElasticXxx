@@ -55,7 +55,8 @@ pub use elastic_runtime::{
     ConfiguredResourceState, Controller, ControllerConfig, CurrentStateForecaster, CycleResult,
     EwmaForecaster, ExecutionModeConfig, Forecast, ForecastController, ForecastCycleResult,
     ForecastRunResult, ForecastRuntime, ForecastStatus, Forecaster, ForecasterSelection,
-    HostMemoryObserver, InvariantCheck, LoopStopReason, ModelExecutionControllerV1,
+    HostMemoryObserver, InvariantCheck, LoopStopReason, ModelExecutionControllerContractsV1,
+    ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
     ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
     ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, NoopEventSink,
     Observation, ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig,
@@ -64,6 +65,7 @@ pub use elastic_runtime::{
     RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
     RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
     TransactionalModelExecution, TransactionalRam, ValidatedPlan, VerificationResult,
+    MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
     OPERATOR_CONFIG_VERSION,
 };
 pub use elastic_runtime::{
@@ -82,6 +84,7 @@ pub mod runtime {
 pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{
+        ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
         ModelExecutionControllerV1, ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
         ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1,
         TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
@@ -119,13 +122,14 @@ pub mod prelude {
         ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
         Controller, ControllerConfig, CurrentStateForecaster, EwmaForecaster, ExecutionModeConfig,
         Forecast, ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
-        Forecaster, ForecasterSelection, HostMemoryObserver, ModelExecutionControllerV1,
+        Forecaster, ForecasterSelection, HostMemoryObserver, ModelExecutionControllerContractsV1,
+        ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
         ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
         ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, Observation, Observer,
         OperatorConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
         ResourceRegistry, Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
         TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
-        VerificationResult, OPERATOR_CONFIG_VERSION,
+        VerificationResult, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1, OPERATOR_CONFIG_VERSION,
     };
     pub use elastic_runtime::{
         EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,

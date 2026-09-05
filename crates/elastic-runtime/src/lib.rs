@@ -30,6 +30,7 @@ pub mod events;
 pub mod evidence;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod model_execution_contracts;
 pub mod model_execution_controller;
 pub mod model_execution_observer;
 pub mod model_execution_transaction;
@@ -64,6 +65,10 @@ pub use evidence::{
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use forecast_runtime::{
     ForecastController, ForecastCycleResult, ForecastRunResult, ForecastRuntime,
+};
+pub use model_execution_contracts::{
+    ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
+    MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
 };
 pub use model_execution_controller::{ModelExecutionControllerV1, ModelExecutionObserverBundleV1};
 pub use model_execution_observer::{
