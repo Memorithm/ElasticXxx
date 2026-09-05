@@ -84,9 +84,7 @@ impl ModelExecutionAdaptivePlannerV1 {
             )
         })?;
         let utilization_bps = utilization_fraction_to_bps(utilization).ok_or_else(|| {
-            format!(
-                "utilization observation must be finite in [0, 1]; got {utilization}"
-            )
+            format!("utilization observation must be finite in [0, 1]; got {utilization}")
         })?;
 
         ModelExecutionResourceSnapshotV1::new(
@@ -116,18 +114,15 @@ impl TransitionPlanner for ModelExecutionAdaptivePlannerV1 {
             Err(detail) => return PlanOutcome::InsufficientEvidence { detail },
         };
 
-        let selection = match ModelExecutionHardwarePlannerV1.select(
-            &self.policy,
-            &self.profiles,
-            &snapshot,
-        ) {
-            Ok(selection) => selection,
-            Err(error) => {
-                return PlanOutcome::InsufficientEvidence {
-                    detail: format!("model-execution envelope resolution failed: {error}"),
-                };
-            }
-        };
+        let selection =
+            match ModelExecutionHardwarePlannerV1.select(&self.policy, &self.profiles, &snapshot) {
+                Ok(selection) => selection,
+                Err(error) => {
+                    return PlanOutcome::InsufficientEvidence {
+                        detail: format!("model-execution envelope resolution failed: {error}"),
+                    };
+                }
+            };
 
         match selection {
             ModelExecutionHardwareSelectionV1::Selected { plan, .. } => {
@@ -147,11 +142,7 @@ impl TransitionPlanner for ModelExecutionAdaptivePlannerV1 {
 }
 
 fn exact_nonnegative_u64(value: f64) -> Option<u64> {
-    if !value.is_finite()
-        || value < 0.0
-        || value > MAX_EXACT_F64_INTEGER
-        || value.fract() != 0.0
-    {
+    if !value.is_finite() || value < 0.0 || value > MAX_EXACT_F64_INTEGER || value.fract() != 0.0 {
         return None;
     }
     Some(value as u64)
@@ -253,13 +244,11 @@ mod tests {
     #[test]
     fn rich_evidence_selects_full_profile_atomically() {
         let profiles = profiles();
-        let planner = ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone())
-            .unwrap();
+        let planner =
+            ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
         let resource = resource(&profiles);
-        let outcome = planner.propose_transition_with_context(
-            &resource,
-            &context(9_000.0, 0.60, 20.0),
-        );
+        let outcome =
+            planner.propose_transition_with_context(&resource, &context(9_000.0, 0.60, 20.0));
         let PlanOutcome::Candidate(candidate) = outcome else {
             panic!("expected atomic full-profile candidate")
         };
@@ -270,13 +259,11 @@ mod tests {
     #[test]
     fn constrained_evidence_selects_balanced_profile() {
         let profiles = profiles();
-        let planner = ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone())
-            .unwrap();
+        let planner =
+            ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
         let resource = resource(&profiles);
-        let outcome = planner.propose_transition_with_context(
-            &resource,
-            &context(3_000.0, 0.80, 0.0),
-        );
+        let outcome =
+            planner.propose_transition_with_context(&resource, &context(3_000.0, 0.80, 0.0));
         let PlanOutcome::Candidate(candidate) = outcome else {
             panic!("expected atomic balanced-profile candidate")
         };
@@ -286,14 +273,11 @@ mod tests {
     #[test]
     fn selected_current_profile_is_noop() {
         let profiles = profiles();
-        let planner = ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone())
-            .unwrap();
+        let planner =
+            ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
         let resource = resource(&profiles);
         assert_eq!(
-            planner.propose_transition_with_context(
-                &resource,
-                &context(3_000.0, 0.80, 10.0),
-            ),
+            planner.propose_transition_with_context(&resource, &context(3_000.0, 0.80, 10.0),),
             PlanOutcome::NoCandidate
         );
     }
@@ -301,8 +285,8 @@ mod tests {
     #[test]
     fn missing_or_ambiguous_resource_evidence_fails_closed() {
         let profiles = profiles();
-        let planner = ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone())
-            .unwrap();
+        let planner =
+            ModelExecutionAdaptivePlannerV1::new(policy(&profiles), profiles.clone()).unwrap();
         let resource = resource(&profiles);
         let missing = PlanningContext::new()
             .observe(ObservationSignalId::UTILIZATION, 0.8)
