@@ -266,14 +266,14 @@ where
                         transaction: *transaction,
                     }))
                 }
-                CycleAttempt::Failed(failure) => ForecastCycleAttempt::Failed(Box::new(
-                    ForecastCycleFailure::Transaction {
+                CycleAttempt::Failed(failure) => {
+                    ForecastCycleAttempt::Failed(Box::new(ForecastCycleFailure::Transaction {
                         forecast_input: None,
                         forecast: None,
                         forecast_event: None,
                         failure,
-                    },
-                )),
+                    }))
+                }
             };
         }
 
