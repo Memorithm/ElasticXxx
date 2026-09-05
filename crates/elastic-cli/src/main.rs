@@ -8,10 +8,12 @@ use clap::{Args, Parser, Subcommand};
 mod commands;
 mod config_run;
 mod evidence;
+mod model_contracts;
 mod model_plan;
 use commands::*;
 use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
+use model_contracts::{build_contracts, validate_contracts};
 use model_plan::{model_plan, ModelPlanOptions};
 
 #[derive(Parser)]
@@ -261,6 +263,37 @@ impl ModelPlanArgs {
     }
 }
 
+#[derive(Debug, Subcommand)]
+enum ModelContractsCommand {
+    /// Build one strict aggregate controller-contract bundle as a new JSON file.
+    Build {
+        #[arg(long, value_name = "FILE")]
+        capabilities: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        profiles: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        policy: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        output: PathBuf,
+    },
+    /// Revalidate one aggregate controller-contract bundle without actuation.
+    Validate { input: PathBuf },
+}
+
+impl ModelContractsCommand {
+    fn execute(self) -> Result<(), Box<dyn Error>> {
+        match self {
+            Self::Build {
+                capabilities,
+                profiles,
+                policy,
+                output,
+            } => build_contracts(&capabilities, &profiles, &policy, &output),
+            Self::Validate { input } => validate_contracts(&input),
+        }
+    }
+}
+
 fn required<T>(value: Option<T>, name: &str) -> Result<T, Box<dyn Error>> {
     value.ok_or_else(|| {
         IoError::new(
@@ -279,6 +312,11 @@ enum Commands {
     Observe { id: String },
     /// Produce an auditable, non-actuating plan.
     Plan { id: String },
+    /// Build or validate persisted adaptive model-execution contract bundles.
+    ModelContracts {
+        #[command(subcommand)]
+        command: ModelContractsCommand,
+    },
     /// Validate and select a qualified model-execution profile without actuation.
     ModelPlan {
         #[command(flatten)]
@@ -334,6 +372,7 @@ fn main() -> ExitCode {
         Commands::Inspect { id } => inspect(&id),
         Commands::Observe { id } => observe(&id),
         Commands::Plan { id } => plan(&id),
+        Commands::ModelContracts { command } => command.execute(),
         Commands::ModelPlan { args } => args.execute(),
         Commands::Doctor { id } => doctor(&id),
         Commands::Validate { id, ram } => validate(&id, ram.into()),
@@ -371,6 +410,40 @@ mod tests {
         assert!(matches!(
             cli.command,
             Commands::Doctor { id } if id == "default"
+        ));
+    }
+
+    #[test]
+    fn model_contracts_build_and_validate_syntax_parse() {
+        let build = Cli::try_parse_from([
+            "elastic",
+            "model-contracts",
+            "build",
+            "--capabilities",
+            "capabilities.json",
+            "--profiles",
+            "profiles.json",
+            "--policy",
+            "policy.json",
+            "--output",
+            "contracts.json",
+        ])
+        .unwrap();
+        assert!(matches!(
+            build.command,
+            Commands::ModelContracts {
+                command: ModelContractsCommand::Build { output, .. }
+            } if output == PathBuf::from("contracts.json")
+        ));
+
+        let validate =
+            Cli::try_parse_from(["elastic", "model-contracts", "validate", "contracts.json"])
+                .unwrap();
+        assert!(matches!(
+            validate.command,
+            Commands::ModelContracts {
+                command: ModelContractsCommand::Validate { input }
+            } if input == PathBuf::from("contracts.json")
         ));
     }
 
