@@ -18,9 +18,10 @@ use elastic_eir::PlanningContext;
 use crate::{
     CadenceConfig, CancellationToken, CurrentStateForecaster, ExecutionModeConfig,
     ForecastController, ForecastCycleResult, ForecastRunResult, Forecaster,
-    ModelExecutionControllerContractsV1, ModelExecutionProfileBackendV1,
-    ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, Observation, Observer,
-    ObserverSet, PlannerConfig, Runtime, RuntimeConfig, RuntimeError, TransactionalModelExecution,
+    ModelExecutionControllerContractsV1, ModelExecutionCycleEvidenceV1,
+    ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
+    ModelExecutionResourceTelemetryV1, Observation, Observer, ObserverSet, PlannerConfig, Runtime,
+    RuntimeConfig, RuntimeError, TransactionalModelExecution,
 };
 
 /// Owned observation bundle for one adaptive model-execution controller.
@@ -291,6 +292,31 @@ where
     /// Execute one complete forecast-aware adaptive transaction cycle.
     pub fn cycle(&mut self) -> Result<ForecastCycleResult, RuntimeError> {
         self.inner.cycle()
+    }
+
+    /// Execute one complete cycle and capture a durable, contract-bound evidence
+    /// artifact for the resulting physical state.
+    ///
+    /// Evidence capture happens only after the trusted cycle has completed and
+    /// the backend's final published profile rank has been read. Revalidating the
+    /// returned artifact later is read-only and never authorizes a new actuation.
+    pub fn cycle_with_evidence(
+        &mut self,
+    ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
+        let result = self.inner.cycle()?;
+        let final_profile_rank = self.current_profile_rank()?;
+        let contracts = ModelExecutionControllerContractsV1::new(
+            self.inner.planner().profiles().clone(),
+            self.inner.planner().policy().clone(),
+        )?;
+        let resource_id = self.inner.resource().identity().as_str().to_owned();
+        let evidence = ModelExecutionCycleEvidenceV1::capture(
+            &contracts,
+            resource_id,
+            &result,
+            final_profile_rank,
+        )?;
+        Ok((result, evidence))
     }
 
     /// Execute the configured one-shot or bounded periodic control loop.
