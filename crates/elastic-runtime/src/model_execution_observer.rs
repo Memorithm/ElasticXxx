@@ -268,7 +268,7 @@ mod tests {
 
         let (context, observations) = observer.observe();
 
-        assert!(context.is_empty());
+        assert!(context.iter().next().is_none());
         assert_eq!(observations.len(), 2);
         assert!(observations.iter().all(Observation::is_unsupported));
     }
