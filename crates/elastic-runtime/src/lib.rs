@@ -36,6 +36,7 @@ pub mod model_execution_controller;
 pub mod model_execution_evidence;
 pub mod model_execution_observer;
 pub mod model_execution_transaction;
+pub mod model_execution_transition;
 pub mod observation;
 pub mod observers;
 pub mod operator_config;
@@ -94,6 +95,11 @@ pub use model_execution_observer::{
 };
 pub use model_execution_transaction::{
     ModelExecutionProfileBackendV1, TransactionalModelExecution,
+};
+pub use model_execution_transition::{
+    FixedModelExecutionTransitionPolicyV1, ModelExecutionTransitionModeV1,
+    ModelExecutionTransitionPolicyV1, TransitionGuardedModelExecutionBackendError,
+    TransitionGuardedModelExecutionBackendV1,
 };
 pub use observation::{Observation, ObservationSnapshot, ObservationSource, Observer};
 pub use observers::{
