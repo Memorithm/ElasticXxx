@@ -28,6 +28,7 @@
 pub mod actuation;
 pub mod error;
 pub mod model_execution;
+pub mod model_execution_profiles;
 pub mod permits;
 pub mod planners;
 pub mod ram;
@@ -42,6 +43,14 @@ pub use model_execution::{
     MODEL_EXECUTION_BASIS_POINTS_FULL, MODEL_EXECUTION_CAPABILITIES_MEDIA_TYPE_V1,
     MODEL_EXECUTION_CAPABILITIES_V1, MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
     MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_RESOURCE_PLAN_V1,
+};
+pub use model_execution_profiles::{
+    ModelExecutionProfileEnvelopeV1, ModelExecutionProfileError, ModelExecutionProfilePlanV1,
+    ModelExecutionProfilePlanWireV1, ModelExecutionProfileSelectionV1,
+    ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1, ModelExecutionProfileSetWireV1,
+    ModelExecutionProfileV1, ModelExecutionProfileWireV1,
+    MODEL_EXECUTION_PROFILE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_PROFILE_PLAN_V1,
+    MODEL_EXECUTION_PROFILE_SET_MEDIA_TYPE_V1, MODEL_EXECUTION_PROFILE_SET_V1,
 };
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
