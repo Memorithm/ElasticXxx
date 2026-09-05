@@ -75,6 +75,18 @@ impl Forecaster for UnsupportedForecaster {
     }
 }
 
+struct FailingForecaster;
+
+impl Forecaster for FailingForecaster {
+    fn forecast(
+        &self,
+        _observations: &ObservationSnapshot,
+        _current: &PlanningContext,
+    ) -> Result<Forecast, RuntimeError> {
+        Err(RuntimeError::planning("injected forecast failure"))
+    }
+}
+
 struct RecordingPlanner {
     seen: RefCell<Vec<f64>>,
 }
@@ -159,6 +171,56 @@ impl TransactionalActuator for CountingActuator {
     }
 }
 
+struct FailingRollbackActuator;
+
+impl TransactionalActuator for FailingRollbackActuator {
+    fn name(&self) -> &str {
+        "forecast-failing-rollback"
+    }
+
+    fn validate(&self, plan: &crate::Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+        Ok(plan
+            .resource
+            .invariants()
+            .iter()
+            .cloned()
+            .map(|invariant| InvariantCheck::new(invariant, true, None))
+            .collect())
+    }
+
+    fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
+        let target = plan
+            .plan
+            .candidate()
+            .and_then(|candidate| candidate.magnitude());
+        Ok(Actuation::new(plan.clone(), target, self.name()))
+    }
+
+    fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
+    fn verify(&self, _actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
+        Ok(VerificationResult::Fail {
+            detail: "injected transaction verification failure".to_owned(),
+        })
+    }
+
+    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+        Err(RuntimeError::commit("commit must not be reached"))
+    }
+
+    fn rollback(
+        &mut self,
+        _actuation: &Actuation,
+        _verification: &VerificationResult,
+    ) -> Result<RollbackRecord, RuntimeError> {
+        Err(RuntimeError::rollback(
+            "injected transaction rollback failure",
+        ))
+    }
+}
+
 #[derive(Default)]
 struct FakeClock {
     sleeps: Mutex<Vec<Duration>>,
@@ -218,6 +280,98 @@ fn unavailable_forecast_gates_even_context_free_planner() {
         .plan
         .as_ref()
         .is_some_and(|plan| plan.plan.candidate().is_none()));
+}
+
+#[test]
+fn forecast_failure_attempt_preserves_input_before_transaction_entry() {
+    let runtime = ForecastRuntime::new(
+        Runtime::new(crate::RuntimeConfig::default()),
+        FailingForecaster,
+    );
+    let resource = runtime.runtime().config().ir_resource.clone();
+    let planner = RecordingPlanner::new();
+    let mut actuator = CountingActuator::new();
+
+    let attempt = runtime.cycle_attempt(&resource, &planner, &FixedObserver(0.4), &mut actuator);
+
+    let ForecastCycleAttempt::Failed(failure) = attempt else {
+        panic!("forecast error must remain a failed forecast attempt")
+    };
+    match *failure {
+        ForecastCycleFailure::Forecast {
+            resource: failed_resource,
+            forecast_input,
+            error,
+        } => {
+            assert_eq!(failed_resource.fingerprint(), resource.fingerprint());
+            assert_eq!(forecast_input.len(), 1);
+            assert!(matches!(error, RuntimeError::Planning(_)));
+            assert_eq!(actuator.validations.get(), 0);
+        }
+        ForecastCycleFailure::Transaction { .. } => {
+            panic!("forecast failure must not be represented as transaction failure")
+        }
+    }
+}
+
+#[test]
+fn transaction_failure_attempt_preserves_forecast_and_runtime_audit() {
+    let trusted = Runtime::new(crate::RuntimeConfig {
+        mode: RuntimeMode::Apply,
+        dry_run: false,
+        ..crate::RuntimeConfig::default()
+    });
+    let runtime = ForecastRuntime::new(trusted, OverrideForecaster(0.9));
+    let resource = runtime.runtime().config().ir_resource.clone();
+    let mut actuator = FailingRollbackActuator;
+
+    let attempt = runtime.cycle_attempt(
+        &resource,
+        &elastic_eir::FirstGroundedPlanner,
+        &FixedObserver(0.2),
+        &mut actuator,
+    );
+
+    let ForecastCycleAttempt::Failed(failure) = attempt else {
+        panic!("rollback error must remain a failed forecast transaction attempt")
+    };
+    match *failure {
+        ForecastCycleFailure::Transaction {
+            forecast_input,
+            forecast,
+            forecast_event,
+            failure,
+        } => {
+            assert_eq!(
+                forecast_input.as_ref().map(ObservationSnapshot::len),
+                Some(1)
+            );
+            assert_eq!(
+                forecast.as_ref().map(|value| value.method.as_str()),
+                Some("override-test")
+            );
+            assert!(forecast_event
+                .as_ref()
+                .is_some_and(|event| event.kind == RuntimeEventKind::ForecastGenerated));
+            assert!(matches!(failure.error, RuntimeError::Rollback(_)));
+            assert_eq!(failure.resource.fingerprint(), resource.fingerprint());
+            assert!(failure
+                .events
+                .iter()
+                .any(|event| event.kind == RuntimeEventKind::ActuationApplied));
+            assert!(failure
+                .events
+                .iter()
+                .any(|event| event.kind == RuntimeEventKind::VerificationPerformed));
+            assert!(!failure
+                .events
+                .iter()
+                .any(|event| event.kind == RuntimeEventKind::RollbackExecuted));
+        }
+        ForecastCycleFailure::Forecast { .. } => {
+            panic!("transaction rollback failure must preserve successful forecast context")
+        }
+    }
 }
 
 #[test]
