@@ -4,12 +4,13 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use elastic::{
-    CadenceConfig, EvidenceCommand, ExecutionModeConfig, Fingerprint, ModelExecutionCapabilitiesV1,
-    ModelExecutionControllerContractsV1, ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1,
-    ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1,
-    ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
-    ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetrySampleV1,
-    ModelExecutionResourceTelemetryV1, ObservationSource, PlanOutcome, VerificationResult,
+    CadenceConfig, CancellationToken, EvidenceCommand, ExecutionModeConfig, Fingerprint,
+    ModelExecutionCapabilitiesV1, ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
+    ModelExecutionCycleEvidenceV1, ModelExecutionEnvelopePolicyV1,
+    ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1,
+    ModelExecutionProfileSetV1, ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1,
+    ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1, ObservationSource,
+    PlanOutcome, VerificationResult,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -283,6 +284,54 @@ fn completed_model_cycle_evidence_round_trips_against_exact_contracts() {
     assert_eq!(replayed.initial_profile_rank(), Some(0));
     assert_eq!(replayed.final_profile_rank(), 10);
     assert!(replayed.committed());
+}
+
+#[test]
+fn bounded_model_run_captures_each_completed_cycle_and_final_physical_rank() {
+    let profiles = profiles();
+    let contracts =
+        ModelExecutionControllerContractsV1::new(profiles.clone(), policy(&profiles)).unwrap();
+    let backend = FakeBackend {
+        provider: profiles.provider_id().to_owned(),
+        revision: profiles.model_revision().to_owned(),
+        capabilities: profiles.capability_fingerprint(),
+        profiles: profiles.fingerprint(),
+        current_rank: 0,
+    };
+    let telemetry = MutableTelemetry::new(3_000, 8_000);
+    let mut controller = ModelExecutionControllerV1::current_state_from_contracts(
+        "model-runtime",
+        contracts.clone(),
+        backend,
+        telemetry,
+        CadenceConfig::Periodic {
+            interval_ms: 1,
+            max_cycles: 2,
+        },
+        ExecutionModeConfig::Apply,
+    )
+    .unwrap();
+
+    let (run, evidence) = controller
+        .run_with_evidence(&CancellationToken::new())
+        .unwrap();
+
+    assert_eq!(run.cycles.len(), 2);
+    assert_eq!(evidence.len(), 2);
+    assert!(evidence[0].committed());
+    assert_eq!(evidence[0].initial_profile_rank(), Some(0));
+    assert_eq!(evidence[0].final_profile_rank(), 10);
+    assert!(!evidence[1].committed());
+    assert!(!evidence[1].rolled_back());
+    assert_eq!(evidence[1].initial_profile_rank(), Some(10));
+    assert_eq!(evidence[1].final_profile_rank(), 10);
+    assert_eq!(controller.current_profile_rank().unwrap(), 10);
+
+    for artifact in &evidence {
+        let json = artifact.to_pretty_json().unwrap();
+        let replayed = ModelExecutionCycleEvidenceV1::from_json(json.as_bytes(), &contracts).unwrap();
+        assert_eq!(replayed.final_profile_rank(), artifact.final_profile_rank());
+    }
 }
 
 #[test]
