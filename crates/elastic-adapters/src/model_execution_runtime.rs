@@ -24,8 +24,7 @@ use elastic_eir::{
 use std::fmt;
 
 /// Versioned contract for an atomic correlated-profile runtime transition.
-pub const MODEL_EXECUTION_ATOMIC_PROFILE_V1: &str =
-    "elastic.model-execution.atomic-profile@1.0.0";
+pub const MODEL_EXECUTION_ATOMIC_PROFILE_V1: &str = "elastic.model-execution.atomic-profile@1.0.0";
 /// Atomic runtime dimension carrying one correlated profile choice.
 pub const MODEL_EXECUTION_PROFILE_DIMENSION: &str = "model-execution.profile";
 /// Observation carrying the current profile's unique provider preference rank.
@@ -63,33 +62,38 @@ impl ModelExecutionProfileSetV1 {
         let contract = ContractId::new(MODEL_EXECUTION_ATOMIC_PROFILE_V1)?;
         let dimension = model_execution_profile_dimension();
 
-        Ok(ResourceSpec::builder(ResourceClassId::CONFIGURATIONAL, resource_id)
-            .allow(dimension.clone())
-            .preserve(Invariant::new(InvariantKind::PreserveIdentity))
-            .preserve(Invariant::new(InvariantKind::UpholdContract(contract)))
-            .admit(AdmissibleTransition::new(
-                TransitionMechanism::Reinterpret,
-                dimension.clone(),
-            ))
-            .require_capability(CapabilityRequirement::new(
-                TransitionMechanism::Reinterpret,
-                dimension,
-            ))
-            .observe(model_execution_current_profile_rank_signal())
-            .observe(ObservationSignalId::FREE_CAPACITY)
-            .observe(ObservationSignalId::UTILIZATION)
-            .label("model-execution.atomic-contract", MODEL_EXECUTION_ATOMIC_PROFILE_V1)
-            .label("model-execution.provider", self.provider_id())
-            .label("model-execution.model-revision", self.model_revision())
-            .label(
-                "model-execution.capability-fingerprint",
-                self.capability_fingerprint().to_string(),
-            )
-            .label(
-                "model-execution.profile-set-fingerprint",
-                self.fingerprint().to_string(),
-            )
-            .build()?)
+        Ok(
+            ResourceSpec::builder(ResourceClassId::CONFIGURATIONAL, resource_id)
+                .allow(dimension.clone())
+                .preserve(Invariant::new(InvariantKind::PreserveIdentity))
+                .preserve(Invariant::new(InvariantKind::UpholdContract(contract)))
+                .admit(AdmissibleTransition::new(
+                    TransitionMechanism::Reinterpret,
+                    dimension.clone(),
+                ))
+                .require_capability(CapabilityRequirement::new(
+                    TransitionMechanism::Reinterpret,
+                    dimension,
+                ))
+                .observe(model_execution_current_profile_rank_signal())
+                .observe(ObservationSignalId::FREE_CAPACITY)
+                .observe(ObservationSignalId::UTILIZATION)
+                .label(
+                    "model-execution.atomic-contract",
+                    MODEL_EXECUTION_ATOMIC_PROFILE_V1,
+                )
+                .label("model-execution.provider", self.provider_id())
+                .label("model-execution.model-revision", self.model_revision())
+                .label(
+                    "model-execution.capability-fingerprint",
+                    self.capability_fingerprint().to_string(),
+                )
+                .label(
+                    "model-execution.profile-set-fingerprint",
+                    self.fingerprint().to_string(),
+                )
+                .build()?,
+        )
     }
 }
 
@@ -183,7 +187,8 @@ impl TransitionPlanner for ModelExecutionAtomicProfilePlannerV1 {
             };
         }
 
-        let Some(raw_current_rank) = context.get(model_execution_current_profile_rank_signal()) else {
+        let Some(raw_current_rank) = context.get(model_execution_current_profile_rank_signal())
+        else {
             return PlanOutcome::InsufficientEvidence {
                 detail: "missing current model-execution profile rank observation".to_owned(),
             };
@@ -304,7 +309,10 @@ mod tests {
     fn profile_set_maps_to_one_atomic_runtime_dimension() {
         let (profiles, _) = fixture();
         let spec = profiles.atomic_resource_spec("model-runtime").unwrap();
-        assert_eq!(spec.elastic_dimensions(), &[model_execution_profile_dimension()]);
+        assert_eq!(
+            spec.elastic_dimensions(),
+            &[model_execution_profile_dimension()]
+        );
         assert!(spec.admits(
             TransitionMechanism::Reinterpret,
             &model_execution_profile_dimension()
@@ -318,8 +326,8 @@ mod tests {
         let doc = lower(&spec).unwrap();
         let resource = doc.resource("model-runtime").unwrap();
         let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
-        let context = PlanningContext::new()
-            .observe(model_execution_current_profile_rank_signal(), 0.0);
+        let context =
+            PlanningContext::new().observe(model_execution_current_profile_rank_signal(), 0.0);
 
         let outcome = planner.propose_transition_with_context(resource, &context);
         let PlanOutcome::Candidate(candidate) = outcome else {
@@ -337,8 +345,8 @@ mod tests {
         let doc = lower(&spec).unwrap();
         let resource = doc.resource("model-runtime").unwrap();
         let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
-        let context = PlanningContext::new()
-            .observe(model_execution_current_profile_rank_signal(), 10.0);
+        let context =
+            PlanningContext::new().observe(model_execution_current_profile_rank_signal(), 10.0);
 
         assert_eq!(
             planner.propose_transition_with_context(resource, &context),
@@ -358,19 +366,17 @@ mod tests {
             vec![2_500, 5_000, 10_000],
         )
         .unwrap();
-        let changed_profiles = ModelExecutionProfileSetV1::new(
-            &changed_capabilities,
-            profiles.profiles().to_vec(),
-        )
-        .unwrap();
+        let changed_profiles =
+            ModelExecutionProfileSetV1::new(&changed_capabilities, profiles.profiles().to_vec())
+                .unwrap();
         let spec = changed_profiles
             .atomic_resource_spec("model-runtime")
             .unwrap();
         let doc = lower(&spec).unwrap();
         let resource = doc.resource("model-runtime").unwrap();
         let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
-        let context = PlanningContext::new()
-            .observe(model_execution_current_profile_rank_signal(), 0.0);
+        let context =
+            PlanningContext::new().observe(model_execution_current_profile_rank_signal(), 0.0);
 
         assert!(matches!(
             planner.propose_transition_with_context(resource, &context),
@@ -385,8 +391,8 @@ mod tests {
         let doc = lower(&spec).unwrap();
         let resource = doc.resource("model-runtime").unwrap();
         let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
-        let context = PlanningContext::new()
-            .observe(model_execution_current_profile_rank_signal(), 9.5);
+        let context =
+            PlanningContext::new().observe(model_execution_current_profile_rank_signal(), 9.5);
 
         assert!(matches!(
             planner.propose_transition_with_context(resource, &context),
