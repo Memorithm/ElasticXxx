@@ -194,17 +194,40 @@ impl HubRunArgs {
 
 #[derive(Debug, Args)]
 struct ModelPlanArgs {
+    /// Preferred aggregate model-execution controller-contracts JSON.
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with_all = ["capabilities", "profiles", "policy"]
+    )]
+    contracts: Option<PathBuf>,
+
     /// Strict model-execution capabilities JSON contract.
-    #[arg(long, value_name = "FILE")]
-    capabilities: PathBuf,
+    #[arg(
+        long,
+        value_name = "FILE",
+        required_unless_present = "contracts",
+        conflicts_with = "contracts"
+    )]
+    capabilities: Option<PathBuf>,
 
     /// Strict correlated profile-set JSON contract bound to `--capabilities`.
-    #[arg(long, value_name = "FILE")]
-    profiles: PathBuf,
+    #[arg(
+        long,
+        value_name = "FILE",
+        required_unless_present = "contracts",
+        conflicts_with = "contracts"
+    )]
+    profiles: Option<PathBuf>,
 
     /// Strict resource-envelope policy JSON contract bound to `--profiles`.
-    #[arg(long, value_name = "FILE")]
-    policy: PathBuf,
+    #[arg(
+        long,
+        value_name = "FILE",
+        required_unless_present = "contracts",
+        conflicts_with = "contracts"
+    )]
+    policy: Option<PathBuf>,
 
     /// Backend-owned capacity-unit identity used by this snapshot.
     #[arg(long)]
@@ -226,9 +249,10 @@ struct ModelPlanArgs {
 impl ModelPlanArgs {
     fn execute(self) -> Result<(), Box<dyn Error>> {
         model_plan(ModelPlanOptions {
-            capabilities: &self.capabilities,
-            profiles: &self.profiles,
-            policy: &self.policy,
+            contracts: self.contracts.as_deref(),
+            capabilities: self.capabilities.as_deref(),
+            profiles: self.profiles.as_deref(),
+            policy: self.policy.as_deref(),
             capacity_unit: &self.capacity_unit,
             free_capacity: self.free_capacity,
             utilization_bps: self.utilization_bps,
@@ -351,7 +375,7 @@ mod tests {
     }
 
     #[test]
-    fn model_plan_syntax_requires_versioned_contracts_and_snapshot() {
+    fn model_plan_split_syntax_remains_supported() {
         let cli = Cli::try_parse_from([
             "elastic",
             "model-plan",
@@ -374,9 +398,10 @@ mod tests {
 
         match cli.command {
             Commands::ModelPlan { args } => {
-                assert_eq!(args.capabilities, PathBuf::from("capabilities.json"));
-                assert_eq!(args.profiles, PathBuf::from("profiles.json"));
-                assert_eq!(args.policy, PathBuf::from("policy.json"));
+                assert!(args.contracts.is_none());
+                assert_eq!(args.capabilities, Some(PathBuf::from("capabilities.json")));
+                assert_eq!(args.profiles, Some(PathBuf::from("profiles.json")));
+                assert_eq!(args.policy, Some(PathBuf::from("policy.json")));
                 assert_eq!(args.capacity_unit, "bytes");
                 assert_eq!(args.free_capacity, 3000);
                 assert_eq!(args.utilization_bps, 8000);
@@ -384,6 +409,72 @@ mod tests {
             }
             _ => panic!("expected model-plan command"),
         }
+    }
+
+    #[test]
+    fn model_plan_accepts_aggregate_contract_bundle() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "model-plan",
+            "--contracts",
+            "model-contracts.json",
+            "--capacity-unit",
+            "bytes",
+            "--free-capacity",
+            "3000",
+            "--utilization-bps",
+            "8000",
+            "--current-profile-rank",
+            "0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::ModelPlan { args } => {
+                assert_eq!(args.contracts, Some(PathBuf::from("model-contracts.json")));
+                assert!(args.capabilities.is_none());
+                assert!(args.profiles.is_none());
+                assert!(args.policy.is_none());
+            }
+            _ => panic!("expected model-plan command"),
+        }
+    }
+
+    #[test]
+    fn model_plan_contract_sources_are_mutually_exclusive_and_complete() {
+        let mixed = Cli::try_parse_from([
+            "elastic",
+            "model-plan",
+            "--contracts",
+            "model-contracts.json",
+            "--capabilities",
+            "capabilities.json",
+            "--capacity-unit",
+            "bytes",
+            "--free-capacity",
+            "3000",
+            "--utilization-bps",
+            "8000",
+            "--current-profile-rank",
+            "0",
+        ]);
+        assert!(mixed.is_err());
+
+        let incomplete = Cli::try_parse_from([
+            "elastic",
+            "model-plan",
+            "--capabilities",
+            "capabilities.json",
+            "--capacity-unit",
+            "bytes",
+            "--free-capacity",
+            "3000",
+            "--utilization-bps",
+            "8000",
+            "--current-profile-rank",
+            "0",
+        ]);
+        assert!(incomplete.is_err());
     }
 
     #[test]
