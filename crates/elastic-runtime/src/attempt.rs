@@ -22,7 +22,7 @@ pub enum CycleAttempt {
     Completed(Box<CycleResult>),
     /// The trusted runtime returned an error after possibly emitting partial
     /// audit events.
-    Failed(CycleFailure),
+    Failed(Box<CycleFailure>),
 }
 
 impl CycleAttempt {
@@ -80,11 +80,11 @@ impl Runtime {
         let mut events = Vec::new();
         match self.cycle_with_sink(resource, planner, observer, actuator, &mut events) {
             Ok(result) => CycleAttempt::Completed(Box::new(result)),
-            Err(error) => CycleAttempt::Failed(CycleFailure {
+            Err(error) => CycleAttempt::Failed(Box::new(CycleFailure {
                 resource: resource.clone(),
                 error,
                 events,
-            }),
+            })),
         }
     }
 }
