@@ -9,12 +9,18 @@
 
 pub use elastic_adapters::{
     actuate_if_fresh, ActuationGateError, AdapterError, ConcurrencyPermits, HeadroomPlanner,
+    ModelExecutionBasisPointAxis, ModelExecutionCapabilitiesV1, ModelExecutionCapabilitiesWireV1,
+    ModelExecutionContractError, ModelExecutionResourcePlanV1, ModelExecutionResourcePlanWireV1,
     PlannerConfigError, RamBudget, SoupAutoBatchStrategy, SoupBatchSize, SoupBatchSizeWireV1,
     SoupContractError, SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
-    SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner, SOUP_DEFAULT_STREAM_BUFFERS,
-    SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS,
-    SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1, SOUP_RESOURCE_PLAN_V1,
-    SOUP_STREAM_TASKS,
+    SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
+    MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION, MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION,
+    MODEL_EXECUTION_BASIS_POINTS_FULL, MODEL_EXECUTION_CAPABILITIES_MEDIA_TYPE_V1,
+    MODEL_EXECUTION_CAPABILITIES_V1, MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
+    MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_RESOURCE_PLAN_V1,
+    SOUP_DEFAULT_STREAM_BUFFERS, SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS,
+    SOUP_MIN_STREAM_BUFFERS, SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1,
+    SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS,
 };
 pub use elastic_core::resource;
 pub use elastic_core::resource::{
@@ -64,9 +70,11 @@ pub mod adapters {
 /// Everything needed by a typical Elastic application.
 pub mod prelude {
     pub use elastic_adapters::{
-        ConcurrencyPermits, HeadroomPlanner, RamBudget, SoupAutoBatchStrategy, SoupBatchSize,
-        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
-        SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
+        ConcurrencyPermits, HeadroomPlanner, ModelExecutionCapabilitiesV1,
+        ModelExecutionCapabilitiesWireV1, ModelExecutionResourcePlanV1,
+        ModelExecutionResourcePlanWireV1, RamBudget, SoupAutoBatchStrategy, SoupBatchSize,
+        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1,
+        SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
     };
     pub use elastic_core::resource::{
         AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
