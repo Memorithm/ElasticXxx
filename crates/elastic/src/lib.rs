@@ -60,10 +60,11 @@ pub use elastic_runtime::{
     ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1, NoopEventSink,
     Observation, ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig,
     Plan, PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
-    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError,
-    RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
-    TransactionalActuator, TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
-    ValidatedPlan, VerificationResult, OPERATOR_CONFIG_VERSION,
+    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
+    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
+    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
+    TransactionalModelExecution, TransactionalRam, ValidatedPlan, VerificationResult,
+    OPERATOR_CONFIG_VERSION,
 };
 pub use elastic_runtime::{
     EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
@@ -81,10 +82,9 @@ pub mod runtime {
 pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{
-        ModelExecutionControllerV1, ModelExecutionObserverBundleV1,
-        ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
-        ModelExecutionResourceTelemetryV1, TransactionalConcurrency, TransactionalModelExecution,
-        TransactionalRam,
+        ModelExecutionControllerV1, ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
+        ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetryV1,
+        TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
     };
 }
 
