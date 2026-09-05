@@ -36,13 +36,18 @@ fn public_facade_lowers_correlated_profile_to_one_atomic_transition() {
         panic!("expected selected profile")
     };
 
-    let spec = profiles.atomic_resource_spec("conditional-model-runtime").unwrap();
-    assert_eq!(spec.elastic_dimensions(), &[model_execution_profile_dimension()]);
+    let spec = profiles
+        .atomic_resource_spec("conditional-model-runtime")
+        .unwrap();
+    assert_eq!(
+        spec.elastic_dimensions(),
+        &[model_execution_profile_dimension()]
+    );
     let doc = lower(&spec).unwrap();
     let resource = doc.resource("conditional-model-runtime").unwrap();
     let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
-    let context = PlanningContext::new()
-        .observe(model_execution_current_profile_rank_signal(), 0.0);
+    let context =
+        PlanningContext::new().observe(model_execution_current_profile_rank_signal(), 0.0);
 
     let outcome = planner.propose_transition_with_context(resource, &context);
     let PlanOutcome::Candidate(candidate) = outcome else {
