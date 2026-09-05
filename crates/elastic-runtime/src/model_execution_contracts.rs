@@ -7,8 +7,7 @@
 
 use elastic_adapters::{
     ModelExecutionCapabilitiesV1, ModelExecutionCapabilitiesWireV1, ModelExecutionEnvelopePolicyV1,
-    ModelExecutionEnvelopePolicyWireV1, ModelExecutionProfileSetV1,
-    ModelExecutionProfileSetWireV1,
+    ModelExecutionEnvelopePolicyWireV1, ModelExecutionProfileSetV1, ModelExecutionProfileSetWireV1,
 };
 use serde::{Deserialize, Serialize};
 
@@ -116,10 +115,12 @@ impl ModelExecutionControllerContractsV1 {
     /// Returns a configuration error for malformed JSON, unknown fields, an
     /// unsupported bundle contract, or any nested semantic identity failure.
     pub fn from_json(input: &str) -> Result<Self, RuntimeError> {
-        let wire: ModelExecutionControllerContractsWireV1 = serde_json::from_str(input)
-            .map_err(|error| RuntimeError::configuration(format!(
-                "invalid model-execution controller contracts JSON: {error}"
-            )))?;
+        let wire: ModelExecutionControllerContractsWireV1 =
+            serde_json::from_str(input).map_err(|error| {
+                RuntimeError::configuration(format!(
+                    "invalid model-execution controller contracts JSON: {error}"
+                ))
+            })?;
         wire.into_validated()
     }
 
@@ -237,8 +238,14 @@ mod tests {
             replayed.capabilities().fingerprint(),
             original.capabilities().fingerprint()
         );
-        assert_eq!(replayed.profiles().fingerprint(), original.profiles().fingerprint());
-        assert_eq!(replayed.policy().fingerprint(), original.policy().fingerprint());
+        assert_eq!(
+            replayed.profiles().fingerprint(),
+            original.profiles().fingerprint()
+        );
+        assert_eq!(
+            replayed.policy().fingerprint(),
+            original.policy().fingerprint()
+        );
     }
 
     #[test]
