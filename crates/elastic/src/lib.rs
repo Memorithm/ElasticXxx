@@ -66,12 +66,12 @@ pub use elastic_runtime::{
     ModelExecutionResourceTelemetryV1, ModelExecutionRollbackEvidenceV1,
     ModelExecutionSelectedProfileEvidenceV1, ModelExecutionSignalEvidenceV1,
     ModelExecutionVerificationEvidenceV1, NoopEventSink, Observation, ObservationSnapshot,
-    ObservationSource, Observer, ObserverSet, OperatorConfig, Plan, PlannerConfig, PlannerSelection,
-    RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry, RollbackRecord,
-    RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError, RuntimeEvent, RuntimeEventKind,
-    RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock, TransactionalActuator,
-    TransactionalConcurrency, TransactionalModelExecution, TransactionalRam, ValidatedPlan,
-    VerificationResult, MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1,
+    ObservationSource, Observer, ObserverSet, OperatorConfig, Plan, PlannerConfig,
+    PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry,
+    RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig, RuntimeError, RuntimeEvent,
+    RuntimeEventKind, RuntimeEventSink, RuntimeMode, RuntimeTimingObserver, SystemClock,
+    TransactionalActuator, TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
+    ValidatedPlan, VerificationResult, MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1,
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1,
     MODEL_EXECUTION_CYCLE_EVIDENCE_V1, OPERATOR_CONFIG_VERSION,
 };
@@ -92,11 +92,10 @@ pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{
         ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
-        ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1,
-        ModelExecutionObserverBundleV1, ModelExecutionProfileBackendV1,
-        ModelExecutionResourceObserverV1, ModelExecutionResourceTelemetrySampleV1,
-        ModelExecutionResourceTelemetryV1, TransactionalConcurrency, TransactionalModelExecution,
-        TransactionalRam,
+        ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
+        ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
+        ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1,
+        TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
     };
 }
 

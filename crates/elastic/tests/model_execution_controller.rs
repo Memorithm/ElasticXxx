@@ -4,13 +4,12 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use elastic::{
-    CadenceConfig, EvidenceCommand, ExecutionModeConfig, Fingerprint,
-    ModelExecutionCapabilitiesV1, ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
-    ModelExecutionCycleEvidenceV1, ModelExecutionEnvelopePolicyV1,
-    ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1,
-    ModelExecutionProfileSetV1, ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1,
-    ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1, ObservationSource,
-    PlanOutcome, VerificationResult,
+    CadenceConfig, EvidenceCommand, ExecutionModeConfig, Fingerprint, ModelExecutionCapabilitiesV1,
+    ModelExecutionControllerContractsV1, ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1,
+    ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1,
+    ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
+    ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetrySampleV1,
+    ModelExecutionResourceTelemetryV1, ObservationSource, PlanOutcome, VerificationResult,
 };
 
 #[derive(Clone, Copy, Debug)]

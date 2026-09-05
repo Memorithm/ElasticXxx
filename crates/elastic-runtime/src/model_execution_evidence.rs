@@ -24,8 +24,7 @@ use crate::{
 };
 
 /// Versioned durable evidence kind for one model-execution control cycle.
-pub const MODEL_EXECUTION_CYCLE_EVIDENCE_V1: &str =
-    "elastic.model-execution.cycle-evidence@1.0.0";
+pub const MODEL_EXECUTION_CYCLE_EVIDENCE_V1: &str = "elastic.model-execution.cycle-evidence@1.0.0";
 /// JSON media type for [`MODEL_EXECUTION_CYCLE_EVIDENCE_V1`].
 pub const MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1: &str =
     "application/vnd.elastic.model-execution-cycle-evidence.v1+json";
@@ -102,7 +101,9 @@ pub enum ModelExecutionPlanOutcomeEvidenceV1 {
         dimension: String,
         profile: ModelExecutionSelectedProfileEvidenceV1,
     },
-    InsufficientEvidence { detail: String },
+    InsufficientEvidence {
+        detail: String,
+    },
     Unsupported,
     NoCandidate,
 }
@@ -214,11 +215,7 @@ impl ModelExecutionCycleEvidenceV1 {
             require_profile_rank(profiles, rank)?;
         }
 
-        let forecast = result
-            .forecast
-            .as_ref()
-            .map(capture_forecast)
-            .transpose()?;
+        let forecast = result.forecast.as_ref().map(capture_forecast).transpose()?;
         let plan = result
             .transaction
             .plan
@@ -259,12 +256,15 @@ impl ModelExecutionCycleEvidenceV1 {
             .as_ref()
             .map(|commit| commit.rationale.clone());
         let rolled_back = result.transaction.rollback.is_some();
-        let rollback = result.transaction.rollback.as_ref().map(|rollback| {
-            ModelExecutionRollbackEvidenceV1 {
-                rationale: rollback.rationale.clone(),
-                invariants_restored: rollback.invariants_restored,
-            }
-        });
+        let rollback =
+            result
+                .transaction
+                .rollback
+                .as_ref()
+                .map(|rollback| ModelExecutionRollbackEvidenceV1 {
+                    rationale: rollback.rationale.clone(),
+                    invariants_restored: rollback.invariants_restored,
+                });
         let events = result
             .events()
             .map(|event| EvidenceEvent {
@@ -319,9 +319,10 @@ impl ModelExecutionCycleEvidenceV1 {
         })?;
         object.remove("evidence_schema");
         object.remove("command");
-        let wire: ModelExecutionCycleEvidenceWireV1 = serde_json::from_value(value).map_err(|error| {
-            RuntimeError::validation(format!("invalid model cycle evidence: {error}"))
-        })?;
+        let wire: ModelExecutionCycleEvidenceWireV1 =
+            serde_json::from_value(value).map_err(|error| {
+                RuntimeError::validation(format!("invalid model cycle evidence: {error}"))
+            })?;
         validate_wire(&wire, contracts)?;
         Ok(Self { wire })
     }
@@ -346,7 +347,8 @@ impl ModelExecutionCycleEvidenceV1 {
             RuntimeError::validation("model cycle evidence did not serialize as an object")
         })?;
         object.insert("command".to_owned(), Value::String("run".to_owned()));
-        EvidenceEnvelope::capture(value).map_err(|error| RuntimeError::validation(error.to_string()))
+        EvidenceEnvelope::capture(value)
+            .map_err(|error| RuntimeError::validation(error.to_string()))
     }
 
     /// Serialize this artifact through the shared bounded runtime evidence
@@ -720,14 +722,21 @@ fn validate_wire(
     }
 
     for snapshot in &wire.observation_snapshots {
-        let all_valid = snapshot.observations.iter().all(|observation| observation.valid);
+        let all_valid = snapshot
+            .observations
+            .iter()
+            .all(|observation| observation.valid);
         if snapshot.all_signals_valid != all_valid {
             return Err(RuntimeError::validation(
                 "model cycle snapshot all_signals_valid contradicts observation validity",
             ));
         }
         for observation in &snapshot.observations {
-            match (observation.valid, observation.value.as_ref(), observation.unsupported_reason.as_ref()) {
+            match (
+                observation.valid,
+                observation.value.as_ref(),
+                observation.unsupported_reason.as_ref(),
+            ) {
                 (true, Some(value), None) if value.is_finite() => {}
                 (true, _, _) => {
                     return Err(RuntimeError::validation(
@@ -753,7 +762,9 @@ fn validate_wire(
         _ => None,
     });
     if let Some((plan, mechanism, dimension, candidate)) = candidate {
-        if mechanism != "reinterpret" || dimension != &model_execution_profile_dimension().to_string() {
+        if mechanism != "reinterpret"
+            || dimension != &model_execution_profile_dimension().to_string()
+        {
             return Err(RuntimeError::validation(
                 "model cycle candidate mechanism or dimension does not match atomic profile contract",
             ));
@@ -868,8 +879,8 @@ fn validate_wire(
 mod tests {
     use super::*;
     use elastic_adapters::{
-        ModelExecutionCapabilitiesV1, ModelExecutionEnvelopePolicyV1,
-        ModelExecutionEnvelopeRuleV1, ModelExecutionProfileEnvelopeV1,
+        ModelExecutionCapabilitiesV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
+        ModelExecutionProfileEnvelopeV1,
     };
 
     fn contracts() -> ModelExecutionControllerContractsV1 {
@@ -916,7 +927,9 @@ mod tests {
         ModelExecutionControllerContractsV1::new(profiles, policy).unwrap()
     }
 
-    fn idle_wire(contracts: &ModelExecutionControllerContractsV1) -> ModelExecutionCycleEvidenceWireV1 {
+    fn idle_wire(
+        contracts: &ModelExecutionControllerContractsV1,
+    ) -> ModelExecutionCycleEvidenceWireV1 {
         ModelExecutionCycleEvidenceWireV1 {
             evidence_kind: MODEL_EXECUTION_CYCLE_EVIDENCE_V1.to_owned(),
             resource_id: "model-runtime".to_owned(),
