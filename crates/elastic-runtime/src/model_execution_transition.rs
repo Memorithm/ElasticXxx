@@ -188,9 +188,7 @@ where
         current_profile_rank: u32,
         target: &ModelExecutionProfileV1,
     ) -> Result<(), TransitionGuardedModelExecutionBackendError<B::Error>> {
-        let mode = self
-            .policy
-            .transition_mode(current_profile_rank, target);
+        let mode = self.policy.transition_mode(current_profile_rank, target);
         if mode.is_live_transactional() {
             Ok(())
         } else {
@@ -295,8 +293,9 @@ mod tests {
             ModelExecutionTransitionModeV1::ModelRebuildRequired
         );
 
-        let with_unknown =
-            r#"{"mode":"model_rebuild_required","unknown":true}"#;
-        assert!(serde_json::from_str::<FixedModelExecutionTransitionPolicyV1>(with_unknown).is_err());
+        let with_unknown = r#"{"mode":"model_rebuild_required","unknown":true}"#;
+        assert!(
+            serde_json::from_str::<FixedModelExecutionTransitionPolicyV1>(with_unknown).is_err()
+        );
     }
 }
