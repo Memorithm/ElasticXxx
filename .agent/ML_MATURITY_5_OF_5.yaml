@@ -35,6 +35,16 @@ priority_program:
           - provider_declared_expiry_future_timestamps_and_invalid_validity_intervals_fail_closed_before_planning
           - expired_timestamped_telemetry_is_proven_not_to_reach_model_actuation_or_commit
           - cached_async_or_remote_providers_must_override_sample_to_preserve_real_measurement_time
+      - id: EXML0b
+        name: Immediate pre-apply model feasibility revalidation
+        status: complete
+        completion_evidence:
+          - PR_68_exact_head_0832da7347e8b86ff12233fb763c9ded7b1860cb
+          - PR_68_CI_267_completed_success_on_exact_head
+          - PR_68_merged_to_main_as_a0fb50f6125847f177fc83440fe6a56b11614b19
+          - backend_identity_and_complete_target_profile_are_revalidated_inside_actuate_immediately_before_apply_profile
+          - regression_test_rejects_third_validation_and_proves_apply_profile_call_count_remains_zero
+          - prepared_transaction_follows_fail_closed_rollback_path_when_pre_apply_validation_changes
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
