@@ -11,7 +11,8 @@
 //! [`ForecastController`] and trusted transaction lifecycle.
 
 use elastic_adapters::{
-    ModelExecutionAdaptivePlannerV1, ModelExecutionEnvelopePolicyV1, ModelExecutionProfileSetV1,
+    model_execution_current_profile_rank_signal, ModelExecutionAdaptivePlannerV1,
+    ModelExecutionEnvelopePolicyV1, ModelExecutionProfileSetV1,
 };
 use elastic_eir::PlanningContext;
 
@@ -305,11 +306,8 @@ where
     ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
         let result = self.inner.cycle()?;
         let final_profile_rank = self.current_profile_rank()?;
-        let contracts = ModelExecutionControllerContractsV1::new(
-            self.inner.planner().profiles().clone(),
-            self.inner.planner().policy().clone(),
-        )?;
-        let resource_id = self.inner.resource().identity().as_str().to_owned();
+        let contracts = self.controller_contracts()?;
+        let resource_id = self.resource_id();
         let evidence = ModelExecutionCycleEvidenceV1::capture(
             &contracts,
             resource_id,
@@ -326,4 +324,105 @@ where
     ) -> Result<ForecastRunResult, RuntimeError> {
         self.inner.run(cancellation)
     }
+
+    /// Execute the configured bounded run and capture one durable evidence
+    /// artifact for every completed cycle.
+    ///
+    /// The generic [`ForecastController`] remains the sole loop executor. This
+    /// method does not reproduce cadence or cancellation logic. Each historical
+    /// cycle terminal rank is derived only from the trusted transaction outcome:
+    /// committed target, restored initial rank after rollback, or unchanged
+    /// initial rank for a no-actuation cycle. After the run, the last derived
+    /// rank is compared with the backend's current physical rank.
+    pub fn run_with_evidence(
+        &mut self,
+        cancellation: &CancellationToken,
+    ) -> Result<(ForecastRunResult, Vec<ModelExecutionCycleEvidenceV1>), RuntimeError> {
+        let result = self.inner.run(cancellation)?;
+        let contracts = self.controller_contracts()?;
+        let resource_id = self.resource_id();
+        let mut evidence = Vec::with_capacity(result.cycles.len());
+
+        for cycle in &result.cycles {
+            let final_profile_rank = completed_cycle_terminal_profile_rank(cycle)?;
+            evidence.push(ModelExecutionCycleEvidenceV1::capture(
+                &contracts,
+                resource_id.clone(),
+                cycle,
+                final_profile_rank,
+            )?);
+        }
+
+        if let Some(last) = evidence.last() {
+            let physical_rank = self.current_profile_rank()?;
+            if physical_rank != last.final_profile_rank() {
+                return Err(RuntimeError::verification(format!(
+                    "bounded model run ended at physical profile rank {physical_rank}, but durable cycle evidence ended at {}",
+                    last.final_profile_rank()
+                )));
+            }
+        }
+
+        Ok((result, evidence))
+    }
+
+    fn controller_contracts(&self) -> Result<ModelExecutionControllerContractsV1, RuntimeError> {
+        ModelExecutionControllerContractsV1::new(
+            self.inner.planner().profiles().clone(),
+            self.inner.planner().policy().clone(),
+        )
+        .map_err(|error| RuntimeError::validation(error.to_string()))
+    }
+
+    fn resource_id(&self) -> String {
+        self.inner.resource().identity().as_str().to_owned()
+    }
+}
+
+fn completed_cycle_terminal_profile_rank(cycle: &ForecastCycleResult) -> Result<u32, RuntimeError> {
+    if cycle.transaction.commit.is_some() {
+        let actuation = cycle.transaction.actuation.as_ref().ok_or_else(|| {
+            RuntimeError::verification(
+                "committed model cycle is missing its authoritative actuation record",
+            )
+        })?;
+        let raw = actuation.target.ok_or_else(|| {
+            RuntimeError::verification("committed model cycle actuation has no target profile rank")
+        })?;
+        return u32::try_from(raw).map_err(|_| {
+            RuntimeError::verification("committed model cycle target profile rank does not fit u32")
+        });
+    }
+
+    if cycle.transaction.rollback.is_some() || cycle.transaction.actuation.is_none() {
+        return observed_initial_profile_rank(cycle);
+    }
+
+    Err(RuntimeError::verification(
+        "completed model cycle with actuation has neither commit nor rollback outcome",
+    ))
+}
+
+fn observed_initial_profile_rank(cycle: &ForecastCycleResult) -> Result<u32, RuntimeError> {
+    let signal = model_execution_current_profile_rank_signal();
+    for snapshot in &cycle.transaction.observations {
+        for observation in &snapshot.observations {
+            if observation.signal() == &signal && observation.is_valid() {
+                let value = observation.value();
+                if !value.is_finite()
+                    || value < 0.0
+                    || value.fract() != 0.0
+                    || value > u32::MAX as f64
+                {
+                    return Err(RuntimeError::verification(format!(
+                        "model run current-profile observation is not an exact u32 rank: {value}"
+                    )));
+                }
+                return Ok(value as u32);
+            }
+        }
+    }
+    Err(RuntimeError::verification(
+        "model run cycle has no valid initial current-profile observation",
+    ))
 }

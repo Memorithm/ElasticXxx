@@ -28,6 +28,20 @@ OBSERVE
 
 Stages that were not reached remain absent. Evidence is never synthesized to make an incomplete cycle appear complete.
 
+## Bounded runs
+
+`ModelExecutionControllerV1::run_with_evidence()` extends the same contract to the existing one-shot or bounded periodic `ForecastController::run` path. It does not implement a second cadence, cancellation, planning, or transaction loop.
+
+After the generic run returns successfully, one evidence artifact is captured for every completed cycle. The terminal profile rank for each historical cycle is derived only from trusted transaction state that was already verified by the runtime:
+
+- committed cycle: the committed actuation target;
+- rolled-back cycle: the observed initial profile restored by rollback;
+- no-actuation cycle: the observed initial profile, which remained unchanged.
+
+The final artifact's terminal rank is then checked against a fresh backend `current_profile_rank()` read. A mismatch fails closed instead of silently returning a run/evidence bundle whose terminal physical state disagrees with the evidence chain.
+
+Cancellation before the first completed cycle legitimately returns an empty evidence vector. Only completed cycles are materialized.
+
 ## Identity binding
 
 Every artifact is bound to:
@@ -97,7 +111,7 @@ If the runtime reached physical preparation/application, the artifact records:
 - verification result;
 - commit rationale or rollback rationale;
 - whether rollback restored invariants;
-- final physically observed published profile rank;
+- final physically observed or transaction-verified published profile rank;
 - ordered runtime events.
 
 A completed artifact with actuation must have come from a trusted validated candidate, must contain verification evidence, and must terminate in either commit or rollback.
@@ -107,7 +121,7 @@ A committed cycle requires:
 - actuation evidence;
 - passing verification;
 - `CommitExecuted` runtime event evidence;
-- final physical profile rank equal to the target profile rank.
+- final profile rank equal to the target profile rank.
 
 A rolled-back cycle requires:
 
@@ -115,7 +129,7 @@ A rolled-back cycle requires:
 - `RollbackExecuted` runtime event evidence;
 - restored invariants;
 - an observed initial profile rank;
-- final physical profile rank equal to that initial rank.
+- final profile rank equal to that initial rank.
 
 A cycle without actuation cannot claim verification, commit, or rollback.
 
@@ -135,9 +149,9 @@ No evidence replay method calls `ModelExecutionProfileBackendV1`, performs hardw
 
 ## Failure boundary
 
-`cycle_with_evidence()` captures evidence only after a normal runtime cycle returns successfully and the final physical profile rank can be read and validated.
+`cycle_with_evidence()` and `run_with_evidence()` materialize evidence only after the underlying runtime call returns successfully. The bounded-run helper can therefore preserve every completed cycle in a successful or cooperatively cancelled run, but a catastrophic `RuntimeError` still terminates the call before a durable failure-attempt artifact is produced.
 
-A catastrophic runtime error such as an unrecoverable rollback failure is therefore not currently materialized by this helper as a completed cycle artifact. This contract must not be presented as evidence that every possible runtime failure is durably captured.
+Examples include an unrecoverable rollback failure or a backend read failure that prevents terminal state validation. This contract must not be presented as evidence that every possible runtime failure is durably captured. Durable catastrophic-attempt evidence remains a separate gap rather than being inferred from missing data.
 
 ## Qualification boundary
 
