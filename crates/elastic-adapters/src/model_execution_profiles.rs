@@ -1,9 +1,8 @@
 //! Correlated model-execution profiles layered over the v1 axis contract.
 //!
-//! `model_execution` v1 deliberately publishes discrete values per axis. This
-//! module adds an explicit correlation boundary for backends where only some
-//! combinations of active experts, expert width, and activation budget are
-//! qualified together.
+//! `model_execution` v1 publishes discrete values per axis. This module adds an
+//! explicit correlation boundary for backends where only some combinations of
+//! active experts, expert width, and activation budget are qualified together.
 //!
 //! Profiles are provider-owned declarations. ElasticXxx does not infer that a
 //! Cartesian product of individually supported axis values is valid, and it does
@@ -46,9 +45,8 @@ pub struct ModelExecutionProfileV1 {
 impl ModelExecutionProfileV1 {
     /// Define one profile before binding it to an exact capability set.
     ///
-    /// The tuple is validated against [`ModelExecutionCapabilitiesV1`] when a
-    /// [`ModelExecutionProfileSetV1`] is constructed. This constructor only
-    /// rejects a blank profile identity.
+    /// The complete tuple is validated against [`ModelExecutionCapabilitiesV1`]
+    /// when a [`ModelExecutionProfileSetV1`] is built.
     ///
     /// # Errors
     ///
@@ -183,9 +181,7 @@ impl ModelExecutionProfileSetWireV1 {
 /// A validated set of provider-qualified correlated execution profiles.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelExecutionProfileSetV1 {
-    provider_id: String,
-    model_revision: String,
-    capability_fingerprint: Fingerprint,
+    capabilities: ModelExecutionCapabilitiesV1,
     profiles: Vec<ModelExecutionProfileV1>,
     fingerprint: Fingerprint,
 }
@@ -193,14 +189,15 @@ pub struct ModelExecutionProfileSetV1 {
 impl ModelExecutionProfileSetV1 {
     /// Bind correlated profiles to one exact base capability declaration.
     ///
-    /// Profiles are sorted by their provider-defined preference rank. The
-    /// constructor rejects duplicate ids, ranks, and tuples, and it validates
-    /// every tuple through [`ModelExecutionResourcePlanV1::new`].
+    /// Profiles are sorted by provider-defined preference rank. Duplicate ids,
+    /// ranks, and tuples are rejected. Every tuple is revalidated through
+    /// [`ModelExecutionResourcePlanV1::new`], so this layer cannot bypass the
+    /// v1 capability contract.
     ///
     /// # Errors
     ///
-    /// Fails closed if the set is empty, duplicates correlation identity, or a
-    /// profile tuple is not admitted by `capabilities`.
+    /// Fails closed for an empty set, duplicated correlation identity, or any
+    /// profile tuple not admitted by `capabilities`.
     pub fn new(
         capabilities: &ModelExecutionCapabilitiesV1,
         mut profiles: Vec<ModelExecutionProfileV1>,
@@ -210,16 +207,7 @@ impl ModelExecutionProfileSetV1 {
         }
 
         for profile in &profiles {
-            ModelExecutionResourcePlanV1::new(
-                capabilities,
-                profile.active_experts,
-                profile.expert_width_bps,
-                profile.activation_budget_bps,
-            )
-            .map_err(|source| ModelExecutionProfileError::InvalidProfileTarget {
-                profile_id: profile.profile_id.clone(),
-                source,
-            })?;
+            validate_profile(capabilities, profile)?;
         }
 
         profiles.sort_by(|left, right| {
@@ -240,10 +228,7 @@ impl ModelExecutionProfileSetV1 {
                         rank: profile.preference_rank,
                     });
                 }
-                if previous.active_experts == profile.active_experts
-                    && previous.expert_width_bps == profile.expert_width_bps
-                    && previous.activation_budget_bps == profile.activation_budget_bps
-                {
+                if same_tuple(previous, profile) {
                     return Err(ModelExecutionProfileError::DuplicateProfileTuple {
                         active_experts: profile.active_experts,
                         expert_width_bps: profile.expert_width_bps,
@@ -253,14 +238,11 @@ impl ModelExecutionProfileSetV1 {
             }
         }
 
-        let provider_id = capabilities.provider_id().to_owned();
-        let model_revision = capabilities.model_revision().to_owned();
-        let capability_fingerprint = capabilities.fingerprint();
         let mut fingerprint = Fingerprint::EMPTY
             .text(MODEL_EXECUTION_PROFILE_SET_V1)
-            .text(&provider_id)
-            .text(&model_revision)
-            .number(capability_fingerprint.bits());
+            .text(capabilities.provider_id())
+            .text(capabilities.model_revision())
+            .number(capabilities.fingerprint().bits());
         for profile in &profiles {
             fingerprint = fingerprint
                 .text(&profile.profile_id)
@@ -271,30 +253,34 @@ impl ModelExecutionProfileSetV1 {
         }
 
         Ok(Self {
-            provider_id,
-            model_revision,
-            capability_fingerprint,
+            capabilities: capabilities.clone(),
             profiles,
             fingerprint,
         })
     }
 
+    /// Exact base capability declaration bound to this profile set.
+    #[must_use]
+    pub const fn capabilities(&self) -> &ModelExecutionCapabilitiesV1 {
+        &self.capabilities
+    }
+
     /// Provider/backend identity shared with the base capabilities.
     #[must_use]
     pub fn provider_id(&self) -> &str {
-        &self.provider_id
+        self.capabilities.provider_id()
     }
 
     /// Exact model revision shared with the base capabilities.
     #[must_use]
     pub fn model_revision(&self) -> &str {
-        &self.model_revision
+        self.capabilities.model_revision()
     }
 
     /// Structural fingerprint of the base capability declaration.
     #[must_use]
     pub const fn capability_fingerprint(&self) -> Fingerprint {
-        self.capability_fingerprint
+        self.capabilities.fingerprint()
     }
 
     /// Structural fingerprint of this exact correlated profile set.
@@ -320,8 +306,7 @@ impl ModelExecutionProfileSetV1 {
     /// Find an explicitly qualified complete tuple.
     ///
     /// This is the correlation guard: values that each exist in the underlying
-    /// v1 axis sets still return `None` unless their complete tuple was published
-    /// here.
+    /// v1 axis sets still return `None` unless their complete tuple is published.
     #[must_use]
     pub fn profile_for_tuple(
         &self,
@@ -341,9 +326,9 @@ impl ModelExecutionProfileSetV1 {
     pub fn to_wire(&self) -> ModelExecutionProfileSetWireV1 {
         ModelExecutionProfileSetWireV1 {
             contract: MODEL_EXECUTION_PROFILE_SET_V1.to_owned(),
-            provider_id: self.provider_id.clone(),
-            model_revision: self.model_revision.clone(),
-            capability_fingerprint: self.capability_fingerprint.to_string(),
+            provider_id: self.provider_id().to_owned(),
+            model_revision: self.model_revision().to_owned(),
+            capability_fingerprint: self.capability_fingerprint().to_string(),
             profiles: self
                 .profiles
                 .iter()
@@ -355,9 +340,9 @@ impl ModelExecutionProfileSetV1 {
 
 /// Explicit upper bounds used by the deterministic correlated-profile selector.
 ///
-/// These values are an already-resolved resource envelope. This type does not
-/// infer them from hardware observations because units and safety margins remain
-/// backend/operator responsibilities.
+/// The envelope is already resolved by a backend/operator. This type does not
+/// derive hardware limits from observations because the relevant units and safety
+/// margins remain backend-specific.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ModelExecutionProfileEnvelopeV1 {
     max_active_experts: u32,
@@ -430,22 +415,26 @@ pub struct ModelExecutionProfileSelectorV1;
 
 impl ModelExecutionProfileSelectorV1 {
     /// Select the first provider-preferred correlated profile that fits `envelope`.
-    #[must_use]
+    ///
+    /// # Errors
+    ///
+    /// Fails closed if reconstructing the already-qualified v1 resource plan no
+    /// longer passes its base capability validation.
     pub fn select(
         &self,
         profiles: &ModelExecutionProfileSetV1,
         envelope: ModelExecutionProfileEnvelopeV1,
-    ) -> ModelExecutionProfileSelectionV1 {
-        match profiles
+    ) -> Result<ModelExecutionProfileSelectionV1, ModelExecutionProfileError> {
+        let Some(profile) = profiles
             .profiles
             .iter()
             .find(|profile| envelope.allows(profile))
-        {
-            Some(profile) => ModelExecutionProfileSelectionV1::Selected(
-                ModelExecutionProfilePlanV1::from_profile(profiles, profile),
-            ),
-            None => ModelExecutionProfileSelectionV1::NoFeasibleProfile,
-        }
+        else {
+            return Ok(ModelExecutionProfileSelectionV1::NoFeasibleProfile);
+        };
+        Ok(ModelExecutionProfileSelectionV1::Selected(
+            ModelExecutionProfilePlanV1::from_profile(profiles, profile)?,
+        ))
     }
 }
 
@@ -461,9 +450,6 @@ pub enum ModelExecutionProfileSelectionV1 {
 /// Selected correlated profile bound to both capability and profile-set identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModelExecutionProfilePlanV1 {
-    provider_id: String,
-    model_revision: String,
-    capability_fingerprint: Fingerprint,
     profile_set_fingerprint: Fingerprint,
     profile_id: String,
     preference_rank: u32,
@@ -474,42 +460,41 @@ impl ModelExecutionProfilePlanV1 {
     fn from_profile(
         profiles: &ModelExecutionProfileSetV1,
         profile: &ModelExecutionProfileV1,
-    ) -> Self {
-        let resource_plan = ModelExecutionResourcePlanV1::new_unchecked_from_profile_set(
-            profiles.provider_id.clone(),
-            profiles.model_revision.clone(),
-            profiles.capability_fingerprint,
+    ) -> Result<Self, ModelExecutionProfileError> {
+        let resource_plan = ModelExecutionResourcePlanV1::new(
+            &profiles.capabilities,
             profile.active_experts,
             profile.expert_width_bps,
             profile.activation_budget_bps,
-        );
-        Self {
-            provider_id: profiles.provider_id.clone(),
-            model_revision: profiles.model_revision.clone(),
-            capability_fingerprint: profiles.capability_fingerprint,
+        )
+        .map_err(|source| ModelExecutionProfileError::InvalidProfileTarget {
+            profile_id: profile.profile_id.clone(),
+            source,
+        })?;
+        Ok(Self {
             profile_set_fingerprint: profiles.fingerprint,
             profile_id: profile.profile_id.clone(),
             preference_rank: profile.preference_rank,
             resource_plan,
-        }
+        })
     }
 
     /// Provider/backend identity.
     #[must_use]
     pub fn provider_id(&self) -> &str {
-        &self.provider_id
+        self.resource_plan.provider_id()
     }
 
     /// Exact model revision.
     #[must_use]
     pub fn model_revision(&self) -> &str {
-        &self.model_revision
+        self.resource_plan.model_revision()
     }
 
     /// Base capability fingerprint.
     #[must_use]
     pub const fn capability_fingerprint(&self) -> Fingerprint {
-        self.capability_fingerprint
+        self.resource_plan.capability_fingerprint()
     }
 
     /// Correlated profile-set fingerprint.
@@ -530,7 +515,7 @@ impl ModelExecutionProfilePlanV1 {
         self.preference_rank
     }
 
-    /// Underlying three-axis resource plan.
+    /// Underlying validated three-axis resource plan.
     #[must_use]
     pub const fn resource_plan(&self) -> &ModelExecutionResourcePlanV1 {
         &self.resource_plan
@@ -549,9 +534,9 @@ impl ModelExecutionProfilePlanV1 {
     pub fn to_wire(&self) -> ModelExecutionProfilePlanWireV1 {
         ModelExecutionProfilePlanWireV1 {
             contract: MODEL_EXECUTION_PROFILE_PLAN_V1.to_owned(),
-            provider_id: self.provider_id.clone(),
-            model_revision: self.model_revision.clone(),
-            capability_fingerprint: self.capability_fingerprint.to_string(),
+            provider_id: self.provider_id().to_owned(),
+            model_revision: self.model_revision().to_owned(),
+            capability_fingerprint: self.capability_fingerprint().to_string(),
             profile_set_fingerprint: self.profile_set_fingerprint.to_string(),
             profile_id: self.profile_id.clone(),
         }
@@ -586,38 +571,19 @@ impl ModelExecutionProfilePlanWireV1 {
                 contract: self.contract,
             });
         }
-        if self.provider_id != profiles.provider_id {
-            return Err(ModelExecutionProfileError::ProviderMismatch {
-                expected: profiles.provider_id.clone(),
-                actual: self.provider_id,
-            });
-        }
-        if self.model_revision != profiles.model_revision {
-            return Err(ModelExecutionProfileError::ModelRevisionMismatch {
-                expected: profiles.model_revision.clone(),
-                actual: self.model_revision,
-            });
-        }
-        let expected_capability = profiles.capability_fingerprint.to_string();
-        if self.capability_fingerprint != expected_capability {
-            return Err(ModelExecutionProfileError::CapabilityFingerprintMismatch {
-                expected: expected_capability,
-                actual: self.capability_fingerprint,
-            });
-        }
-        let expected_profiles = profiles.fingerprint.to_string();
-        if self.profile_set_fingerprint != expected_profiles {
-            return Err(ModelExecutionProfileError::ProfileSetFingerprintMismatch {
-                expected: expected_profiles,
-                actual: self.profile_set_fingerprint,
-            });
-        }
+        validate_profile_set_identity(
+            &self.provider_id,
+            &self.model_revision,
+            &self.capability_fingerprint,
+            &self.profile_set_fingerprint,
+            profiles,
+        )?;
         let profile = profiles.profile_by_id(&self.profile_id).ok_or_else(|| {
             ModelExecutionProfileError::UnknownProfileId {
                 profile_id: self.profile_id.clone(),
             }
         })?;
-        Ok(ModelExecutionProfilePlanV1::from_profile(profiles, profile))
+        ModelExecutionProfilePlanV1::from_profile(profiles, profile)
     }
 }
 
@@ -735,6 +701,29 @@ impl std::error::Error for ModelExecutionProfileError {
     }
 }
 
+fn validate_profile(
+    capabilities: &ModelExecutionCapabilitiesV1,
+    profile: &ModelExecutionProfileV1,
+) -> Result<(), ModelExecutionProfileError> {
+    ModelExecutionResourcePlanV1::new(
+        capabilities,
+        profile.active_experts,
+        profile.expert_width_bps,
+        profile.activation_budget_bps,
+    )
+    .map(|_| ())
+    .map_err(|source| ModelExecutionProfileError::InvalidProfileTarget {
+        profile_id: profile.profile_id.clone(),
+        source,
+    })
+}
+
+fn same_tuple(left: &ModelExecutionProfileV1, right: &ModelExecutionProfileV1) -> bool {
+    left.active_experts == right.active_experts
+        && left.expert_width_bps == right.expert_width_bps
+        && left.activation_budget_bps == right.activation_budget_bps
+}
+
 fn validate_capability_identity(
     provider_id: &str,
     model_revision: &str,
@@ -758,6 +747,29 @@ fn validate_capability_identity(
         return Err(ModelExecutionProfileError::CapabilityFingerprintMismatch {
             expected,
             actual: capability_fingerprint.to_owned(),
+        });
+    }
+    Ok(())
+}
+
+fn validate_profile_set_identity(
+    provider_id: &str,
+    model_revision: &str,
+    capability_fingerprint: &str,
+    profile_set_fingerprint: &str,
+    profiles: &ModelExecutionProfileSetV1,
+) -> Result<(), ModelExecutionProfileError> {
+    validate_capability_identity(
+        provider_id,
+        model_revision,
+        capability_fingerprint,
+        &profiles.capabilities,
+    )?;
+    let expected = profiles.fingerprint.to_string();
+    if profile_set_fingerprint != expected {
+        return Err(ModelExecutionProfileError::ProfileSetFingerprintMismatch {
+            expected,
+            actual: profile_set_fingerprint.to_owned(),
         });
     }
     Ok(())
@@ -806,7 +818,9 @@ mod tests {
         let capabilities = capabilities();
         let profiles = profiles(&capabilities);
         let envelope = ModelExecutionProfileEnvelopeV1::new(2, 5_000, 6_000).unwrap();
-        let selected = ModelExecutionProfileSelectorV1.select(&profiles, envelope);
+        let selected = ModelExecutionProfileSelectorV1
+            .select(&profiles, envelope)
+            .unwrap();
 
         let ModelExecutionProfileSelectionV1::Selected(plan) = selected else {
             panic!("expected correlated profile")
@@ -824,7 +838,9 @@ mod tests {
         let profiles = profiles(&capabilities);
         let envelope = ModelExecutionProfileEnvelopeV1::new(1, 2_500, 2_000).unwrap();
         assert_eq!(
-            ModelExecutionProfileSelectorV1.select(&profiles, envelope),
+            ModelExecutionProfileSelectorV1
+                .select(&profiles, envelope)
+                .unwrap(),
             ModelExecutionProfileSelectionV1::NoFeasibleProfile
         );
     }
@@ -872,10 +888,12 @@ mod tests {
     fn selected_plan_fails_closed_when_profile_set_changes() {
         let capabilities = capabilities();
         let profiles = profiles(&capabilities);
-        let selected = ModelExecutionProfileSelectorV1.select(
-            &profiles,
-            ModelExecutionProfileEnvelopeV1::new(2, 5_000, 5_000).unwrap(),
-        );
+        let selected = ModelExecutionProfileSelectorV1
+            .select(
+                &profiles,
+                ModelExecutionProfileEnvelopeV1::new(2, 5_000, 5_000).unwrap(),
+            )
+            .unwrap();
         let ModelExecutionProfileSelectionV1::Selected(plan) = selected else {
             panic!("expected selection")
         };
@@ -897,7 +915,7 @@ mod tests {
     }
 
     #[test]
-    fn wire_shapes_reject_unknown_fields() {
+    fn wire_shape_rejects_unknown_fields() {
         let raw = format!(
             r#"{{"contract":"{MODEL_EXECUTION_PROFILE_SET_V1}","provider_id":"backend","model_revision":"rev","capability_fingerprint":"fp:0","profiles":[],"extra":true}}"#
         );
