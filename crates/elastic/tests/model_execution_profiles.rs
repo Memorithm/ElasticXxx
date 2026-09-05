@@ -1,6 +1,7 @@
 use elastic::{
-    ModelExecutionCapabilitiesV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSelectionV1,
-    ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
+    ModelExecutionCapabilitiesV1, ModelExecutionProfileEnvelopeV1,
+    ModelExecutionProfileSelectionV1, ModelExecutionProfileSelectorV1, ModelExecutionProfileSetV1,
+    ModelExecutionProfileV1,
 };
 
 #[test]
