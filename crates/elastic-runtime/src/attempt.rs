@@ -12,9 +12,7 @@
 
 use elastic_eir::{EirResource, TransitionPlanner};
 
-use crate::{
-    CycleResult, Observer, Runtime, RuntimeError, RuntimeEvent, TransactionalActuator,
-};
+use crate::{CycleResult, Observer, Runtime, RuntimeError, RuntimeEvent, TransactionalActuator};
 
 /// A completed or failed attempt to execute exactly one trusted runtime cycle.
 #[derive(Debug)]
@@ -162,12 +160,7 @@ mod tests {
         let resource = runtime.config().ir_resource.clone();
         let mut actuator = FailingRollbackActuator;
 
-        let attempt = runtime.cycle_attempt(
-            &resource,
-            &FirstGroundedPlanner,
-            &(),
-            &mut actuator,
-        );
+        let attempt = runtime.cycle_attempt(&resource, &FirstGroundedPlanner, &(), &mut actuator);
 
         let CycleAttempt::Failed(failure) = attempt else {
             panic!("rollback failure must remain a failed attempt")
@@ -243,12 +236,7 @@ mod tests {
         let runtime = applying_runtime();
         let resource = runtime.config().ir_resource.clone();
         let mut actuator = PassingActuator;
-        let attempt = runtime.cycle_attempt(
-            &resource,
-            &FirstGroundedPlanner,
-            &(),
-            &mut actuator,
-        );
+        let attempt = runtime.cycle_attempt(&resource, &FirstGroundedPlanner, &(), &mut actuator);
 
         assert!(attempt.is_completed());
         let result = attempt.into_result().expect("attempt should complete");
