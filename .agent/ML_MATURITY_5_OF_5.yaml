@@ -90,7 +90,29 @@ priority_program:
           - forecast_failure_before_transaction_retains_exact_resource_raw_forecast_input_and_authoritative_error
           - transaction_failure_after_forecast_retains_forecast_input_forecast_event_and_exact_CycleFailure
           - observe_only_does_not_fabricate_a_forecast_stage
-          - bounded_run_failure_retention_remains_the_next_explicit_gap
+      - id: EXML0g
+        name: Bounded forecast run failure audit
+        status: complete_partial_failure_audit
+        completion_evidence:
+          - PR_73_exact_head_27b5f7a243c821f63001addefa77d5c7eabe615b
+          - PR_73_CI_287_completed_success_on_exact_head
+          - PR_73_merged_to_main_as_e9428f4e09106068139b7f805bbeac161757e68f
+          - ForecastRuntime_run_and_run_with_clock_delegate_to_one_run_attempt_loop
+          - failed_bounded_runs_retain_all_prior_completed_cycles_and_the_exact_failed_cycle_attempt
+          - setup_failures_before_loop_start_do_not_fabricate_cycles_or_control_loop_start_events
+          - cycle_failure_appends_explicit_ErrorEncountered_and_ControlLoopStopped_without_fabricating_terminal_transaction_events
+      - id: EXML0h
+        name: Failed model run completed-prefix evidence
+        status: complete_partial_failure_evidence
+        completion_evidence:
+          - PR_74_exact_head_7fb937e233a8a350326b8270b35aa819b7fa34d2
+          - PR_74_CI_294_completed_success_on_exact_head
+          - PR_74_merged_to_main_as_f46733df71e692994e5da148c9e693474143dcae
+          - run_with_evidence_delegates_to_run_with_evidence_attempt_into_result
+          - every_completed_cycle_before_a_later_failure_can_retain_contract_bound_ModelExecutionCycleEvidenceV1
+          - the_catastrophically_failed_cycle_never_receives_a_fabricated_final_profile_rank_or_completed_cycle_artifact
+          - runtime_failure_keeps_legacy_error_precedence_if_completed_prefix_evidence_conversion_also_fails
+          - completed_prefix_evidence_is_explicitly_not_the_terminal_physical_state_of_a_failed_run
     goals:
       - make_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_ROLLBACK_one_reusable_runtime_surface
       - persist_plan_transition_evidence_and_rollback_reason
@@ -176,7 +198,26 @@ priority_program:
           - PR_72_merged_to_main_as_7e8c4e46623c9e9754540ac6144c03ef67cf162c
           - forecast_and_transaction_failure_phases_are_distinguished_without_reconstructing_missing_runtime_state
           - successful_forecast_context_is_retained_when_the_trusted_transaction_later_fails
-          - bounded_run_failure_history_remains_pending
+      - id: EXML5f
+        name: Bounded forecast run failure history
+        status: complete_partial
+        completion_evidence:
+          - PR_73_exact_head_27b5f7a243c821f63001addefa77d5c7eabe615b
+          - PR_73_CI_287_completed_success_on_exact_head
+          - PR_73_merged_to_main_as_e9428f4e09106068139b7f805bbeac161757e68f
+          - bounded_run_failure_retains_the_completed_cycle_prefix_and_exact_failed_cycle_phase
+          - legacy_run_Result_surface_is_preserved_through_into_result
+      - id: EXML5g
+        name: Durable completed-prefix model evidence across failed runs
+        status: complete_partial
+        completion_evidence:
+          - PR_74_exact_head_7fb937e233a8a350326b8270b35aa819b7fa34d2
+          - PR_74_CI_294_completed_success_on_exact_head
+          - PR_74_merged_to_main_as_f46733df71e692994e5da148c9e693474143dcae
+          - durable_contract_bound_evidence_is_preserved_for_completed_model_cycles_before_a_later_catastrophic_failure
+          - failed_cycle_audit_remains_in_memory_and_is_not_misrepresented_as_a_completed_cycle
+          - completed_prefix_final_rank_is_not_claimed_as_the_failed_run_terminal_physical_rank
+          - full_serialized_failed_run_evidence_remains_pending
     goals:
       - emit_versioned_transition_and_measurement_evidence_for_SciRust_Verify
       - make_Hub_able_to_orchestrate_elastic_runs_without_absorbing_Elastic_policy
