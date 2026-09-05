@@ -26,7 +26,7 @@ A concrete backend implements `ModelExecutionProfileBackendV1` and provides:
 - base capability fingerprint;
 - correlated profile-set fingerprint;
 - current physical profile rank;
-- action-time target validation;
+- side-effect-free action-time target validation;
 - complete-profile apply;
 - post-action verification;
 - previous-profile restoration.
@@ -43,6 +43,7 @@ These methods are the backend's physical/domain boundary. ElasticXxx does not im
 - action-time revalidation;
 - one prepared transaction at a time;
 - actuation identity and target checks;
+- immediate pre-apply feasibility revalidation;
 - post-action current-profile verification;
 - commit only after successful verification;
 - rollback to the previous complete profile when verification or commit fails;
@@ -65,15 +66,28 @@ Before a plan can actuate, the wrapper verifies that:
 - the target magnitude fits `u32` and names a published profile rank;
 - the backend's provider, model revision, capability fingerprint, and profile-set fingerprint still match;
 - the backend's current profile is also published;
-- the backend revalidates the target profile at action time.
+- the backend revalidates the target profile during trusted validation and preparation.
 
 Only then are invariant checks returned to the generic runtime validator.
 
+## Prepare-to-actuate revalidation
+
+Preparation records both the previous and target profile ranks, but a successful prepare does not permanently authorize the later physical mutation. External backend state can change between preparation and application.
+
+Immediately before `apply_profile`, `actuate` therefore:
+
+1. rechecks backend/provider/model/capability/profile-set identity;
+2. resolves the exact prepared target profile again;
+3. invokes `validate_profile(target)` again;
+4. calls `apply_profile(target)` only if that final validation succeeds.
+
+If the backend rejects this last validation, no apply call is made. The generic runtime treats the actuation failure as a fail-closed transaction and follows its rollback path for the prepared state.
+
+`validate_profile` must therefore be side-effect free and evaluate current physical feasibility each time it is called. A backend must not cache a prior success and treat it as perpetual authorization.
+
 ## Actuation and verification
 
-The prepared transaction records both previous and target ranks.
-
-`actuate` resolves the target rank back to the complete correlated profile and calls the backend's `apply_profile` method.
+After the immediate pre-apply validation passes, `actuate` resolves the target rank back to the complete correlated profile and calls the backend's `apply_profile` method.
 
 `verify` requires both:
 
@@ -124,6 +138,8 @@ impl ModelExecutionProfileBackendV1 for Backend {
     fn current_profile_rank(&self) -> Result<u32, Self::Error> { Ok(self.current) }
 
     fn validate_profile(&self, _target: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+        // Re-read whatever live backend state determines whether the complete
+        // target remains physically admissible. Do not mutate backend state here.
         Ok(())
     }
 
@@ -157,6 +173,8 @@ The example is an interface illustration, not a real hardware backend.
 The interface is designed so specialized repositories can supply backend semantics without moving those semantics into ElasticXxx. A future NNIS adapter could own CUDA/model-state operations; a TDI/ASSR adapter could own ASSR-specific profile semantics; SLHAv2 could expose its own complete profile operations if appropriate.
 
 No such implementation is claimed to exist until the corresponding repository publishes and tests it.
+
+The current NNIS audit does not establish a qualified MoE/expert execution surface, so this document must not be read as claiming NNIS already implements elastic expert count, width, or activation profiles.
 
 ## Non-goals
 

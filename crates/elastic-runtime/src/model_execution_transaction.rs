@@ -53,6 +53,11 @@ pub trait ModelExecutionProfileBackendV1: Send {
     fn current_profile_rank(&self) -> Result<u32, Self::Error>;
 
     /// Re-check physical/action-time feasibility for `target` without applying it.
+    ///
+    /// The transactional adapter invokes this during trusted validation, again
+    /// while preparing the transaction, and once more immediately before the
+    /// physical `apply_profile` call. Implementations should therefore make this
+    /// check side-effect free and reflect the backend's current feasibility.
     fn validate_profile(&self, target: &ModelExecutionProfileV1) -> Result<(), Self::Error>;
 
     /// Apply one complete correlated profile as a physical unit.
@@ -344,6 +349,11 @@ where
         validate_backend_identity(&state.backend, &state.profiles, RuntimeError::actuation)?;
         let target =
             require_profile(&state.profiles, target_rank, RuntimeError::actuation)?.clone();
+        state.backend.validate_profile(&target).map_err(|error| {
+            RuntimeError::actuation(format!(
+                "model backend rejected target profile immediately before apply: {error}"
+            ))
+        })?;
         state.backend.apply_profile(&target).map_err(|error| {
             RuntimeError::actuation(format!("model backend apply failed: {error}"))
         })
@@ -581,6 +591,7 @@ fn successful_checks(plan: &Plan) -> Vec<InvariantCheck> {
 mod tests {
     use super::*;
     use std::fmt;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use elastic_adapters::{
         ModelExecutionAtomicProfilePlannerV1, ModelExecutionCapabilitiesV1,
@@ -608,6 +619,9 @@ mod tests {
         profile_set_fingerprint: Fingerprint,
         current_rank: u32,
         fail_verification_rank: Option<u32>,
+        reject_validation_call: Option<usize>,
+        validation_calls: Arc<AtomicUsize>,
+        apply_calls: Arc<AtomicUsize>,
     }
 
     impl FakeBackend {
@@ -619,6 +633,9 @@ mod tests {
                 profile_set_fingerprint: profiles.fingerprint(),
                 current_rank,
                 fail_verification_rank: None,
+                reject_validation_call: None,
+                validation_calls: Arc::new(AtomicUsize::new(0)),
+                apply_calls: Arc::new(AtomicUsize::new(0)),
             }
         }
     }
@@ -651,10 +668,17 @@ mod tests {
         }
 
         fn validate_profile(&self, _target: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+            let call = self.validation_calls.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.reject_validation_call == Some(call) {
+                return Err(FakeBackendError(format!(
+                    "injected validation rejection on call {call}"
+                )));
+            }
             Ok(())
         }
 
         fn apply_profile(&mut self, target: &ModelExecutionProfileV1) -> Result<(), Self::Error> {
+            self.apply_calls.fetch_add(1, Ordering::SeqCst);
             self.current_rank = target.preference_rank();
             Ok(())
         }
@@ -766,6 +790,33 @@ mod tests {
         assert!(result.commit.is_some());
         assert!(result.rollback.is_none());
         assert_eq!(actuator.current_profile_rank().unwrap(), 10);
+    }
+
+    #[test]
+    fn runtime_revalidates_profile_immediately_before_apply() {
+        let (profiles, _) = fixture();
+        let target = selected_plan(&profiles);
+        let mut backend = FakeBackend::new(&profiles, 0);
+        backend.reject_validation_call = Some(3);
+        let validation_calls = Arc::clone(&backend.validation_calls);
+        let apply_calls = Arc::clone(&backend.apply_calls);
+        let mut actuator =
+            TransactionalModelExecution::new("model-runtime", profiles.clone(), backend).unwrap();
+        let observer = actuator.clone();
+        let ir = actuator.ir();
+        let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
+        let runtime = Runtime::new(runtime_config(&profiles, ir.clone()));
+
+        let result = runtime
+            .cycle(&ir, &planner, &observer, &mut actuator)
+            .unwrap();
+
+        assert_eq!(validation_calls.load(Ordering::SeqCst), 3);
+        assert_eq!(apply_calls.load(Ordering::SeqCst), 0);
+        assert!(result.commit.is_none());
+        assert!(result.rollback.is_some());
+        assert!(result.rollback.unwrap().invariants_restored);
+        assert_eq!(actuator.current_profile_rank().unwrap(), 0);
     }
 
     #[test]
