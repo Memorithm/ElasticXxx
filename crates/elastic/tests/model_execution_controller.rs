@@ -4,10 +4,11 @@ use std::sync::{Arc, Mutex};
 
 use elastic::{
     CadenceConfig, ExecutionModeConfig, Fingerprint, ModelExecutionCapabilitiesV1,
-    ModelExecutionControllerV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
-    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1,
-    ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetryV1,
-    ObservationSource, VerificationResult,
+    ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
+    ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1,
+    ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
+    ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetryV1, ObservationSource,
+    VerificationResult,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -213,4 +214,36 @@ fn assembled_controller_replans_and_commits_from_live_resource_telemetry() {
     let rich = controller.cycle().unwrap();
     assert!(rich.transaction.commit.is_some());
     assert_eq!(controller.current_profile_rank().unwrap(), 0);
+}
+
+#[test]
+fn persisted_contracts_revalidate_before_physical_controller_construction() {
+    let profiles = profiles();
+    let contracts =
+        ModelExecutionControllerContractsV1::new(profiles.clone(), policy(&profiles)).unwrap();
+    let json = contracts.to_pretty_json().unwrap();
+    let replayed = ModelExecutionControllerContractsV1::from_json(&json).unwrap();
+
+    let backend = FakeBackend {
+        provider: replayed.profiles().provider_id().to_owned(),
+        revision: replayed.profiles().model_revision().to_owned(),
+        capabilities: replayed.profiles().capability_fingerprint(),
+        profiles: replayed.profiles().fingerprint(),
+        current_rank: 0,
+    };
+    let telemetry = MutableTelemetry::new(3_000, 8_000);
+
+    let mut controller = ModelExecutionControllerV1::current_state_from_contracts(
+        "model-runtime",
+        replayed,
+        backend,
+        telemetry,
+        CadenceConfig::OneShot,
+        ExecutionModeConfig::Apply,
+    )
+    .unwrap();
+
+    let result = controller.cycle().unwrap();
+    assert!(result.transaction.commit.is_some());
+    assert_eq!(controller.current_profile_rank().unwrap(), 10);
 }
