@@ -122,11 +122,11 @@ where
         backend: B,
     ) -> Result<Self, RuntimeError> {
         validate_backend_identity(&backend, &profiles, RuntimeError::configuration)?;
-        let current_rank = backend
-            .current_profile_rank()
-            .map_err(|error| RuntimeError::configuration(format!(
+        let current_rank = backend.current_profile_rank().map_err(|error| {
+            RuntimeError::configuration(format!(
                 "model backend could not report current profile: {error}"
-            )))?;
+            ))
+        })?;
         require_profile(&profiles, current_rank, RuntimeError::configuration)?;
 
         let spec = profiles
@@ -136,7 +136,9 @@ where
             .map_err(|error| RuntimeError::configuration(error.to_string()))?;
         let ir = document
             .resource(resource_id)
-            .ok_or_else(|| RuntimeError::configuration("atomic model resource missing after lower"))?
+            .ok_or_else(|| {
+                RuntimeError::configuration("atomic model resource missing after lower")
+            })?
             .clone();
         let source = ObservationSource::Resource(ir.identity().clone());
         let adapter_name = format!("transactional-model-execution:{}", backend.name());
@@ -172,7 +174,9 @@ where
     /// Returns an observation error if the shared state or backend cannot be read,
     /// or if the backend reports a rank outside the exact profile set.
     pub fn current_profile_rank(&self) -> Result<u32, RuntimeError> {
-        let state = self.lock().map_err(|error| RuntimeError::observation(error.to_string()))?;
+        let state = self
+            .lock()
+            .map_err(|error| RuntimeError::observation(error.to_string()))?;
         let rank = state.backend.current_profile_rank().map_err(|error| {
             RuntimeError::observation(format!("model backend profile read failed: {error}"))
         })?;
@@ -277,7 +281,9 @@ where
         validate_backend_identity(&state.backend, &state.profiles, RuntimeError::validation)?;
         let target = require_profile(&state.profiles, target_rank, RuntimeError::validation)?;
         let current_rank = state.backend.current_profile_rank().map_err(|error| {
-            RuntimeError::validation(format!("model backend current-profile read failed: {error}"))
+            RuntimeError::validation(format!(
+                "model backend current-profile read failed: {error}"
+            ))
         })?;
         require_profile(&state.profiles, current_rank, RuntimeError::validation)?;
         state.backend.validate_profile(target).map_err(|error| {
@@ -301,9 +307,12 @@ where
             ));
         }
         validate_backend_identity(&state.backend, &state.profiles, RuntimeError::validation)?;
-        let target = require_profile(&state.profiles, target_rank, RuntimeError::validation)?.clone();
+        let target =
+            require_profile(&state.profiles, target_rank, RuntimeError::validation)?.clone();
         let previous_rank = state.backend.current_profile_rank().map_err(|error| {
-            RuntimeError::validation(format!("model backend current-profile read failed: {error}"))
+            RuntimeError::validation(format!(
+                "model backend current-profile read failed: {error}"
+            ))
         })?;
         require_profile(&state.profiles, previous_rank, RuntimeError::validation)?;
         state.backend.validate_profile(&target).map_err(|error| {
@@ -333,7 +342,8 @@ where
             )));
         }
         validate_backend_identity(&state.backend, &state.profiles, RuntimeError::actuation)?;
-        let target = require_profile(&state.profiles, target_rank, RuntimeError::actuation)?.clone();
+        let target =
+            require_profile(&state.profiles, target_rank, RuntimeError::actuation)?.clone();
         state.backend.apply_profile(&target).map_err(|error| {
             RuntimeError::actuation(format!("model backend apply failed: {error}"))
         })
@@ -360,7 +370,9 @@ where
             return Ok(backend_result);
         }
         let current_rank = state.backend.current_profile_rank().map_err(|error| {
-            RuntimeError::verification(format!("model backend current-profile read failed: {error}"))
+            RuntimeError::verification(format!(
+                "model backend current-profile read failed: {error}"
+            ))
         })?;
         if current_rank == target_rank {
             Ok(VerificationResult::Pass)
@@ -396,7 +408,9 @@ where
             )));
         }
         let current_rank = state.backend.current_profile_rank().map_err(|error| {
-            RuntimeError::commit(format!("model backend current-profile read failed: {error}"))
+            RuntimeError::commit(format!(
+                "model backend current-profile read failed: {error}"
+            ))
         })?;
         if current_rank != target_rank {
             return Err(RuntimeError::commit(format!(
@@ -418,7 +432,9 @@ where
         let target_rank = self
             .ensure_actuation(actuation)
             .map_err(|error| RuntimeError::rollback(error.to_string()))?;
-        let mut state = self.lock().map_err(|error| RuntimeError::rollback(error.to_string()))?;
+        let mut state = self
+            .lock()
+            .map_err(|error| RuntimeError::rollback(error.to_string()))?;
         let prepared = state.prepared.ok_or_else(|| {
             RuntimeError::rollback("model backend has no prepared transaction to roll back")
         })?;
@@ -439,10 +455,14 @@ where
             RuntimeError::rollback(format!("model backend restore failed: {error}"))
         })?;
         let backend_verification = state.backend.verify_profile(&previous).map_err(|error| {
-            RuntimeError::rollback(format!("model backend rollback verification failed: {error}"))
+            RuntimeError::rollback(format!(
+                "model backend rollback verification failed: {error}"
+            ))
         })?;
         let current_rank = state.backend.current_profile_rank().map_err(|error| {
-            RuntimeError::rollback(format!("model backend rollback profile read failed: {error}"))
+            RuntimeError::rollback(format!(
+                "model backend rollback profile read failed: {error}"
+            ))
         })?;
         let restored = backend_verification.is_pass() && current_rank == prepared.previous_rank;
         if restored {
@@ -450,7 +470,10 @@ where
         }
         Ok(RollbackRecord::new(
             self.name(),
-            format!("restored model execution profile rank {}", prepared.previous_rank),
+            format!(
+                "restored model execution profile rank {}",
+                prepared.previous_rank
+            ),
             restored,
         ))
     }
@@ -492,8 +515,11 @@ fn require_profile<F>(
 where
     F: Fn(String) -> RuntimeError,
 {
-    profile_by_rank(profiles, rank)
-        .ok_or_else(|| error(format!("profile rank {rank} is not published by the bound profile set")))
+    profile_by_rank(profiles, rank).ok_or_else(|| {
+        error(format!(
+            "profile rank {rank} is not published by the bound profile set"
+        ))
+    })
 }
 
 fn validate_backend_identity<B, F>(
@@ -707,10 +733,7 @@ mod tests {
         plan
     }
 
-    fn runtime_config(
-        profiles: &ModelExecutionProfileSetV1,
-        ir: EirResource,
-    ) -> RuntimeConfig {
+    fn runtime_config(profiles: &ModelExecutionProfileSetV1, ir: EirResource) -> RuntimeConfig {
         RuntimeConfig {
             resource_spec: profiles.atomic_resource_spec("model-runtime").unwrap(),
             ir_resource: ir,
