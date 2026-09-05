@@ -119,13 +119,7 @@ impl ForecastCycleAttempt {
     pub fn into_result(self) -> Result<ForecastCycleResult, RuntimeError> {
         match self {
             Self::Completed(result) => Ok(*result),
-            Self::Failed(failure) => match *failure {
-                ForecastCycleFailure::Forecast { error, .. } => Err(error),
-                ForecastCycleFailure::Transaction { failure, .. } => {
-                    let failure = *failure;
-                    Err(failure.error)
-                }
-            },
+            Self::Failed(failure) => Err(failure.into_error()),
         }
     }
 
@@ -161,12 +155,106 @@ pub enum ForecastCycleFailure {
     },
 }
 
+impl ForecastCycleFailure {
+    /// Authoritative error that terminated this cycle attempt.
+    #[must_use]
+    pub const fn error(&self) -> &RuntimeError {
+        match self {
+            Self::Forecast { error, .. } => error,
+            Self::Transaction { failure, .. } => &failure.error,
+        }
+    }
+
+    fn into_error(self) -> RuntimeError {
+        match self {
+            Self::Forecast { error, .. } => error,
+            Self::Transaction { failure, .. } => failure.error,
+        }
+    }
+
+    fn append_events(&self, events: &mut Vec<RuntimeEvent>) {
+        if let Self::Transaction {
+            forecast_event,
+            failure,
+            ..
+        } = self
+        {
+            if let Some(event) = forecast_event {
+                events.push(event.clone());
+            }
+            events.extend(failure.events.iter().cloned());
+        }
+    }
+}
+
 /// Result of a bounded forecast-aware controller invocation.
 #[derive(Clone, Debug)]
 pub struct ForecastRunResult {
     pub cycles: Vec<ForecastCycleResult>,
     pub events: Vec<RuntimeEvent>,
     pub stop_reason: LoopStopReason,
+}
+
+/// Completed or failed attempt to execute a bounded forecast-aware run.
+#[derive(Debug)]
+pub enum ForecastRunAttempt {
+    /// The bounded run completed or was cooperatively cancelled.
+    Completed(Box<ForecastRunResult>),
+    /// The run failed before normal completion.
+    Failed(Box<ForecastRunFailure>),
+}
+
+impl ForecastRunAttempt {
+    /// Convert back to the historical `Result<ForecastRunResult, RuntimeError>`
+    /// surface without changing the returned error.
+    pub fn into_result(self) -> Result<ForecastRunResult, RuntimeError> {
+        match self {
+            Self::Completed(result) => Ok(*result),
+            Self::Failed(failure) => Err(failure.into_error()),
+        }
+    }
+
+    #[must_use]
+    pub const fn is_completed(&self) -> bool {
+        matches!(self, Self::Completed(_))
+    }
+}
+
+/// Auditable failure of a bounded forecast-aware run.
+#[derive(Debug)]
+pub enum ForecastRunFailure {
+    /// Run configuration was invalid before the control loop started.
+    Setup {
+        /// Authoritative configuration/runtime error.
+        error: RuntimeError,
+    },
+    /// A cycle failed after zero or more earlier cycles completed.
+    Cycle {
+        /// Completed cycles retained in original execution order.
+        completed_cycles: Vec<ForecastCycleResult>,
+        /// Ordered run and cycle events retained up to the stop decision.
+        events: Vec<RuntimeEvent>,
+        /// Exact failed cycle attempt.
+        failed_cycle: Box<ForecastCycleFailure>,
+    },
+}
+
+impl ForecastRunFailure {
+    /// Authoritative error that terminated this run attempt.
+    #[must_use]
+    pub const fn error(&self) -> &RuntimeError {
+        match self {
+            Self::Setup { error } => error,
+            Self::Cycle { failed_cycle, .. } => failed_cycle.error(),
+        }
+    }
+
+    fn into_error(self) -> RuntimeError {
+        match self {
+            Self::Setup { error } => error,
+            Self::Cycle { failed_cycle, .. } => failed_cycle.into_error(),
+        }
+    }
 }
 
 /// Forecast-aware orchestration layer around a trusted [`Runtime`].
@@ -351,7 +439,26 @@ where
         O: Observer,
         A: TransactionalActuator,
     {
-        self.run_with_clock(
+        self.run_attempt(resource, planner, observer, actuator, cancellation)
+            .into_result()
+    }
+
+    /// Execute a bounded forecast-aware loop while retaining a failed cycle and
+    /// all earlier completed cycles.
+    pub fn run_attempt<P, O, A>(
+        &self,
+        resource: &EirResource,
+        planner: &P,
+        observer: &O,
+        actuator: &mut A,
+        cancellation: &CancellationToken,
+    ) -> ForecastRunAttempt
+    where
+        P: TransitionPlanner,
+        O: Observer,
+        A: TransactionalActuator,
+    {
+        self.run_with_clock_attempt(
             resource,
             planner,
             observer,
@@ -377,7 +484,33 @@ where
         A: TransactionalActuator,
         C: RuntimeClock,
     {
-        let (cycle_limit, interval) = forecast_loop_schedule(self.runtime.config())?;
+        self.run_with_clock_attempt(resource, planner, observer, actuator, cancellation, clock)
+            .into_result()
+    }
+
+    /// Execute the single bounded forecast-aware loop implementation while
+    /// retaining setup or cycle failure audit state.
+    pub fn run_with_clock_attempt<P, O, A, C>(
+        &self,
+        resource: &EirResource,
+        planner: &P,
+        observer: &O,
+        actuator: &mut A,
+        cancellation: &CancellationToken,
+        clock: &C,
+    ) -> ForecastRunAttempt
+    where
+        P: TransitionPlanner,
+        O: Observer,
+        A: TransactionalActuator,
+        C: RuntimeClock,
+    {
+        let (cycle_limit, interval) = match forecast_loop_schedule(self.runtime.config()) {
+            Ok(schedule) => schedule,
+            Err(error) => {
+                return ForecastRunAttempt::Failed(Box::new(ForecastRunFailure::Setup { error }));
+            }
+        };
         let mut cycles = Vec::new();
         let mut events = vec![RuntimeEvent::new(
             RuntimeEventKind::ControlLoopStarted,
@@ -394,16 +527,37 @@ where
                     RuntimeEventKind::ControlLoopStopped,
                     "forecast control loop cancelled",
                 ));
-                return Ok(ForecastRunResult {
+                return ForecastRunAttempt::Completed(Box::new(ForecastRunResult {
                     cycles,
                     events,
                     stop_reason: LoopStopReason::Cancelled,
-                });
+                }));
             }
 
-            let cycle = self.cycle(resource, planner, observer, actuator)?;
-            events.extend(cycle.events().cloned());
-            cycles.push(cycle);
+            match self.cycle_attempt(resource, planner, observer, actuator) {
+                ForecastCycleAttempt::Completed(cycle) => {
+                    let cycle = *cycle;
+                    events.extend(cycle.events().cloned());
+                    cycles.push(cycle);
+                }
+                ForecastCycleAttempt::Failed(failed_cycle) => {
+                    let error_detail = failed_cycle.error().to_string();
+                    failed_cycle.append_events(&mut events);
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::ErrorEncountered,
+                        error_detail,
+                    ));
+                    events.push(RuntimeEvent::new(
+                        RuntimeEventKind::ControlLoopStopped,
+                        "forecast control loop stopped after cycle error",
+                    ));
+                    return ForecastRunAttempt::Failed(Box::new(ForecastRunFailure::Cycle {
+                        completed_cycles: cycles,
+                        events,
+                        failed_cycle,
+                    }));
+                }
+            }
 
             if cancellation.is_cancelled() {
                 events.push(RuntimeEvent::new(
@@ -414,11 +568,11 @@ where
                     RuntimeEventKind::ControlLoopStopped,
                     "forecast control loop cancelled",
                 ));
-                return Ok(ForecastRunResult {
+                return ForecastRunAttempt::Completed(Box::new(ForecastRunResult {
                     cycles,
                     events,
                     stop_reason: LoopStopReason::Cancelled,
-                });
+                }));
             }
 
             if cycles.len() as u64 >= cycle_limit {
@@ -431,11 +585,11 @@ where
                     RuntimeEventKind::ControlLoopStopped,
                     "bounded forecast control loop completed",
                 ));
-                return Ok(ForecastRunResult {
+                return ForecastRunAttempt::Completed(Box::new(ForecastRunResult {
                     cycles,
                     events,
                     stop_reason,
-                });
+                }));
             }
 
             if let Some(interval) = interval {
@@ -565,6 +719,16 @@ where
         cancellation: &CancellationToken,
     ) -> Result<ForecastRunResult, RuntimeError> {
         self.runtime.run(
+            &self.resource,
+            &self.planner,
+            &self.observer,
+            &mut self.actuator,
+            cancellation,
+        )
+    }
+
+    pub fn run_attempt(&mut self, cancellation: &CancellationToken) -> ForecastRunAttempt {
+        self.runtime.run_attempt(
             &self.resource,
             &self.planner,
             &self.observer,
