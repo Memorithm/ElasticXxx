@@ -8,9 +8,11 @@ use clap::{Args, Parser, Subcommand};
 mod commands;
 mod config_run;
 mod evidence;
+mod model_plan;
 use commands::*;
 use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
+use model_plan::{model_plan, ModelPlanOptions};
 
 #[derive(Parser)]
 #[command(name = "elastic", about = "Elastic runtime CLI")]
@@ -190,6 +192,51 @@ impl HubRunArgs {
     }
 }
 
+#[derive(Debug, Args)]
+struct ModelPlanArgs {
+    /// Strict model-execution capabilities JSON contract.
+    #[arg(long, value_name = "FILE")]
+    capabilities: PathBuf,
+
+    /// Strict correlated profile-set JSON contract bound to `--capabilities`.
+    #[arg(long, value_name = "FILE")]
+    profiles: PathBuf,
+
+    /// Strict resource-envelope policy JSON contract bound to `--profiles`.
+    #[arg(long, value_name = "FILE")]
+    policy: PathBuf,
+
+    /// Backend-owned capacity-unit identity used by this snapshot.
+    #[arg(long)]
+    capacity_unit: String,
+
+    /// Observed free capacity in `--capacity-unit`.
+    #[arg(long)]
+    free_capacity: u64,
+
+    /// Observed utilization in integer basis points, 0..=10000.
+    #[arg(long)]
+    utilization_bps: u16,
+
+    /// Currently active correlated profile preference rank.
+    #[arg(long)]
+    current_profile_rank: u32,
+}
+
+impl ModelPlanArgs {
+    fn execute(self) -> Result<(), Box<dyn Error>> {
+        model_plan(ModelPlanOptions {
+            capabilities: &self.capabilities,
+            profiles: &self.profiles,
+            policy: &self.policy,
+            capacity_unit: &self.capacity_unit,
+            free_capacity: self.free_capacity,
+            utilization_bps: self.utilization_bps,
+            current_profile_rank: self.current_profile_rank,
+        })
+    }
+}
+
 fn required<T>(value: Option<T>, name: &str) -> Result<T, Box<dyn Error>> {
     value.ok_or_else(|| {
         IoError::new(
@@ -208,6 +255,11 @@ enum Commands {
     Observe { id: String },
     /// Produce an auditable, non-actuating plan.
     Plan { id: String },
+    /// Validate and select a qualified model-execution profile without actuation.
+    ModelPlan {
+        #[command(flatten)]
+        args: ModelPlanArgs,
+    },
     /// Check runtime prerequisites without mutating state.
     Doctor { id: String },
     /// Validate an explicit RAM target through the trusted adapter boundary.
@@ -258,6 +310,7 @@ fn main() -> ExitCode {
         Commands::Inspect { id } => inspect(&id),
         Commands::Observe { id } => observe(&id),
         Commands::Plan { id } => plan(&id),
+        Commands::ModelPlan { args } => args.execute(),
         Commands::Doctor { id } => doctor(&id),
         Commands::Validate { id, ram } => validate(&id, ram.into()),
         Commands::Apply { id, ram } => apply(&id, ram.into()),
@@ -295,6 +348,42 @@ mod tests {
             cli.command,
             Commands::Doctor { id } if id == "default"
         ));
+    }
+
+    #[test]
+    fn model_plan_syntax_requires_versioned_contracts_and_snapshot() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "model-plan",
+            "--capabilities",
+            "capabilities.json",
+            "--profiles",
+            "profiles.json",
+            "--policy",
+            "policy.json",
+            "--capacity-unit",
+            "bytes",
+            "--free-capacity",
+            "3000",
+            "--utilization-bps",
+            "8000",
+            "--current-profile-rank",
+            "0",
+        ])
+        .unwrap();
+
+        match cli.command {
+            Commands::ModelPlan { args } => {
+                assert_eq!(args.capabilities, PathBuf::from("capabilities.json"));
+                assert_eq!(args.profiles, PathBuf::from("profiles.json"));
+                assert_eq!(args.policy, PathBuf::from("policy.json"));
+                assert_eq!(args.capacity_unit, "bytes");
+                assert_eq!(args.free_capacity, 3000);
+                assert_eq!(args.utilization_bps, 8000);
+                assert_eq!(args.current_profile_rank, 0);
+            }
+            _ => panic!("expected model-plan command"),
+        }
     }
 
     #[test]
