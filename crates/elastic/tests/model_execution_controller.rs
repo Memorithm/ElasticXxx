@@ -1,14 +1,15 @@
 use std::error::Error;
 use std::fmt;
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use elastic::{
     CadenceConfig, ExecutionModeConfig, Fingerprint, ModelExecutionCapabilitiesV1,
     ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
     ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1,
     ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1, ModelExecutionProfileV1,
-    ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetryV1, ObservationSource,
-    VerificationResult,
+    ModelExecutionResourceSnapshotV1, ModelExecutionResourceTelemetrySampleV1,
+    ModelExecutionResourceTelemetryV1, ObservationSource, PlanOutcome, VerificationResult,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -127,6 +128,27 @@ impl ModelExecutionResourceTelemetryV1 for MutableTelemetry {
     }
 }
 
+#[derive(Clone)]
+struct TimestampedTelemetry {
+    sample: ModelExecutionResourceTelemetrySampleV1,
+}
+
+impl ModelExecutionResourceTelemetryV1 for TimestampedTelemetry {
+    type Error = TelemetryError;
+
+    fn source(&self) -> ObservationSource {
+        ObservationSource::host("timestamped-controller-test")
+    }
+
+    fn snapshot(&self) -> Result<ModelExecutionResourceSnapshotV1, Self::Error> {
+        Ok(self.sample.snapshot().clone())
+    }
+
+    fn sample(&self) -> Result<ModelExecutionResourceTelemetrySampleV1, Self::Error> {
+        Ok(self.sample.clone())
+    }
+}
+
 fn profiles() -> ModelExecutionProfileSetV1 {
     let capabilities = ModelExecutionCapabilitiesV1::new(
         "reference-backend",
@@ -214,6 +236,51 @@ fn assembled_controller_replans_and_commits_from_live_resource_telemetry() {
     let rich = controller.cycle().unwrap();
     assert!(rich.transaction.commit.is_some());
     assert_eq!(controller.current_profile_rank().unwrap(), 0);
+}
+
+#[test]
+fn stale_timestamped_telemetry_never_actuates_model_profile() {
+    let profiles = profiles();
+    let backend = FakeBackend {
+        provider: profiles.provider_id().to_owned(),
+        revision: profiles.model_revision().to_owned(),
+        capabilities: profiles.capability_fingerprint(),
+        profiles: profiles.fingerprint(),
+        current_rank: 0,
+    };
+    let observed_at = Instant::now() - Duration::from_secs(2);
+    let valid_until = observed_at + Duration::from_secs(1);
+    let snapshot = ModelExecutionResourceSnapshotV1::new("bytes", 3_000, 8_000).unwrap();
+    let telemetry = TimestampedTelemetry {
+        sample: ModelExecutionResourceTelemetrySampleV1::new(snapshot, observed_at)
+            .with_valid_until(valid_until),
+    };
+
+    let mut controller = ModelExecutionControllerV1::current_state(
+        "model-runtime",
+        profiles.clone(),
+        policy(&profiles),
+        backend,
+        telemetry,
+        CadenceConfig::OneShot,
+        ExecutionModeConfig::Apply,
+    )
+    .unwrap();
+
+    let result = controller.cycle().unwrap();
+
+    assert!(result.transaction.actuation.is_none());
+    assert!(result.transaction.commit.is_none());
+    assert_eq!(controller.current_profile_rank().unwrap(), 0);
+    let plan = result.transaction.plan.as_ref().unwrap();
+    assert!(matches!(plan.plan.outcome, PlanOutcome::InsufficientEvidence { .. }));
+    let source = ObservationSource::host("timestamped-controller-test");
+    let stale = result.transaction.observations[0]
+        .iter()
+        .filter(|observation| observation.source() == &source)
+        .collect::<Vec<_>>();
+    assert_eq!(stale.len(), 2);
+    assert!(stale.iter().all(|observation| observation.is_unsupported()));
 }
 
 #[test]
