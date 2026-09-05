@@ -142,9 +142,7 @@ impl TransitionPlanner for ModelExecutionAdaptivePlannerV1 {
 }
 
 fn exact_nonnegative_u64(value: f64) -> Option<u64> {
-    if !value.is_finite()
-        || !(0.0..=MAX_EXACT_F64_INTEGER).contains(&value)
-        || value.fract() != 0.0
+    if !value.is_finite() || !(0.0..=MAX_EXACT_F64_INTEGER).contains(&value) || value.fract() != 0.0
     {
         return None;
     }
