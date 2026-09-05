@@ -28,14 +28,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Versioned capability contract for backend/model-qualified elastic execution levels.
-pub const MODEL_EXECUTION_CAPABILITIES_V1: &str =
-    "elastic.model-execution.capabilities@1.0.0";
+pub const MODEL_EXECUTION_CAPABILITIES_V1: &str = "elastic.model-execution.capabilities@1.0.0";
 /// JSON media type for [`MODEL_EXECUTION_CAPABILITIES_V1`].
 pub const MODEL_EXECUTION_CAPABILITIES_MEDIA_TYPE_V1: &str =
     "application/vnd.elastic.model-execution-capabilities.v1+json";
 /// Versioned pre-execution resource-plan contract.
-pub const MODEL_EXECUTION_RESOURCE_PLAN_V1: &str =
-    "elastic.model-execution.resource-plan@1.0.0";
+pub const MODEL_EXECUTION_RESOURCE_PLAN_V1: &str = "elastic.model-execution.resource-plan@1.0.0";
 /// JSON media type for [`MODEL_EXECUTION_RESOURCE_PLAN_V1`].
 pub const MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1: &str =
     "application/vnd.elastic.model-execution-resource-plan.v1+json";
@@ -44,8 +42,7 @@ pub const MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1: &str =
 pub const MODEL_EXECUTION_BASIS_POINTS_FULL: u16 = 10_000;
 
 /// Custom Elastic dimension for the number of experts active in one qualified execution profile.
-pub const MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION: &str =
-    "model-execution.active-expert-count";
+pub const MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION: &str = "model-execution.active-expert-count";
 /// Custom Elastic dimension for the active fraction of each qualified expert width.
 pub const MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION: &str = "model-execution.expert-width-bps";
 /// Custom Elastic dimension for the provider-defined activation-compute envelope.
@@ -93,11 +90,15 @@ impl ModelExecutionCapabilitiesWireV1 {
     ///
     /// Fails closed for an unknown contract, blank identity, invalid expert
     /// bounds, invalid basis-point levels, or duplicate levels.
-    pub fn into_validated(self) -> Result<ModelExecutionCapabilitiesV1, ModelExecutionContractError> {
+    pub fn into_validated(
+        self,
+    ) -> Result<ModelExecutionCapabilitiesV1, ModelExecutionContractError> {
         if self.contract != MODEL_EXECUTION_CAPABILITIES_V1 {
-            return Err(ModelExecutionContractError::UnsupportedCapabilitiesContract {
-                contract: self.contract,
-            });
+            return Err(
+                ModelExecutionContractError::UnsupportedCapabilitiesContract {
+                    contract: self.contract,
+                },
+            );
         }
         ModelExecutionCapabilitiesV1::new(
             self.provider_id,
@@ -156,10 +157,7 @@ impl ModelExecutionCapabilitiesV1 {
         }
 
         validate_expert_counts(&active_expert_counts, total_experts)?;
-        validate_basis_points(
-            &expert_width_bps,
-            ModelExecutionBasisPointAxis::ExpertWidth,
-        )?;
+        validate_basis_points(&expert_width_bps, ModelExecutionBasisPointAxis::ExpertWidth)?;
         validate_basis_points(
             &activation_budget_bps,
             ModelExecutionBasisPointAxis::ActivationBudget,
@@ -290,9 +288,11 @@ impl ModelExecutionResourcePlanWireV1 {
         capabilities: &ModelExecutionCapabilitiesV1,
     ) -> Result<ModelExecutionResourcePlanV1, ModelExecutionContractError> {
         if self.contract != MODEL_EXECUTION_RESOURCE_PLAN_V1 {
-            return Err(ModelExecutionContractError::UnsupportedResourcePlanContract {
-                contract: self.contract,
-            });
+            return Err(
+                ModelExecutionContractError::UnsupportedResourcePlanContract {
+                    contract: self.contract,
+                },
+            );
         }
         if self.provider_id != capabilities.provider_id() {
             return Err(ModelExecutionContractError::ProviderMismatch {
@@ -359,9 +359,11 @@ impl ModelExecutionResourcePlanV1 {
             .activation_budget_bps
             .contains(&activation_budget_bps)
         {
-            return Err(ModelExecutionContractError::UnsupportedActivationBudgetBps {
-                value: activation_budget_bps,
-            });
+            return Err(
+                ModelExecutionContractError::UnsupportedActivationBudgetBps {
+                    value: activation_budget_bps,
+                },
+            );
         }
 
         Ok(Self {
@@ -449,7 +451,10 @@ impl ModelExecutionResourcePlanV1 {
             .observe(ObservationSignalId::QUEUE_DEPTH)
             .label("model-execution.contract", MODEL_EXECUTION_RESOURCE_PLAN_V1)
             .label("model-execution.provider", self.provider_id.clone())
-            .label("model-execution.model-revision", self.model_revision.clone())
+            .label(
+                "model-execution.model-revision",
+                self.model_revision.clone(),
+            )
             .label(
                 "model-execution.capability-fingerprint",
                 self.capability_fingerprint.to_string(),
@@ -616,9 +621,7 @@ fn validate_expert_counts(
     }
     for pair in sorted.windows(2) {
         if pair[0] == pair[1] {
-            return Err(ModelExecutionContractError::DuplicateActiveExpertCount {
-                value: pair[0],
-            });
+            return Err(ModelExecutionContractError::DuplicateActiveExpertCount { value: pair[0] });
         }
     }
     Ok(())
@@ -705,15 +708,8 @@ mod tests {
             }
         );
         assert_eq!(
-            ModelExecutionCapabilitiesV1::new(
-                "backend",
-                "rev",
-                8,
-                vec![1],
-                vec![0],
-                vec![10_000],
-            )
-            .unwrap_err(),
+            ModelExecutionCapabilitiesV1::new("backend", "rev", 8, vec![1], vec![0], vec![10_000],)
+                .unwrap_err(),
             ModelExecutionContractError::InvalidBasisPointLevel {
                 axis: ModelExecutionBasisPointAxis::ExpertWidth,
                 value: 0
@@ -791,6 +787,9 @@ mod tests {
             spec.label("model-execution.contract"),
             Some(MODEL_EXECUTION_RESOURCE_PLAN_V1)
         );
-        assert_eq!(spec.label("model-execution.provider"), Some("reference-backend"));
+        assert_eq!(
+            spec.label("model-execution.provider"),
+            Some("reference-backend")
+        );
     }
 }

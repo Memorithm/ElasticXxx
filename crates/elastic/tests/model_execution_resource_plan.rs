@@ -1,7 +1,7 @@
 use elastic::{
-    DimensionId, ModelExecutionCapabilitiesV1, ModelExecutionResourcePlanV1,
-    TransitionMechanism, MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION,
-    MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION, MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
+    DimensionId, ModelExecutionCapabilitiesV1, ModelExecutionResourcePlanV1, TransitionMechanism,
+    MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION, MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION,
+    MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
 };
 
 #[test]

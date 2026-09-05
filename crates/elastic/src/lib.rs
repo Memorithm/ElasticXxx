@@ -73,8 +73,8 @@ pub mod prelude {
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionCapabilitiesV1,
         ModelExecutionCapabilitiesWireV1, ModelExecutionResourcePlanV1,
         ModelExecutionResourcePlanWireV1, RamBudget, SoupAutoBatchStrategy, SoupBatchSize,
-        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1,
-        SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
+        SoupBatchSizeWireV1, SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
+        SoupRunResourcePlanWireV1, SoupStreamSource, ThresholdPlanner,
     };
     pub use elastic_core::resource::{
         AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
