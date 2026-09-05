@@ -68,7 +68,7 @@ pub use evidence::{
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
-    ForecastRunResult, ForecastRuntime,
+    ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
 };
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
