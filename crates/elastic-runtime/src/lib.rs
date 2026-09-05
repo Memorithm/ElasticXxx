@@ -17,6 +17,7 @@
 #![forbid(unsafe_code)]
 
 pub mod actuation;
+pub mod attempt;
 pub mod cancellation;
 pub mod clock;
 pub mod commit;
@@ -46,6 +47,7 @@ pub mod transaction;
 pub mod verification;
 
 pub use actuation::Actuation;
+pub use attempt::{CycleAttempt, CycleFailure};
 pub use cancellation::CancellationToken;
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
