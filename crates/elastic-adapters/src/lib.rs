@@ -27,6 +27,7 @@
 
 pub mod actuation;
 pub mod error;
+pub mod model_execution;
 pub mod permits;
 pub mod planners;
 pub mod ram;
@@ -34,6 +35,14 @@ pub mod soup;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
 pub use error::AdapterError;
+pub use model_execution::{
+    ModelExecutionBasisPointAxis, ModelExecutionCapabilitiesV1, ModelExecutionCapabilitiesWireV1,
+    ModelExecutionContractError, ModelExecutionResourcePlanV1, ModelExecutionResourcePlanWireV1,
+    MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION, MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION,
+    MODEL_EXECUTION_BASIS_POINTS_FULL, MODEL_EXECUTION_CAPABILITIES_MEDIA_TYPE_V1,
+    MODEL_EXECUTION_CAPABILITIES_V1, MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION,
+    MODEL_EXECUTION_RESOURCE_PLAN_MEDIA_TYPE_V1, MODEL_EXECUTION_RESOURCE_PLAN_V1,
+};
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
