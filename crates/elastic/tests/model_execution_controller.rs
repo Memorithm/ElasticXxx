@@ -6,9 +6,9 @@ use std::time::{Duration, Instant};
 use elastic::{
     CadenceConfig, CancellationToken, EvidenceCommand, ExecutionModeConfig, Fingerprint,
     ModelExecutionCapabilitiesV1, ModelExecutionControllerContractsV1, ModelExecutionControllerV1,
-    ModelExecutionCycleEvidenceV1, ModelExecutionEnvelopePolicyV1,
-    ModelExecutionEnvelopeRuleV1, ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1,
-    ModelExecutionProfileSetV1, ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1,
+    ModelExecutionCycleEvidenceV1, ModelExecutionEnvelopePolicyV1, ModelExecutionEnvelopeRuleV1,
+    ModelExecutionProfileBackendV1, ModelExecutionProfileEnvelopeV1, ModelExecutionProfileSetV1,
+    ModelExecutionProfileV1, ModelExecutionResourceSnapshotV1,
     ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1, ObservationSource,
     PlanOutcome, VerificationResult,
 };
@@ -329,7 +329,8 @@ fn bounded_model_run_captures_each_completed_cycle_and_final_physical_rank() {
 
     for artifact in &evidence {
         let json = artifact.to_pretty_json().unwrap();
-        let replayed = ModelExecutionCycleEvidenceV1::from_json(json.as_bytes(), &contracts).unwrap();
+        let replayed =
+            ModelExecutionCycleEvidenceV1::from_json(json.as_bytes(), &contracts).unwrap();
         assert_eq!(replayed.final_profile_rank(), artifact.final_profile_rank());
     }
 }
