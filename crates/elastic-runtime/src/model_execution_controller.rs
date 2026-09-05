@@ -379,9 +379,7 @@ where
     }
 }
 
-fn completed_cycle_terminal_profile_rank(
-    cycle: &ForecastCycleResult,
-) -> Result<u32, RuntimeError> {
+fn completed_cycle_terminal_profile_rank(cycle: &ForecastCycleResult) -> Result<u32, RuntimeError> {
     if cycle.transaction.commit.is_some() {
         let actuation = cycle.transaction.actuation.as_ref().ok_or_else(|| {
             RuntimeError::verification(
@@ -392,9 +390,7 @@ fn completed_cycle_terminal_profile_rank(
             RuntimeError::verification("committed model cycle actuation has no target profile rank")
         })?;
         return u32::try_from(raw).map_err(|_| {
-            RuntimeError::verification(
-                "committed model cycle target profile rank does not fit u32",
-            )
+            RuntimeError::verification("committed model cycle target profile rank does not fit u32")
         });
     }
 
