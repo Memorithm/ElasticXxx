@@ -209,11 +209,22 @@ fn transition_policy_is_rechecked_immediately_before_apply() {
     let runtime = runtime_for(&profiles, &actuator);
     let planner = ModelExecutionAtomicProfilePlannerV1::new(&target);
 
-    let error = runtime
+    let result = runtime
         .cycle(&ir, &planner, &observer, &mut actuator)
-        .unwrap_err();
+        .unwrap();
 
-    assert!(error.to_string().contains("model_rebuild_required"));
+    assert!(matches!(
+        result.verification,
+        Some(VerificationResult::Inconclusive { ref detail })
+            if detail.contains("model_rebuild_required")
+    ));
+    assert!(result.commit.is_none());
+    assert!(
+        result
+            .rollback
+            .as_ref()
+            .is_some_and(|rollback| rollback.invariants_restored)
+    );
     assert_eq!(policy_calls.load(Ordering::SeqCst), 3);
     assert_eq!(apply_calls.load(Ordering::SeqCst), 0);
     assert_eq!(actuator.current_profile_rank().unwrap(), 0);
