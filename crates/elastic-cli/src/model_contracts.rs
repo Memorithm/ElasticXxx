@@ -50,17 +50,13 @@ fn build_document(
     profiles_json: &str,
     policy_json: &str,
 ) -> Result<String, Box<dyn Error>> {
-    let capabilities: ModelExecutionCapabilitiesWireV1 =
-        serde_json::from_str(capabilities_json)?;
+    let capabilities: ModelExecutionCapabilitiesWireV1 = serde_json::from_str(capabilities_json)?;
     let profiles: ModelExecutionProfileSetWireV1 = serde_json::from_str(profiles_json)?;
     let policy: ModelExecutionEnvelopePolicyWireV1 = serde_json::from_str(policy_json)?;
 
-    let contracts = ModelExecutionControllerContractsWireV1::from_wire_parts(
-        capabilities,
-        profiles,
-        policy,
-    )
-    .into_validated()?;
+    let contracts =
+        ModelExecutionControllerContractsWireV1::from_wire_parts(capabilities, profiles, policy)
+            .into_validated()?;
     Ok(contracts.to_pretty_json()?)
 }
 
