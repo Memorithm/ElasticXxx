@@ -19,9 +19,11 @@ rust-version = "1.89"
 repository = "https://github.com/Memorithm/ElasticXxx"
 
 [workspace.dependencies]
-elastic-core = { path = "crates/elastic-core" }
-elastic-eir = { path = "crates/elastic-eir" }
-elastic-adapters = { path = "crates/elastic-adapters" }
+elastic-core = { version = "0.1.0", path = "crates/elastic-core" }
+elastic-eir = { version = "0.1.0", path = "crates/elastic-eir" }
+elastic-adapters = { version = "0.1.0", path = "crates/elastic-adapters" }
+elastic-macros = { version = "0.1.0", path = "crates/elastic-macros" }
+elastic-runtime = { version = "0.1.0", path = "crates/elastic-runtime" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { version = "2.0" }
 log = "0.4"

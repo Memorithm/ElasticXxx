@@ -8,4 +8,4 @@ publish = false
 description = "Normalized Elastic Intermediate Representation for declared elastic intent"
 
 [dependencies]
-elastic-core = { path = "../elastic-core" }
+elastic-core = { workspace = true }

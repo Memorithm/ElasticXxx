@@ -8,8 +8,8 @@ publish = false
 description = "Concrete in-process Elastic resource adapters: RAM budgets and concurrency permits"
 
 [dependencies]
-elastic-core = { path = "../elastic-core" }
-elastic-eir = { path = "../elastic-eir" }
+elastic-core = { workspace = true }
+elastic-eir = { workspace = true }
 serde.workspace = true
 
 [dev-dependencies]
