@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-05"
+last_updated: "2026-09-06"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -127,6 +127,20 @@ priority_program:
   - id: EXML2
     name: Real representation actuation
     priority: P0
+    completed_slices:
+      - id: EXML2a
+        name: ElasticBitAllocation fixed Stage A evidence
+        status: complete_synthetic_pre_allocator_gate
+        completion_evidence:
+          - PR_47_merged_to_main_as_a0307fd0b4b54523c96593400ed996fb070e668e
+          - SciRust_PR_1355_design_merge_c4bbe93719d13536e8e81a67093642e7401f5051
+          - SciRust_PR_1356_physical_segment_accounting_merge_acee535f3bb4dd20934652f6fec167aa0f6b2e0d
+          - PR_77_exact_head_0f2fd4b8096b212657e6164686d3d0c761965bdb
+          - PR_77_CI_305_packageability_3_and_continuous_hardening_8_completed_success_on_exact_head
+          - PR_77_merged_to_main_as_0b4514c1dc03e5efbbbdcfce2c736c0e102a435a
+          - nine_fixed_synthetic_candidates_have_frozen_exact_storage_and_reconstruction_records_with_byte_for_byte_regression_test
+          - this_is_not_real_model_quality_latency_or_live_representation_actuation_evidence
+          - allocator_search_and_acceptance_thresholds_remain_NO_GO_until_Stage_B_is_frozen_and_evidence_backed
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
       - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters

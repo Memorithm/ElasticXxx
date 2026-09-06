@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-05"
+last_updated: "2026-09-06"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -54,6 +54,9 @@ verified_current_facts:
   - model_plan_accepts_the_aggregate_controller_contract_bundle_through_PR_65_merge_d0d52613a971b03a6643fa0399df2b4ddf887817
   - model_contracts_build_and_validate_CLI_surfaces_exist_through_PR_66_merge_c69060accf9da600b3c8af5411d618459b77aab6
   - timestamped_model_resource_telemetry_preserves_provider_measurement_time_and_expired_samples_fail_closed_through_PR_67_merge_9d5664d1208532301637222f1ba430eda0f9a6b2
+  - first_publish_packageability_gate_exists_through_PR_76_merge_1d0fe19e4a10069600b2d75beca7249a69a01835_without_authorizing_publication
+  - ElasticBitAllocation_Stage_A_fixed_baseline_output_is_frozen_and_regression_tested_through_PR_77_merge_0b4514c1dc03e5efbbbdcfce2c736c0e102a435a
+  - SciRust_physical_segment_accounting_prerequisite_for_ElasticBitAllocation_completed_through_scirust_PR_1355_and_PR_1356
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -184,7 +187,7 @@ ecosystem_interfaces:
     status: resource_plan_v1_and_wire_v1_published
     qualified_revision: 05b646523727925990530667e7012ede50bd30b2
     contract: elastic.soup.run-resource-plan@1.0.0
-    wire_media_type: application/vnd.elastic.soup_run_resource_plan_v1+json
+    wire_media_type: application/vnd.elastic.soup.run-resource-plan.v1+json
     published_by:
       - PR_52_exact_head_9118048e30e691962889c4839423ea0aa30e40a5
       - PR_52_CI_203_completed_success
@@ -438,7 +441,18 @@ roadmap:
 
   - id: EX9
     name: Stable Rust productization
-    status: long_term
+    status: active_pre_release
+    completed_slices:
+      - id: EX9a
+        name: First-publish packageability gate
+        status: complete_pre_release_boundary
+        completion_evidence:
+          - PR_76_exact_head_6ca5b3336dbd2e5a64a16220f4291f117a7fac9b
+          - PR_76_CI_303_and_packageability_1_completed_success_on_exact_head
+          - PR_76_merged_to_main_as_1d0fe19e4a10069600b2d75beca7249a69a01835
+          - internal_publish_path_dependencies_are_versioned_while_retaining_local_workspace_paths
+          - full_facade_chain_package_file_sets_are_checked_and_leaf_archives_are_built_without_publishing
+          - publication_remains_blocked_on_license_registry_name_ownership_public_private_topology_and_release_approval
     goals:
       - define_semver_MSRV_and_compatibility_policy
       - stabilize_public_facade_extension_traits_and_command_contracts
