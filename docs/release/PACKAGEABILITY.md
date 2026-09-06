@@ -2,7 +2,7 @@
 
 Status: pre-release / no publication authorized
 
-This document defines the reversible packageability checks for the first ElasticXxx crate release. It does not authorize `cargo publish`, select a legal license, reserve crate names, or tag a release.
+This document defines reversible packageability checks for the first ElasticXxx crate release. It does not authorize `cargo publish`, select a legal license, reserve crate names, or tag a release.
 
 ## Public dependency chain
 
@@ -15,17 +15,24 @@ The user-facing `elastic` facade currently depends on the following internal cra
 5. `elastic-runtime` (`elastic-core`, `elastic-eir`, `elastic-adapters`);
 6. `elastic` (`elastic-core`, `elastic-eir`, `elastic-adapters`, `elastic-runtime`, `elastic-macros`).
 
-All internal publish-path dependencies must carry both an exact compatible version and a local `path`. The path is used inside the workspace; Cargo removes it from a packaged manifest and retains the version for registry resolution.
+All internal publish-path dependencies must carry both a compatible version and a local `path`. The path is used inside the workspace; Cargo removes it from a packaged manifest and retains the version for registry resolution.
 
 The first real registry publication, if separately authorized, must therefore occur in dependency order. A facade-only first publication is not valid because Cargo resolves packaged path dependencies through the registry.
 
-## CI packageability simulation
+## What CI can prove before the first publication
 
-Before a release is authorized, CI may simulate the registry having the same internal `0.1.0` crates by injecting temporary `[patch.crates-io]` entries in the CI checkout. Those entries are test scaffolding only and must not be committed to the product manifest.
+Cargo cannot fully prepare a registry upload for a crate whose internal registry dependencies have never been published. In particular, `cargo package` for `elastic-eir` legitimately fails before `elastic-core` exists in the selected registry, even when the workspace path dependency has a valid version.
 
-The simulation must run `cargo package --no-verify` for every crate in dependency order. This proves that Cargo can construct upload archives and rewrite each local versioned dependency into a registry dependency without publishing anything.
+The pre-release packageability workflow therefore proves only what can be proved without fabricating a registry:
 
-Normal workspace CI remains authoritative for build, test, lint and documentation correctness. Package simulation is an additional release gate, not a replacement for exact-head CI.
+- every publish-path workspace dependency has both the expected local `path` and version `0.1.0`;
+- `cargo package --list` succeeds for the complete facade dependency chain, so Cargo can determine each package file set;
+- real `cargo package --no-verify` archives are built for the first-publish leaf crates `elastic-core` and `elastic-macros`;
+- normal workspace CI remains authoritative for compile, tests, Clippy, rustdoc and runtime semantics.
+
+This is intentionally weaker than claiming the full chain has already been upload-prepared. After a real registry contains the leaf crates, the same gate can advance one level at a time (`elastic-eir`, then `elastic-adapters`, then `elastic-runtime`, then `elastic`).
+
+No fake local registry or committed `[patch.crates-io]` is used to turn an unavailable dependency into a false positive.
 
 ## Explicit blockers before real publication
 
@@ -39,7 +46,7 @@ Real publication remains blocked until all of the following are resolved deliber
 - versions/changelog/release notes are frozen for that release;
 - a clean downstream sample can consume the published facade without workspace paths.
 
-No CI job may infer that a missing license or unavailable crate name is acceptable. It may only report those conditions as unresolved release blockers.
+No CI job may infer that a missing license or unavailable crate name is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
 ## Non-goals
 
