@@ -38,6 +38,15 @@ jobs:
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
           printf 'Rust temporary directory: %s\n' "$rust_tmp"
 
+      - name: Validate ElasticBitAllocation Stage B preregistration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/validate_elastic_bit_stage_b.py
+          python3 tools/validate_elastic_bit_stage_b.py \
+            research/elastic-bit-allocation-stage-b-smollm2-v1.json \
+            --self-test
+
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
 
