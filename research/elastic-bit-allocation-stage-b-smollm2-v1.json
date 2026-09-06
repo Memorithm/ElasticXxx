@@ -1,0 +1,157 @@
+{
+  "schema": "elastic-bit-allocation-stage-b-preregistration-v1",
+  "status": "preregistered_not_executed",
+  "issue": 29,
+  "purpose": "fixed_real_model_baselines_before_any_elastic_allocator_or_search",
+  "model": {
+    "repository": "HuggingFaceTB/SmolLM2-135M",
+    "revision": "93efa2f097d58c2a74874c7e644dbc9b0cee75a2",
+    "source_model_sha256": "80521b40281d6ce74e35c9282c22539e75aa0ac8578892b2a59955ef78d55da1",
+    "source_weight_dtype": "bfloat16",
+    "tokenizer_sha256": "9ca9acddb6525a194ec8ac7a87f24fbba7232a9a15ffa1af0c1224fcd888e47c",
+    "declared_license": "apache-2.0"
+  },
+  "dataset": {
+    "repository": "Salesforce/wikitext",
+    "revision": "b08601e04326c79dfdd32d625aee71d232d685c3",
+    "config": "wikitext-2-raw-v1",
+    "declared_license_metadata": ["cc-by-sa-3.0", "gfdl"],
+    "license_metadata_is_provenance_not_legal_interpretation": true,
+    "files": {
+      "train": {
+        "path": "wikitext-2-raw-v1/train-00000-of-00001.parquet",
+        "sha256": "e83889baabc497075506f91975be5fac0d45c5290b6b20582c8cd1e853d0c9f7",
+        "rows": 36718
+      },
+      "validation": {
+        "path": "wikitext-2-raw-v1/validation-00000-of-00001.parquet",
+        "sha256": "204929b7ff9d6184953f867dedb860e40aa69c078fc1e54b3baaa8fb28511c4c",
+        "rows": 3760
+      },
+      "test": {
+        "path": "wikitext-2-raw-v1/test-00000-of-00001.parquet",
+        "sha256": "5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91",
+        "rows": 4358
+      }
+    }
+  },
+  "tokenization": {
+    "tokenizer_identity": "model.tokenizer_sha256",
+    "text_field": "text",
+    "row_order": "parquet_row_order",
+    "normalization": "none",
+    "row_join": "concatenate_exact_utf8_text_fields_without_inserted_separator",
+    "add_special_tokens": false,
+    "sequence_length": 2048
+  },
+  "data_partitions": {
+    "calibration": {
+      "split": "train",
+      "rule": "first_262144_token_ids_after_full_split_concatenate_and_tokenize",
+      "sequences": 128,
+      "sequence_length": 2048,
+      "candidate_fitting_allowed": true,
+      "acceptance_threshold_selection_allowed": false
+    },
+    "development": {
+      "split": "validation",
+      "rule": "all_non_overlapping_complete_2048_token_blocks_drop_final_partial_block",
+      "candidate_fitting_allowed": false,
+      "acceptance_threshold_selection_allowed": true
+    },
+    "final_test": {
+      "split": "test",
+      "rule": "all_non_overlapping_complete_2048_token_blocks_drop_final_partial_block",
+      "candidate_fitting_allowed": false,
+      "acceptance_threshold_selection_allowed": false,
+      "access": "locked_until_followup_threshold_record_is_frozen"
+    }
+  },
+  "quality": {
+    "primary_metric": "mean_next_token_negative_log_likelihood",
+    "derived_metric": "perplexity_exp_mean_nll",
+    "block_scoring": "for_each_2048_token_block_score_positions_1_through_2047_from_prefix_positions_0_through_2046",
+    "aggregate": "mean_over_all_scored_target_tokens",
+    "dense_reference_required": true,
+    "final_test_is_confirmatory_only": true
+  },
+  "runtime": {
+    "owner_repository": "Memorithm/NNIS",
+    "revision": "b9d2f1e74bb68dfa90ca499a24ce857d15e7fb02",
+    "rust_msrv": "1.77",
+    "reference_model_path": "pinned_SmolLM2_fixture_with_exact_provenance",
+    "existing_end_to_end_harness": "crates/nnis-bench/examples/smollm2_e2e.rs",
+    "existing_representation_probe": "crates/nnis-bench/examples/smollm2_lm_head_weight_representation.rs",
+    "reference_execution_weight_dtype": "f32",
+    "low_bit_full_model_runtime_qualified_at_preregistration": false,
+    "structural_full_model_runtime_qualified_at_preregistration": false
+  },
+  "hardware": {
+    "device": "NVIDIA Jetson AGX Thor",
+    "device_ordinal": 0,
+    "power_mode": "MAXN",
+    "same_physical_device_required_for_all_compared_candidates": true,
+    "same_power_clock_thermal_policy_required": true,
+    "capture_nvpmodel": true,
+    "capture_jetson_clocks_show": true,
+    "capture_driver_nvrtc_cuda_identity": true,
+    "unsupported_or_unavailable_hardware_counter_is_explicit_not_zero": true
+  },
+  "performance_protocol": {
+    "prompt_text": "Gravity is",
+    "prompt_ids": [22007, 6463, 314],
+    "decode_steps": 32,
+    "decoding": "greedy",
+    "model_load_excluded_from_request_total": true,
+    "fresh_session_per_measured_request": true,
+    "warmups_per_process": 2,
+    "measured_iterations_per_process": 5,
+    "independent_processes": 5,
+    "primary_latency_metric": "request_total_ms",
+    "latency_summary": ["median", "p95"],
+    "throughput_metric": "generated_tokens_per_second_from_request_total",
+    "materialization_or_conversion_time_reported_separately": true,
+    "peak_temporary_memory_reported_separately": true,
+    "memory_traffic_counters_reported_when_available": true
+  },
+  "representation_accounting": {
+    "experiment_scope": "model_weights_only",
+    "kv_cache_is_separate_experiment": true,
+    "logical_denominator_rule": "unique_logical_checkpoint_parameter_values_after_resolving_declared_weight_ties_once",
+    "serialized_scope": "all_representation_owned_weight_payload_indices_scales_codebooks_metadata_headers_padding_alignment_residuals_and_auxiliary_state_required_to_reconstruct_weights",
+    "resident_scope": "all_backend_owned_runtime_weight_segments_and_representation_auxiliary_state_with_exact_allocation_sizes",
+    "tokenizer_runtime_binary_activations_and_kv_excluded": true,
+    "shared_segment_rule": "count_each_canonical_physical_segment_identity_exactly_once",
+    "observational_cuda_free_memory_delta_is_not_exact_resident_accounting": true,
+    "candidate_without_exact_serialized_and_resident_accounting_is_inadmissible": true
+  },
+  "required_fixed_baseline_families_before_allocator_go": {
+    "dense_reference": true,
+    "fixed_low_bit_at_least_one_verified_4_bit": true,
+    "fixed_low_bit_at_least_one_verified_2_bit_or_lower": true,
+    "structural_at_least_one": ["sparse", "low_rank", "codebook", "heterogeneous_residual"]
+  },
+  "candidate_rules": {
+    "same_checkpoint_tokenizer_data_hardware_runtime_measurement_protocol": true,
+    "candidate_may_not_change_logical_weights_silently": true,
+    "candidate_may_not_use_final_test_for_fitting_or_threshold_selection": true,
+    "missing_backend_capability_is_inadmissible_not_zero_performance": true,
+    "conversion_and_one_time_setup_costs_must_be_included_in_amortization_analysis": true,
+    "no_latency_inference_from_bit_rate": true
+  },
+  "acceptance_thresholds": {
+    "status": "unfrozen_pending_dense_and_fixed_baseline_evidence_on_development_split",
+    "max_quality_degradation": null,
+    "min_physical_storage_improvement": null,
+    "max_steady_state_latency_regression": null,
+    "max_conversion_or_setup_cost_or_amortization_horizon": null,
+    "reproducibility_tolerance_and_run_policy": null
+  },
+  "authorization": {
+    "final_test_execution_authorized": false,
+    "elastic_allocator_or_search_authorized": false,
+    "real_model_result_claimed": false,
+    "performance_claimed": false,
+    "scientific_novelty_claimed": false
+  }
+}
