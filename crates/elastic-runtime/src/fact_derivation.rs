@@ -71,7 +71,7 @@ pub struct FactResourceBinding {
 impl FactResourceBinding {
     /// Bind a fact derivation to one observed resource generation.
     #[must_use]
-    pub const fn new(resource: LogicalResourceId, generation: ResourceGeneration) -> Self {
+    pub fn new(resource: LogicalResourceId, generation: ResourceGeneration) -> Self {
         Self {
             resource,
             generation,
@@ -102,7 +102,7 @@ impl<'a> PredicateEvaluationInput<'a> {
     /// Bind one planner-facing numeric context to its auditable observation
     /// evidence at a caller-supplied monotonic instant.
     #[must_use]
-    pub const fn new(
+    pub fn new(
         planning_context: &'a PlanningContext,
         observations: &'a ObservationSnapshot,
         now: Instant,
@@ -146,7 +146,7 @@ pub trait PredicateEvaluator: Send + Sync {
 }
 
 /// Numeric comparison used by [`ObservationThresholdPredicate`].
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ThresholdComparison {
     /// `value < threshold`.
     LessThan,
@@ -159,12 +159,17 @@ pub enum ThresholdComparison {
 }
 
 impl ThresholdComparison {
-    fn evaluate(self, value: f64, threshold: f64) -> bool {
-        match self {
+    fn evaluate(self, value: f64, threshold: f64) -> TruthValue {
+        let result = match self {
             Self::LessThan => value < threshold,
             Self::LessOrEqual => value <= threshold,
             Self::GreaterThan => value > threshold,
             Self::GreaterOrEqual => value >= threshold,
+        };
+        if result {
+            TruthValue::True
+        } else {
+            TruthValue::False
         }
     }
 }
@@ -230,7 +235,7 @@ impl PredicateEvaluator for ObservationThresholdPredicate {
         if !value.is_finite() {
             return TruthValue::Unknown;
         }
-        TruthValue::from(self.comparison.evaluate(value, self.threshold))
+        self.comparison.evaluate(value, self.threshold)
     }
 }
 
@@ -245,7 +250,7 @@ pub struct ObservationPresencePredicate {
 impl ObservationPresencePredicate {
     /// Create an evidence-presence predicate.
     #[must_use]
-    pub const fn new(key: PredicateKey, signal: ObservationSignalId) -> Self {
+    pub fn new(key: PredicateKey, signal: ObservationSignalId) -> Self {
         Self { key, signal }
     }
 }
@@ -259,7 +264,11 @@ impl PredicateEvaluator for ObservationPresencePredicate {
         let Some(observation) = input.observations.get(self.signal.clone()) else {
             return TruthValue::Unknown;
         };
-        TruthValue::from(observation.is_valid() && observation.value().is_finite())
+        if observation.is_valid() && observation.value().is_finite() {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 }
 
@@ -275,11 +284,7 @@ pub struct ObservationFreshnessPredicate {
 impl ObservationFreshnessPredicate {
     /// Create a signal freshness predicate.
     #[must_use]
-    pub const fn new(
-        key: PredicateKey,
-        signal: ObservationSignalId,
-        max_age: Duration,
-    ) -> Self {
+    pub fn new(key: PredicateKey, signal: ObservationSignalId, max_age: Duration) -> Self {
         Self {
             key,
             signal,
@@ -303,7 +308,11 @@ impl PredicateEvaluator for ObservationFreshnessPredicate {
         let Some(age) = input.now.checked_duration_since(*observation.timestamp()) else {
             return TruthValue::Unknown;
         };
-        TruthValue::from(age <= self.max_age)
+        if age <= self.max_age {
+            TruthValue::True
+        } else {
+            TruthValue::False
+        }
     }
 }
 
@@ -320,7 +329,7 @@ pub struct CapabilityPredicate {
 impl CapabilityPredicate {
     /// Bind a predicate to an explicit capability-discovery result.
     #[must_use]
-    pub const fn new(key: PredicateKey, available: Option<bool>) -> Self {
+    pub fn new(key: PredicateKey, available: Option<bool>) -> Self {
         Self { key, available }
     }
 }
@@ -331,7 +340,11 @@ impl PredicateEvaluator for CapabilityPredicate {
     }
 
     fn evaluate(&self, _input: &PredicateEvaluationInput<'_>) -> TruthValue {
-        self.available.map_or(TruthValue::Unknown, TruthValue::from)
+        match self.available {
+            Some(true) => TruthValue::True,
+            Some(false) => TruthValue::False,
+            None => TruthValue::Unknown,
+        }
     }
 }
 
@@ -593,11 +606,11 @@ mod tests {
         PredicateKey::new("elastic.fact", name).unwrap()
     }
 
-    fn input(
-        context: &PlanningContext,
-        snapshot: &ObservationSnapshot,
+    fn input<'a>(
+        context: &'a PlanningContext,
+        snapshot: &'a ObservationSnapshot,
         now: Instant,
-    ) -> PredicateEvaluationInput<'_> {
+    ) -> PredicateEvaluationInput<'a> {
         PredicateEvaluationInput::new(context, snapshot, now)
     }
 
@@ -624,7 +637,10 @@ mod tests {
                 now,
             )],
         );
-        assert_eq!(predicate.evaluate(&input(&context, &fresh, now)), TruthValue::True);
+        assert_eq!(
+            predicate.evaluate(&input(&context, &fresh, now)),
+            TruthValue::True
+        );
 
         let missing = ObservationSnapshot::new(now, Vec::new());
         assert_eq!(
