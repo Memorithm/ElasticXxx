@@ -383,7 +383,10 @@ impl FactSnapshot {
         let mut facts = BTreeMap::new();
         for evaluator in evaluators {
             let key = evaluator.key().clone();
-            if facts.insert(key.clone(), evaluator.evaluate(input)).is_some() {
+            if facts
+                .insert(key.clone(), evaluator.evaluate(input))
+                .is_some()
+            {
                 return Err(FactDerivationError::DuplicatePredicate { key });
             }
         }
@@ -526,7 +529,10 @@ impl fmt::Display for FactDerivationError {
                 write!(f, "multiple evaluators derive predicate {key}")
             }
             Self::TooManyFacts { max, actual } => {
-                write!(f, "fact snapshot requested {actual} predicates; maximum is {max}")
+                write!(
+                    f,
+                    "fact snapshot requested {actual} predicates; maximum is {max}"
+                )
             }
         }
     }
@@ -719,14 +725,9 @@ mod tests {
             &[&b, &a],
         )
         .unwrap();
-        let second = FactSnapshot::derive(
-            source,
-            ObservationEpoch::new(7),
-            None,
-            &input,
-            &[&a, &b],
-        )
-        .unwrap();
+        let second =
+            FactSnapshot::derive(source, ObservationEpoch::new(7), None, &input, &[&a, &b])
+                .unwrap();
         assert_eq!(first, second);
         assert_eq!(first.truth(&key("a")), TruthValue::True);
         assert_eq!(first.truth(&key("b")), TruthValue::False);
