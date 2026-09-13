@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-06"
+last_updated: "2026-09-13"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -141,6 +141,24 @@ priority_program:
           - nine_fixed_synthetic_candidates_have_frozen_exact_storage_and_reconstruction_records_with_byte_for_byte_regression_test
           - this_is_not_real_model_quality_latency_or_live_representation_actuation_evidence
           - allocator_search_and_acceptance_thresholds_remain_NO_GO_until_Stage_B_is_frozen_and_evidence_backed
+      - id: EXML2b
+        name: ElasticBitAllocation Stage B SmolLM2 preregistration
+        status: complete_protocol_preregistered_not_executed
+        completion_evidence:
+          - PR_78_exact_head_5f2902fe8e444b965894981ab1bd03b57f2a2f07
+          - PR_78_merged_to_main_as_1cec5cb5ef55acb0f55056769cbf2dda82fde318
+          - frozen_model_tokenizer_dataset_NNIS_and_Jetson_AGX_Thor_identities_with_fail_closed_Python_validator
+          - acceptance_thresholds_remain_null_and_final_test_remains_locked
+          - this_is_not_real_model_quality_latency_or_allocator_authorization
+      - id: EXML2c
+        name: ElasticBitAllocation Stage B execution-readiness dry-run harness
+        status: open_pr_pending_required_CI_and_merge
+        completion_evidence:
+          - PR_79_exact_head_754a492516f2b7636f5bebe83ce8ff443cfb7826
+          - elastic_kv_stage_b_fail_closed_manifest_loader_and_dry_run_measurement_schema_v1
+          - dense_reference_planned_low_bit_and_structural_candidates_blocked_missing_backend_capability
+          - metric_values_remain_null_with_explicit_not_executed_or_blocked_statuses
+          - operator_run_NNIS_evidence_collection_and_allocator_GO_remain_out_of_scope
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
       - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters
