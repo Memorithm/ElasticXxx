@@ -8,7 +8,7 @@
 
 use crate::{lower, EirResource, Fingerprint, ValidationError};
 use elastic_core::{
-    BooleanGuard, BoolExpr, BoolExprFingerprint, GuardScope, GuardedResourceSpec, PredicateId,
+    BoolExpr, BoolExprFingerprint, BooleanGuard, GuardScope, GuardedResourceSpec, PredicateId,
     PredicateKey, TransitionMechanism, BOOLEAN_EXPRESSION_SCHEMA_V1, BOOLEAN_PREDICATE_SCHEMA_V1,
 };
 use std::fmt;
@@ -203,7 +203,9 @@ fn fingerprint_scope(mut fingerprint: Fingerprint, scope: &GuardScope) -> Finger
             mechanism,
             dimension,
         } => {
-            fingerprint = fingerprint.text("transition").text(mechanism_text(*mechanism));
+            fingerprint = fingerprint
+                .text("transition")
+                .text(mechanism_text(*mechanism));
             fingerprint.text(dimension.as_str())
         }
     }
@@ -223,7 +225,7 @@ mod tests {
     use elastic_core::resource::{
         AdmissibleTransition, DimensionId, LogicalResourceId, ResourceClassId, ResourceSpec,
     };
-    use elastic_core::{BooleanGuard, BoolExpr, PredicateKey, PredicateRegistry};
+    use elastic_core::{BoolExpr, BooleanGuard, PredicateKey, PredicateRegistry};
 
     fn guarded_resource(reverse_guard_order: bool) -> GuardedResourceSpec {
         let resource = ResourceSpec::builder(
@@ -279,7 +281,10 @@ mod tests {
         let lowered = lower_guarded(&guarded_resource(false)).unwrap();
         assert_eq!(lowered.guards().len(), 2);
         assert_eq!(lowered.guards()[0].scope(), &GuardScope::Resource);
-        assert_eq!(lowered.guards()[0].predicates()[0].id(), PredicateId::new(0));
+        assert_eq!(
+            lowered.guards()[0].predicates()[0].id(),
+            PredicateId::new(0)
+        );
         assert_eq!(
             lowered.guards()[0].predicates()[0].key().to_string(),
             "elastic.memory::capacity-ok"
@@ -300,23 +305,22 @@ mod tests {
         let baseline_eir = lower_guarded(&baseline).unwrap();
 
         let resource = baseline.resource().clone();
-        let registry = PredicateRegistry::from_keys([
-            PredicateKey::new("elastic.memory", "capacity-ok").unwrap(),
-        ])
-        .unwrap();
+        let registry =
+            PredicateRegistry::from_keys([
+                PredicateKey::new("elastic.memory", "capacity-ok").unwrap()
+            ])
+            .unwrap();
         let capacity_ok = registry
             .id(&PredicateKey::new("elastic.memory", "capacity-ok").unwrap())
             .unwrap();
         let changed = GuardedResourceSpec::new(
             resource,
-            vec![
-                BooleanGuard::new(
-                    GuardScope::Resource,
-                    registry,
-                    BoolExpr::negate(BoolExpr::atom(capacity_ok)),
-                )
-                .unwrap(),
-            ],
+            vec![BooleanGuard::new(
+                GuardScope::Resource,
+                registry,
+                BoolExpr::negate(BoolExpr::atom(capacity_ok)),
+            )
+            .unwrap()],
         )
         .unwrap();
         let changed_eir = lower_guarded(&changed).unwrap();
