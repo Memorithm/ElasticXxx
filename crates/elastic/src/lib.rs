@@ -7,6 +7,9 @@
 
 #![forbid(unsafe_code)]
 
+pub mod boolean;
+
+pub use boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
 pub use elastic_adapters::{
     actuate_if_fresh, model_execution_current_profile_rank_signal,
     model_execution_profile_dimension, ActuationGateError, AdapterError, ConcurrencyPermits,
@@ -44,23 +47,36 @@ pub use elastic_core::resource::{
     ResourceSpecBuilder, ResourceSpecError,
 };
 pub use elastic_core::{
-    BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TransitionMechanism,
-    TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+    BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard, FactMask,
+    FactSet, GuardBindingError, GuardFactSource, GuardScope, GuardedResourceSpec,
+    InvariantPredicateBinding, LogicError, PredicateComponent, PredicateComponentError, PredicateId,
+    PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard, TransitionMechanism,
+    TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1, BOOLEAN_PREDICATE_SCHEMA_V1,
+    FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_CANONICAL_EXPRESSION_NODES,
+    MAX_PREDICATE_COMPONENT_BYTES, MAX_REGISTERED_PREDICATES,
 };
 pub use elastic_eir::{
-    lower, EirDocument, EirDocumentBuilder, EirResource, Fingerprint, FirstGroundedPlanner,
-    PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
+    evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates,
+    EirDocument, EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirResource,
+    Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome, PlanningContext,
+    RejectedTransition, TransitionCandidate, TransitionPlanner, TransitionPruningReport,
+    UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
-    Actuation, Cadence, CadenceConfig, CancellationToken, CommitRecord, ConcurrencyPermitsObserver,
-    ConfiguredController, ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource,
-    ConfiguredResourceState, Controller, ControllerConfig, CurrentStateForecaster, CycleAttempt,
-    CycleFailure, CycleResult, EwmaForecaster, ExecutionModeConfig,
-    FixedModelExecutionTransitionPolicyV1, Forecast, ForecastController, ForecastCycleAttempt,
-    ForecastCycleFailure, ForecastCycleResult, ForecastRunAttempt, ForecastRunFailure,
-    ForecastRunResult, ForecastRuntime, ForecastStatus, Forecaster, ForecasterSelection,
-    HostMemoryObserver, InvariantCheck, LoopStopReason, ModelExecutionActuationEvidenceV1,
+    Actuation, BooleanGuardPlanner, BooleanGuardPreplanner, Cadence, CadenceConfig,
+    CancellationToken, CandidateDecisionTrace, CapabilityPredicate, CommitRecord,
+    ConcurrencyPermitsObserver, ConfiguredController, ConfiguredForecaster, ConfiguredPlanner,
+    ConfiguredResource, ConfiguredResourceState, Controller, ControllerConfig,
+    CurrentStateForecaster, CycleAttempt, CycleFailure, CycleResult, DecisionReplayError,
+    DecisionStopReason, DecisionTrace, DecisionTraceError, EwmaForecaster, ExecutionModeConfig,
+    FactDerivationError, FactFreshnessError, FactResourceBinding, FactSnapshot,
+    FactSnapshotFingerprint, FactSourceId, FixedModelExecutionTransitionPolicyV1, Forecast,
+    ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
+    ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime, ForecastStatus,
+    Forecaster, ForecasterSelection, GuardPlannerTarget, GuardPreplannerError, HostMemoryObserver,
+    InvariantCheck, InvariantPrecheckEntry, InvariantPrecheckError, InvariantPrecheckReport,
+    InvariantPrecheckStatus, LoopStopReason, ModelExecutionActuationEvidenceV1,
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
     ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1, ModelExecutionForecastEvidenceV1,
     ModelExecutionForecastStatusEvidenceV1, ModelExecutionInvariantEvidenceV1,
@@ -73,22 +89,28 @@ pub use elastic_runtime::{
     ModelExecutionRunEvidenceResultV1, ModelExecutionSelectedProfileEvidenceV1,
     ModelExecutionSignalEvidenceV1, ModelExecutionTransitionModeV1,
     ModelExecutionTransitionPolicyV1, ModelExecutionVerificationEvidenceV1, NoopEventSink,
-    Observation, ObservationSnapshot, ObservationSource, Observer, ObserverSet, OperatorConfig,
-    Plan, PlannerConfig, PlannerSelection, RamBudgetObserver, RegisteredResource, ResourceConfig,
-    ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock, RuntimeConfig,
-    RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
-    RuntimeTimingObserver, SystemClock, TransactionalActuator, TransactionalConcurrency,
-    TransactionalModelExecution, TransactionalRam, TransitionGuardedModelExecutionBackendError,
-    TransitionGuardedModelExecutionBackendV1, ValidatedPlan, VerificationResult,
+    Observation, ObservationFreshnessPredicate, ObservationPresencePredicate, ObservationSnapshot,
+    ObservationSource, ObservationThresholdPredicate, Observer, ObserverSet, OperatorConfig, Plan,
+    PlannerConfig, PlannerSelection, PredicateEvaluationInput, PredicateEvaluator,
+    PredicateTraceEntry, RamBudgetObserver, RegisteredResource, RejectedCandidateTrace,
+    ResourceConfig, ResourceRegistry, RollbackRecord, RunResult, Runtime, RuntimeClock,
+    RuntimeConfig, RuntimeError, RuntimeEvent, RuntimeEventKind, RuntimeEventSink, RuntimeMode,
+    RuntimeTimingObserver, SystemClock, ThresholdComparison, TransactionalActuator,
+    TransactionalConcurrency, TransactionalModelExecution, TransactionalRam,
+    TransitionGuardedModelExecutionBackendError, TransitionGuardedModelExecutionBackendV1,
+    UnknownCandidateTrace, ValidatedPlan, VerificationResult, DECISION_TRACE_SCHEMA_V1,
+    MAX_DECISION_TRACE_BYTES, MAX_FACTS_PER_SNAPSHOT, MAX_FACT_SOURCE_ID_BYTES,
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
     MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
     OPERATOR_CONFIG_VERSION,
 };
 pub use elastic_runtime::{
-    EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
-    EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
-    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
-    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+    capture_decision_trace, fact_snapshot_fingerprint, observation_source_for,
+    precheck_plan_invariants, EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError,
+    EvidenceEvent, EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1,
+    MAX_EVIDENCE_BYTES, MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH,
+    MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES,
+    MAX_EVIDENCE_STRING_BYTES,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -115,6 +137,7 @@ pub mod adapters {
 
 /// Everything needed by a typical Elastic application.
 pub mod prelude {
+    pub use crate::boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
     pub use elastic_adapters::{
         model_execution_current_profile_rank_signal, model_execution_profile_dimension,
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionAdaptivePlannerV1,
@@ -135,32 +158,40 @@ pub mod prelude {
         ResourceSpec, ResourceSpecError,
     };
     pub use elastic_core::{
-        BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TransitionMechanism,
-        TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+        BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard, FactMask, FactSet,
+        GuardBindingError, GuardScope, GuardedResourceSpec, InvariantPredicateBinding, LogicError,
+        PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard,
+        TransitionMechanism, TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
     };
     pub use elastic_eir::{
-        lower, EirDocument, EirResource, Fingerprint, FirstGroundedPlanner, TransitionPlanner,
+        evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
+        EirGuardedResource, EirResource, Fingerprint, FirstGroundedPlanner, PlanningContext,
+        TransitionPlanner, TransitionPruningReport,
     };
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
-        CadenceConfig, CancellationToken, ConcurrencyPermitsObserver, ConfiguredController,
-        ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
-        Controller, ControllerConfig, CurrentStateForecaster, CycleAttempt, CycleFailure,
-        EwmaForecaster, ExecutionModeConfig, FixedModelExecutionTransitionPolicyV1, Forecast,
-        ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
-        ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime, Forecaster,
-        ForecasterSelection, HostMemoryObserver, ModelExecutionControllerContractsV1,
-        ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
-        ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
+        capture_decision_trace, fact_snapshot_fingerprint, precheck_plan_invariants,
+        BooleanGuardPlanner, BooleanGuardPreplanner, CadenceConfig, CancellationToken,
+        CapabilityPredicate, ConfiguredController, ConfiguredForecaster, ConfiguredPlanner,
+        ConfiguredResource, ConfiguredResourceState, Controller, ControllerConfig,
+        CurrentStateForecaster, CycleAttempt, CycleFailure, DecisionTrace, DecisionTraceError,
+        EwmaForecaster, ExecutionModeConfig, FactResourceBinding, FactSnapshot, FactSourceId,
+        FixedModelExecutionTransitionPolicyV1, Forecast, ForecastController, ForecastCycleAttempt,
+        ForecastCycleFailure, ForecastCycleResult, ForecastRunAttempt, ForecastRunFailure,
+        ForecastRunResult, ForecastRuntime, Forecaster, ForecasterSelection, GuardPlannerTarget,
+        GuardPreplannerError, HostMemoryObserver, InvariantPrecheckReport, InvariantPrecheckStatus,
+        ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
+        ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
         ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
         ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1,
         ModelExecutionRunEvidenceAttemptV1, ModelExecutionRunEvidenceFailureV1,
         ModelExecutionRunEvidenceResultV1, ModelExecutionTransitionModeV1,
         ModelExecutionTransitionPolicyV1, Observation, Observer, OperatorConfig, PlannerSelection,
-        RamBudgetObserver, RegisteredResource, ResourceConfig, ResourceRegistry, Runtime,
-        RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator, TransactionalConcurrency,
+        PredicateEvaluationInput, PredicateEvaluator, RamBudgetObserver, RegisteredResource,
+        ResourceConfig, ResourceRegistry, Runtime, RuntimeConfig, RuntimeError, RuntimeMode,
+        ThresholdComparison, TransactionalActuator, TransactionalConcurrency,
         TransactionalModelExecution, TransactionalRam, TransitionGuardedModelExecutionBackendError,
-        TransitionGuardedModelExecutionBackendV1, VerificationResult,
+        TransitionGuardedModelExecutionBackendV1, VerificationResult, DECISION_TRACE_SCHEMA_V1,
         MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
         OPERATOR_CONFIG_VERSION,
     };
