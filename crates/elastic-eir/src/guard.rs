@@ -227,7 +227,7 @@ mod tests {
 
     fn guarded_resource(reverse_guard_order: bool) -> GuardedResourceSpec {
         let resource = ResourceSpec::builder(
-            ResourceClassId::MEMORY,
+            ResourceClassId::CAPACITY_RESOURCE,
             LogicalResourceId::new("eir-guarded-memory").unwrap(),
         )
         .allow(DimensionId::CAPACITY)
