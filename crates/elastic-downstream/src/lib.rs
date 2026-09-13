@@ -92,7 +92,9 @@ pub fn public_boolean_surface_smoke() {
 
     assert!(guard.uses_mask_fast_path());
     assert_eq!(
-        guard.evaluate(&facts).expect("guard evaluation should succeed"),
+        guard
+            .evaluate(&facts)
+            .expect("guard evaluation should succeed"),
         TruthValue::True
     );
 }
