@@ -36,6 +36,7 @@ pub mod evidence;
 pub mod fact_derivation;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod guard_planner;
 pub mod guard_preplanner;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
@@ -83,6 +84,7 @@ pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
 };
+pub use guard_planner::{BooleanGuardPlanner, GuardPlannerTarget};
 pub use guard_preplanner::{BooleanGuardPreplanner, GuardPreplannerError};
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
