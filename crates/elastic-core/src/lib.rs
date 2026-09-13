@@ -7,10 +7,11 @@
 //!   what a resource is, which dimensions may change, which transitions are
 //!   admissible, which invariants must hold, and what the runtime may
 //!   optimize;
-//! - Boolean decision primitives ([`logic`], [`predicate`], [`canonical`]):
-//!   fail-closed three-valued facts, stable predicate identities, bounded
-//!   expressions, deterministic canonicalization, structural fingerprints, and
-//!   a compact mask fast path for eligibility guards;
+//! - Boolean decision primitives ([`logic`], [`predicate`], [`canonical`],
+//!   [`guard`]): fail-closed three-valued facts, stable predicate identities,
+//!   bounded expressions, deterministic canonicalization, structural
+//!   fingerprints, typed resource-bound guards, and a compact mask fast path
+//!   for eligibility decisions;
 //! - recommendation freshness contracts ([`control`]): planner/observation
 //!   epochs plus resource generations used to reject stale recommendations
 //!   before semantic validation or actuation;
@@ -23,6 +24,7 @@
 pub mod canonical;
 pub mod control;
 pub mod frontier;
+pub mod guard;
 pub mod logic;
 pub mod predicate;
 pub mod representation;
@@ -37,6 +39,7 @@ pub use control::{
     RecommendationFreshnessError, ResourceGeneration,
 };
 pub use frontier::{FrontierError, VersionFrontier};
+pub use guard::{BooleanGuard, GuardBindingError, GuardScope, GuardedResourceSpec};
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,

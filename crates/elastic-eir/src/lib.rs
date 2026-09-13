@@ -10,6 +10,10 @@
 //! EirDocument           — validated, versioned, fingerprinted pure data
 //! ```
 //!
+//! Boolean guards are carried by a separate versioned envelope
+//! ([`EirGuardedResource`]) so adding policy data does not silently mutate the
+//! historical EIR v0.1 resource schema or its fingerprints.
+//!
 //! # Neutrality
 //!
 //! The IR is backend-, runtime-, hardware-, and OS-neutral. It contains no
@@ -89,6 +93,7 @@
 mod document;
 mod error;
 mod fingerprint;
+mod guard;
 mod plan;
 mod resource;
 mod validate;
@@ -96,13 +101,16 @@ mod validate;
 pub use document::{lower, EirDocument, EirDocumentBuilder};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
+pub use guard::{
+    lower_guarded, EirGuard, EirGuardedResource, EirPredicate, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
+};
 pub use plan::{
     FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
 };
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use validate::validate_resource_parts;
 
-/// Current EIR schema version produced by this crate.
+/// Current EIR schema version produced by the legacy unguarded document crate.
 pub const EIR_SCHEMA_VERSION: u16 = 1;
 
 /// Explicit schema version carried by every [`EirDocument`].
