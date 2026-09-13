@@ -150,7 +150,11 @@ impl BooleanGuard {
         predicates: PredicateRegistry,
         predicate: PredicateId,
     ) -> Result<Self, CanonicalizationError> {
-        Self::new(scope, predicates, BoolExpr::negate(BoolExpr::atom(predicate)))
+        Self::new(
+            scope,
+            predicates,
+            BoolExpr::negate(BoolExpr::atom(predicate)),
+        )
     }
 
     /// Evaluate this guard from stable-key facts under strong Kleene semantics.
