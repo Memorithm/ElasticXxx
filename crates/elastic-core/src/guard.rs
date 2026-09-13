@@ -7,9 +7,10 @@
 
 use crate::resource::{DimensionId, ResourceSpec};
 use crate::{
-    BoolExpr, BoolExprFingerprint, CanonicalizationError, PredicateRegistry, TransitionMechanism,
+    BoolExpr, BoolExprFingerprint, CanonicalizationError, FactSet, LogicError, PredicateId,
+    PredicateKey, PredicateRegistry, TransitionMechanism, TruthValue,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// Scope to which one Boolean guard declaration applies.
@@ -46,6 +47,19 @@ impl GuardScope {
             Self::Resource | Self::Dimension(_) => None,
         }
     }
+
+    /// Whether this scope constrains one concrete transition.
+    #[must_use]
+    pub fn applies_to(&self, mechanism: TransitionMechanism, dimension: &DimensionId) -> bool {
+        match self {
+            Self::Resource => true,
+            Self::Dimension(scoped_dimension) => scoped_dimension == dimension,
+            Self::Transition {
+                mechanism: scoped_mechanism,
+                dimension: scoped_dimension,
+            } => *scoped_mechanism == mechanism && scoped_dimension == dimension,
+        }
+    }
 }
 
 impl fmt::Display for GuardScope {
@@ -58,6 +72,22 @@ impl fmt::Display for GuardScope {
                 dimension,
             } => write!(f, "transition:{mechanism:?}@{dimension}"),
         }
+    }
+}
+
+/// Stable source of three-valued facts used to evaluate guards.
+///
+/// Missing evidence must be returned as [`TruthValue::Unknown`]. BE5 will add
+/// runtime snapshots that implement this contract; BE4 intentionally keeps the
+/// semantics independent from observation acquisition.
+pub trait GuardFactSource {
+    /// Return the current truth value for one stable predicate key.
+    fn truth(&self, key: &PredicateKey) -> TruthValue;
+}
+
+impl GuardFactSource for BTreeMap<PredicateKey, TruthValue> {
+    fn truth(&self, key: &PredicateKey) -> TruthValue {
+        self.get(key).copied().unwrap_or(TruthValue::Unknown)
     }
 }
 
@@ -96,6 +126,49 @@ impl BooleanGuard {
         })
     }
 
+    /// Alias for declaring an arbitrary conditional guard.
+    pub fn when(
+        scope: GuardScope,
+        predicates: PredicateRegistry,
+        expression: BoolExpr,
+    ) -> Result<Self, CanonicalizationError> {
+        Self::new(scope, predicates, expression)
+    }
+
+    /// Declare that one predicate must be true.
+    pub fn requires(
+        scope: GuardScope,
+        predicates: PredicateRegistry,
+        predicate: PredicateId,
+    ) -> Result<Self, CanonicalizationError> {
+        Self::new(scope, predicates, BoolExpr::atom(predicate))
+    }
+
+    /// Declare that one predicate must be false.
+    pub fn forbids(
+        scope: GuardScope,
+        predicates: PredicateRegistry,
+        predicate: PredicateId,
+    ) -> Result<Self, CanonicalizationError> {
+        Self::new(
+            scope,
+            predicates,
+            BoolExpr::negate(BoolExpr::atom(predicate)),
+        )
+    }
+
+    /// Evaluate this guard from stable-key facts under strong Kleene semantics.
+    ///
+    /// Missing source values become `Unknown`; only an explicit `True` can be
+    /// treated by later planning layers as satisfied.
+    pub fn evaluate(&self, source: &impl GuardFactSource) -> Result<TruthValue, LogicError> {
+        let mut facts = FactSet::new();
+        for (id, key) in self.predicates.iter() {
+            facts.set(id, source.truth(key))?;
+        }
+        self.expression.evaluate(&facts)
+    }
+
     /// Declaration scope.
     #[must_use]
     pub const fn scope(&self) -> &GuardScope {
@@ -118,6 +191,81 @@ impl BooleanGuard {
     #[must_use]
     pub const fn fingerprint(&self) -> BoolExprFingerprint {
         self.fingerprint
+    }
+}
+
+/// Specialized transition-scoped guard convenience wrapper.
+///
+/// This type introduces no second semantics: it always lowers to one
+/// [`BooleanGuard`] whose scope is [`GuardScope::Transition`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TransitionGuard(BooleanGuard);
+
+impl TransitionGuard {
+    /// Guard a transition with an arbitrary Boolean expression.
+    pub fn when(
+        mechanism: TransitionMechanism,
+        dimension: DimensionId,
+        predicates: PredicateRegistry,
+        expression: BoolExpr,
+    ) -> Result<Self, CanonicalizationError> {
+        BooleanGuard::when(
+            GuardScope::Transition {
+                mechanism,
+                dimension,
+            },
+            predicates,
+            expression,
+        )
+        .map(Self)
+    }
+
+    /// Require one predicate to be true for the transition.
+    pub fn requires(
+        mechanism: TransitionMechanism,
+        dimension: DimensionId,
+        predicates: PredicateRegistry,
+        predicate: PredicateId,
+    ) -> Result<Self, CanonicalizationError> {
+        BooleanGuard::requires(
+            GuardScope::Transition {
+                mechanism,
+                dimension,
+            },
+            predicates,
+            predicate,
+        )
+        .map(Self)
+    }
+
+    /// Require one predicate to be false for the transition.
+    pub fn forbids(
+        mechanism: TransitionMechanism,
+        dimension: DimensionId,
+        predicates: PredicateRegistry,
+        predicate: PredicateId,
+    ) -> Result<Self, CanonicalizationError> {
+        BooleanGuard::forbids(
+            GuardScope::Transition {
+                mechanism,
+                dimension,
+            },
+            predicates,
+            predicate,
+        )
+        .map(Self)
+    }
+
+    /// Borrow the single underlying semantic guard.
+    #[must_use]
+    pub const fn as_guard(&self) -> &BooleanGuard {
+        &self.0
+    }
+
+    /// Consume this convenience wrapper into the shared core guard type.
+    #[must_use]
+    pub fn into_guard(self) -> BooleanGuard {
+        self.0
     }
 }
 
@@ -310,6 +458,49 @@ mod tests {
             Err(CanonicalizationError::UnregisteredPredicate {
                 id: crate::PredicateId::new(0)
             })
+        );
+    }
+
+    #[test]
+    fn stable_fact_source_preserves_unknown_and_helpers_share_semantics() {
+        let registry = registry();
+        let key = PredicateKey::new("elastic.test", "a").unwrap();
+        let id = registry.id(&key).unwrap();
+        let required = BooleanGuard::requires(GuardScope::Resource, registry.clone(), id).unwrap();
+        let forbidden = BooleanGuard::forbids(GuardScope::Resource, registry, id).unwrap();
+        let mut facts = BTreeMap::new();
+
+        assert_eq!(required.evaluate(&facts).unwrap(), TruthValue::Unknown);
+        assert_eq!(forbidden.evaluate(&facts).unwrap(), TruthValue::Unknown);
+
+        facts.insert(key.clone(), TruthValue::True);
+        assert_eq!(required.evaluate(&facts).unwrap(), TruthValue::True);
+        assert_eq!(forbidden.evaluate(&facts).unwrap(), TruthValue::False);
+
+        facts.insert(key, TruthValue::False);
+        assert_eq!(required.evaluate(&facts).unwrap(), TruthValue::False);
+        assert_eq!(forbidden.evaluate(&facts).unwrap(), TruthValue::True);
+    }
+
+    #[test]
+    fn transition_guard_is_only_a_typed_wrapper() {
+        let registry = registry();
+        let id = registry
+            .id(&PredicateKey::new("elastic.test", "a").unwrap())
+            .unwrap();
+        let guard = TransitionGuard::requires(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+            registry,
+            id,
+        )
+        .unwrap();
+        assert_eq!(
+            guard.as_guard().scope(),
+            &GuardScope::Transition {
+                mechanism: TransitionMechanism::Reinterpret,
+                dimension: DimensionId::CAPACITY,
+            }
         );
     }
 

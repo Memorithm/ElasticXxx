@@ -39,7 +39,10 @@ pub use control::{
     RecommendationFreshnessError, ResourceGeneration,
 };
 pub use frontier::{FrontierError, VersionFrontier};
-pub use guard::{BooleanGuard, GuardBindingError, GuardScope, GuardedResourceSpec};
+pub use guard::{
+    BooleanGuard, GuardBindingError, GuardFactSource, GuardScope, GuardedResourceSpec,
+    TransitionGuard,
+};
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
