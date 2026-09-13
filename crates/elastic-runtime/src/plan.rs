@@ -77,6 +77,17 @@ impl InvariantCheck {
     }
 }
 
+/// Whether `invariant` applies to `candidate` under the runtime validation
+/// contract.
+pub(crate) fn invariant_applies_to_candidate(
+    invariant: &Invariant,
+    candidate: &TransitionCandidate,
+) -> bool {
+    invariant
+        .scope()
+        .is_none_or(|scope| scope == candidate.dimension())
+}
+
 /// Validate a plan from explicit trusted invariant checks.
 ///
 /// A plan is validated only when it contains a declared, capability-grounded
@@ -93,11 +104,11 @@ pub fn validate_with_checks(plan: Plan, invariant_checks: Vec<InvariantCheck>) -
         return ValidatedPlan::new(plan, invariant_checks, false);
     }
 
-    let applicable_invariants = plan.resource.invariants().iter().filter(|invariant| {
-        invariant
-            .scope()
-            .is_none_or(|scope| scope == candidate.dimension())
-    });
+    let applicable_invariants = plan
+        .resource
+        .invariants()
+        .iter()
+        .filter(|invariant| invariant_applies_to_candidate(invariant, candidate));
 
     let validated = applicable_invariants.clone().all(|invariant| {
         invariant_checks
