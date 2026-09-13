@@ -476,12 +476,8 @@ fn collect_conjunction(
         },
         BoolExpr::All(expressions) => {
             for expression in expressions {
-                if !collect_conjunction(
-                    expression,
-                    required_true,
-                    required_false,
-                    constant_false,
-                )? {
+                if !collect_conjunction(expression, required_true, required_false, constant_false)?
+                {
                     return Ok(false);
                 }
             }
@@ -599,7 +595,10 @@ mod tests {
         let expression = BoolExpr::all([BoolExpr::Const(false), BoolExpr::atom(A)]);
         let guard = CompiledGuard::compile(&expression).unwrap();
         assert!(guard.is_contradictory());
-        assert_eq!(expression.evaluate(&FactSet::new()).unwrap(), TruthValue::False);
+        assert_eq!(
+            expression.evaluate(&FactSet::new()).unwrap(),
+            TruthValue::False
+        );
         assert_eq!(guard.evaluate(&FactSet::new()).unwrap(), TruthValue::False);
     }
 
