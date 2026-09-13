@@ -9,7 +9,9 @@
 //! - `ResourceSpec` describes what may change and what must be preserved;
 //! - EIR lowering produces a validated, fingerprinted IR node;
 //! - observers produce explicit telemetry evidence;
-//! - forecasters project that evidence without fabricating unavailable facts;
+//! - Boolean fact derivation maps explicit telemetry/capability evidence into
+//!   fail-closed three-valued predicate snapshots;
+//! - forecasters project evidence without fabricating unavailable facts;
 //! - `TransitionPlanner` proposals flow through the planning contract;
 //! - adapters provide the trusted boundary for physical effects;
 //! - the control loop coordinates one-shot or bounded periodic evaluation.
@@ -29,6 +31,7 @@ pub mod controller;
 pub mod error;
 pub mod events;
 pub mod evidence;
+pub mod fact_derivation;
 pub mod forecast;
 pub mod forecast_runtime;
 pub mod model_execution_contracts;
@@ -65,6 +68,12 @@ pub use evidence::{
     EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
     MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
     MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+};
+pub use fact_derivation::{
+    observation_source_for, CapabilityPredicate, FactDerivationError, FactFreshnessError,
+    FactResourceBinding, FactSnapshot, FactSourceId, ObservationFreshnessPredicate,
+    ObservationPresencePredicate, ObservationThresholdPredicate, PredicateEvaluationInput,
+    PredicateEvaluator, ThresholdComparison, MAX_FACTS_PER_SNAPSHOT, MAX_FACT_SOURCE_ID_BYTES,
 };
 pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastStatus, Forecaster};
 pub use forecast_runtime::{
