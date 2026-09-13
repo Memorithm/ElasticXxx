@@ -258,9 +258,10 @@ pub fn precheck_plan_invariants(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plan::{plan_with_context, validate_with_checks};
     use crate::{
-        plan_with_context, validate_with_checks, CapabilityPredicate, FactResourceBinding,
-        FactSourceId, ObservationSnapshot, PredicateEvaluationInput,
+        CapabilityPredicate, FactResourceBinding, FactSourceId, ObservationSnapshot,
+        PredicateEvaluationInput,
     };
     use elastic_core::resource::{
         AdmissibleTransition, CapabilityRequirement, DimensionId, InvariantKind, ResourceClassId,
