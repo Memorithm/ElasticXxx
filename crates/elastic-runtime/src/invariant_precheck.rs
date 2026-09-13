@@ -134,9 +134,9 @@ impl fmt::Display for InvariantPrecheckError {
             Self::DuplicateBinding { invariant } => {
                 write!(f, "invariant {invariant} has more than one Boolean binding")
             }
-            Self::MissingResourceBinding => f.write_str(
-                "invariant Boolean precheck requires a resource-bound fact snapshot",
-            ),
+            Self::MissingResourceBinding => {
+                f.write_str("invariant Boolean precheck requires a resource-bound fact snapshot")
+            }
             Self::ResourceBindingMismatch {
                 snapshot,
                 requested,
@@ -241,10 +241,7 @@ pub fn precheck_plan_invariants(
         }
     }
 
-    let status = if entries
-        .iter()
-        .any(|entry| entry.truth == TruthValue::False)
-    {
+    let status = if entries.iter().any(|entry| entry.truth == TruthValue::False) {
         InvariantPrecheckStatus::Rejected
     } else if entries
         .iter()
@@ -393,7 +390,8 @@ mod tests {
     fn dimension_scoped_invariant_uses_same_applicability_as_trusted_validation() {
         let resource_id = LogicalResourceId::new("invariant-scope").unwrap();
         let global = Invariant::new(InvariantKind::PreserveContents);
-        let residency = Invariant::new(InvariantKind::PreserveIdentity).along(DimensionId::RESIDENCY);
+        let residency =
+            Invariant::new(InvariantKind::PreserveIdentity).along(DimensionId::RESIDENCY);
         let spec = ResourceSpec::builder(ResourceClassId::CAPACITY_RESOURCE, resource_id.clone())
             .allow(DimensionId::CAPACITY)
             .allow(DimensionId::RESIDENCY)
@@ -437,10 +435,8 @@ mod tests {
         assert_eq!(report.status(), InvariantPrecheckStatus::Passed);
         assert_eq!(report.entries().len(), 1);
 
-        let validated = validate_with_checks(
-            plan,
-            vec![crate::InvariantCheck::new(global, true, None)],
-        );
+        let validated =
+            validate_with_checks(plan, vec![crate::InvariantCheck::new(global, true, None)]);
         assert!(validated.validated);
     }
 }
