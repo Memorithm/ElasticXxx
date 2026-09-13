@@ -49,20 +49,27 @@ pub use elastic_core::resource::{
 pub use elastic_core::{
     BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard, FactMask,
     FactSet, GuardBindingError, GuardFactSource, GuardScope, GuardedResourceSpec,
-    InvariantPredicateBinding, LogicError, PredicateComponent, PredicateComponentError, PredicateId,
-    PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard, TransitionMechanism,
-    TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1, BOOLEAN_PREDICATE_SCHEMA_V1,
+    InvariantPredicateBinding, LogicError, PredicateComponent, PredicateComponentError,
+    PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard,
+    TransitionMechanism, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1, BOOLEAN_PREDICATE_SCHEMA_V1,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_CANONICAL_EXPRESSION_NODES,
     MAX_PREDICATE_COMPONENT_BYTES, MAX_REGISTERED_PREDICATES,
 };
 pub use elastic_eir::{
-    evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates,
-    EirDocument, EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirResource,
-    Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome, PlanningContext,
+    evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
+    EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirResource, Fingerprint,
+    FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome, PlanningContext,
     RejectedTransition, TransitionCandidate, TransitionPlanner, TransitionPruningReport,
     UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
 };
 pub use elastic_macros::ElasticResource;
+pub use elastic_runtime::{
+    capture_decision_trace, fact_snapshot_fingerprint, observation_source_for,
+    precheck_plan_invariants, EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError,
+    EvidenceEvent, EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1,
+    MAX_EVIDENCE_BYTES, MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS,
+    MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+};
 pub use elastic_runtime::{
     Actuation, BooleanGuardPlanner, BooleanGuardPreplanner, Cadence, CadenceConfig,
     CancellationToken, CandidateDecisionTrace, CapabilityPredicate, CommitRecord,
@@ -103,14 +110,6 @@ pub use elastic_runtime::{
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
     MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
     OPERATOR_CONFIG_VERSION,
-};
-pub use elastic_runtime::{
-    capture_decision_trace, fact_snapshot_fingerprint, observation_source_for,
-    precheck_plan_invariants, EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError,
-    EvidenceEvent, EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1,
-    MAX_EVIDENCE_BYTES, MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH,
-    MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES,
-    MAX_EVIDENCE_STRING_BYTES,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
