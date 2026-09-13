@@ -354,45 +354,44 @@ pub struct CompiledGuard {
     required_true: FactMask,
     required_false: FactMask,
     fallback: Option<BoolExpr>,
-    contradiction: bool,
+    constant_false: bool,
 }
 
 impl CompiledGuard {
-    /// Compile an expression without changing its truth semantics.
+    /// Compile an expression without changing its three-valued truth semantics.
     pub fn compile(expression: &BoolExpr) -> Result<Self, LogicError> {
         expression.validate_predicates(0)?;
 
         let mut required_true = FactMask::empty();
         let mut required_false = FactMask::empty();
-        let mut contradiction = false;
+        let mut constant_false = false;
         let fast_path = collect_conjunction(
             expression,
             &mut required_true,
             &mut required_false,
-            &mut contradiction,
+            &mut constant_false,
         )?;
 
         if fast_path {
-            contradiction |= required_true.intersects(required_false);
             Ok(Self {
                 required_true,
                 required_false,
                 fallback: None,
-                contradiction,
+                constant_false,
             })
         } else {
             Ok(Self {
                 required_true: FactMask::empty(),
                 required_false: FactMask::empty(),
                 fallback: Some(expression.clone()),
-                contradiction: false,
+                constant_false: false,
             })
         }
     }
 
-    /// Evaluate the compiled guard.
+    /// Evaluate the compiled guard with semantics identical to [`BoolExpr`].
     pub fn evaluate(&self, facts: &FactSet) -> Result<TruthValue, LogicError> {
-        if self.contradiction {
+        if self.constant_false {
             return Ok(TruthValue::False);
         }
         if let Some(expression) = &self.fallback {
@@ -432,10 +431,16 @@ impl CompiledGuard {
         self.required_false
     }
 
-    /// Whether static compilation proved the conjunction contradictory.
+    /// Whether this fast-path conjunction can never evaluate to `True`.
+    ///
+    /// Opposing requirements such as `A && !A` are unsatisfiable as an
+    /// eligibility condition, but still evaluate to [`TruthValue::Unknown`]
+    /// while `A` itself is unknown. This method reports the structural
+    /// impossibility of a `True` result without collapsing `Unknown` to
+    /// `False`.
     #[must_use]
     pub const fn is_contradictory(&self) -> bool {
-        self.contradiction
+        self.constant_false || self.required_true.intersects(self.required_false)
     }
 }
 
@@ -450,12 +455,12 @@ fn collect_conjunction(
     expression: &BoolExpr,
     required_true: &mut FactMask,
     required_false: &mut FactMask,
-    contradiction: &mut bool,
+    constant_false: &mut bool,
 ) -> Result<bool, LogicError> {
     match expression {
         BoolExpr::Const(true) => Ok(true),
         BoolExpr::Const(false) => {
-            *contradiction = true;
+            *constant_false = true;
             Ok(true)
         }
         BoolExpr::Atom(id) => {
@@ -471,7 +476,12 @@ fn collect_conjunction(
         },
         BoolExpr::All(expressions) => {
             for expression in expressions {
-                if !collect_conjunction(expression, required_true, required_false, contradiction)? {
+                if !collect_conjunction(
+                    expression,
+                    required_true,
+                    required_false,
+                    constant_false,
+                )? {
                     return Ok(false);
                 }
             }
@@ -487,6 +497,7 @@ mod tests {
 
     const A: PredicateId = PredicateId::new(0);
     const B: PredicateId = PredicateId::new(1);
+    const VALUES: [TruthValue; 3] = [TruthValue::True, TruthValue::False, TruthValue::Unknown];
 
     #[test]
     fn strong_kleene_truth_tables_preserve_unknown() {
@@ -542,10 +553,53 @@ mod tests {
     }
 
     #[test]
-    fn contradictory_fast_path_is_rejected_without_runtime_guessing() {
+    fn opposing_requirements_preserve_unknown_semantics() {
         let expression = BoolExpr::all([BoolExpr::atom(A), BoolExpr::negate(BoolExpr::atom(A))]);
         let guard = CompiledGuard::compile(&expression).unwrap();
         assert!(guard.is_contradictory());
+
+        let unknown = FactSet::new();
+        assert_eq!(expression.evaluate(&unknown).unwrap(), TruthValue::Unknown);
+        assert_eq!(guard.evaluate(&unknown).unwrap(), TruthValue::Unknown);
+
+        for value in [TruthValue::True, TruthValue::False] {
+            let facts = FactSet::new().with(A, value).unwrap();
+            assert_eq!(expression.evaluate(&facts).unwrap(), TruthValue::False);
+            assert_eq!(guard.evaluate(&facts).unwrap(), TruthValue::False);
+        }
+    }
+
+    #[test]
+    fn mask_fast_path_is_exhaustively_equivalent_on_two_atoms() {
+        let expressions = [
+            BoolExpr::all([BoolExpr::atom(A), BoolExpr::atom(B)]),
+            BoolExpr::all([BoolExpr::atom(A), BoolExpr::negate(BoolExpr::atom(B))]),
+            BoolExpr::all([BoolExpr::negate(BoolExpr::atom(A)), BoolExpr::atom(B)]),
+            BoolExpr::all([BoolExpr::atom(A), BoolExpr::negate(BoolExpr::atom(A))]),
+        ];
+
+        for expression in expressions {
+            let guard = CompiledGuard::compile(&expression).unwrap();
+            assert!(guard.uses_mask_fast_path());
+            for a in VALUES {
+                for b in VALUES {
+                    let facts = FactSet::new().with(A, a).unwrap().with(B, b).unwrap();
+                    assert_eq!(
+                        guard.evaluate(&facts).unwrap(),
+                        expression.evaluate(&facts).unwrap(),
+                        "compiled and generic semantics diverged for A={a:?}, B={b:?}, expression={expression:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn explicit_false_constant_remains_false_with_unknown_facts() {
+        let expression = BoolExpr::all([BoolExpr::Const(false), BoolExpr::atom(A)]);
+        let guard = CompiledGuard::compile(&expression).unwrap();
+        assert!(guard.is_contradictory());
+        assert_eq!(expression.evaluate(&FactSet::new()).unwrap(), TruthValue::False);
         assert_eq!(guard.evaluate(&FactSet::new()).unwrap(), TruthValue::False);
     }
 
