@@ -276,11 +276,7 @@ impl BoolExpr {
         self.evaluate_at_depth(facts, 0)
     }
 
-    fn evaluate_at_depth(
-        &self,
-        facts: &FactSet,
-        depth: usize,
-    ) -> Result<TruthValue, LogicError> {
+    fn evaluate_at_depth(&self, facts: &FactSet, depth: usize) -> Result<TruthValue, LogicError> {
         if depth > MAX_BOOLEAN_EXPR_DEPTH {
             return Err(LogicError::ExpressionTooDeep {
                 max_depth: MAX_BOOLEAN_EXPR_DEPTH,
@@ -475,12 +471,7 @@ fn collect_conjunction(
         },
         BoolExpr::All(expressions) => {
             for expression in expressions {
-                if !collect_conjunction(
-                    expression,
-                    required_true,
-                    required_false,
-                    contradiction,
-                )? {
+                if !collect_conjunction(expression, required_true, required_false, contradiction)? {
                     return Ok(false);
                 }
             }
@@ -560,10 +551,8 @@ mod tests {
 
     #[test]
     fn complex_expression_uses_generic_semantics() {
-        let expression = BoolExpr::Implies(
-            Box::new(BoolExpr::atom(A)),
-            Box::new(BoolExpr::atom(B)),
-        );
+        let expression =
+            BoolExpr::Implies(Box::new(BoolExpr::atom(A)), Box::new(BoolExpr::atom(B)));
         let guard = CompiledGuard::compile(&expression).unwrap();
         assert!(!guard.uses_mask_fast_path());
 
