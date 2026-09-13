@@ -7,9 +7,7 @@
 
 use crate::{FactFreshnessError, FactSnapshot};
 use elastic_core::{FreshnessSnapshot, LogicError};
-use elastic_eir::{
-    prune_transition_candidates, EirGuardedResource, TransitionPruningReport,
-};
+use elastic_eir::{prune_transition_candidates, EirGuardedResource, TransitionPruningReport};
 use std::fmt;
 
 /// Failures that prevent Boolean candidate pruning from producing a trustworthy
@@ -120,7 +118,8 @@ mod tests {
             BoolExpr::atom(predicate_id),
         )
         .unwrap();
-        let resource = lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
+        let resource =
+            lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
 
         let now = Instant::now();
         let context = PlanningContext::new();
