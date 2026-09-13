@@ -74,8 +74,8 @@ pub fn public_evidence_surface_smoke() {
     let _bounded_ingest_limit = MAX_EVIDENCE_BYTES;
 }
 
-/// Compile-time and semantic proof that Boolean guards are reachable through
-/// the public facade without importing `elastic-core` directly.
+/// Compile-time and semantic proof that the low-level Boolean primitives remain
+/// reachable through the public facade without importing `elastic-core`.
 pub fn public_boolean_surface_smoke() {
     let capacity_ok = PredicateId::new(0);
     let pressure_critical = PredicateId::new(1);
@@ -99,6 +99,47 @@ pub fn public_boolean_surface_smoke() {
     );
 }
 
+/// Compile-time and semantic proof that stable-key guarded EIR can be authored
+/// through only the public `elastic` dependency.
+pub fn public_stable_guard_surface_smoke() {
+    let capacity_ok = predicate("elastic.downstream", "capacity-ok").unwrap();
+    let pressure_critical = predicate("elastic.downstream", "pressure-critical").unwrap();
+    let predicates =
+        ElasticPredicates::new([capacity_ok.clone(), pressure_critical.clone()]).unwrap();
+    let expression = ElasticGuard::all([
+        predicates.atom(&capacity_ok).unwrap(),
+        ElasticGuard::not(predicates.atom(&pressure_critical).unwrap()),
+    ]);
+    let guard = ElasticGuard::transition(
+        TransitionMechanism::Reinterpret,
+        DimensionId::CAPACITY,
+        predicates,
+    )
+    .when(expression)
+    .unwrap();
+
+    let resource = ResourceSpec::builder(
+        ResourceClassId::CAPACITY_RESOURCE,
+        LogicalResourceId::new("downstream-guarded-ram").unwrap(),
+    )
+    .allow(DimensionId::CAPACITY)
+    .admit(AdmissibleTransition::new(
+        TransitionMechanism::Reinterpret,
+        DimensionId::CAPACITY,
+    ))
+    .require_capability(CapabilityRequirement::new(
+        TransitionMechanism::Reinterpret,
+        DimensionId::CAPACITY,
+    ))
+    .build()
+    .unwrap();
+    let guarded = GuardedResourceSpec::new(resource, vec![guard]).unwrap();
+    let eir = lower_guarded(&guarded).unwrap();
+
+    assert_eq!(eir.guards().len(), 1);
+    assert!(eir.resource().transitions()[0].capability_grounded());
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,5 +156,6 @@ mod tests {
         public_surface_smoke();
         public_evidence_surface_smoke();
         public_boolean_surface_smoke();
+        public_stable_guard_surface_smoke();
     }
 }
