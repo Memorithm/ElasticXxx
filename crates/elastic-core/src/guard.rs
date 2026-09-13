@@ -248,7 +248,7 @@ mod tests {
 
     fn resource() -> ResourceSpec {
         ResourceSpec::builder(
-            ResourceClassId::MEMORY,
+            ResourceClassId::CAPACITY_RESOURCE,
             LogicalResourceId::new("guarded-memory").unwrap(),
         )
         .allow(DimensionId::CAPACITY)
