@@ -8,11 +8,21 @@
 #![forbid(unsafe_code)]
 
 pub mod benchmark;
+pub mod stage_b;
 
 pub use benchmark::{
     run_fixed_baseline, BenchmarkError, BenchmarkResult, BlockBenchmarkResult, CandidateId,
     ReconstructionMetrics, RepresentationFamily, SyntheticCorpus, BENCHMARK_PROTOCOL_VERSION,
     FIXED_CANDIDATES, RESIDENT_ALIGNMENT_BITS, SERIALIZED_ALIGNMENT_BITS,
+};
+
+pub use stage_b::{
+    authorize_allocator, authorize_partition_access, dry_run_fixed_baseline_campaign,
+    load_stage_b_preregistration, run_stage_b_dry_run, CandidateAdmission, MetricStatus,
+    StageBBaselineFamily, StageBCandidatePlan, StageBDryRunReport, StageBError, StageBPartition,
+    StageBPreregistration, PINNED_DATASET_REVISION, PINNED_MODEL_REVISION, PINNED_MODEL_SHA256,
+    PINNED_NNIS_REVISION, PINNED_TOKENIZER_SHA256, STAGE_B_FIXED_CANDIDATE_SLATE,
+    STAGE_B_MEASUREMENT_SCHEMA, STAGE_B_PREREGISTRATION_SCHEMA,
 };
 
 use elastic_core::{
