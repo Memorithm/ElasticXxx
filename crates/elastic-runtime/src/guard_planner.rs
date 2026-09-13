@@ -163,9 +163,11 @@ fn preplanning_block(
             if report.contains_eligible(*mechanism, dimension) {
                 return None;
             }
-            if report.unknown().iter().any(|entry| {
-                candidate_matches(entry.candidate(), *mechanism, dimension)
-            }) {
+            if report
+                .unknown()
+                .iter()
+                .any(|entry| candidate_matches(entry.candidate(), *mechanism, dimension))
+            {
                 Some(PlanOutcome::InsufficientEvidence {
                     detail: format!(
                         "Boolean eligibility for {}@{} is unknown",
@@ -180,17 +182,16 @@ fn preplanning_block(
     }
 }
 
-fn filter_planner_outcome(
-    outcome: PlanOutcome,
-    report: &TransitionPruningReport,
-) -> PlanOutcome {
+fn filter_planner_outcome(outcome: PlanOutcome, report: &TransitionPruningReport) -> PlanOutcome {
     let PlanOutcome::Candidate(candidate) = outcome else {
         return outcome;
     };
 
-    if report.eligible().iter().any(|eligible| {
-        same_transition(eligible, &candidate)
-    }) {
+    if report
+        .eligible()
+        .iter()
+        .any(|eligible| same_transition(eligible, &candidate))
+    {
         return PlanOutcome::Candidate(candidate);
     }
 
@@ -255,9 +256,7 @@ mod tests {
         ObservationSignalId::custom(name).unwrap()
     }
 
-    fn fixture(
-        guard_value: Option<bool>,
-    ) -> (EirGuardedResource, FactSnapshot, FreshnessSnapshot) {
+    fn fixture(guard_value: Option<bool>) -> (EirGuardedResource, FactSnapshot, FreshnessSnapshot) {
         let resource_id = LogicalResourceId::new("guarded-numeric-capacity").unwrap();
         let spec = ResourceSpec::builder(ResourceClassId::CAPACITY_RESOURCE, resource_id.clone())
             .allow(DimensionId::CAPACITY)
@@ -284,8 +283,7 @@ mod tests {
             BoolExpr::atom(predicate_id),
         )
         .unwrap();
-        let guarded =
-            lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
+        let guarded = lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
 
         let now = Instant::now();
         let observations = ObservationSnapshot::new(now, Vec::new());
@@ -363,7 +361,9 @@ mod tests {
             resource
                 .transitions()
                 .first()
-                .map(|admitted| PlanOutcome::Candidate(TransitionCandidate::from_admitted(admitted)))
+                .map(|admitted| {
+                    PlanOutcome::Candidate(TransitionCandidate::from_admitted(admitted))
+                })
                 .unwrap_or(PlanOutcome::Unsupported)
         }
     }
@@ -374,12 +374,7 @@ mod tests {
         let calls = Cell::new(0);
         let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
         let outcome = planner
-            .propose_transition_with_context(
-                &resource,
-                &threshold_context(),
-                &facts,
-                &freshness,
-            )
+            .propose_transition_with_context(&resource, &threshold_context(), &facts, &freshness)
             .unwrap();
         assert_eq!(outcome, PlanOutcome::NoCandidate);
         assert_eq!(calls.get(), 0);
@@ -391,12 +386,7 @@ mod tests {
         let calls = Cell::new(0);
         let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
         let outcome = planner
-            .propose_transition_with_context(
-                &resource,
-                &threshold_context(),
-                &facts,
-                &freshness,
-            )
+            .propose_transition_with_context(&resource, &threshold_context(), &facts, &freshness)
             .unwrap();
         assert!(matches!(outcome, PlanOutcome::InsufficientEvidence { .. }));
         assert_eq!(calls.get(), 0);
