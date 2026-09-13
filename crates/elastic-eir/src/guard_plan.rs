@@ -423,14 +423,14 @@ mod tests {
             (keys[2].clone(), TruthValue::True),
         ]);
         let report = prune_transition_candidates(&resource, &facts).unwrap();
-        assert_eq!(report.total_classified(), resource.resource().transitions().len());
+        assert_eq!(
+            report.total_classified(),
+            resource.resource().transitions().len()
+        );
         assert!(report.eligible().is_empty());
         assert_eq!(report.rejected().len(), 1);
         assert!(report.unknown().is_empty());
-        assert!(!report.contains_eligible(
-            TransitionMechanism::Reinterpret,
-            &DimensionId::CAPACITY
-        ));
+        assert!(!report.contains_eligible(TransitionMechanism::Reinterpret, &DimensionId::CAPACITY));
     }
 
     #[test]
