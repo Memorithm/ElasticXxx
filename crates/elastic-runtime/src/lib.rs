@@ -11,6 +11,8 @@
 //! - observers produce explicit telemetry evidence;
 //! - Boolean fact derivation maps explicit telemetry/capability evidence into
 //!   fail-closed three-valued predicate snapshots;
+//! - Boolean preplanning rejects stale facts and prunes ineligible candidates
+//!   before numeric planning;
 //! - forecasters project evidence without fabricating unavailable facts;
 //! - `TransitionPlanner` proposals flow through the planning contract;
 //! - adapters provide the trusted boundary for physical effects;
@@ -34,6 +36,7 @@ pub mod evidence;
 pub mod fact_derivation;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod guard_preplanner;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
 pub mod model_execution_evidence;
@@ -80,6 +83,7 @@ pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
 };
+pub use guard_preplanner::{BooleanGuardPreplanner, GuardPreplannerError};
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
