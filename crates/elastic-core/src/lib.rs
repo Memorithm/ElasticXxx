@@ -25,6 +25,7 @@ pub mod canonical;
 pub mod control;
 pub mod frontier;
 pub mod guard;
+pub mod invariant_predicate;
 pub mod logic;
 pub mod predicate;
 pub mod representation;
@@ -43,6 +44,7 @@ pub use guard::{
     BooleanGuard, GuardBindingError, GuardFactSource, GuardScope, GuardedResourceSpec,
     TransitionGuard,
 };
+pub use invariant_predicate::InvariantPredicateBinding;
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
