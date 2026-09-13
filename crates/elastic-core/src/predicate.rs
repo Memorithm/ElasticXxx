@@ -276,9 +276,10 @@ mod tests {
     #[test]
     fn registry_capacity_applies_after_deduplication() {
         let repeated = key("elastic.test", "same");
-        let registry = PredicateRegistry::from_keys(
-            std::iter::repeat_n(repeated, MAX_REGISTERED_PREDICATES + 1),
-        )
+        let registry = PredicateRegistry::from_keys(std::iter::repeat_n(
+            repeated,
+            MAX_REGISTERED_PREDICATES + 1,
+        ))
         .unwrap();
         assert_eq!(registry.len(), 1);
     }
