@@ -122,7 +122,7 @@ execution_order:
 phases:
   - id: BE0
     name: bootstrap_and_contract_freeze
-    status: active
+    status: completed
     deliverables:
       - canonical_roadmap_on_agent_branch
       - ElasticXxx_AGENTS_mandatory_pointer
@@ -132,10 +132,14 @@ phases:
     exit_criteria:
       - every_relevant_agent_bootstrap_points_to_this_program_or_local_overlay
       - no_cross_repo_ownership_ambiguity_remains
+    evidence:
+      - ElasticXxx_PR_80_merged_a46f9c7485036bf7d9d8cd523326759e5493a868
+      - BooleanLab_PR_57_merged_78de02b51c832002ea0839c7157a0d4ba2a25ce7
+      - TDI_PR_223_merged_9b5fd346264c7be655ddd33e948a46a4852f48e8
 
   - id: BE1
     name: dependency_free_boolean_core
-    status: active
+    status: completed
     target_crate: elastic-core
     deliverables:
       - TruthValue_True_False_Unknown
@@ -158,10 +162,18 @@ phases:
       - exact_PR_head_green
       - no_new_dependency_in_elastic-core
       - downstream_can_use_API_through_elastic_only
+    evidence:
+      - PR_80_exact_head_2a30b5069c61f1b405a60b83d6aa21cded0fedda
+      - ci_run_315_success
+      - packageability_run_13_success
+      - continuous_hardening_run_16_success
+      - merge_a46f9c7485036bf7d9d8cd523326759e5493a868
+      - exhaustive_two_predicate_fast_path_equivalence_over_3x3_truth_assignments
+      - tri_state_A_and_not_A_regression_preserves_Unknown
 
   - id: BE2
     name: canonicalization_and_stable_identity
-    status: planned
+    status: active
     target_crates:
       - elastic-core
       - elastic-eir
@@ -493,8 +505,11 @@ merge_protocol:
   - immediately_select_next_unblocked_phase
 
 current_execution:
-  active_branch: feat/boolean-decision-core
-  active_phase: BE1
+  active_branch: pending_BE2_branch_from_main
+  active_phase: BE2
+  last_completed_phase: BE1
+  last_merged_pr: 80
+  last_merge_sha: a46f9c7485036bf7d9d8cd523326759e5493a868
   implemented_so_far:
     - TruthValue_strong_Kleene_semantics
     - PredicateId
@@ -502,6 +517,11 @@ current_execution:
     - FactSet
     - bounded_BoolExpr
     - CompiledGuard_u64_fast_path
-    - simple_contradiction_detection
-    - facade_export_work_in_progress
-  evidence_status: CI_not_yet_verified
+    - structural_contradiction_detection_without_collapsing_Unknown
+    - exhaustive_two_predicate_fast_path_equivalence_tests
+    - public_facade_reexports
+    - elastic_downstream_single_dependency_guard
+    - ElasticXxx_Boolean_bootstrap_pointer
+    - BooleanLab_bootstrap_merged
+    - TDI_Boolean_integration_bootstrap_merged
+  evidence_status: BE1_green_merged_BE2_active
