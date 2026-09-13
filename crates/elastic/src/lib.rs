@@ -43,7 +43,10 @@ pub use elastic_core::resource::{
     LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId, ResourceSpec,
     ResourceSpecBuilder, ResourceSpecError,
 };
-pub use elastic_core::TransitionMechanism;
+pub use elastic_core::{
+    BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TransitionMechanism,
+    TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+};
 pub use elastic_eir::{
     lower, EirDocument, EirDocumentBuilder, EirResource, Fingerprint, FirstGroundedPlanner,
     PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
@@ -131,7 +134,10 @@ pub mod prelude {
         InvariantKind, LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId,
         ResourceSpec, ResourceSpecError,
     };
-    pub use elastic_core::TransitionMechanism;
+    pub use elastic_core::{
+        BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TransitionMechanism,
+        TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+    };
     pub use elastic_eir::{
         lower, EirDocument, EirResource, Fingerprint, FirstGroundedPlanner, TransitionPlanner,
     };

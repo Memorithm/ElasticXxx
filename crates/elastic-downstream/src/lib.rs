@@ -74,6 +74,31 @@ pub fn public_evidence_surface_smoke() {
     let _bounded_ingest_limit = MAX_EVIDENCE_BYTES;
 }
 
+/// Compile-time and semantic proof that Boolean guards are reachable through
+/// the public facade without importing `elastic-core` directly.
+pub fn public_boolean_surface_smoke() {
+    let capacity_ok = PredicateId::new(0);
+    let pressure_critical = PredicateId::new(1);
+    let expression = BoolExpr::all([
+        BoolExpr::atom(capacity_ok),
+        BoolExpr::negate(BoolExpr::atom(pressure_critical)),
+    ]);
+    let guard = CompiledGuard::compile(&expression).expect("bounded guard should compile");
+    let facts = FactSet::new()
+        .with(capacity_ok, TruthValue::True)
+        .expect("predicate is in range")
+        .with(pressure_critical, TruthValue::False)
+        .expect("predicate is in range");
+
+    assert!(guard.uses_mask_fast_path());
+    assert_eq!(
+        guard
+            .evaluate(&facts)
+            .expect("guard evaluation should succeed"),
+        TruthValue::True
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -89,5 +114,6 @@ mod tests {
 
         public_surface_smoke();
         public_evidence_surface_smoke();
+        public_boolean_surface_smoke();
     }
 }
