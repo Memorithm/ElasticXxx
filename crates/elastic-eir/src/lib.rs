@@ -105,7 +105,10 @@ pub use fingerprint::Fingerprint;
 pub use guard::{
     lower_guarded, EirGuard, EirGuardedResource, EirPredicate, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
 };
-pub use guard_plan::{evaluate_transition_guards, GuardedTransitionOutcome};
+pub use guard_plan::{
+    evaluate_transition_guards, prune_transition_candidates, GuardedTransitionOutcome,
+    RejectedTransition, TransitionPruningReport, UnknownTransition,
+};
 pub use plan::{
     FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
 };

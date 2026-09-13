@@ -1,4 +1,4 @@
-//! Fail-closed transition eligibility over guarded EIR.
+//! Fail-closed transition eligibility and candidate pruning over guarded EIR.
 //!
 //! Guard evaluation is a pre-planning filter. It can reject an admitted
 //! transition or report insufficient evidence, but it cannot manufacture a
@@ -7,7 +7,9 @@
 
 use crate::resource::AdmittedTransition;
 use crate::{EirGuard, EirGuardedResource, TransitionCandidate};
-use elastic_core::{FactSet, GuardFactSource, GuardScope, LogicError, TruthValue};
+use elastic_core::{
+    FactSet, GuardFactSource, GuardScope, LogicError, TransitionMechanism, TruthValue,
+};
 
 /// Result of applying all Boolean guards relevant to one admitted transition.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +45,113 @@ impl GuardedTransitionOutcome {
     #[must_use]
     pub fn is_eligible(&self) -> bool {
         matches!(self, Self::Eligible(_))
+    }
+}
+
+/// One transition eliminated by an explicit false guard.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RejectedTransition {
+    candidate: TransitionCandidate,
+    failed_scope: GuardScope,
+}
+
+impl RejectedTransition {
+    /// Candidate removed from later numeric planning.
+    #[must_use]
+    pub const fn candidate(&self) -> &TransitionCandidate {
+        &self.candidate
+    }
+
+    /// First deterministic scope that evaluated to `False`.
+    #[must_use]
+    pub const fn failed_scope(&self) -> &GuardScope {
+        &self.failed_scope
+    }
+}
+
+/// One transition retained as unknown rather than incorrectly accepted or
+/// rejected.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownTransition {
+    candidate: TransitionCandidate,
+    unknown_scopes: Vec<GuardScope>,
+    capability_grounded: bool,
+}
+
+impl UnknownTransition {
+    /// Candidate for which current evidence is insufficient.
+    #[must_use]
+    pub const fn candidate(&self) -> &TransitionCandidate {
+        &self.candidate
+    }
+
+    /// Applicable guard scopes whose result is `Unknown`.
+    #[must_use]
+    pub fn unknown_scopes(&self) -> &[GuardScope] {
+        &self.unknown_scopes
+    }
+
+    /// Whether the declaration has a matching required capability path.
+    #[must_use]
+    pub const fn capability_grounded(&self) -> bool {
+        self.capability_grounded
+    }
+}
+
+/// Deterministic partition of the resource's declared transition set.
+///
+/// Each declared admission is classified exactly once into `eligible`,
+/// `rejected`, or `unknown`. Entries preserve the canonical order of
+/// [`crate::EirResource::transitions`] within each partition. This report is
+/// deliberately not an optimizer: callers rank only `eligible` candidates.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TransitionPruningReport {
+    eligible: Vec<TransitionCandidate>,
+    rejected: Vec<RejectedTransition>,
+    unknown: Vec<UnknownTransition>,
+}
+
+impl TransitionPruningReport {
+    /// Candidates permitted to reach later numeric ranking.
+    #[must_use]
+    pub fn eligible(&self) -> &[TransitionCandidate] {
+        &self.eligible
+    }
+
+    /// Candidates removed by explicit false guards.
+    #[must_use]
+    pub fn rejected(&self) -> &[RejectedTransition] {
+        &self.rejected
+    }
+
+    /// Candidates blocked by missing evidence or missing capability grounding.
+    #[must_use]
+    pub fn unknown(&self) -> &[UnknownTransition] {
+        &self.unknown
+    }
+
+    /// Number of declared admissions classified by this report.
+    #[must_use]
+    pub fn total_classified(&self) -> usize {
+        self.eligible.len() + self.rejected.len() + self.unknown.len()
+    }
+
+    /// Whether an eligible transition matches this mechanism/dimension pair.
+    #[must_use]
+    pub fn contains_eligible(
+        &self,
+        mechanism: TransitionMechanism,
+        dimension: &elastic_core::resource::DimensionId,
+    ) -> bool {
+        self.eligible.iter().any(|candidate| {
+            candidate.mechanism() == mechanism && candidate.dimension() == dimension
+        })
+    }
+
+    /// First eligible candidate in canonical admission order.
+    #[must_use]
+    pub fn first_eligible(&self) -> Option<&TransitionCandidate> {
+        self.eligible.first()
     }
 }
 
@@ -107,6 +216,48 @@ pub fn evaluate_transition_guards(
     }
 }
 
+/// Classify every declared transition before any numeric objective ranking.
+///
+/// The output is a partition of the existing admitted set. It can only shrink
+/// the set reaching later planning and never constructs candidates from
+/// external mechanism/dimension pairs.
+///
+/// # Errors
+///
+/// Returns [`LogicError`] if one internally validated predicate table cannot be
+/// materialized into the compact fact representation.
+pub fn prune_transition_candidates(
+    resource: &EirGuardedResource,
+    source: &impl GuardFactSource,
+) -> Result<TransitionPruningReport, LogicError> {
+    let mut report = TransitionPruningReport::default();
+    for admitted in resource.resource().transitions() {
+        match evaluate_transition_guards(resource, admitted, source)? {
+            GuardedTransitionOutcome::Eligible(candidate) => report.eligible.push(candidate),
+            GuardedTransitionOutcome::Rejected {
+                candidate,
+                failed_scope,
+            } => report.rejected.push(RejectedTransition {
+                candidate,
+                failed_scope,
+            }),
+            GuardedTransitionOutcome::InsufficientEvidence {
+                candidate,
+                unknown_scopes,
+                capability_grounded,
+            } => report.unknown.push(UnknownTransition {
+                candidate,
+                unknown_scopes,
+                capability_grounded,
+            }),
+            GuardedTransitionOutcome::NotDeclared => {
+                unreachable!("resource-owned admission must be declared in the same resource")
+            }
+        }
+    }
+    Ok(report)
+}
+
 fn evaluate_eir_guard(
     guard: &EirGuard,
     source: &impl GuardFactSource,
@@ -121,9 +272,10 @@ fn evaluate_eir_guard(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::lower_guarded;
+    use crate::{lower_guarded, FirstGroundedPlanner, PlanOutcome, TransitionPlanner};
     use elastic_core::resource::{
-        AdmissibleTransition, DimensionId, LogicalResourceId, ResourceClassId, ResourceSpec,
+        AdmissibleTransition, CapabilityRequirement, DimensionId, LogicalResourceId,
+        ResourceClassId, ResourceSpec,
     };
     use elastic_core::{
         BoolExpr, BooleanGuard, GuardedResourceSpec, PredicateKey, PredicateRegistry,
@@ -142,7 +294,7 @@ mod tests {
             TransitionMechanism::Reinterpret,
             DimensionId::CAPACITY,
         ))
-        .require_capability(elastic_core::resource::CapabilityRequirement::new(
+        .require_capability(CapabilityRequirement::new(
             TransitionMechanism::Reinterpret,
             DimensionId::CAPACITY,
         ))
@@ -260,5 +412,62 @@ mod tests {
             evaluate_transition_guards(&resource, foreign_admission, &facts).unwrap(),
             GuardedTransitionOutcome::NotDeclared
         );
+    }
+
+    #[test]
+    fn pruning_partitions_declared_set_without_widening_it() {
+        let (resource, keys) = fixture();
+        let facts = BTreeMap::from([
+            (keys[0].clone(), TruthValue::True),
+            (keys[1].clone(), TruthValue::False),
+            (keys[2].clone(), TruthValue::True),
+        ]);
+        let report = prune_transition_candidates(&resource, &facts).unwrap();
+        assert_eq!(
+            report.total_classified(),
+            resource.resource().transitions().len()
+        );
+        assert!(report.eligible().is_empty());
+        assert_eq!(report.rejected().len(), 1);
+        assert!(report.unknown().is_empty());
+        assert!(!report.contains_eligible(TransitionMechanism::Reinterpret, &DimensionId::CAPACITY));
+    }
+
+    #[test]
+    fn missing_fact_is_reported_as_unknown_not_rejected() {
+        let (resource, keys) = fixture();
+        let facts = BTreeMap::from([(keys[0].clone(), TruthValue::True)]);
+        let report = prune_transition_candidates(&resource, &facts).unwrap();
+        assert!(report.eligible().is_empty());
+        assert!(report.rejected().is_empty());
+        assert_eq!(report.unknown().len(), 1);
+        assert_eq!(report.unknown()[0].unknown_scopes().len(), 2);
+    }
+
+    #[test]
+    fn empty_guard_set_preserves_first_grounded_candidate() {
+        let resource = ResourceSpec::builder(
+            ResourceClassId::CAPACITY_RESOURCE,
+            LogicalResourceId::new("tautology-differential").unwrap(),
+        )
+        .allow(DimensionId::CAPACITY)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .build()
+        .unwrap();
+        let guarded = GuardedResourceSpec::new(resource, Vec::new()).unwrap();
+        let lowered = lower_guarded(&guarded).unwrap();
+        let report = prune_transition_candidates(&lowered, &BTreeMap::new()).unwrap();
+        let reference = FirstGroundedPlanner.propose_transition(lowered.resource());
+        let PlanOutcome::Candidate(reference_candidate) = reference else {
+            panic!("grounded fixture must produce a reference candidate")
+        };
+        assert_eq!(report.first_eligible(), Some(&reference_candidate));
     }
 }
