@@ -15,6 +15,8 @@
 //!   before numeric planning;
 //! - invariant Boolean prechecks may reject/defer work early but never replace
 //!   trusted invariant validation;
+//! - decision traces bind guarded EIR, exact fact identities, and candidate
+//!   outcomes for bounded explanation/replay evidence;
 //! - forecasters project evidence without fabricating unavailable facts;
 //! - `TransitionPlanner` proposals flow through the planning contract;
 //! - adapters provide the trusted boundary for physical effects;
@@ -32,6 +34,7 @@ pub mod configured_controller;
 pub mod configured_forecaster;
 pub mod control_loop;
 pub mod controller;
+pub mod decision_trace;
 pub mod error;
 pub mod events;
 pub mod evidence;
@@ -68,6 +71,12 @@ pub use configured_controller::{
 };
 pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
+pub use decision_trace::{
+    capture_decision_trace, fact_snapshot_fingerprint, CandidateDecisionTrace, DecisionReplayError,
+    DecisionStopReason, DecisionTrace, DecisionTraceError, FactSnapshotFingerprint,
+    PredicateTraceEntry, RejectedCandidateTrace, UnknownCandidateTrace, DECISION_TRACE_SCHEMA_V1,
+    MAX_DECISION_TRACE_BYTES,
+};
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
 pub use evidence::{
