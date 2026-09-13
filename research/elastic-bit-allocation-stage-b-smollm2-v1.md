@@ -199,11 +199,40 @@ is authorized.
 The validator rejects a numeric threshold inserted into v1, an unlocked final
 test, a fabricated low-bit qualification, or premature allocator authorization.
 
-## 10. Current stop condition
+## 10. Execution-readiness dry-run (CI-local)
 
-This protocol slice is complete when its exact PR head passes normal ElasticXxx
-CI and the fail-closed preregistration validator.
+After preregistration, ElasticXxx ships a fail-closed Stage B readiness
+entrypoint that consumes the frozen JSON without inventing observations:
+
+- library: `elastic_kv::stage_b` (`load_stage_b_preregistration`,
+  `run_stage_b_dry_run`, partition/allocator authorization helpers);
+- example: `cargo run -p elastic-kv --example elastic_bit_allocation_stage_b_dry_run`;
+- measurement schema identity:
+  `elastic-bit-allocation-stage-b-measurement-v1`.
+
+The dry-run:
+
+1. re-validates pinned model/tokenizer/dataset/NNIS identities and SHA checks;
+2. plans the closed fixed-candidate slate with a mandatory dense reference;
+3. marks full-model low-bit and structural candidates as
+   `blocked_missing_backend_capability` while those NNIS paths remain
+   unqualified;
+4. emits schema-versioned metric hooks whose `value` fields stay `null` with
+   explicit `not_executed` / `blocked` / `unsupported` statuses;
+5. rejects final-test access and allocator/search authorization.
+
+CI validates protocol integrity through the Python preregistration validator
+plus the Rust dry-run/tests. Full model execution against NNIS at revision
+`b9d2f1e74bb68dfa90ca499a24ce857d15e7fb02` on Jetson AGX Thor remains
+operator-run and out of CI.
+
+## 11. Current stop condition
+
+The preregistration + readiness dry-run slice is complete when its exact PR
+head passes normal ElasticXxx CI, the fail-closed preregistration validator,
+and the Stage B dry-run/tests.
 
 After merge, the next engineering task is not the allocator. It is to close the
 first missing real representation-baseline capability and exact resident
-accounting gap in its owning backend, then collect fixed development evidence.
+accounting gap in its owning backend, then collect fixed development evidence
+under this frozen protocol.

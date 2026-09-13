@@ -177,6 +177,8 @@ version = "0.1.0"
 dependencies = [
  "elastic",
  "elastic-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
