@@ -140,10 +140,16 @@ impl fmt::Display for GuardBindingError {
                 write!(f, "more than one Boolean guard targets {scope}")
             }
             Self::NonElasticDimension { scope } => {
-                write!(f, "Boolean guard scope {scope} targets a non-elastic dimension")
+                write!(
+                    f,
+                    "Boolean guard scope {scope} targets a non-elastic dimension"
+                )
             }
             Self::UnadmittedTransition { scope } => {
-                write!(f, "Boolean guard scope {scope} targets an unadmitted transition")
+                write!(
+                    f,
+                    "Boolean guard scope {scope} targets an unadmitted transition"
+                )
             }
         }
     }
@@ -233,9 +239,7 @@ impl GuardedResourceSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resource::{
-        AdmissibleTransition, LogicalResourceId, ResourceClassId, ResourceSpec,
-    };
+    use crate::resource::{AdmissibleTransition, LogicalResourceId, ResourceClassId, ResourceSpec};
     use crate::{PredicateKey, PredicateRegistry};
 
     fn registry() -> PredicateRegistry {
@@ -290,10 +294,7 @@ mod tests {
         );
         assert_eq!(
             guard.fingerprint(),
-            guard
-                .expression()
-                .canonical_fingerprint(&registry)
-                .unwrap()
+            guard.expression().canonical_fingerprint(&registry).unwrap()
         );
     }
 
