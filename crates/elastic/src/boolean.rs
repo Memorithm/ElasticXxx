@@ -265,10 +265,7 @@ mod tests {
         )
         .when(expression)
         .unwrap();
-        let facts = BTreeMap::from([
-            (capacity, TruthValue::True),
-            (pressure, TruthValue::False),
-        ]);
+        let facts = BTreeMap::from([(capacity, TruthValue::True), (pressure, TruthValue::False)]);
 
         assert_eq!(guard.evaluate(&facts).unwrap(), TruthValue::True);
         assert!(matches!(guard.scope(), GuardScope::Transition { .. }));
@@ -319,10 +316,22 @@ mod tests {
         let a = BoolExpr::atom(elastic_core::PredicateId::new(0));
         let b = BoolExpr::atom(elastic_core::PredicateId::new(1));
 
-        assert!(matches!(ElasticGuard::all([a.clone(), b.clone()]), BoolExpr::All(_)));
-        assert!(matches!(ElasticGuard::any([a.clone(), b.clone()]), BoolExpr::Any(_)));
+        assert!(matches!(
+            ElasticGuard::all([a.clone(), b.clone()]),
+            BoolExpr::All(_)
+        ));
+        assert!(matches!(
+            ElasticGuard::any([a.clone(), b.clone()]),
+            BoolExpr::Any(_)
+        ));
         assert!(matches!(ElasticGuard::not(a.clone()), BoolExpr::Not(_)));
-        assert!(matches!(ElasticGuard::xor(a.clone(), b.clone()), BoolExpr::Xor(_, _)));
-        assert!(matches!(ElasticGuard::implies(a, b), BoolExpr::Implies(_, _)));
+        assert!(matches!(
+            ElasticGuard::xor(a.clone(), b.clone()),
+            BoolExpr::Xor(_, _)
+        ));
+        assert!(matches!(
+            ElasticGuard::implies(a, b),
+            BoolExpr::Implies(_, _)
+        ));
     }
 }
