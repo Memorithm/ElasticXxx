@@ -709,10 +709,16 @@ impl fmt::Display for DecisionReplayError {
                 current.as_str()
             ),
             Self::GuardFingerprintMismatch { trace, current } => {
-                write!(f, "trace guard identity {trace} does not match current {current}")
+                write!(
+                    f,
+                    "trace guard identity {trace} does not match current {current}"
+                )
             }
             Self::FactFingerprintMismatch { trace, current } => {
-                write!(f, "trace fact identity {trace} does not match current {current}")
+                write!(
+                    f,
+                    "trace fact identity {trace} does not match current {current}"
+                )
             }
         }
     }
@@ -841,8 +847,7 @@ mod tests {
             expression,
         )
         .unwrap();
-        let guarded =
-            lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
+        let guarded = lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
         (guarded, key, resource_id)
     }
 
@@ -945,13 +950,9 @@ mod tests {
         let (resource, key, resource_id) = guarded_fixture(false);
         let facts = fact_snapshot(&resource_id, &key, Some(false), Instant::now(), false);
         let selected = TransitionCandidate::from_admitted(&resource.resource().transitions()[0]);
-        let error = capture_decision_trace(
-            &resource,
-            &facts,
-            &freshness(&resource_id),
-            Some(&selected),
-        )
-        .unwrap_err();
+        let error =
+            capture_decision_trace(&resource, &facts, &freshness(&resource_id), Some(&selected))
+                .unwrap_err();
         assert!(matches!(
             error,
             DecisionTraceError::SelectedCandidateNotEligible { .. }
