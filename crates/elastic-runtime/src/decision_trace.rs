@@ -11,14 +11,17 @@
 //! inside one trust domain. They are intentionally non-cryptographic and must
 //! not be treated as authentication tokens.
 
-use crate::{FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES};
+use crate::{
+    FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES,
+    MAX_EVIDENCE_COLLECTION_ITEMS,
+};
 use elastic_core::resource::{DimensionId, LogicalResourceId};
 use elastic_core::{
-    FreshnessSnapshot, GuardScope, ObservationEpoch, PredicateKey, ResourceGeneration,
+    FreshnessSnapshot, GuardScope, LogicError, ObservationEpoch, PredicateKey, ResourceGeneration,
     TransitionMechanism, TruthValue,
 };
 use elastic_eir::{
-    prune_transition_candidates, EirGuardedResource, Fingerprint, LogicError, TransitionCandidate,
+    prune_transition_candidates, EirGuardedResource, Fingerprint, TransitionCandidate,
 };
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -437,7 +440,10 @@ pub fn capture_decision_trace(
         }
     }
 
-    let materialized = facts.iter().collect::<BTreeMap<_, _>>();
+    let materialized = facts
+        .iter()
+        .map(|(key, truth)| (key.clone(), truth))
+        .collect::<BTreeMap<_, _>>();
     let mut referenced = BTreeSet::new();
     for guard in resource.guards() {
         for predicate in guard.predicates() {
@@ -445,7 +451,7 @@ pub fn capture_decision_trace(
         }
     }
     let mut keys = BTreeSet::new();
-    keys.extend(materialized.keys().map(|key| (*key).clone()));
+    keys.extend(materialized.keys().cloned());
     keys.extend(referenced.iter().cloned());
 
     if keys.len() > MAX_EVIDENCE_COLLECTION_ITEMS {
@@ -891,7 +897,10 @@ mod tests {
         let first_trace = capture_decision_trace(&resource, &first, &current, None).unwrap();
         let second_trace = capture_decision_trace(&resource, &second, &current, None).unwrap();
 
-        assert_eq!(fact_snapshot_fingerprint(&first), fact_snapshot_fingerprint(&second));
+        assert_eq!(
+            fact_snapshot_fingerprint(&first),
+            fact_snapshot_fingerprint(&second)
+        );
         assert_eq!(first_trace, second_trace);
     }
 
@@ -913,7 +922,8 @@ mod tests {
             &[],
         )
         .unwrap();
-        let trace = capture_decision_trace(&resource, &facts, &freshness(&resource_id), None).unwrap();
+        let trace =
+            capture_decision_trace(&resource, &facts, &freshness(&resource_id), None).unwrap();
         let entry = trace
             .predicates()
             .iter()
@@ -924,7 +934,10 @@ mod tests {
         assert!(!entry.materialized());
         assert!(entry.referenced_by_guard());
         assert_eq!(trace.unknown_predicates().count(), 1);
-        assert_eq!(trace.stop_reason(), Some(DecisionStopReason::InsufficientEvidence));
+        assert_eq!(
+            trace.stop_reason(),
+            Some(DecisionStopReason::InsufficientEvidence)
+        );
     }
 
     #[test]
