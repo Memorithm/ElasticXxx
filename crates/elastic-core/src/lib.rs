@@ -7,8 +7,10 @@
 //!   what a resource is, which dimensions may change, which transitions are
 //!   admissible, which invariants must hold, and what the runtime may
 //!   optimize;
-//! - Boolean decision primitives ([`logic`]): fail-closed three-valued facts,
-//!   bounded expressions, and a compact mask fast path for eligibility guards;
+//! - Boolean decision primitives ([`logic`], [`predicate`], [`canonical`]):
+//!   fail-closed three-valued facts, stable predicate identities, bounded
+//!   expressions, deterministic canonicalization, structural fingerprints, and
+//!   a compact mask fast path for eligibility guards;
 //! - recommendation freshness contracts ([`control`]): planner/observation
 //!   epochs plus resource generations used to reject stale recommendations
 //!   before semantic validation or actuation;
@@ -18,12 +20,18 @@
 
 #![forbid(unsafe_code)]
 
+pub mod canonical;
 pub mod control;
 pub mod frontier;
 pub mod logic;
+pub mod predicate;
 pub mod representation;
 pub mod resource;
 
+pub use canonical::{
+    BoolExprFingerprint, CanonicalizationError, BOOLEAN_EXPRESSION_SCHEMA_V1,
+    MAX_CANONICAL_EXPRESSION_NODES,
+};
 pub use control::{
     FreshnessSnapshot, ObservationEpoch, PlannerEpoch, RecommendationContext,
     RecommendationFreshnessError, ResourceGeneration,
@@ -32,6 +40,11 @@ pub use frontier::{FrontierError, VersionFrontier};
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+};
+pub use predicate::{
+    PredicateComponent, PredicateComponentError, PredicateKey, PredicateRegistry,
+    PredicateRegistryError, BOOLEAN_PREDICATE_SCHEMA_V1, MAX_PREDICATE_COMPONENT_BYTES,
+    MAX_REGISTERED_PREDICATES,
 };
 pub use representation::{
     CapabilitySet, EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
