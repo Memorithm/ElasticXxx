@@ -156,18 +156,21 @@ mod tests {
             PredicateKey::new("elastic.guard", "residency-ok").unwrap(),
         ];
         let registry = PredicateRegistry::from_keys(keys.clone()).unwrap();
-        let id = |key: &PredicateKey| registry.id(key).unwrap();
+        let resource_ok = registry.id(&keys[0]).unwrap();
+        let capacity_ok = registry.id(&keys[1]).unwrap();
+        let transition_ok = registry.id(&keys[2]).unwrap();
+        let residency_ok = registry.id(&keys[3]).unwrap();
         let guards = vec![
             BooleanGuard::when(
                 GuardScope::Resource,
                 registry.clone(),
-                BoolExpr::atom(id(&keys[0])),
+                BoolExpr::atom(resource_ok),
             )
             .unwrap(),
             BooleanGuard::requires(
                 GuardScope::Dimension(DimensionId::CAPACITY),
                 registry.clone(),
-                id(&keys[1]),
+                capacity_ok,
             )
             .unwrap(),
             BooleanGuard::requires(
@@ -176,13 +179,13 @@ mod tests {
                     dimension: DimensionId::CAPACITY,
                 },
                 registry.clone(),
-                id(&keys[2]),
+                transition_ok,
             )
             .unwrap(),
             BooleanGuard::requires(
                 GuardScope::Dimension(DimensionId::RESIDENCY),
                 registry,
-                id(&keys[3]),
+                residency_ok,
             )
             .unwrap(),
         ];
