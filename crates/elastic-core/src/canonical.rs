@@ -5,7 +5,7 @@
 //! or `A xor A -> false` are deliberately forbidden because they collapse
 //! [`crate::TruthValue::Unknown`].
 
-use crate::{BoolExpr, FactSet, PredicateId, PredicateRegistry, TruthValue, MAX_BOOLEAN_EXPR_DEPTH};
+use crate::{BoolExpr, PredicateId, PredicateRegistry, MAX_BOOLEAN_EXPR_DEPTH};
 use std::cmp::Ordering;
 use std::fmt;
 
@@ -33,7 +33,10 @@ impl fmt::Display for CanonicalizationError {
                 write!(f, "Boolean expression exceeds maximum depth {max_depth}")
             }
             Self::ExpressionTooLarge { max_nodes } => {
-                write!(f, "Boolean expression exceeds maximum node count {max_nodes}")
+                write!(
+                    f,
+                    "Boolean expression exceeds maximum node count {max_nodes}"
+                )
             }
             Self::UnregisteredPredicate { id } => {
                 write!(f, "predicate {} is not present in the registry", id.index())
@@ -147,26 +150,18 @@ fn canonicalize_validated(expression: &BoolExpr) -> BoolExpr {
         BoolExpr::Const(value) => BoolExpr::Const(*value),
         BoolExpr::Atom(id) => BoolExpr::Atom(*id),
         BoolExpr::Not(inner) => normalize_not(canonicalize_validated(inner)),
-        BoolExpr::All(expressions) => normalize_all(
-            expressions
-                .iter()
-                .map(canonicalize_validated)
-                .collect(),
-        ),
-        BoolExpr::Any(expressions) => normalize_any(
-            expressions
-                .iter()
-                .map(canonicalize_validated)
-                .collect(),
-        ),
-        BoolExpr::Xor(lhs, rhs) => normalize_xor(
-            canonicalize_validated(lhs),
-            canonicalize_validated(rhs),
-        ),
-        BoolExpr::Implies(lhs, rhs) => normalize_implies(
-            canonicalize_validated(lhs),
-            canonicalize_validated(rhs),
-        ),
+        BoolExpr::All(expressions) => {
+            normalize_all(expressions.iter().map(canonicalize_validated).collect())
+        }
+        BoolExpr::Any(expressions) => {
+            normalize_any(expressions.iter().map(canonicalize_validated).collect())
+        }
+        BoolExpr::Xor(lhs, rhs) => {
+            normalize_xor(canonicalize_validated(lhs), canonicalize_validated(rhs))
+        }
+        BoolExpr::Implies(lhs, rhs) => {
+            normalize_implies(canonicalize_validated(lhs), canonicalize_validated(rhs))
+        }
     }
 }
 
@@ -256,9 +251,8 @@ fn compare_expr(lhs: &BoolExpr, rhs: &BoolExpr) -> Ordering {
         (BoolExpr::Const(left), BoolExpr::Const(right)) => left.cmp(right),
         (BoolExpr::Atom(left), BoolExpr::Atom(right)) => left.cmp(right),
         (BoolExpr::Not(left), BoolExpr::Not(right)) => compare_expr(left, right),
-        (BoolExpr::All(left), BoolExpr::All(right)) | (BoolExpr::Any(left), BoolExpr::Any(right)) => {
-            compare_expr_slices(left, right)
-        }
+        (BoolExpr::All(left), BoolExpr::All(right))
+        | (BoolExpr::Any(left), BoolExpr::Any(right)) => compare_expr_slices(left, right),
         (BoolExpr::Xor(ll, lr), BoolExpr::Xor(rl, rr))
         | (BoolExpr::Implies(ll, lr), BoolExpr::Implies(rl, rr)) => {
             compare_expr(ll, rl).then_with(|| compare_expr(lr, rr))
@@ -369,7 +363,7 @@ impl StableHasher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{PredicateKey, PredicateRegistry};
+    use crate::{FactSet, PredicateKey, PredicateRegistry, TruthValue};
 
     const A: PredicateId = PredicateId::new(0);
     const B: PredicateId = PredicateId::new(1);
@@ -472,10 +466,9 @@ mod tests {
     #[test]
     fn fingerprint_rejects_unregistered_atoms() {
         let expression = BoolExpr::atom(PredicateId::new(1));
-        let registry = PredicateRegistry::from_keys([
-            PredicateKey::new("elastic.test", "only").unwrap(),
-        ])
-        .unwrap();
+        let registry =
+            PredicateRegistry::from_keys([PredicateKey::new("elastic.test", "only").unwrap()])
+                .unwrap();
         assert_eq!(
             expression.canonical_fingerprint(&registry),
             Err(CanonicalizationError::UnregisteredPredicate {
