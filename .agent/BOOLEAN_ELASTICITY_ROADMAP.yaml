@@ -1,7 +1,7 @@
 schema_version: 2
 kind: elastic_boolean_decision_roadmap
 status: active
-last_updated: "2026-09-13"
+last_updated: "2026-09-14"
 canonical_owner: Memorithm/ElasticXxx
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
 intended_consumers:
@@ -26,8 +26,11 @@ hard_invariants:
   - every_cross_repository_contract_is_versioned_and_tested_before_reuse
   - compile_time_or_static_analysis_never_replaces_runtime_revalidation
   - required_CI_must_be_green_on_the_exact_PR_head_before_merge
+  - queued_missing_or_skipped_required_checks_are_not_successful_execution
   - no_performance_or_scientific_novelty_claim_without_direct_evidence
   - production_crates_remain_forbid_unsafe_code
+  - a_merged_slice_does_not_complete_unimplemented_phase_deliverables
+  - contradictory_trusted_invariant_checks_must_fail_closed_regardless_of_order
 
 non_goals:
   - replacing_continuous_resource_measurements_with_booleans
@@ -72,23 +75,31 @@ architecture:
   truth_model: strong_Kleene_three_valued_logic
   symbolic_policy: optional_bounded_analysis_only
 
-execution_order:
-  - BE0
-  - BE1
-  - BE2
-  - BE3
-  - BE4
-  - BE5
-  - BE6
-  - BE7
-  - BE8
-  - BE9
-  - BE10
-  - BE11
-  - BE12
-  - BE13
-  - BE14
-  - BE15
+verification_checkpoint:
+  date: "2026-09-14"
+  main_sha: 50bb85ea84191c01d95e5b4e5e3c81af10e95ebd
+  latest_merged_pr: 89
+  latest_merged_pr_head: f070a295bec69775c95f5144a0c71c4c8b90cc73
+  exact_head_workflows:
+    ci: https://github.com/Memorithm/ElasticXxx/actions/runs/34789743253
+    packageability: https://github.com/Memorithm/ElasticXxx/actions/runs/34789743333
+    conclusion: success
+  correction: >-
+    The previous checkpoint still called BE5 active at PR84. PR84 through PR89
+    are merged. However the delivered BE6-BE9 library slices do not prove bulk
+    invariant prechecks, arbitrary-planner survivor-only ranking, persisted
+    trace ingestion, or complete guarded domain cycles. Those gaps remain here.
+  bootstrap_pointers_rechecked:
+    - Memorithm/ElasticXxx:main:AGENTS.md
+    - Memorithm/BooleanLab:main:AGENTS.md
+    - Memorithm/TDI:main:AGENTS.md
+  cross_repo_reuse: >-
+    All three bootstraps point to this canonical production roadmap. The public
+    stable-key builders and later qualified macro may be reused through the
+    Elastic facade. No TDI/BooleanLab runtime adapter or benchmark qualification
+    is implied by the existence of the public API.
+
+execution_order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
 
 phases:
   - id: BE0
@@ -128,9 +139,7 @@ phases:
   - id: BE2
     name: canonicalization_and_stable_identity
     status: completed
-    target_crates:
-      - elastic-core
-      - elastic-eir
+    target_crates: [elastic-core, elastic-eir]
     delivered:
       - PredicateKey_and_deterministic_PredicateRegistry
       - bounded_semantics_preserving_BoolExpr_canonicalization
@@ -153,9 +162,7 @@ phases:
   - id: BE3
     name: EIR_guard_contract
     status: completed
-    target_crates:
-      - elastic-core
-      - elastic-eir
+    target_crates: [elastic-core, elastic-eir]
     delivered:
       - GuardScope_resource_dimension_transition
       - BooleanGuard_and_GuardedResourceSpec
@@ -181,9 +188,7 @@ phases:
   - id: BE4
     name: transition_guard_semantics
     status: completed
-    target_crates:
-      - elastic-core
-      - elastic-eir
+    target_crates: [elastic-core, elastic-eir]
     delivered:
       - GuardFactSource_with_missing_to_Unknown
       - BooleanGuard_when_requires_forbids_evaluate
@@ -206,12 +211,10 @@ phases:
 
   - id: BE5
     name: runtime_fact_derivation
-    status: active
+    status: completed
     target_crate: elastic-runtime
-    active_branch: feat/boolean-runtime-facts
-    active_pr: 84
-    required_deliverables:
-      - PredicateEvaluator_trait
+    delivered:
+      - PredicateEvaluator_and_PredicateEvaluationInput
       - FactSnapshot_with_source_timestamp_observation_epoch
       - deterministic_derivation_from_PlanningContext_and_ObservationSnapshot
       - threshold_presence_freshness_and_capability_predicates
@@ -219,66 +222,119 @@ phases:
       - resource_generation_binding
       - stale_fact_rejection
       - missing_invalid_stale_NaN_or_infinite_evidence_cannot_fabricate_True
+    evidence:
+      - PR_84_exact_head_86db9cf40d55434cc59dd7ac2c1f1f622addae73
+      - merge_372416b6932901ca23214f69b74856cee93bbb6e
     exit_criteria:
-      - exact_PR_head_ci_packageability_and_continuous_hardening_green
+      - applicable_exact_head_required_workflows_green
       - no_runtime_fact_can_claim_True_without_explicit_source_or_derivation
 
   - id: BE6
     name: planner_candidate_pruning
-    status: planned
-    target_crates:
-      - elastic-eir
-      - elastic-runtime
-      - elastic-adapters
-    required_deliverables:
-      - eligible_transitions_API
-      - rejected_transitions_with_reason
-      - unknown_transitions_with_missing_facts
-      - BooleanGuard_preplanner_before_numeric_ranking
-      - stable_survivor_order
-      - tautological_guard_differential_tests_against_existing_planners
+    status: partial
+    target_crates: [elastic-eir, elastic-runtime, elastic-adapters]
+    delivered:
+      - TransitionPruningReport_eligible_rejected_unknown
+      - canonical_partition_and_subset_property
+      - BooleanGuardPreplanner_checks_epoch_generation_and_cross_resource_binding
+      - BooleanGuardPlanner_for_capacity_or_exact_transition_or_any_eligible
+      - Threshold_and_Headroom_true_guard_differential_tests
+      - false_and_unknown_capacity_guards_skip_numeric_planning
+    evidence:
+      - PR_85_merge_b9cd21a3471c78e65655088a66e5804c635dc75f
+      - PR_86_merge_7095d316fb58a56ce56c4cd283b6395bd9de355b
+    remaining:
+      - general_planner_interface_consuming_only_the_eligible_pool
+      - multi_transition_differential_tests_and_invalid_custom_candidate_output_tests
+      - scope_and_capability_grounding_revalidation_of_final_planner_output
+    caveat: >-
+      The current wrapper gates calls then filters the returned candidate. It
+      passes the original EirResource to the legacy planner; this is not yet
+      proof that arbitrary multi-candidate planners rank only survivors.
     exit_criteria:
       - guarded_candidates_are_always_subset_of_declared_candidates
       - existing_planner_semantics_preserved_when_guards_are_tautologies
+      - survivor_only_ranking_demonstrated_for_general_planners
 
   - id: BE7
     name: invariant_booleanization
-    status: planned
-    required_deliverables:
-      - invariant_predicate_binding
-      - bulk_mask_precheck
+    status: partial
+    delivered:
+      - InvariantPredicateBinding
+      - resource_bound_fresh_invariant_precheck_reports
+      - NoCandidate_InvalidCandidate_Passed_Rejected_InsufficientEvidence
+      - shared_invariant_applicability_rule
       - explicit_separation_static_guard_vs_trusted_runtime_invariant
       - immediate_pre_actuation_adapter_revalidation_retained
+    evidence:
+      - PR_87_merge_5aa82a51af19d753c2530d0eda619412ae426925
+    pending_slices:
+      - pr: 90
+        branch: fix/invariant-evidence-conflicts
+        head: 045eda4e3e4945b929d12335a0972421601f9494
+        purpose: reject_conflicting_trusted_invariant_checks
+        status: awaiting_required_Rust_CI
+    remaining:
+      - bulk_mask_precheck
+      - candidate_specific_precheck_binding_and_controller_integration_qualification
+      - merge_conflicting_trusted_check_fix_only_after_exact_head_green
     exit_criteria:
       - validate_with_checks_remains_authoritative
+      - successful_Boolean_precheck_never_covers_missing_trusted_checks
+      - explicit_failed_trusted_check_cannot_be_hidden_by_a_successful_duplicate
 
   - id: BE8
     name: decision_trace_and_evidence
-    status: planned
-    required_deliverables:
+    status: partial
+    delivered:
       - DecisionTrace
       - predicate_and_unknown_trace
-      - short_circuit_reason
-      - guard_and_fact_snapshot_fingerprints
+      - deterministic_aggregate_stop_reason
+      - guard_and_semantic_fact_snapshot_fingerprints
       - selected_rejected_unknown_candidate_evidence
-      - bounded_replayable_encoding
+      - bounded_JSON_encoder
+      - in_memory_replay_identity_checks_without_actuation
+    evidence:
+      - PR_88_merge_d876196ccd2d2a77b37578ccb31c1a23876626a0
+    remaining:
+      - bounded_persisted_decoder_with_strict_schema_and_roundtrip_tests
+      - per_guard_short_circuit_evidence_and_stable_trace_comparison
+      - integrated_guarded_planning_capture_for_every_outcome
+      - include_invariant_precheck_evidence_without_claiming_trusted_validation
     exit_criteria:
       - every_guarded_decision_explainable_without_reexecuting_actuation
+      - imported_traces_are_data_not_actuation_authority
 
   - id: BE9
     name: Rust_programming_surface
-    status: planned
-    target_crates:
-      - elastic
-      - elastic-macros
-      - elastic-downstream
-    required_deliverables:
-      - public_guard_builders
-      - typed_predicate_helpers
-      - facade_only_examples_and_compile_guards
-      - macro_extensions_only_if_they_lower_exactly_to_core
+    status: partial
+    target_crates: [elastic, elastic-macros, elastic-downstream]
+    delivered:
+      - public_ElasticGuard_builders
+      - predicate_helper_and_ElasticPredicates_stable_key_resolution
+      - facade_reexports_for_BE3_through_BE8
+      - facade_only_guard_construction_and_EIR_compile_guard
+    evidence:
+      - PR_89_exact_head_f070a295bec69775c95f5144a0c71c4c8b90cc73
+      - ci_run_34789743253_success
+      - packageability_run_34789743333_success
+      - merge_50bb85ea84191c01d95e5b4e5e3c81af10e95ebd
+    pending_slices:
+      - pr: 91
+        branch: feat/boolean-guard-macro
+        purpose: hygienic_elastic_guard_macro_and_facade_only_equivalence_tests
+        status: awaiting_required_Rust_CI
+    macro_design: >-
+      The function-like guard macro belongs in the facade as declarative syntax,
+      uses dollar-crate hygiene, and lowers only to existing public builders.
+      No second evaluator or new procedural-macro dependency is needed. Attribute
+      sugar remains deferred until a concrete use case justifies it.
+    remaining:
+      - qualify_macro_against_core_and_compile_fail_examples
+      - executable_usage_documentation
     exit_criteria:
       - downstream_users_need_only_elastic_facade
+      - macro_extensions_lower_exactly_to_core
 
   - id: BE10
     name: CLI_and_operator_configuration
@@ -393,6 +449,8 @@ required_test_strategy:
     - all_TruthValue_pairs_for_each_operator
     - small_expression_fact_assignments
     - generic_vs_compiled_equivalence
+    - macro_vs_manual_guard_identity_and_evaluation
+    - trusted_invariant_check_sequences_including_conflicts
   property_families:
     - normalization_idempotence
     - canonicalization_determinism
@@ -411,11 +469,19 @@ merge_protocol:
   - fix_all_red_checks_and_conflicts
   - merge_only_green_exact_head
   - update_this_roadmap_after_each_merged_slice
+  - retain_all_remaining_phase_deliverables
   - immediately_select_next_unblocked_phase
 
 current_execution:
-  active_phase: BE5
-  active_branch: feat/boolean-runtime-facts
-  active_pr: 84
-  main_verified_through: BE4
-  next_after_green_merge: BE6
+  earliest_incomplete_phase: BE6
+  active_prs: [90, 91]
+  immediate_priority: qualify_and_merge_trusted_invariant_conflict_fix
+  next: close_BE6_general_candidate_pool_and_BE7_bulk_precheck_gaps_then_BE8_persistence
+  safety_exception: PR90_correctness_fix_precedes_new_features
+  rust_ci_observation: >-
+    At the 2026-09-14 checkpoint the required Rust workflows for PR90 and PR91
+    were queued on the existing self-hosted runner labels. Packageability had
+    passed on the initial reviewed heads. This does not establish compilation,
+    Clippy, unit tests or doctests for either pending PR. Recheck current heads
+    and every applicable workflow; do not merge on this historical checkpoint.
+  performance_claims: none
