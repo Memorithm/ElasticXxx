@@ -39,6 +39,10 @@ pub use elastic_adapters::{
     SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS, SOUP_QUALIFIED_UPSTREAM_COMMIT,
     SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1, SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS,
 };
+pub use elastic_core::control::{
+    FreshnessSnapshot, ObservationEpoch, PlannerEpoch, RecommendationContext,
+    RecommendationFreshnessError, ResourceGeneration,
+};
 pub use elastic_core::resource;
 pub use elastic_core::resource::{
     AdmissibleTransition, BuiltinDimension, BuiltinObjective, BuiltinObservationSignal,
@@ -55,6 +59,7 @@ pub use elastic_core::{
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_CANONICAL_EXPRESSION_NODES,
     MAX_PREDICATE_COMPONENT_BYTES, MAX_REGISTERED_PREDICATES,
 };
+pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
     evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
     EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirResource, Fingerprint,
