@@ -48,7 +48,7 @@ where:
 
 - `K` — resource semantics / kind and capabilities,
 - `S` — admissible state space,
-- `D` — legal transitions,
+- `D` — elastic dimensions,
 - `T` — legal transitions,
 - `I` — invariants that must be preserved,
 - `M` — observations and cost model.
