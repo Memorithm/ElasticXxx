@@ -1,18 +1,25 @@
-//! Validated planning views containing only an explicit candidate subset.
+//! Validated planning views restricted by source-bound Boolean eligibility.
 //!
-//! This is structural restriction, not Boolean evaluation or authorization.
-//! Callers must obtain their candidate set from the appropriate fresh policy
-//! evaluation. The original resource remains authoritative for validation and
-//! actuation; a narrowed view receives its own structural fingerprint.
+//! The public boundary accepts a pruning report bound to the complete guarded
+//! declaration. Bare candidate lists cannot access the structural projection.
+//! Runtime freshness remains mandatory before deriving the report; the original
+//! resource remains authoritative for validation and actuation.
 
-use crate::{EirResource, EirResourceParts, TransitionCandidate, ValidationError};
+use crate::{
+    EirGuardedResource, EirResource, EirResourceParts, TransitionCandidate,
+    TransitionPruningReport, ValidationError,
+};
 use std::fmt;
 
 /// Failure to construct a grounded subset of one resource's admissions.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlanningSubsetError {
+    /// The report has no source or was derived for different resource/guard data.
+    SourceMismatch,
     /// A supplied candidate is ungrounded or not declared by this resource.
     InvalidCandidate(TransitionCandidate),
+    /// A declared candidate is not in this report's eligible partition.
+    CandidateNotEligible(TransitionCandidate),
     /// The existing EIR structural validator rejected the projected parts.
     Validation(ValidationError),
 }
@@ -20,8 +27,12 @@ pub enum PlanningSubsetError {
 impl fmt::Display for PlanningSubsetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::SourceMismatch => f.write_str("planning subset report source does not match"),
             Self::InvalidCandidate(candidate) => {
                 write!(f, "invalid candidate in planning subset: {candidate}")
+            }
+            Self::CandidateNotEligible(candidate) => {
+                write!(f, "candidate is not Boolean-eligible: {candidate}")
             }
             Self::Validation(error) => write!(f, "invalid planning subset: {error}"),
         }
@@ -30,8 +41,55 @@ impl fmt::Display for PlanningSubsetError {
 
 impl std::error::Error for PlanningSubsetError {}
 
+impl EirGuardedResource {
+    /// Construct a planning view from a subset of this source-bound report.
+    ///
+    /// Full guarded-resource equality is required, including logical identity,
+    /// resource contents and guard policy. Matching mechanism/dimension pairs
+    /// or matching non-cryptographic fingerprints alone are insufficient. A
+    /// default unbound report is rejected even for an empty requested subset.
+    ///
+    /// Every selected candidate must be declared, grounded and eligible in the
+    /// bound report. Magnitudes remain advisory and do not alter admissions.
+    /// Runtime callers must derive the report from fresh resource-bound facts;
+    /// this pure EIR operation cannot establish observation freshness or
+    /// authorize actuation. Use the original resource for trusted validation.
+    ///
+    /// The lower-level bare-list projection is intentionally inaccessible:
+    ///
+    /// ```compile_fail
+    /// use elastic_eir::EirResource;
+    /// fn bypass(resource: &EirResource) {
+    ///     let _ = resource.restrict_to_candidates(&[]);
+    /// }
+    /// ```
+    ///
+    /// # Errors
+    /// Rejects source mismatch, candidates outside the eligible partition,
+    /// missing grounding, or structurally invalid projected parts.
+    pub fn restrict_to_eligible(
+        &self,
+        report: &TransitionPruningReport,
+        candidates: &[TransitionCandidate],
+    ) -> Result<EirResource, PlanningSubsetError> {
+        if !report.is_for_resource(self) {
+            return Err(PlanningSubsetError::SourceMismatch);
+        }
+        for candidate in candidates {
+            if !candidate.is_declared_in(self.resource()) {
+                return Err(PlanningSubsetError::InvalidCandidate(candidate.clone()));
+            }
+            if !report.contains_eligible(candidate.mechanism(), candidate.dimension()) {
+                return Err(PlanningSubsetError::CandidateNotEligible(candidate.clone()));
+            }
+        }
+        self.resource().restrict_to_candidates(candidates)
+    }
+}
+
 impl EirResource {
-    /// Construct a planning-only resource exposing exactly these admissions.
+    /// Internal structural projection, reachable publicly only through a
+    /// source-bound guarded eligibility report.
     ///
     /// Candidate order, duplicates and advisory magnitudes do not alter the
     /// admitted set. Original canonical order is retained. Identity, class,
@@ -39,21 +97,8 @@ impl EirResource {
     /// preserved. Capability requirements for excluded transitions are removed
     /// so no orphan requirement can survive structural validation.
     ///
-    /// The result is rebuilt through [`EirResource::from_parts`], never assigned
-    /// the original fingerprint after its contents change. A complete grounded
-    /// candidate set reconstructs the original resource exactly. An empty set
-    /// produces a valid view with no transitions or capabilities.
-    ///
-    /// This method does not evaluate guards, establish freshness, or authorize
-    /// actuation. Candidates currently describe mechanism/dimension/grounding,
-    /// not source resource identity; matching candidates are checked against
-    /// this resource, not authenticated as originating from it.
-    ///
-    /// # Errors
-    ///
-    /// Rejects any ungrounded or undeclared candidate before constructing a
-    /// view, and propagates the existing structural validator's errors.
-    pub fn restrict_to_candidates(
+    /// Rebuild through `from_parts`; never forge the original fingerprint.
+    pub(crate) fn restrict_to_candidates(
         &self,
         candidates: &[TransitionCandidate],
     ) -> Result<Self, PlanningSubsetError> {
