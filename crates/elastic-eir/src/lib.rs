@@ -96,6 +96,7 @@ mod fingerprint;
 mod guard;
 mod guard_plan;
 mod plan;
+mod planning_subset;
 mod resource;
 mod validate;
 
@@ -112,6 +113,7 @@ pub use guard_plan::{
 pub use plan::{
     FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
 };
+pub use planning_subset::PlanningSubsetError;
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use validate::validate_resource_parts;
 
