@@ -145,7 +145,7 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
             .filter(|candidate| self.target.accepts(candidate))
             .cloned()
             .collect();
-        let planning_resource = match resource.resource().restrict_to_candidates(&candidates) {
+        let planning_resource = match resource.restrict_to_eligible(&report, &candidates) {
             Ok(view) => view,
             Err(error) => {
                 return Ok(PlanOutcome::InsufficientEvidence {
