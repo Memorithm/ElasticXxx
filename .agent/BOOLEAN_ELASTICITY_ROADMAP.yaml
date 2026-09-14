@@ -88,7 +88,8 @@ verification_checkpoint:
     The previous checkpoint still called BE5 active at PR84. PR84 through PR89
     are merged. However the delivered BE6-BE9 library slices do not prove bulk
     invariant prechecks, arbitrary-planner survivor-only ranking, persisted
-    trace ingestion, or complete guarded domain cycles. Those gaps remain here.
+    trace ingestion, or complete guarded domain cycles. PR92 now implements a
+    survivor-only planning candidate on a branch; it is not merged or qualified.
   bootstrap_pointers_rechecked:
     - Memorithm/ElasticXxx:main:AGENTS.md
     - Memorithm/BooleanLab:main:AGENTS.md
@@ -97,7 +98,44 @@ verification_checkpoint:
     All three bootstraps point to this canonical production roadmap. The public
     stable-key builders and later qualified macro may be reused through the
     Elastic facade. No TDI/BooleanLab runtime adapter or benchmark qualification
-    is implied by the existence of the public API.
+    is implied by the existence of the public API. PR92 adds a backend-neutral
+    structural restriction operation and a concrete facade-only test consumer;
+    this is not a qualified external integration or copied scientific semantics.
+
+recurring_execution:
+  requested_on: "2026-09-14"
+  scheduler: Memorithm Research Autopilot
+  cadence: hourly
+  end_date: null
+  mode: bounded_checkpointed_iterations
+  scheduling_status: existing_hourly_task_confirmed_enabled
+  scope: additive_to_all_existing_Memorithm_programmes
+  mandate: >-
+    Continue implementing the entire BE0-BE15 programme on every applicable
+    scheduled pass, rather than producing only a plan or status. Each pass is
+    finite and resumes from current GitHub evidence; no process is claimed to
+    run continuously between scheduled passes. Preserve the consolidated task
+    and all other projects; do not create a duplicate ElasticXxx task.
+  iteration:
+    - reread_AGENTS_this_roadmap_and_applicable_ecosystem_or_ML_overlays
+    - inspect_current_main_open_PRs_reviews_and_exact_head_CI
+    - resume_existing_work_before_creating_duplicate_branches
+    - fix_demonstrated_correctness_failures_before_unrelated_optimization
+    - code_and_test_the_earliest_unblocked_reviewable_slice
+    - merge_only_after_all_applicable_exact_head_checks_are_successful
+    - reread_new_main_after_merge_and_continue_with_the_next_unblocked_slice
+    - checkpoint_written_executed_tested_merged_and_blocked_states_separately
+    - assess_real_cross_repo_consumers_before_promoting_versioned_contracts
+  blocked_runner_policy: >-
+    Never equate queued CI with success, weaken workflow gates, or reconfigure
+    trusted runner restrictions merely to merge. Work on an independent allowed
+    slice while required execution is unavailable and preserve the exact resume
+    point. Do not create an unbounded polling loop or fabricate test evidence.
+  completion_policy: >-
+    Close a phase only after all of its exit criteria are met. After BE15,
+    continue justified correctness, qualification and measured improvement work,
+    not artificial changes intended only to keep a loop busy. User stop or
+    redirection instructions remain authoritative.
 
 execution_order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
 
@@ -243,14 +281,51 @@ phases:
     evidence:
       - PR_85_merge_b9cd21a3471c78e65655088a66e5804c635dc75f
       - PR_86_merge_7095d316fb58a56ce56c4cd283b6395bd9de355b
+    pending_slices:
+      - pr: 92
+        branch: feat/boolean-survivor-only-planning
+        head: 347f0ab9fb4abb9387c4846475f80f96f54578a1
+        status: coded_awaiting_required_CI
+        purpose: validated_survivor_only_EIR_views_for_existing_numeric_planners
+        implementation:
+          - EirResource_restrict_to_candidates_and_PlanningSubsetError
+          - only_eligible_and_target_scoped_admissions_passed_to_numeric_planner
+          - preserve_invariants_objective_priority_observations_labels_and_identity
+          - filter_orphan_capability_requirements_and_recompute_projected_fingerprint
+          - revalidate_original_declaredness_grounding_target_and_subset_on_output
+          - empty_or_undeclared_exact_targets_return_Unsupported_without_numeric_call
+          - preserve_advisory_candidate_magnitude
+          - expose_freshness_epochs_and_generations_through_public_elastic_facade
+        regression_specifications:
+          - four_EIR_tests_including_all_four_subsets_of_two_transitions
+          - eight_facade_only_integration_tests
+          - all_nine_three_valued_transition_assignments
+          - select_valid_runner_up_after_rejecting_old_numeric_winner
+          - deny_cached_rejected_unknown_ungrounded_or_out_of_scope_outputs
+          - no_numeric_calls_on_stale_cross_resource_or_empty_eligibility_inputs
+          - sixty_four_Threshold_Headroom_legacy_parity_comparisons
+          - original_guarded_identity_used_for_decision_trace_capture
+        execution_evidence:
+          local_Rust: unavailable_no_execution_claim
+          ci_run: 34895562610
+          ci_status: queued
+          packageability_run: 34895562627
+          packageability_status: queued
+        design_note: docs/design/boolean-survivor-planning.md
     remaining:
-      - general_planner_interface_consuming_only_the_eligible_pool
-      - multi_transition_differential_tests_and_invalid_custom_candidate_output_tests
-      - scope_and_capability_grounding_revalidation_of_final_planner_output
+      - qualify_and_merge_general_planner_survivor_only_interface_in_PR92
+      - execute_multi_transition_and_invalid_custom_candidate_output_tests
+      - qualify_scope_and_capability_grounding_revalidation_of_final_output
     caveat: >-
-      The current wrapper gates calls then filters the returned candidate. It
-      passes the original EirResource to the legacy planner; this is not yet
-      proof that arbitrary multi-candidate planners rank only survivors.
+      Main still passes the original EirResource to the legacy planner before
+      filtering its answer. PR92 instead supplies a normal validated EIR
+      projection containing only survivors; do not count that fix as delivered
+      until its exact-head checks succeed and it is merged. A structural
+      candidate membership check is not source-resource authentication because
+      TransitionCandidate currently carries no resource identity. Separate
+      numeric-context/fact-epoch coherence and live controller integration remain
+      later runtime qualification work. Projection allocations require BE13
+      measurement before any performance claim.
     exit_criteria:
       - guarded_candidates_are_always_subset_of_declared_candidates
       - existing_planner_semantics_preserved_when_guards_are_tautologies
@@ -322,8 +397,12 @@ phases:
     pending_slices:
       - pr: 91
         branch: feat/boolean-guard-macro
+        head: 0e40afbddbbe9b30a3b2ca95d9b2e04c51dcc6e2
         purpose: hygienic_elastic_guard_macro_and_facade_only_equivalence_tests
         status: awaiting_required_Rust_CI
+      - pr: 92
+        purpose: expose_missing_freshness_types_and_exercise_actual_guarded_planning_via_facade
+        status: coded_awaiting_required_CI
     macro_design: >-
       The function-like guard macro belongs in the facade as declarative syntax,
       uses dollar-crate hygiene, and lowers only to existing public builders.
@@ -332,6 +411,7 @@ phases:
     remaining:
       - qualify_macro_against_core_and_compile_fail_examples
       - executable_usage_documentation
+      - qualify_facade_only_fact_derivation_and_guarded_planning_in_PR92
     exit_criteria:
       - downstream_users_need_only_elastic_facade
       - macro_extensions_lower_exactly_to_core
@@ -451,11 +531,13 @@ required_test_strategy:
     - generic_vs_compiled_equivalence
     - macro_vs_manual_guard_identity_and_evaluation
     - trusted_invariant_check_sequences_including_conflicts
+    - all_small_transition_subsets_and_three_valued_eligibility_assignments
   property_families:
     - normalization_idempotence
     - canonicalization_determinism
     - compiled_guard_never_incorrectly_turns_False_or_Unknown_into_True
     - pruning_subset_property
+    - numeric_planner_receives_only_survivors_and_output_cannot_expand_them
     - serialization_roundtrip_when_wire_format_exists
   hardening:
     - bounded_depth_node_and_fact_counts
@@ -474,14 +556,24 @@ merge_protocol:
 
 current_execution:
   earliest_incomplete_phase: BE6
-  active_prs: [90, 91]
+  active_prs: [90, 91, 92]
   immediate_priority: qualify_and_merge_trusted_invariant_conflict_fix
-  next: close_BE6_general_candidate_pool_and_BE7_bulk_precheck_gaps_then_BE8_persistence
-  safety_exception: PR90_correctness_fix_precedes_new_features
+  next: qualify_PR92_survivor_only_planning_then_BE7_bulk_prechecks_and_BE8_persistence
+  safety_exception: PR90_correctness_fix_precedes_new_features_when_its_execution_gate_is_available
   rust_ci_observation: >-
-    At the 2026-09-14 checkpoint the required Rust workflows for PR90 and PR91
-    were queued on the existing self-hosted runner labels. Packageability had
-    passed on the initial reviewed heads. This does not establish compilation,
-    Clippy, unit tests or doctests for either pending PR. Recheck current heads
-    and every applicable workflow; do not merge on this historical checkpoint.
+    At this checkpoint the required Rust jobs for PR90 and PR91 had remained
+    queued. PR92 head 347f0ab9fb4abb9387c4846475f80f96f54578a1 also had queued
+    ci run 34895562610 and packageability run 34895562627. No Rust toolchain
+    was available in the coding session, so no local compilation, formatting
+    validation, Clippy or tests are claimed. Recheck current heads and every
+    applicable workflow; do not merge on this historical checkpoint.
+  resume_commands:
+    - cargo +1.89.0 fmt --all -- --check
+    - cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
+    - cargo +1.89.0 test -p elastic-eir planning_subset
+    - cargo +1.89.0 test -p elastic-downstream --test survivor_planning
+    - cargo +1.89.0 test --workspace
+  documentation_in_PR92:
+    - README.md
+    - docs/design/boolean-survivor-planning.md
   performance_claims: none
