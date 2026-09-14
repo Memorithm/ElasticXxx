@@ -48,7 +48,7 @@ where:
 
 - `K` — resource semantics / kind and capabilities,
 - `S` — admissible state space,
-- `D` — elastic dimensions,
+- `D` — legal transitions,
 - `T` — legal transitions,
 - `I` — invariants that must be preserved,
 - `M` — observations and cost model.
@@ -122,8 +122,10 @@ prechecks and decision traces. Missing evidence remains `Unknown`.
 `BooleanGuardPlanner` supplies existing numeric planners with a validated EIR
 view containing only eligible, in-scope candidates. The view preserves semantic
 invariants and objective priority; the returned candidate is rechecked before
-leaving planning. `EirResource::restrict_to_candidates` also exposes the generic
-structural restriction operation. Neither API authorizes physical effects.
+leaving planning. `EirGuardedResource::restrict_to_eligible` requires a pruning
+report bound to the complete source resource and guard policy. Bare candidate
+lists cannot access the internal structural projection. Neither API authorizes
+physical effects, and runtime freshness checks remain mandatory.
 
 See [the survivor-only planning contract](docs/design/boolean-survivor-planning.md)
 for outcome rules, compatibility changes, facade-only regression commands,
