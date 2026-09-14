@@ -234,13 +234,12 @@ fn ungrounded_custom_output_cannot_borrow_an_eligible_pairs_grounding() {
     let ungrounded = resource("ungrounded", false, false);
     let bad = candidate(ungrounded.resource(), &DimensionId::CAPACITY);
     assert!(!bad.capability_grounded());
+    let (facts, freshness) = evidence(&guarded, [Some(true), Some(true)]);
+    let report = BooleanGuardPreplanner.prune(&guarded, &facts, &freshness).unwrap();
     assert!(matches!(
-        guarded
-            .resource()
-            .restrict_to_candidates(std::slice::from_ref(&bad)),
+        guarded.restrict_to_eligible(&report, std::slice::from_ref(&bad)),
         Err(PlanningSubsetError::InvalidCandidate(_))
     ));
-    let (facts, freshness) = evidence(&guarded, [Some(true), Some(true)]);
     let planner = BooleanGuardPlanner::new(CachedOutputPlanner {
         candidate: bad,
         calls: Cell::new(0),
