@@ -171,7 +171,10 @@ fn all_nine_assignments_rank_exactly_the_survivor_pool() {
                 .collect();
             assert_eq!(actual, expected);
             assert_eq!(seen.invariants(), guarded.resource().invariants());
-            assert_eq!(seen.objective_ranking(), guarded.resource().objective_ranking());
+            assert_eq!(
+                seen.objective_ranking(),
+                guarded.resource().objective_ranking()
+            );
             assert_eq!(seen.observations(), guarded.resource().observations());
             assert_eq!(seen.label("purpose"), Some("survivor-only"));
             let winner = if capacity == Some(true) {
@@ -232,7 +235,9 @@ fn ungrounded_custom_output_cannot_borrow_an_eligible_pairs_grounding() {
     let bad = candidate(ungrounded.resource(), &DimensionId::CAPACITY);
     assert!(!bad.capability_grounded());
     assert!(matches!(
-        guarded.resource().restrict_to_candidates(std::slice::from_ref(&bad)),
+        guarded
+            .resource()
+            .restrict_to_candidates(std::slice::from_ref(&bad)),
         Err(PlanningSubsetError::InvalidCandidate(_))
     ));
     let (facts, freshness) = evidence(&guarded, [Some(true), Some(true)]);
@@ -259,7 +264,10 @@ fn exact_target_restricts_both_input_and_custom_output() {
     let seen = planner.inner().seen.borrow();
     let seen = seen.as_ref().unwrap();
     assert_eq!(seen.transitions().len(), 1);
-    assert_eq!(seen.transitions()[0].transition().dimension(), &DimensionId::CAPACITY);
+    assert_eq!(
+        seen.transitions()[0].transition().dimension(),
+        &DimensionId::CAPACITY
+    );
 
     let dishonest = BooleanGuardPlanner::for_capacity(CachedOutputPlanner {
         candidate: candidate(guarded.resource(), &DimensionId::CONCURRENCY),
@@ -382,7 +390,10 @@ fn true_and_absent_guards_preserve_capacity_controller_results() {
                 let context = PlanningContext::new()
                     .observe(ObservationSignalId::UTILIZATION, utilization)
                     .observe(ObservationSignalId::FREE_CAPACITY, 200.0 - committed)
-                    .observe(ObservationSignalId::custom("committed-bytes").unwrap(), committed)
+                    .observe(
+                        ObservationSignalId::custom("committed-bytes").unwrap(),
+                        committed,
+                    )
                     .observe(ObservationSignalId::custom("host-total-bytes").unwrap(), 200.0);
                 assert_legacy_parity(
                     ThresholdPlanner::new(0.25, 0.75, 0.2).unwrap(),
