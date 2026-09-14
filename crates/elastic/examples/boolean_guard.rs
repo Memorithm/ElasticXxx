@@ -21,6 +21,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     facts.insert(pressure, TruthValue::True);
     println!("explicitly critical pressure: {:?}", guard.evaluate(&facts)?);
     println!("guard identity: {}", guard.fingerprint());
-    println!("No allocation, resource transition, or actuation was performed.");
+    println!("No resource transition or actuation was performed.");
     Ok(())
 }
