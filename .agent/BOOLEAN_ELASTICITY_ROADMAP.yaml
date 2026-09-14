@@ -31,6 +31,8 @@ hard_invariants:
   - production_crates_remain_forbid_unsafe_code
   - a_merged_slice_does_not_complete_unimplemented_phase_deliverables
   - contradictory_trusted_invariant_checks_must_fail_closed_regardless_of_order
+  - public_survivor_projection_requires_the_complete_guarded_source_binding
+  - compiled_layout_binding_is_not_candidate_target_fact_attestation
 
 non_goals:
   - replacing_continuous_resource_measurements_with_booleans
@@ -85,22 +87,24 @@ verification_checkpoint:
     packageability: https://github.com/Memorithm/ElasticXxx/actions/runs/34789743333
     conclusion: success
   correction: >-
-    The previous checkpoint still called BE5 active at PR84. PR84 through PR89
-    are merged. However the delivered BE6-BE9 library slices do not prove bulk
-    invariant prechecks, arbitrary-planner survivor-only ranking, persisted
-    trace ingestion, or complete guarded domain cycles. PR92 now implements a
-    survivor-only planning candidate on a branch; it is not merged or qualified.
+    PR84 through PR89 are merged, but their BE6-BE9 library slices do not prove
+    all phase deliverables. PR92 implements survivor-only planning and now fixes
+    the P1 source-binding finding; PR93 implements compiled invariant mask
+    prechecks. Neither is merged or qualified. PR93 has a reported rustfmt
+    failure that remains a gate until the corrected head is verified.
   bootstrap_pointers_rechecked:
     - Memorithm/ElasticXxx:main:AGENTS.md
     - Memorithm/BooleanLab:main:AGENTS.md
     - Memorithm/TDI:main:AGENTS.md
   cross_repo_reuse: >-
-    All three bootstraps point to this canonical production roadmap. The public
+    These bootstraps point to this canonical production roadmap. The public
     stable-key builders and later qualified macro may be reused through the
-    Elastic facade. No TDI/BooleanLab runtime adapter or benchmark qualification
-    is implied by the existence of the public API. PR92 adds a backend-neutral
-    structural restriction operation and a concrete facade-only test consumer;
-    this is not a qualified external integration or copied scientific semantics.
+    Elastic facade. PR92 and PR93 have concrete facade-only test consumers.
+    BooleanLab could independently qualify mask equivalence; TDI could later
+    consume a versioned generic precheck on permitted non-final surfaces.
+    No external runtime adapter, benchmark qualification or copied scientific
+    semantics is implied. Candidate-specific facts and live controller wiring
+    remain separate work.
 
 recurring_execution:
   requested_on: "2026-09-14"
@@ -284,11 +288,15 @@ phases:
     pending_slices:
       - pr: 92
         branch: feat/boolean-survivor-only-planning
-        head: 347f0ab9fb4abb9387c4846475f80f96f54578a1
-        status: coded_awaiting_required_CI
-        purpose: validated_survivor_only_EIR_views_for_existing_numeric_planners
+        head: ed7aff4cf3ed765fd2b2fc2adea1a4571da16a21
+        status: coded_awaiting_required_CI_and_review_qualification
+        purpose: source_bound_survivor_only_EIR_views_for_existing_numeric_planners
         implementation:
-          - EirResource_restrict_to_candidates_and_PlanningSubsetError
+          - EirGuardedResource_restrict_to_eligible_public_API
+          - raw_EirResource_restrict_to_candidates_is_crate_private
+          - TransitionPruningReport_retains_complete_guarded_source
+          - source_validation_uses_full_structural_equality_not_hash_alone
+          - reject_unbound_default_foreign_resource_changed_policy_or_changed_content_reports
           - only_eligible_and_target_scoped_admissions_passed_to_numeric_planner
           - preserve_invariants_objective_priority_observations_labels_and_identity
           - filter_orphan_capability_requirements_and_recompute_projected_fingerprint
@@ -305,27 +313,37 @@ phases:
           - no_numeric_calls_on_stale_cross_resource_or_empty_eligibility_inputs
           - sixty_four_Threshold_Headroom_legacy_parity_comparisons
           - original_guarded_identity_used_for_decision_trace_capture
+          - six_source_binding_integration_tests
+          - changed_guard_policy_rejected_even_with_identical_base_EIR
+          - default_unbound_report_rejected_even_for_empty_projection
+          - compile_fail_doctest_for_private_bare_candidate_projection
+        review_follow_up:
+          comment: 4009483517
+          severity: P1
+          issue: unbound_public_candidate_subset_could_reuse_foreign_eligibility
+          response: corrected_in_code_and_regression_specs_not_yet_execution_qualified
         execution_evidence:
           local_Rust: unavailable_no_execution_claim
-          ci_run: 34895562610
+          ci_run: 34899204315
           ci_status: queued
-          packageability_run: 34895562627
-          packageability_status: queued
+          packageability_run: 34899204317
+          packageability_status: success
         design_note: docs/design/boolean-survivor-planning.md
     remaining:
       - qualify_and_merge_general_planner_survivor_only_interface_in_PR92
-      - execute_multi_transition_and_invalid_custom_candidate_output_tests
+      - execute_multi_transition_invalid_output_and_source_binding_tests
       - qualify_scope_and_capability_grounding_revalidation_of_final_output
     caveat: >-
       Main still passes the original EirResource to the legacy planner before
-      filtering its answer. PR92 instead supplies a normal validated EIR
-      projection containing only survivors; do not count that fix as delivered
-      until its exact-head checks succeed and it is merged. A structural
-      candidate membership check is not source-resource authentication because
-      TransitionCandidate currently carries no resource identity. Separate
-      numeric-context/fact-epoch coherence and live controller integration remain
-      later runtime qualification work. Projection allocations require BE13
-      measurement before any performance claim.
+      filtering its answer. PR92 supplies a validated survivor projection and
+      now requires a report bound to the complete original guarded resource.
+      Do not count that fix as delivered until its exact-head checks succeed
+      and it is merged. Individual TransitionCandidate values still carry no
+      source identity and are not transferable eligibility proofs. Pure EIR
+      report binding does not establish epoch/generation freshness; the runtime
+      regenerates reports from fresh facts. Numeric-context/fact acquisition
+      coherence and live controller integration remain qualification work.
+      Source cloning and projection allocations require BE13 measurement.
     exit_criteria:
       - guarded_candidates_are_always_subset_of_declared_candidates
       - existing_planner_semantics_preserved_when_guards_are_tautologies
@@ -349,9 +367,61 @@ phases:
         head: 045eda4e3e4945b929d12335a0972421601f9494
         purpose: reject_conflicting_trusted_invariant_checks
         status: awaiting_required_Rust_CI
+        execution_evidence:
+          ci_run: 34890119028
+          ci_status: queued
+          packageability_run: 34890119007
+          packageability_status: success
+      - pr: 93
+        branch: feat/boolean-compiled-invariant-prechecks
+        head: 5af6b01cc812673d042e71e5e841be154673cf71
+        purpose: compiled_plan_bound_single_word_invariant_prechecks
+        status: coded_requires_rustfmt_correction_and_required_CI
+        implementation:
+          - CompiledInvariantPrecheck_and_InvariantMaskSummary
+          - shared_scalar_binding_provenance_and_freshness_helpers
+          - canonical_applicable_invariant_slots_including_missing_bindings
+          - explicit_64_slot_capacity_after_dimension_filtering
+          - existing_checked_FactMask_and_FactSet_aggregation
+          - exact_resource_candidate_magnitude_and_context_bit_pattern_reuse_checks
+          - refresh_all_fact_values_each_call_without_cached_True
+          - compact_summary_and_optional_scalar_identical_detailed_report
+          - facade_access_via_elastic_runtime_invariant_precheck_namespace
+          - repair_existing_trusted_validator_rustdoc_paths
+        regression_specifications:
+          - ten_runtime_and_one_facade_only_integration_tests
+          - 1728_detailed_report_parity_combinations
+          - full_word_bit_63_shared_key_aliases_and_rejection_at_65
+          - scope_filtering_before_compiled_capacity_check
+          - duplicate_oversized_binding_and_six_provenance_freshness_failures
+          - changed_resource_candidate_magnitude_context_and_signed_zero_denial
+          - fresh_epoch_reuse_no_truth_cache_and_no_trusted_validation_authority
+          - empty_applicable_set_still_checks_resource_provenance
+        supplemental_evidence:
+          independent_Python_mask_rule_cases: 1728
+          independent_Python_mask_rule_mismatches: 0
+          scope: abstract_rule_only_not_Rust_execution_or_CI
+        review_follow_up:
+          comment: 4009684364
+          severity: P1
+          issue: rustfmt_differences_reported_by_review
+          response: exact_1_89_formatting_only_correction_requested_on_existing_branch
+          correction_verified: false
+        execution_evidence:
+          local_Rust: unavailable_no_execution_claim
+          ci_run: 34897846894
+          ci_status: queued
+          packageability_run: 34897846898
+          packageability_status: success
+        design_note: docs/design/boolean-invariant-mask-prechecks.md
+        limits: >-
+          Candidate-bound compiled layout is not proof that resource-bound
+          facts attest the candidate target state or share the numeric context's
+          acquisition. No live controller, persisted decoder, actuation permit
+          or performance claim. Layout compilation clones the source plan.
     remaining:
-      - bulk_mask_precheck
-      - candidate_specific_precheck_binding_and_controller_integration_qualification
+      - correct_and_qualify_PR93_bulk_mask_prechecks_before_merge
+      - candidate_specific_fact_attestation_and_controller_integration_qualification
       - merge_conflicting_trusted_check_fix_only_after_exact_head_green
     exit_criteria:
       - validate_with_checks_remains_authoritative
@@ -403,6 +473,9 @@ phases:
       - pr: 92
         purpose: expose_missing_freshness_types_and_exercise_actual_guarded_planning_via_facade
         status: coded_awaiting_required_CI
+      - pr: 93
+        purpose: facade_only_compiled_invariant_layout_construction
+        status: coded_requires_formatting_and_required_CI
     macro_design: >-
       The function-like guard macro belongs in the facade as declarative syntax,
       uses dollar-crate hygiene, and lowers only to existing public builders.
@@ -412,6 +485,7 @@ phases:
       - qualify_macro_against_core_and_compile_fail_examples
       - executable_usage_documentation
       - qualify_facade_only_fact_derivation_and_guarded_planning_in_PR92
+      - qualify_facade_compiled_invariant_precheck_surface_in_PR93
     exit_criteria:
       - downstream_users_need_only_elastic_facade
       - macro_extensions_lower_exactly_to_core
@@ -532,12 +606,15 @@ required_test_strategy:
     - macro_vs_manual_guard_identity_and_evaluation
     - trusted_invariant_check_sequences_including_conflicts
     - all_small_transition_subsets_and_three_valued_eligibility_assignments
+    - compiled_invariant_reports_vs_scalar_with_missing_bindings_and_facts
   property_families:
     - normalization_idempotence
     - canonicalization_determinism
     - compiled_guard_never_incorrectly_turns_False_or_Unknown_into_True
     - pruning_subset_property
     - numeric_planner_receives_only_survivors_and_output_cannot_expand_them
+    - source_bound_reports_cannot_cross_resource_content_or_guard_policy_changes
+    - compiled_layout_reuse_cannot_cross_plan_changes_or_cache_true_facts
     - serialization_roundtrip_when_wire_format_exists
   hardening:
     - bounded_depth_node_and_fact_counts
@@ -556,24 +633,33 @@ merge_protocol:
 
 current_execution:
   earliest_incomplete_phase: BE6
-  active_prs: [90, 91, 92]
-  immediate_priority: qualify_and_merge_trusted_invariant_conflict_fix
-  next: qualify_PR92_survivor_only_planning_then_BE7_bulk_prechecks_and_BE8_persistence
+  active_prs: [90, 91, 92, 93]
+  immediate_priority: qualify_trusted_invariant_conflict_fix_and_address_open_review_findings
+  next: qualify_PR92_source_binding_and_PR93_masks_then_BE8_persisted_trace_contract
   safety_exception: PR90_correctness_fix_precedes_new_features_when_its_execution_gate_is_available
   rust_ci_observation: >-
-    At this checkpoint the required Rust jobs for PR90 and PR91 had remained
-    queued. PR92 head 347f0ab9fb4abb9387c4846475f80f96f54578a1 also had queued
-    ci run 34895562610 and packageability run 34895562627. No Rust toolchain
-    was available in the coding session, so no local compilation, formatting
-    validation, Clippy or tests are claimed. Recheck current heads and every
-    applicable workflow; do not merge on this historical checkpoint.
+    Required Rust jobs remain queued. PR90/91 packageability is successful on
+    their recorded heads. Corrected PR92 head ed7aff4cf3ed765fd2b2fc2adea1a4571da16a21
+    has queued ci run 34899204315 and successful packageability run 34899204317.
+    PR93 head 5af6b01cc812673d042e71e5e841be154673cf71 has queued ci run 34897846894
+    and successful packageability run 34897846898. Review reports rustfmt
+    differences in PR93; a formatting-only correction has been requested but
+    is not verified. No local Rust toolchain was available and no local Rust
+    execution is claimed. Recheck all current heads and applicable workflows;
+    never merge from this historical checkpoint alone.
   resume_commands:
+    - cargo +1.89.0 fmt --all
     - cargo +1.89.0 fmt --all -- --check
     - cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
     - cargo +1.89.0 test -p elastic-eir planning_subset
+    - cargo +1.89.0 test -p elastic-eir --test source_bound_planning
     - cargo +1.89.0 test -p elastic-downstream --test survivor_planning
+    - cargo +1.89.0 test -p elastic-runtime --test compiled_invariant_precheck
+    - cargo +1.89.0 test -p elastic-downstream --test compiled_invariants
     - cargo +1.89.0 test --workspace
   documentation_in_PR92:
     - README.md
     - docs/design/boolean-survivor-planning.md
+  documentation_in_PR93:
+    - docs/design/boolean-invariant-mask-prechecks.md
   performance_claims: none
