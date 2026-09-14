@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 pub mod boolean;
+mod guard_macro;
 
 pub use boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
 pub use elastic_adapters::{
@@ -123,6 +124,7 @@ pub mod adapters {
     pub use elastic_runtime::{
         FixedModelExecutionTransitionPolicyV1, ModelExecutionControllerContractsV1,
         ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
+        ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
         ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
         ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
         ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1,
@@ -137,6 +139,7 @@ pub mod adapters {
 /// Everything needed by a typical Elastic application.
 pub mod prelude {
     pub use crate::boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
+    pub use crate::elastic_guard;
     pub use elastic_adapters::{
         model_execution_current_profile_rank_signal, model_execution_profile_dimension,
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionAdaptivePlannerV1,
