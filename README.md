@@ -111,6 +111,31 @@ Relevant pull requests compile its fuzz targets, while the scheduled/manual
 `continuous-hardening` workflow runs bounded fuzzing and Miri over
 `elastic-core` and `elastic-kv`.
 
+## Boolean elasticity programme
+
+Boolean logic is an eligibility layer around numerical resource planning, not a
+replacement for measurements, forecasts or numeric objectives. The public
+`elastic` facade exposes stable predicate keys, `ElasticPredicates`,
+`ElasticGuard`, three-valued facts, guarded EIR, runtime preplanning, invariant
+prechecks and decision traces. Missing evidence remains `Unknown`.
+
+`BooleanGuardPlanner` supplies existing numeric planners with a validated EIR
+view containing only eligible, in-scope candidates. The view preserves semantic
+invariants and objective priority; the returned candidate is rechecked before
+leaving planning. `EirResource::restrict_to_candidates` also exposes the generic
+structural restriction operation. Neither API authorizes physical effects.
+
+See [the survivor-only planning contract](docs/design/boolean-survivor-planning.md)
+for outcome rules, compatibility changes, facade-only regression commands,
+projection costs, and the distinction between original and projected identity.
+The BE0–BE15 roadmap remains the source of implementation priorities through
+[the agent bootstrap](AGENTS.md).
+
+Full guarded controller integration, strict persisted trace ingestion,
+pseudo-Boolean constraints, optional symbolic analysis, multiword evaluation and
+hardware qualification remain separate work. No Boolean speedup or completed
+end-to-end production qualification is claimed by the library slices alone.
+
 ## Research method
 
 Prior mechanisms are classified as:
