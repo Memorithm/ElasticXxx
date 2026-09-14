@@ -124,7 +124,6 @@ pub mod adapters {
     pub use elastic_runtime::{
         FixedModelExecutionTransitionPolicyV1, ModelExecutionControllerContractsV1,
         ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
-        ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
         ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
         ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
         ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1,
