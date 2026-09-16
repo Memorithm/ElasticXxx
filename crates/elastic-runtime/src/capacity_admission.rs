@@ -132,14 +132,27 @@ pub struct CapacityAdmissionControllerV1 {
     runtime: Runtime,
     resource: EirResource,
     max_width: u32,
+    expected_plan_id: String,
+    expected_environment_id: String,
 }
 
 impl CapacityAdmissionControllerV1 {
     /// Create a bounded controller; this performs no work and allocates no RAM
     /// budget. Returned errors retain underlying adapter diagnostics.
-    pub fn new(id: &str, max_width: u32, initial_width: u32) -> Result<Self, String> {
-        if !(1..=256).contains(&max_width) {
-            return Err("admission maximum width must be in 1..=256".into());
+    /// Expected identities come from the embedding control plane, independently
+    /// of the observation. Rebind by constructing a new controller explicitly.
+    pub fn new(
+        id: &str,
+        max_width: u32,
+        initial_width: u32,
+        expected_plan_id: &str,
+        expected_environment_id: &str,
+    ) -> Result<Self, String> {
+        if !(1..=256).contains(&max_width)
+            || !sha256(expected_plan_id)
+            || !sha256(expected_environment_id)
+        {
+            return Err("invalid immutable admission maximum or expected identities".into());
         }
         let declaration = ConcurrencyPermits::new(id, max_width as usize, initial_width as usize)
             .map_err(|e| e.to_string())?;
@@ -160,6 +173,8 @@ impl CapacityAdmissionControllerV1 {
             runtime,
             resource,
             max_width,
+            expected_plan_id: expected_plan_id.into(),
+            expected_environment_id: expected_environment_id.into(),
         })
     }
 
@@ -195,6 +210,14 @@ impl CapacityAdmissionControllerV1 {
             events: Vec::new(),
         };
         let request = &report.request;
+        if request.plan_id != self.expected_plan_id {
+            report.reason = "plan-identity-mismatch".into();
+            return Ok(report);
+        }
+        if request.observation.environment_id != self.expected_environment_id {
+            report.reason = "environment-identity-mismatch".into();
+            return Ok(report);
+        }
         if request.observation.age_milliseconds > request.max_age_milliseconds {
             report.reason = "stale-observation".into();
             return Ok(report);
@@ -296,7 +319,9 @@ mod tests {
     }
     #[test]
     fn actual_permits_enforce_reduced_width_and_preserve_live_holders() {
-        let mut c = CapacityAdmissionControllerV1::new("pool", 4, 4).unwrap();
+        let mut c =
+            CapacityAdmissionControllerV1::new("pool", 4, 4, &"a".repeat(64), &"c".repeat(64))
+                .unwrap();
         let report = c.admit(request()).unwrap();
         assert_eq!(report.committed, Some(true));
         assert_eq!(report.final_width, 2);
@@ -319,7 +344,9 @@ mod tests {
     }
     #[test]
     fn missing_stale_exhausted_and_invalid_capacity_never_actuate() {
-        let mut c = CapacityAdmissionControllerV1::new("pool", 4, 4).unwrap();
+        let mut c =
+            CapacityAdmissionControllerV1::new("pool", 4, 4, &"a".repeat(64), &"c".repeat(64))
+                .unwrap();
         let mut stale = request();
         stale.observation.age_milliseconds = 101;
         assert_eq!(c.admit(stale).unwrap().reason, "stale-observation");
@@ -357,5 +384,36 @@ mod tests {
         let mut overflow = request();
         overflow.reserve_memory_bytes = u64::MAX;
         assert_eq!(c.admit(overflow).unwrap().reason, "insufficient-capacity");
+    }
+
+    #[test]
+    fn another_plan_or_environment_cannot_raise_live_permit_width() {
+        let mut c =
+            CapacityAdmissionControllerV1::new("pool", 4, 1, &"a".repeat(64), &"c".repeat(64))
+                .unwrap();
+        for environment in [false, true] {
+            let mut req = request();
+            if environment {
+                req.observation.environment_id = "d".repeat(64);
+            } else {
+                req.plan_id = "d".repeat(64);
+            }
+            let report = c.admit(req).unwrap();
+            assert_eq!(
+                report.reason,
+                if environment {
+                    "environment-identity-mismatch"
+                } else {
+                    "plan-identity-mismatch"
+                }
+            );
+            assert_eq!(report.committed, Some(false));
+            assert_eq!(report.final_width, 1);
+            assert!(report.events.is_empty());
+            let permits = c.permits();
+            permits.acquire().unwrap();
+            assert!(permits.acquire().is_err());
+            permits.release().unwrap();
+        }
     }
 }

@@ -28,7 +28,22 @@ unknown transaction state never authorizes new work.
 ```
 
 The hashes above are fixture identities, not measured hardware evidence. Run a
-saved request with `elastic admit-capacity < request.json`. Production callers
+saved request with the separately bound expected identities:
+
+```sh
+elastic-cli admit-capacity \
+  --expected-plan-id aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+  --expected-environment-id cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc \
+  < request.json
+```
+
+The embedding control plane must bind its intended plan and executor environment
+independently of incoming observations. The public controller freezes those two
+identities at construction; a mismatch produces a rejected report before any
+transition. Changing the target requires a new controller. These bindings check
+identity equality; sensor authenticity remains the embedding's responsibility.
+
+Production callers
 must supply real sensor provenance, environment identity and measurement age.
 `unknown` and `unavailable` states instead contain a nonempty `reason` and always
 reject. Stale readings and zero effective capacity also reject without actuation.
