@@ -5,6 +5,7 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 
+mod capacity_admission;
 mod commands;
 mod config_run;
 mod evidence;
@@ -306,6 +307,9 @@ fn required<T>(value: Option<T>, name: &str) -> Result<T, Box<dyn Error>> {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Admit an independent-work capacity envelope from strict bounded stdin JSON.
+    /// This controls a local permit ledger; the external executor must enforce it.
+    AdmitCapacity,
     /// Inspect the normalized declaration and runtime configuration.
     Inspect { id: String },
     /// Collect real host observations with explicit provenance.
@@ -369,6 +373,7 @@ enum Commands {
 fn main() -> ExitCode {
     let cli = Cli::parse();
     let result = match cli.command {
+        Commands::AdmitCapacity => capacity_admission::run(),
         Commands::Inspect { id } => inspect(&id),
         Commands::Observe { id } => observe(&id),
         Commands::Plan { id } => plan(&id),
