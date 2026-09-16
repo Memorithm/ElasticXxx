@@ -5,6 +5,9 @@ It calls the public `CapacityAdmissionControllerV1` and emits a versioned decisi
 with the complete request, previous/proposed/final width, verification, commit or
 rollback status and ordered runtime events. A rejected decision is printed and
 returns exit 2; malformed requests return exit 2 without an admitted decision.
+If a runtime failure prevents an authoritative transaction result, `committed`
+and `rolled_back` are `null`, with the emitted events and failure retained. An
+unknown transaction state never authorizes new work.
 
 ```json
 {

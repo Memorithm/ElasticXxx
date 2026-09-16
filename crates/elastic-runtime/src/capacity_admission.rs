@@ -65,8 +65,10 @@ pub struct CapacityAdmissionReportV1 {
     pub proposed_width: Option<u32>,
     pub previous_width: u32,
     pub final_width: u32,
-    pub committed: bool,
-    pub rolled_back: bool,
+    /// None means the failed runtime returned no authoritative commit state.
+    pub committed: Option<bool>,
+    /// None means rollback state is unknown after a failed cycle.
+    pub rolled_back: Option<bool>,
     pub verification: Option<String>,
     pub events: Vec<String>,
 }
@@ -187,8 +189,8 @@ impl CapacityAdmissionControllerV1 {
             proposed_width: None,
             previous_width: previous,
             final_width: previous,
-            committed: false,
-            rolled_back: false,
+            committed: Some(false),
+            rolled_back: Some(false),
             verification: None,
             events: Vec::new(),
         };
@@ -229,21 +231,21 @@ impl CapacityAdmissionControllerV1 {
             &mut self.permits,
         ) {
             CycleAttempt::Completed(cycle) => {
-                report.committed = cycle.commit.is_some();
-                report.rolled_back = cycle.rollback.is_some();
+                report.committed = Some(cycle.commit.is_some());
+                report.rolled_back = Some(cycle.rollback.is_some());
                 report.verification = cycle.verification.as_ref().map(|v| format!("{v:?}"));
                 report.events = cycle
                     .events
                     .iter()
                     .map(|e| format!("{:?}: {}", e.kind, e.details))
                     .collect();
-                report.status = if report.committed {
+                report.status = if report.committed == Some(true) {
                     "admitted"
                 } else {
                     "rejected"
                 }
                 .into();
-                report.reason = if report.committed {
+                report.reason = if report.committed == Some(true) {
                     "verified-permit-width"
                 } else {
                     "runtime-did-not-commit"
@@ -251,6 +253,8 @@ impl CapacityAdmissionControllerV1 {
                 .into();
             }
             CycleAttempt::Failed(failure) => {
+                report.committed = None;
+                report.rolled_back = None;
                 report.reason = format!("runtime-failure: {}", failure.error);
                 report.events = failure
                     .events
@@ -260,7 +264,7 @@ impl CapacityAdmissionControllerV1 {
             }
         }
         report.final_width = self.permits.width().map_err(|e| e.to_string())? as u32;
-        if report.committed && report.final_width != target {
+        if report.committed == Some(true) && report.final_width != target {
             return Err("committed permit width disagrees with the verified target".into());
         }
         Ok(report)
@@ -294,7 +298,7 @@ mod tests {
     fn actual_permits_enforce_reduced_width_and_preserve_live_holders() {
         let mut c = CapacityAdmissionControllerV1::new("pool", 4, 4).unwrap();
         let report = c.admit(request()).unwrap();
-        assert!(report.committed);
+        assert_eq!(report.committed, Some(true));
         assert_eq!(report.final_width, 2);
         let permits = c.permits();
         permits.acquire().unwrap();
@@ -306,7 +310,7 @@ mod tests {
             available_memory_bytes: 350,
         };
         let rejected = c.admit(req.clone()).unwrap();
-        assert!(!rejected.committed);
+        assert_ne!(rejected.committed, Some(true));
         assert_eq!(rejected.final_width, 2);
         assert!(!rejected.events.is_empty());
         permits.release().unwrap();
@@ -344,7 +348,7 @@ mod tests {
             req.observation.capacity = capacity;
             let r = c.admit(req).unwrap();
             assert_eq!(r.reason, reason);
-            assert!(!r.committed);
+            assert_eq!(r.committed, Some(false));
             assert_eq!(r.final_width, 4);
         }
         let mut invalid = request();

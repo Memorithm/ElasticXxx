@@ -19,7 +19,7 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     )?;
     let report = controller.admit(request)?;
     println!("{}", serde_json::to_string(&report)?);
-    if report.committed {
+    if report.committed == Some(true) {
         Ok(())
     } else {
         Err(report.reason.into())
