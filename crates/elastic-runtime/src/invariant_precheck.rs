@@ -2,8 +2,15 @@
 //!
 //! This layer can reject or defer a candidate before trusted validation, but a
 //! successful precheck never authorizes actuation and never marks a plan as
-//! validated. [`crate::validate_with_checks`] remains the authoritative runtime
-//! invariant gate and adapters still revalidate immediately before effects.
+//! validated. [`crate::plan::validate_with_checks`] remains the authoritative
+//! runtime invariant gate and adapters still revalidate immediately before effects.
+
+mod compiled;
+
+pub use compiled::{
+    CompiledInvariantPrecheck, CompiledInvariantPrecheckError, InvariantMaskSummary,
+    MAX_COMPILED_INVARIANTS,
+};
 
 use crate::plan::invariant_applies_to_candidate;
 use crate::{FactFreshnessError, FactSnapshot, Plan};
@@ -86,7 +93,7 @@ impl InvariantPrecheckReport {
     /// Whether trusted validation may continue.
     ///
     /// `true` does not mean the plan is validated; it only means the Boolean
-    /// precheck found no reason to stop before [`crate::validate_with_checks`].
+    /// precheck found no reason to stop before [`crate::plan::validate_with_checks`].
     #[must_use]
     pub const fn may_continue_to_trusted_validation(&self) -> bool {
         matches!(self.status, InvariantPrecheckStatus::Passed)
@@ -159,6 +166,48 @@ impl From<FactFreshnessError> for InvariantPrecheckError {
     }
 }
 
+// Shared by scalar and compiled paths so their trust checks cannot diverge.
+fn validate_fact_snapshot(
+    plan: &Plan,
+    facts: &FactSnapshot,
+    freshness: &FreshnessSnapshot,
+) -> Result<(), InvariantPrecheckError> {
+    let Some(resource_binding) = facts.resource_binding() else {
+        return Err(InvariantPrecheckError::MissingResourceBinding);
+    };
+    if resource_binding.resource() != plan.resource.identity() {
+        return Err(InvariantPrecheckError::ResourceBindingMismatch {
+            snapshot: resource_binding.resource().clone(),
+            requested: plan.resource.identity().clone(),
+        });
+    }
+    facts.validate_freshness(freshness)?;
+    Ok(())
+}
+
+fn invariant_binding_map(
+    bindings: &[InvariantPredicateBinding],
+) -> Result<BTreeMap<Invariant, PredicateKey>, InvariantPrecheckError> {
+    if bindings.len() > MAX_REGISTERED_PREDICATES {
+        return Err(InvariantPrecheckError::TooManyBindings {
+            max: MAX_REGISTERED_PREDICATES,
+            actual: bindings.len(),
+        });
+    }
+    let mut by_invariant = BTreeMap::new();
+    for binding in bindings {
+        if by_invariant
+            .insert(binding.invariant().clone(), binding.predicate().clone())
+            .is_some()
+        {
+            return Err(InvariantPrecheckError::DuplicateBinding {
+                invariant: binding.invariant().clone(),
+            });
+        }
+    }
+    Ok(by_invariant)
+}
+
 /// Evaluate Boolean facts for exactly the invariants applicable to the planned
 /// candidate.
 ///
@@ -190,35 +239,15 @@ pub fn precheck_plan_invariants(
         });
     }
 
+    // Retain the historical error priority: size, source/freshness, duplicates.
     if bindings.len() > MAX_REGISTERED_PREDICATES {
         return Err(InvariantPrecheckError::TooManyBindings {
             max: MAX_REGISTERED_PREDICATES,
             actual: bindings.len(),
         });
     }
-
-    let Some(resource_binding) = facts.resource_binding() else {
-        return Err(InvariantPrecheckError::MissingResourceBinding);
-    };
-    if resource_binding.resource() != plan.resource.identity() {
-        return Err(InvariantPrecheckError::ResourceBindingMismatch {
-            snapshot: resource_binding.resource().clone(),
-            requested: plan.resource.identity().clone(),
-        });
-    }
-    facts.validate_freshness(freshness)?;
-
-    let mut by_invariant = BTreeMap::new();
-    for binding in bindings {
-        if by_invariant
-            .insert(binding.invariant().clone(), binding.predicate().clone())
-            .is_some()
-        {
-            return Err(InvariantPrecheckError::DuplicateBinding {
-                invariant: binding.invariant().clone(),
-            });
-        }
-    }
+    validate_fact_snapshot(plan, facts, freshness)?;
+    let by_invariant = invariant_binding_map(bindings)?;
 
     let mut entries = Vec::new();
     for invariant in plan
