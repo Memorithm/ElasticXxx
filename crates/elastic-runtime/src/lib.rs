@@ -27,6 +27,7 @@
 pub mod actuation;
 pub mod attempt;
 pub mod cancellation;
+pub mod capacity_admission;
 pub mod clock;
 pub mod commit;
 pub mod config;
@@ -63,6 +64,10 @@ pub mod verification;
 pub use actuation::Actuation;
 pub use attempt::{CycleAttempt, CycleFailure};
 pub use cancellation::CancellationToken;
+pub use capacity_admission::{
+    CapacityAdmissionControllerV1, CapacityAdmissionReportV1, CapacityAdmissionRequestV1,
+    CapacityObservationV1, CapacityStateV1,
+};
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
