@@ -104,14 +104,30 @@ impl UnknownTransition {
 /// `rejected`, or `unknown`. Entries preserve the canonical order of
 /// [`crate::EirResource::transitions`] within each partition. This report is
 /// deliberately not an optimizer: callers rank only `eligible` candidates.
+///
+/// Reports produced by pruning retain their complete guarded-EIR source. A
+/// default report has no source binding and cannot construct a planning view.
+/// This is structural identity, not authentication or runtime freshness.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TransitionPruningReport {
+    source: Option<EirGuardedResource>,
     eligible: Vec<TransitionCandidate>,
     rejected: Vec<RejectedTransition>,
     unknown: Vec<UnknownTransition>,
 }
 
 impl TransitionPruningReport {
+    /// Whether this report was derived for exactly this guarded declaration.
+    /// Includes resource identity, contents and guard policy, not just transition
+    /// pairs or a non-cryptographic fingerprint. Freshness is checked separately
+    /// by the runtime before deriving the report.
+    #[must_use]
+    pub fn is_for_resource(&self, resource: &EirGuardedResource) -> bool {
+        self.source
+            .as_ref()
+            .is_some_and(|source| source == resource)
+    }
+
     /// Candidates permitted to reach later numeric ranking.
     #[must_use]
     pub fn eligible(&self) -> &[TransitionCandidate] {
@@ -218,9 +234,9 @@ pub fn evaluate_transition_guards(
 
 /// Classify every declared transition before any numeric objective ranking.
 ///
-/// The output is a partition of the existing admitted set. It can only shrink
-/// the set reaching later planning and never constructs candidates from
-/// external mechanism/dimension pairs.
+/// The output is a partition of the existing admitted set, bound to the full
+/// guarded declaration used here. It can only shrink the set reaching later
+/// planning and never constructs candidates from external transition pairs.
 ///
 /// # Errors
 ///
@@ -230,7 +246,10 @@ pub fn prune_transition_candidates(
     resource: &EirGuardedResource,
     source: &impl GuardFactSource,
 ) -> Result<TransitionPruningReport, LogicError> {
-    let mut report = TransitionPruningReport::default();
+    let mut report = TransitionPruningReport {
+        source: Some(resource.clone()),
+        ..TransitionPruningReport::default()
+    };
     for admitted in resource.resource().transitions() {
         match evaluate_transition_guards(resource, admitted, source)? {
             GuardedTransitionOutcome::Eligible(candidate) => report.eligible.push(candidate),

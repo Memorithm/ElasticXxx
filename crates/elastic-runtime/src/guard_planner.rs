@@ -1,29 +1,26 @@
 //! Boolean-gated numeric planning over fresh runtime facts.
 //!
-//! This module composes the BE6 preplanner with existing numeric
-//! [`TransitionPlanner`] implementations. Boolean eligibility is evaluated
-//! first. When a configured target is rejected or unknown, the wrapped planner
-//! is not invoked at all. When it is eligible, the legacy numeric planner runs
-//! unchanged and its candidate is filtered against the same pruning report
-//! before it can leave this boundary.
+//! Boolean eligibility is evaluated before invoking an existing
+//! [`TransitionPlanner`]. The planner receives a validated EIR view containing
+//! only eligible transitions within the configured target, not the original
+//! admission set. Returned candidates are checked against both the original
+//! declaration and this restricted view. No actuation occurs here.
 
 use crate::{BooleanGuardPreplanner, FactSnapshot, GuardPreplannerError};
 use elastic_core::resource::DimensionId;
 use elastic_core::{FreshnessSnapshot, TransitionMechanism};
 use elastic_eir::{
-    EirGuardedResource, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
-    TransitionPruningReport,
+    EirGuardedResource, EirResource, PlanOutcome, PlanningContext, TransitionCandidate,
+    TransitionPlanner, TransitionPruningReport,
 };
 
 /// Boolean eligibility scope that must survive before a wrapped numeric planner
 /// is allowed to run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GuardPlannerTarget {
-    /// Allow the planner to run when at least one declared transition is
-    /// Boolean-eligible.
+    /// Rank any transition in the Boolean-eligible subset.
     AnyEligible,
-    /// Require one exact transition to be Boolean-eligible before invoking the
-    /// wrapped planner.
+    /// Require and rank only this exact Boolean-eligible transition.
     Transition {
         /// Required transition mechanism.
         mechanism: TransitionMechanism,
@@ -32,11 +29,25 @@ pub enum GuardPlannerTarget {
     },
 }
 
+impl GuardPlannerTarget {
+    fn accepts(&self, candidate: &TransitionCandidate) -> bool {
+        match self {
+            Self::AnyEligible => true,
+            Self::Transition {
+                mechanism,
+                dimension,
+            } => candidate_matches(candidate, *mechanism, dimension),
+        }
+    }
+}
+
 /// Composition layer that performs Boolean pruning before numeric planning.
 ///
-/// Existing planners keep their original [`TransitionPlanner`] implementation;
-/// this wrapper adds a fail-closed Boolean gate without changing their numeric
-/// control law.
+/// Existing planners keep their original [`TransitionPlanner`] implementation
+/// and numeric control law, but see only surviving admissions. Resource
+/// invariants, objective priorities, observations and labels are preserved.
+/// The projection is planning-only; original declarations and trusted adapter
+/// checks remain authoritative for validation and actuation.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BooleanGuardPlanner<P> {
     inner: P,
@@ -44,8 +55,7 @@ pub struct BooleanGuardPlanner<P> {
 }
 
 impl<P> BooleanGuardPlanner<P> {
-    /// Wrap a planner and permit it to run when any transition survives Boolean
-    /// pruning.
+    /// Wrap a planner and permit it to rank all Boolean survivors.
     #[must_use]
     pub fn new(inner: P) -> Self {
         Self {
@@ -54,7 +64,7 @@ impl<P> BooleanGuardPlanner<P> {
         }
     }
 
-    /// Wrap a planner whose work is meaningful only for one exact transition.
+    /// Wrap a planner and restrict its input and output to one transition.
     #[must_use]
     pub fn for_transition(
         inner: P,
@@ -87,7 +97,7 @@ impl<P> BooleanGuardPlanner<P> {
         &self.inner
     }
 
-    /// Boolean target checked before numeric planning.
+    /// Boolean target checked before and after numeric planning.
     #[must_use]
     pub const fn target(&self) -> &GuardPlannerTarget {
         &self.target
@@ -95,13 +105,21 @@ impl<P> BooleanGuardPlanner<P> {
 }
 
 impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
-    /// Prune candidates from fresh facts, then invoke the wrapped numeric
-    /// planner only when its Boolean target survives.
+    /// Prune candidates from fresh facts and rank only eligible admissions.
     ///
-    /// A returned candidate is checked a second time against the same report.
-    /// This protects against a custom planner selecting a transition outside
-    /// the Boolean-eligible subset even after another transition allowed the
-    /// planner to run.
+    /// Empty admissions or an undeclared exact target yield `Unsupported`
+    /// without invoking the wrapped planner. False targets yield `NoCandidate`;
+    /// unknown targets yield `InsufficientEvidence`. A structural projection
+    /// failure also yields `InsufficientEvidence` without numeric planning.
+    ///
+    /// A selected candidate must be grounded, declared in the original resource,
+    /// within the configured target, and present in the restricted view. Its
+    /// advisory magnitude is preserved for later trusted adapter validation.
+    ///
+    /// The projected resource has its own fingerprint. Decision traces must
+    /// still bind the original guarded resource and the original fact snapshot.
+    /// This method does not bind the separate numeric context to a fact epoch;
+    /// the caller must provide coherent observations for the same planning cycle.
     ///
     /// # Errors
     ///
@@ -121,10 +139,30 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
             return Ok(blocked);
         }
 
+        let candidates: Vec<_> = report
+            .eligible()
+            .iter()
+            .filter(|candidate| self.target.accepts(candidate))
+            .cloned()
+            .collect();
+        let planning_resource = match resource.restrict_to_eligible(&report, &candidates) {
+            Ok(view) => view,
+            Err(error) => {
+                return Ok(PlanOutcome::InsufficientEvidence {
+                    detail: format!("cannot construct Boolean planning subset: {error}"),
+                });
+            }
+        };
         let outcome = self
             .inner
-            .propose_transition_with_context(resource.resource(), context);
-        Ok(filter_planner_outcome(outcome, &report))
+            .propose_transition_with_context(&planning_resource, context);
+        Ok(filter_planner_outcome(
+            outcome,
+            resource.resource(),
+            &planning_resource,
+            &report,
+            &self.target,
+        ))
     }
 }
 
@@ -135,7 +173,10 @@ fn preplanning_block(
 ) -> Option<PlanOutcome> {
     match target {
         GuardPlannerTarget::AnyEligible => {
-            if resource.resource().transitions().is_empty() || !report.eligible().is_empty() {
+            if resource.resource().transitions().is_empty() {
+                return Some(PlanOutcome::Unsupported);
+            }
+            if !report.eligible().is_empty() {
                 return None;
             }
             if report.unknown().is_empty() {
@@ -156,9 +197,7 @@ fn preplanning_block(
                     && admitted.transition().dimension() == dimension
             });
             if !declared {
-                // Preserve the wrapped planner's historical unsupported/missing
-                // evidence behavior when its target is outside this resource.
-                return None;
+                return Some(PlanOutcome::Unsupported);
             }
             if report.contains_eligible(*mechanism, dimension) {
                 return None;
@@ -182,16 +221,21 @@ fn preplanning_block(
     }
 }
 
-fn filter_planner_outcome(outcome: PlanOutcome, report: &TransitionPruningReport) -> PlanOutcome {
+fn filter_planner_outcome(
+    outcome: PlanOutcome,
+    original: &EirResource,
+    planning_resource: &EirResource,
+    report: &TransitionPruningReport,
+    target: &GuardPlannerTarget,
+) -> PlanOutcome {
     let PlanOutcome::Candidate(candidate) = outcome else {
         return outcome;
     };
 
-    if report
-        .eligible()
-        .iter()
-        .any(|eligible| same_transition(eligible, &candidate))
-    {
+    if !candidate.is_declared_in(original) || !target.accepts(&candidate) {
+        return PlanOutcome::Unsupported;
+    }
+    if candidate.is_declared_in(planning_resource) {
         return PlanOutcome::Candidate(candidate);
     }
 
