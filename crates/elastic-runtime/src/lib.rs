@@ -73,7 +73,8 @@ pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
 pub use configured_controller::{
-    ConfiguredController, ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState,
+    ConfiguredController, ConfiguredPlanner, ConfiguredPlanningView, ConfiguredResource,
+    ConfiguredResourceState,
 };
 pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;

@@ -221,3 +221,36 @@ fn guarded_plan_dry_run_reports_survivor_rejection_and_unknown_without_actuation
 
     fs::remove_file(operator).unwrap();
 }
+
+#[test]
+fn guarded_plan_dry_run_does_not_materialize_huge_ram_commitment() {
+    let operator = temp_file(
+        "huge-operator",
+        br#"{
+          "version":1,
+          "resources":[{"adapter":"ram","id":"ram","host_total":17592186044416,"min":1073741824,"max":17592186044416,"initial":8796093022208,"max_step":1073741824}],
+          "controllers":[{"resource":"ram","planner":{"kind":"first-grounded"},"forecaster":{"kind":"current-state"},"cadence":{"kind":"one-shot"},"mode":"plan-only"}]
+        }"#,
+    );
+    let guard = fixture_path();
+
+    let output = run(&[
+        "guard-plan-dry-run",
+        "--operator-config",
+        operator.to_str().unwrap(),
+        "--guard-config",
+        guard.to_str().unwrap(),
+        "--resource",
+        "ram",
+    ]);
+    let output = payload(&output);
+    assert_eq!(output["read_only"], true);
+    assert_eq!(output["actuation_authorized"], false);
+    assert_eq!(
+        output["observation_source"],
+        "operator-config-declared-initial-state"
+    );
+
+    fs::remove_file(operator).unwrap();
+    fs::remove_file(guard).unwrap();
+}

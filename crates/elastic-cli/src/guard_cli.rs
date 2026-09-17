@@ -17,7 +17,7 @@ use elastic::{
     capture_guarded_planning_trace, lower_guarded, BooleanGuardPlanner, CandidateDecisionTrace,
     FactResourceBinding, FactSnapshot, FactSourceId, FreshnessSnapshot, GuardConfigV1,
     GuardedPlanningOutcomeTrace, GuardedResourceSpec, InvariantPrecheckStatus, ObservationEpoch,
-    ObservationSnapshot, Observer, OperatorConfig, PlannerEpoch, PredicateEvaluationInput,
+    ObservationSnapshot, OperatorConfig, PlannerEpoch, PredicateEvaluationInput,
     PredicateEvaluator, PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
     MAX_GUARD_CONFIG_BYTES,
 };
@@ -160,20 +160,19 @@ pub(crate) fn plan_dry_run(
 ) -> CommandResult {
     let operator_config = read_operator_config(operator_config_path)?;
     operator_config.validate()?;
-    let controller = operator_config.build_controller(resource_id)?;
+    let view = operator_config.build_planning_view(resource_id)?;
 
     let guard_config = read_config(guard_config_path)?;
     let lowered = guard_config.lower()?;
-    let runtime_config = controller.forecast_runtime().runtime().config();
-    let guarded_spec = GuardedResourceSpec::new(
-        runtime_config.resource_spec.clone(),
-        lowered.guards().to_vec(),
-    )?;
+    let guarded_spec =
+        GuardedResourceSpec::new(view.resource_spec().clone(), lowered.guards().to_vec())?;
     let guarded = lower_guarded(&guarded_spec)?;
 
-    // The dry-run observes only the freshly materialized configured resource.
-    // It never enters Runtime::cycle or any TransactionalActuator method.
-    let (context, observations) = controller.observer().observe();
+    // The dry-run derives an observation snapshot only from the validated,
+    // configured initial state. It does not materialize a physical adapter and
+    // never enters Runtime::cycle or any TransactionalActuator method.
+    let context = view.context().clone();
+    let observations = view.observations().to_vec();
     let now = Instant::now();
     let observation_snapshot = ObservationSnapshot::new(now, observations);
     let input = PredicateEvaluationInput::new(&context, &observation_snapshot, now);
@@ -203,7 +202,7 @@ pub(crate) fn plan_dry_run(
     let freshness = FreshnessSnapshot::new(planner_epoch, observation_epoch)
         .with_resource_generation(resource.clone(), resource_generation);
 
-    let planner = BooleanGuardPlanner::new(*controller.planner());
+    let planner = BooleanGuardPlanner::new(view.planner());
     let decision =
         planner.propose_transition_detailed_with_context(&guarded, &context, &facts, &freshness)?;
     let trace =
@@ -216,7 +215,7 @@ pub(crate) fn plan_dry_run(
         "operator_config_version": operator_config.version,
         "guard_schema_version": guard_config.schema_version,
         "resource_id": resource.as_str(),
-        "observation_source": "freshly-materialized-configured-resource",
+        "observation_source": "operator-config-declared-initial-state",
         "freshness_identity_scope": "dry-run-local",
         "freshness": {
             "planner_epoch": planner_epoch.get(),
