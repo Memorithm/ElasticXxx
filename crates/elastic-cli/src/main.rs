@@ -9,11 +9,16 @@ mod capacity_admission;
 mod commands;
 mod config_run;
 mod evidence;
+mod guard_cli;
 mod model_contracts;
 mod model_plan;
 use commands::*;
 use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
+use guard_cli::{
+    check as guard_check, eval as guard_eval, explain as guard_explain,
+    fingerprint as guard_fingerprint, list as guard_list,
+};
 use model_contracts::{build_contracts, validate_contracts};
 use model_plan::{model_plan, ModelPlanOptions};
 
@@ -375,6 +380,24 @@ enum Commands {
     Replay { input: PathBuf },
     /// Compare two captured JSON evidence records deterministically.
     Diff { left: PathBuf, right: PathBuf },
+    /// Validate a strict versioned Boolean guard configuration without actuation.
+    GuardCheck { config: PathBuf },
+    /// List stable predicates and canonical guards without actuation.
+    GuardList { config: PathBuf },
+    /// Report canonical guard-expression fingerprints without actuation.
+    GuardFingerprint { config: PathBuf },
+    /// Evaluate configured guards from explicit stable-key facts. Missing facts are Unknown.
+    GuardEval {
+        config: PathBuf,
+        #[arg(long = "fact", value_name = "NAMESPACE::NAME=TRUTH")]
+        facts: Vec<String>,
+    },
+    /// Explain three-valued guard results and the explicit/missing fact partition.
+    GuardExplain {
+        config: PathBuf,
+        #[arg(long = "fact", value_name = "NAMESPACE::NAME=TRUTH")]
+        facts: Vec<String>,
+    },
 }
 
 fn main() -> ExitCode {
@@ -403,6 +426,11 @@ fn main() -> ExitCode {
         Commands::Explain { id } => explain(&id),
         Commands::Replay { input } => replay(&input),
         Commands::Diff { left, right } => diff(&left, &right),
+        Commands::GuardCheck { config } => guard_check(&config),
+        Commands::GuardList { config } => guard_list(&config),
+        Commands::GuardFingerprint { config } => guard_fingerprint(&config),
+        Commands::GuardEval { config, facts } => guard_eval(&config, &facts),
+        Commands::GuardExplain { config, facts } => guard_explain(&config, &facts),
     };
 
     match result {
@@ -667,5 +695,27 @@ mod tests {
         assert!(
             matches!(diff.command, Commands::Diff { left, right } if left.as_path() == std::path::Path::new("left.json") && right.as_path() == std::path::Path::new("right.json"))
         );
+    }
+    #[test]
+    fn guard_read_only_command_syntax_uses_stable_fact_assignments() {
+        let check = Cli::try_parse_from(["elastic", "guard-check", "guards.json"]).unwrap();
+        assert!(
+            matches!(check.command, Commands::GuardCheck { config } if config == PathBuf::from("guards.json"))
+        );
+
+        let eval = Cli::try_parse_from([
+            "elastic",
+            "guard-eval",
+            "guards.json",
+            "--fact",
+            "elastic.ram::healthy=true",
+        ])
+        .unwrap();
+        assert!(matches!(
+            eval.command,
+            Commands::GuardEval { config, facts }
+                if config == PathBuf::from("guards.json")
+                    && facts == ["elastic.ram::healthy=true"]
+        ));
     }
 }

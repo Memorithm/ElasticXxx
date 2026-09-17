@@ -47,6 +47,16 @@ pub enum EvidenceCommand {
     Explain,
     Replay,
     Diff,
+    #[serde(rename = "guard-check")]
+    GuardCheck,
+    #[serde(rename = "guard-list")]
+    GuardList,
+    #[serde(rename = "guard-fingerprint")]
+    GuardFingerprint,
+    #[serde(rename = "guard-eval")]
+    GuardEval,
+    #[serde(rename = "guard-explain")]
+    GuardExplain,
 }
 
 impl EvidenceCommand {
@@ -63,6 +73,11 @@ impl EvidenceCommand {
             Self::Explain => "explain",
             Self::Replay => "replay",
             Self::Diff => "diff",
+            Self::GuardCheck => "guard-check",
+            Self::GuardList => "guard-list",
+            Self::GuardFingerprint => "guard-fingerprint",
+            Self::GuardEval => "guard-eval",
+            Self::GuardExplain => "guard-explain",
         }
     }
 }
