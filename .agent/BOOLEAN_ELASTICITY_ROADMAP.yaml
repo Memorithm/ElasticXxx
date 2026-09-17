@@ -388,6 +388,14 @@ phases:
     required_slices:
       - id: BE10a
         name: versioned_guard_configuration_schema
+        status: completed
+        completion_evidence:
+          - main_source_commit_22f5a9ac5c5969791adac8a857744811e3a384d6
+          - inherited_surface_requalified_on_ElasticXxx_PR_105_exact_head_738fd27f9d01d53756e6806ac54e96764ef93797
+          - PR105_CI_35284661534_completed_success_with_Format_Clippy_and_Tests
+          - PR105_packageability_35284661539_completed_success
+          - PR105_continuous_hardening_35284661697_completed_success
+          - strict_bounded_GuardConfigV1_stable_PredicateKey_scopes_typed_threshold_units_and_no_persisted_PredicateId
         tasks:
           - strict_JSON_or_existing_config_format_with_deny_unknown_fields
           - explicit_schema_version
@@ -399,6 +407,19 @@ phases:
           - deterministic_lowering_to_public_library_API
       - id: BE10b
         name: read_only_guard_commands
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_105
+          - PR105_exact_head_738fd27f9d01d53756e6806ac54e96764ef93797
+          - PR105_CI_35284661534_completed_success_on_exact_head
+          - PR105_packageability_35284661539_completed_success_on_exact_head
+          - PR105_continuous_hardening_35284661697_completed_success_on_exact_head
+          - PR105_merged_to_main_as_e3807ed90f910b5f8e133fc6e17a967e29ef69d7
+          - guard_check_list_eval_explain_and_expression_fingerprint_are_read_only_and_machine_readable
+          - fact_assignments_use_stable_PredicateKey_and_missing_facts_remain_Unknown
+          - duplicate_or_undeclared_fact_assignments_fail_closed
+          - shared_runtime_evidence_command_taxonomy_owns_the_new_read_only_command_names
+          - no_actuator_controller_or_runtime_is_constructed_by_the_guard_commands
         commands:
           - guard-list
           - guard-check
@@ -412,18 +433,27 @@ phases:
           - no_actuation
       - id: BE10c
         name: guarded_plan_dry_run
+        status: active
         tasks:
           - feed_versioned_policy_and_observations_to_public_runtime
           - emit_survivors_rejected_unknown_numeric_outcome_and_trace
           - support_strict_non_actuating_dry_run
       - id: BE10d
         name: operator_config_integration
+        status: planned
         tasks:
           - attach_guard_configuration_to_declared_resources
           - preserve_existing_config_backward_compatibility_or_version_break_explicitly
           - validate_at_load_time_and_again_at_runtime_boundaries
       - id: BE10e
         name: CLI_contract_tests
+        status: partial
+        completion_evidence:
+          - PR105_process_tests_cover_read_only_command_success_True_False_Unknown_and_fail_closed_duplicate_or_undeclared_facts
+        remaining:
+          - guarded_plan_process_success_and_failure_exit_codes
+          - complete_malformed_unknown_field_and_nonfinite_process_matrix
+          - explicit_CLI_vs_library_equivalence_for_guarded_plan
         tasks:
           - process_level_success_and_failure_exit_codes
           - strict_input_size_limit
@@ -751,8 +781,11 @@ automation_contract:
     measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE8
-  immediate_next_slice: BE8c_integrated_guarded_planning_capture
+  earliest_incomplete_phase: BE10
+  immediate_next_slice: BE10c_guarded_plan_dry_run
   open_pull_requests_at_checkpoint: 0
-  verified_main: 02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
+  verified_main: e3807ed90f910b5f8e133fc6e17a967e29ef69d7
+  latest_qualified_slice: BE10b
+  latest_qualified_pr: 105
+  latest_qualified_head: 738fd27f9d01d53756e6806ac54e96764ef93797
   performance_claims: none
