@@ -52,3 +52,7 @@ Integrated capture performs no adapter call, actuation, verification, commit or 
 A changed observation epoch or resource generation is rejected through the existing freshness contract. A changed guard policy, fact snapshot, numeric context, or Boolean pruning partition is rejected explicitly. Strict persisted `DecisionTrace` schema/version checks remain owned by the bounded decoder before a typed trace can participate in replay.
 
 Successful replay qualification is explanatory evidence only. It does not invoke a numeric planner, trusted validation, adapters, physical actuation, verification, commit, or rollback, and it cannot authorize any of those operations.
+
+## Decoder hardening
+
+The `decision_trace_decode` libFuzzer target feeds arbitrary bytes directly to the strict bounded `DecisionTrace` decoder. Any input that is accepted must re-encode within the public bound and decode back to the identical typed trace. The committed seed corpus includes one canonical valid v1 trace plus truncation, duplicate-key, unknown-field, future-schema, over-depth, and oversized-collection shapes. Scheduled/manual fuzzing permits inputs up to one byte beyond the public 1 MiB trace limit so the pre-allocation byte bound remains in the mutation space. Pull requests compile the target; scheduled/manual hardening runs exercise it under libFuzzer.
