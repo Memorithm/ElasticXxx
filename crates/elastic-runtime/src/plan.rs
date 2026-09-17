@@ -138,8 +138,8 @@ pub fn plan_with_context<P: TransitionPlanner>(
 mod tests {
     use super::*;
     use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, DimensionId, InvariantKind,
-        LogicalResourceId, ResourceClassId, ResourceSpec,
+        AdmissibleTransition, CapabilityRequirement, DimensionId, InvariantKind, LogicalResourceId,
+        ResourceClassId, ResourceSpec,
     };
     use elastic_core::TransitionMechanism;
     use elastic_eir::{lower, FirstGroundedPlanner};
@@ -219,7 +219,10 @@ mod tests {
                     })
                     .collect();
                 let expected = len > 0 && bits == (1_usize << len) - 1;
-                assert_eq!(validate_with_checks(plan.clone(), checks).validated, expected);
+                assert_eq!(
+                    validate_with_checks(plan.clone(), checks).validated,
+                    expected
+                );
             }
         }
     }
