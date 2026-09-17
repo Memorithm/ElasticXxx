@@ -102,6 +102,58 @@ Each controller references exactly one configured resource:
 
 A resource may have at most one configured controller in v1.
 
+### Optional Boolean guard policy
+
+A controller may also carry an optional strict `guard_config` object. Its schema is
+`GuardConfigV1` and persists stable `PredicateKey` identities rather than
+process-local `PredicateId` values. For example:
+
+```json
+{
+  "resource": "ram-budget",
+  "planner": { "kind": "first-grounded" },
+  "forecaster": { "kind": "current-state" },
+  "cadence": { "kind": "one-shot" },
+  "mode": "plan-only",
+  "guard_config": {
+    "schema_version": 1,
+    "predicates": [{
+      "kind": "observation-threshold",
+      "key": { "namespace": "elastic.ram", "name": "has-headroom" },
+      "signal": { "kind": "builtin", "name": "free-capacity" },
+      "comparison": "greater-than",
+      "threshold": 0.0,
+      "unit": "bytes",
+      "max_age_ms": 1000
+    }],
+    "guards": [{
+      "scope": { "kind": "resource" },
+      "expression": {
+        "op": "atom",
+        "predicate": { "namespace": "elastic.ram", "name": "has-headroom" }
+      }
+    }]
+  }
+}
+```
+
+The embedded policy is validated with the operator document and lowered again at
+the declaration-only planning boundary. It can be inspected with:
+
+```text
+elastic guard-plan-dry-run --operator-config FILE --resource ram-budget
+```
+
+An external `--guard-config FILE` remains accepted only when the controller has
+no embedded policy; providing both is an error. This dry-run uses the configured
+initial state and never constructs a physical adapter, performs trusted
+validation, or actuates.
+
+Normal configured runtime execution currently fails closed when `guard_config`
+is present. This is deliberate: BE10 must not silently ignore a policy on a
+state-changing path. Guard-aware trusted validation/actuation/verification and
+rollback are BE14 domain-integration work.
+
 ### Planner selection
 
 Supported planner objects are:

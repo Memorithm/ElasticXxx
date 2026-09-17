@@ -11,7 +11,7 @@ use elastic_adapters::{HeadroomPlanner, ThresholdPlanner};
 use elastic_core::resource::LogicalResourceId;
 use serde::{Deserialize, Serialize};
 
-use crate::{Cadence, EwmaForecaster, RuntimeError, RuntimeMode};
+use crate::{Cadence, EwmaForecaster, GuardConfigV1, RuntimeError, RuntimeMode};
 
 /// Current supported configuration schema version.
 pub const OPERATOR_CONFIG_VERSION: u32 = 1;
@@ -158,6 +158,14 @@ pub struct ControllerConfig {
     pub forecaster: ForecasterSelection,
     pub cadence: CadenceConfig,
     pub mode: ExecutionModeConfig,
+    /// Optional stable-key Boolean policy attached to this declared resource.
+    ///
+    /// The configuration is validated here and lowered again at the planning
+    /// boundary. Configured runtime actuation does not yet consume Boolean
+    /// guards; controller materialization therefore fails closed while this
+    /// field is present until the guarded runtime integration lands in BE14.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guard_config: Option<GuardConfigV1>,
 }
 
 impl ControllerConfig {
@@ -171,6 +179,14 @@ impl ControllerConfig {
         self.planner.validate()?;
         self.forecaster.validate()?;
         self.cadence.validate()?;
+        if let Some(guard_config) = &self.guard_config {
+            guard_config.validate().map_err(|error| {
+                RuntimeError::configuration(format!(
+                    "invalid guard configuration for resource '{}': {error}",
+                    self.resource
+                ))
+            })?;
+        }
         Ok(())
     }
 
@@ -337,6 +353,28 @@ impl ExecutionModeConfig {
 mod tests {
     use super::*;
 
+    fn guard_config() -> GuardConfigV1 {
+        GuardConfigV1::from_bounded_json(
+            br#"{
+              "schema_version":1,
+              "predicates":[{
+                "kind":"observation-threshold",
+                "key":{"namespace":"elastic.test","name":"healthy"},
+                "signal":{"kind":"builtin","name":"utilization"},
+                "comparison":"less-or-equal",
+                "threshold":0.8,
+                "unit":"fraction",
+                "max_age_ms":500
+              }],
+              "guards":[{
+                "scope":{"kind":"resource"},
+                "expression":{"op":"atom","predicate":{"namespace":"elastic.test","name":"healthy"}}
+              }]
+            }"#,
+        )
+        .unwrap()
+    }
+
     fn valid_config() -> OperatorConfig {
         OperatorConfig {
             version: OPERATOR_CONFIG_VERSION,
@@ -363,6 +401,7 @@ mod tests {
                     max_cycles: 10,
                 },
                 mode: ExecutionModeConfig::DryRun,
+                guard_config: None,
             }],
         }
     }
@@ -414,6 +453,7 @@ mod tests {
                 forecaster: ForecasterSelection::CurrentState,
                 cadence: CadenceConfig::OneShot,
                 mode: ExecutionModeConfig::DryRun,
+                guard_config: None,
             }],
         };
 
@@ -438,6 +478,7 @@ mod tests {
                 forecaster: ForecasterSelection::CurrentState,
                 cadence: CadenceConfig::OneShot,
                 mode: ExecutionModeConfig::PlanOnly,
+                guard_config: None,
             }],
         };
 
@@ -459,6 +500,23 @@ mod tests {
                 .to_string()
                 .contains("does not provide a quantitative target"));
         }
+    }
+
+    #[test]
+    fn attached_guard_configuration_is_validated_with_operator_config() {
+        let mut config = valid_config();
+        config.controllers[0].guard_config = Some(guard_config());
+        config.validate().unwrap();
+
+        let mut future = guard_config();
+        future.schema_version += 1;
+        config.controllers[0].guard_config = Some(future);
+        let error = config
+            .validate()
+            .expect_err("future guard schema must fail closed");
+        assert!(error
+            .to_string()
+            .contains("invalid guard configuration for resource 'ram'"));
     }
 
     #[test]

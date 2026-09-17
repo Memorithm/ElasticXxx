@@ -6,4 +6,16 @@ Schema v1 supports stable resource, dimension, and transition guard scopes plus 
 
 Loading is fail-closed. The decoder bounds encoded bytes and JSON nesting before deserialization, rejects unknown or duplicate fields through the strict Serde schema, rejects future schema versions, bounds predicate/guard/expression sizes, rejects duplicate or undeclared predicate keys, rejects non-finite thresholds in programmatically constructed configuration, and preserves the built-in/custom distinction for dimensions and observation signals.
 
-`GuardConfigV1::lower` produces the existing public `PredicateRegistry`, `BooleanGuard`, and `ObservationThresholdPredicate` semantics. It does not sample observers, rank candidates, validate a physical plan, call an adapter, or authorize actuation. Later BE10 slices may add read-only inspection/evaluation commands and non-actuating dry-run planning, but those commands must remain thin frontends over these public library semantics.
+`GuardConfigV1::lower` produces the existing public `PredicateRegistry`, `BooleanGuard`, and `ObservationThresholdPredicate` semantics. It does not sample observers, validate a physical plan, call an adapter, or authorize actuation.
+
+The BE10 operator surface now provides `guard-check`, `guard-list`, `guard-eval`, `guard-explain`, `guard-fingerprint`, and `guard-plan-dry-run`. The first five commands are read-only inspection/evaluation frontends. `guard-plan-dry-run` performs Boolean pruning followed by numeric planning against the selected resource's **declared initial observation state**. It does not construct a physical adapter, run trusted validation, enter a runtime cycle, or authorize actuation.
+
+A controller in `OperatorConfig` v1 may attach one optional `guard_config` object using this exact schema. The operator document validates that policy at load time, and the declaration-only planning view lowers it again at the planning boundary. The CLI may then use it directly:
+
+```text
+elastic guard-plan-dry-run --operator-config operator.json --resource ram-budget
+```
+
+For compatibility with separately managed policy files, `--guard-config guards.json` remains supported when the selected controller has no embedded policy. Supplying both an embedded policy and `--guard-config` is rejected as ambiguous rather than silently choosing one.
+
+State-changing configured runtime execution is intentionally **not** guard-aware in BE10. `OperatorConfig::build_controller`, bulk controller construction, and therefore normal configured execution fail closed when a controller carries `guard_config`. This prevents an attached guard from being silently ignored. End-to-end trusted validation, actuation, verification, and rollback integration belongs to BE14; Boolean eligibility alone never grants actuation authority.
