@@ -1,556 +1,513 @@
-schema_version: 2
+schema_version: 3
 kind: elastic_boolean_decision_roadmap
 status: active
-last_updated: "2026-09-14"
+last_updated: "2026-09-17"
 canonical_owner: Memorithm/ElasticXxx
+source_branch: agent/ecosystem-roadmap
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
-intended_consumers:
-  - autonomous_coding_agents
-  - ElasticXxx_maintainers
-  - Memorithm/BooleanLab
-  - Memorithm/TDI
 
 mission: >-
-  Add deterministic fail-closed Boolean and pseudo-Boolean decision machinery
-  to ElasticXxx so impossible or unjustified resource actions can be rejected
-  before expensive numeric ranking or actuation, while preserving numerical
-  observation, forecasting, objectives, trusted validation, verification, and
-  transactional rollback as authoritative runtime layers.
+  Complete, qualify and productize deterministic fail-closed Boolean and
+  pseudo-Boolean decision machinery in ElasticXxx. Boolean logic is an
+  eligibility/control layer around numerical observation, forecasting,
+  objective ranking and trusted transactional validation; it never grants
+  physical actuation authority by itself.
+
+current_verified_state:
+  main_sha: 2462d6250b2f0624dc843be0a058bb1c1002cef3
+  main_observed_at: "2026-09-17"
+  open_pull_requests: 0
+  merged_boolean_prs:
+    - pr: 90
+      head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
+      merge: 0f478e082519ae3d9a1c867b98b2c49326949991
+      ci_run: 35178021175
+      packageability_run: 35178021041
+      result: success
+      purpose: reject_conflicting_trusted_invariant_checks
+    - pr: 91
+      head: 4ed18a8be23d6f3072fc09a7997a2d8bd7eabe11
+      ci_run: 35178178060
+      packageability_run: 35178177987
+      result: success
+      purpose: public_elastic_guard_macro
+    - pr: 93
+      head: 6dc1ffd0b209c75e00f2254566020dac08d490b9
+      merge: 5a00a4edb3e90bf0795b647172f5d53ea7c5fe1a
+      ci_run: 35178553018
+      packageability_run: 35178553024
+      result: success
+      purpose: compiled_invariant_mask_prechecks
+    - pr: 92
+      head: ac023fb8cef9e5c8d4ae230403766d7b477acdee
+      merge: 2462d6250b2f0624dc843be0a058bb1c1002cef3
+      ci_run: 35178754044
+      packageability_run: 35178753984
+      result: success
+      purpose: source_bound_survivor_only_numeric_planning
+  later_supporting_work:
+    - pr: 95
+      purpose: verified_capacity_admission_and_shared_concurrency_permits
+    - pr: 96
+      purpose: exact_pull_request_head_checkout_for_core_CI_and_packageability
+  correction_to_previous_roadmap: >-
+    PR90 through PR93 are merged and their recorded final heads have successful
+    ci and packageability runs. The old roadmap still described these slices as
+    pending. BE6 and BE9 are therefore closed. BE7 core semantics are closed;
+    live domain/controller qualification belongs to BE14. BE8 remains partial.
+    BE10 through BE15 remain unimplemented unless current default-branch evidence
+    proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
-  - missing_evidence_must_fail_closed_at_actuation_boundaries
-  - Boolean_guards_may_reject_or_prune_but_never_make_an_illegal_transition_legal
-  - numeric_objectives_remain_numeric_unless_a_versioned_discretization_contract_exists
+  - missing_evidence_fails_closed
+  - Boolean_guards_only_shrink_admissible_choices
+  - no_guard_makes_an_undeclared_transition_legal
+  - numerical_measurements_and_objectives_remain_numerical
+  - trusted_validation_immediately_before_actuation_remains_authoritative
+  - verification_and_rollback_are_not_bypassed
   - every_public_convenience_surface_lowers_to_the_same_typed_core
-  - every_cross_repository_contract_is_versioned_and_tested_before_reuse
-  - compile_time_or_static_analysis_never_replaces_runtime_revalidation
-  - required_CI_must_be_green_on_the_exact_PR_head_before_merge
-  - queued_missing_or_skipped_required_checks_are_not_successful_execution
-  - no_performance_or_scientific_novelty_claim_without_direct_evidence
+  - external_or_cached_evidence_requires_versioned_identity_and_revalidation
+  - symbolic_solver_failure_timeout_or_unknown_never_authorizes_a_transition
+  - pseudo_boolean_units_scaling_and_overflow_rules_are_explicit
+  - required_CI_is_green_on_the_exact_candidate_head_before_merge
+  - queued_missing_skipped_or_stale_checks_are_not_success
   - production_crates_remain_forbid_unsafe_code
-  - a_merged_slice_does_not_complete_unimplemented_phase_deliverables
-  - contradictory_trusted_invariant_checks_must_fail_closed_regardless_of_order
-  - public_survivor_projection_requires_the_complete_guarded_source_binding
-  - compiled_layout_binding_is_not_candidate_target_fact_attestation
-
-non_goals:
-  - replacing_continuous_resource_measurements_with_booleans
-  - bypassing_EIR_validation_or_transactional_actuation
-  - making_SAT_BDD_or_pseudo_boolean_solvers_actuation_authorities
-  - importing_BooleanLab_experimental_assumptions_as_production_semantics
-  - weakening_TDI_preregistration_or_confirmation_boundaries
+  - no_performance_or_novelty_claim_without_direct_reproducible_evidence
 
 ownership:
   ElasticXxx:
     owns:
-      - production_truth_predicate_expression_and_guard_contracts
-      - EIR_guard_representation_and_transition_eligibility
-      - runtime_fact_derivation_and_candidate_pruning
-      - decision_evidence_public_API_CLI_and_optional_symbolic_backends
+      - production_truth_predicate_expression_guard_and_constraint_contracts
+      - EIR_guard_and_resource_constraint_representation
+      - runtime_fact_derivation_candidate_pruning_and_decision_evidence
+      - public_Rust_API_macros_operator_configuration_and_CLI
+      - optional_bounded_symbolic_backends
+      - generic_resource_domain_integrations
   BooleanLab:
     owns:
-      - experimental_boolean_function_search
-      - exhaustive_small_domain_oracles
-      - candidate_forms_complexity_and_representation_benchmarks
-    integration_rule: promote_only_versioned_generic_results_after_validation
+      - exact_small_domain_oracles
+      - Boolean_function_search_and_simplification_experiments
+      - representation_complexity_and_backend_benchmarks
   TDI:
     owns:
-      - TDI_9_3_boolean_policy_scientific_lineage
+      - TDI_9_3_scientific_policy_lineage
       - preregistration_holdout_and_confirmation_boundaries
-    integration_rule: consume_Elastic_contracts_only_on_permitted_non_final_surfaces
+  SciRust:
+    owns:
+      - mathematically_general_reusable_primitives_when_promotion_is_justified
+  Forge:
+    owns:
+      - candidate_generation_search_and_executed_measurement_evidence
 
-architecture:
-  pipeline:
-    - numeric_observations_and_capabilities
-    - typed_predicate_derivation
-    - FactSnapshot_with_True_False_Unknown
-    - canonical_BoolExpr_and_compiled_guards
-    - EIR_guard_scope_resource_dimension_transition
-    - Boolean_candidate_pruning
-    - numeric_objective_ranking_of_survivors
-    - VALIDATE
-    - ACT
-    - VERIFY
-    - COMMIT_or_ROLLBACK
-  portable_fast_path: u64_masks_then_multiword_masks
-  truth_model: strong_Kleene_three_valued_logic
-  symbolic_policy: optional_bounded_analysis_only
-
-verification_checkpoint:
-  date: "2026-09-14"
-  main_sha: 50bb85ea84191c01d95e5b4e5e3c81af10e95ebd
-  latest_merged_pr: 89
-  latest_merged_pr_head: f070a295bec69775c95f5144a0c71c4c8b90cc73
-  exact_head_workflows:
-    ci: https://github.com/Memorithm/ElasticXxx/actions/runs/34789743253
-    packageability: https://github.com/Memorithm/ElasticXxx/actions/runs/34789743333
-    conclusion: success
-  correction: >-
-    PR84 through PR89 are merged, but their BE6-BE9 library slices do not prove
-    all phase deliverables. PR92 implements survivor-only planning and now fixes
-    the P1 source-binding finding; PR93 implements compiled invariant mask
-    prechecks. Neither is merged or qualified. PR93 has a reported rustfmt
-    failure that remains a gate until the corrected head is verified.
-  bootstrap_pointers_rechecked:
-    - Memorithm/ElasticXxx:main:AGENTS.md
-    - Memorithm/BooleanLab:main:AGENTS.md
-    - Memorithm/TDI:main:AGENTS.md
-  cross_repo_reuse: >-
-    These bootstraps point to this canonical production roadmap. The public
-    stable-key builders and later qualified macro may be reused through the
-    Elastic facade. PR92 and PR93 have concrete facade-only test consumers.
-    BooleanLab could independently qualify mask equivalence; TDI could later
-    consume a versioned generic precheck on permitted non-final surfaces.
-    No external runtime adapter, benchmark qualification or copied scientific
-    semantics is implied. Candidate-specific facts and live controller wiring
-    remain separate work.
-
-recurring_execution:
-  requested_on: "2026-09-14"
-  scheduler: Memorithm Research Autopilot
-  cadence: hourly
-  end_date: null
-  mode: bounded_checkpointed_iterations
-  scheduling_status: existing_hourly_task_confirmed_enabled
-  scope: additive_to_all_existing_Memorithm_programmes
-  mandate: >-
-    Continue implementing the entire BE0-BE15 programme on every applicable
-    scheduled pass, rather than producing only a plan or status. Each pass is
-    finite and resumes from current GitHub evidence; no process is claimed to
-    run continuously between scheduled passes. Preserve the consolidated task
-    and all other projects; do not create a duplicate ElasticXxx task.
-  iteration:
-    - reread_AGENTS_this_roadmap_and_applicable_ecosystem_or_ML_overlays
-    - inspect_current_main_open_PRs_reviews_and_exact_head_CI
-    - resume_existing_work_before_creating_duplicate_branches
-    - fix_demonstrated_correctness_failures_before_unrelated_optimization
-    - code_and_test_the_earliest_unblocked_reviewable_slice
-    - merge_only_after_all_applicable_exact_head_checks_are_successful
-    - reread_new_main_after_merge_and_continue_with_the_next_unblocked_slice
-    - checkpoint_written_executed_tested_merged_and_blocked_states_separately
-    - assess_real_cross_repo_consumers_before_promoting_versioned_contracts
-  blocked_runner_policy: >-
-    Never equate queued CI with success, weaken workflow gates, or reconfigure
-    trusted runner restrictions merely to merge. Work on an independent allowed
-    slice while required execution is unavailable and preserve the exact resume
-    point. Do not create an unbounded polling loop or fabricate test evidence.
-  completion_policy: >-
-    Close a phase only after all of its exit criteria are met. After BE15,
-    continue justified correctness, qualification and measured improvement work,
-    not artificial changes intended only to keep a loop busy. User stop or
-    redirection instructions remain authoritative.
-
-execution_order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
+execution_policy:
+  order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
+  active_phase: BE8
+  next_major_phase_after_BE8: BE10
+  rule: earliest_unblocked_reviewable_slice_first
+  branch_rule: new_feature_branch_from_current_main_after_every_merge
+  merge_rule: exact_head_required_checks_green_and_material_reviews_resolved
+  roadmap_update_rule: update_this_file_after_every_phase_or_material_slice_change
+  blocked_runner_rule: >-
+    If required runners are unavailable, do not weaken gates or merge without
+    evidence. Advance an independent allowed slice and preserve the exact resume
+    point.
+  no_fake_activity_rule: >-
+    After BE15, continue only demonstrated correctness, qualification,
+    integration, documentation or measured performance work.
 
 phases:
   - id: BE0
-    name: bootstrap_and_contract_freeze
+    name: bootstrap_and_ownership
     status: completed
     evidence:
-      - ElasticXxx_PR_80_merge_a46f9c7485036bf7d9d8cd523326759e5493a868
-      - BooleanLab_PR_57_merge_78de02b51c832002ea0839c7157a0d4ba2a25ce7
-      - TDI_PR_223_merge_9b5fd346264c7be655ddd33e948a46a4852f48e8
+      - ElasticXxx_PR_80
+      - BooleanLab_PR_57
+      - TDI_PR_223
     exit_criteria:
-      - relevant_bootstraps_point_to_canonical_or_local_overlay
-      - ownership_and_non_goals_explicit
+      - bootstraps_reference_the_canonical_roadmap
+      - production_and_research_ownership_boundaries_are_explicit
 
   - id: BE1
-    name: dependency_free_boolean_core
+    name: dependency_free_three_valued_boolean_core
     status: completed
-    target_crate: elastic-core
     delivered:
       - TruthValue_True_False_Unknown
       - PredicateId_FactMask_FactSet
-      - bounded_BoolExpr_and_LogicError
+      - bounded_BoolExpr
       - CompiledGuard_u64_fast_path
-      - semantics_preserving_static_conjunction_fast_path
-      - public_facade_and_downstream_guard
-    validation:
-      - strong_Kleene_truth_tables
-      - A_and_not_A_preserves_Unknown
-      - exhaustive_two_predicate_generic_vs_fast_path_equivalence
-      - depth_and_range_limits
+      - exact_fast_path_vs_generic_equivalence_tests
     evidence:
-      - PR_80_exact_head_2a30b5069c61f1b405a60b83d6aa21cded0fedda
-      - ci_315_success
-      - packageability_13_success
-      - continuous_hardening_16_success
-      - merge_a46f9c7485036bf7d9d8cd523326759e5493a868
+      - ElasticXxx_PR_80
 
   - id: BE2
     name: canonicalization_and_stable_identity
     status: completed
-    target_crates: [elastic-core, elastic-eir]
     delivered:
-      - PredicateKey_and_deterministic_PredicateRegistry
-      - bounded_semantics_preserving_BoolExpr_canonicalization
-      - commutative_ordering_flattening_dedup_constant_folding_double_negation
+      - PredicateKey
+      - deterministic_PredicateRegistry
+      - strong_Kleene_safe_canonicalization
       - stable_BoolExprFingerprint
-      - predicate_and_expression_schema_versions
-    validation:
-      - permutation_invariance
-      - normalization_idempotence
-      - fingerprint_stability
-      - exhaustive_three_valued_semantic_equivalence
-      - size_and_depth_limits
+      - schema_versions
     evidence:
-      - PR_81_exact_head_883383bf3ea29f783bfb918c4b41dfa78473528d
-      - ci_319_success
-      - packageability_17_success
-      - continuous_hardening_19_success
-      - merge_8db15dc859fae9f986b62004d57bab8011d139b1
+      - ElasticXxx_PR_81
 
   - id: BE3
-    name: EIR_guard_contract
+    name: typed_EIR_guard_contract
     status: completed
-    target_crates: [elastic-core, elastic-eir]
     delivered:
       - GuardScope_resource_dimension_transition
-      - BooleanGuard_and_GuardedResourceSpec
-      - duplicate_scope_nonelastic_and_unadmitted_target_rejection
-      - EirPredicate_EirGuard_EirGuardedResource
+      - BooleanGuard
+      - GuardedResourceSpec
+      - EirGuardedResource
       - lower_guarded
-      - separately_versioned_guard_envelope
-      - guarded_resource_fingerprint_binding
-      - legacy_EIR_v1_shape_and_fingerprint_preserved
-    validation:
-      - deterministic_guard_lowering
-      - invalid_scope_rejection
-      - unknown_predicate_rejection
-      - guard_input_order_invariance
-      - guard_policy_changes_combined_fingerprint
+      - deterministic_guarded_fingerprint
     evidence:
-      - PR_82_exact_head_6321515956e6a37d634927a41981cef244de73a9
-      - ci_323_success
-      - packageability_21_success
-      - continuous_hardening_22_success
-      - merge_362fc538c693de4e072dd4c26776887975908970
+      - ElasticXxx_PR_82
 
   - id: BE4
     name: transition_guard_semantics
     status: completed
-    target_crates: [elastic-core, elastic-eir]
     delivered:
-      - GuardFactSource_with_missing_to_Unknown
-      - BooleanGuard_when_requires_forbids_evaluate
-      - TransitionGuard_single_semantic_wrapper
-      - GuardScope_applies_to
-      - GuardedTransitionOutcome_Eligible_Rejected_InsufficientEvidence_NotDeclared
-      - conjunctive_resource_dimension_transition_guard_evaluation
-      - all_True_plus_capability_grounding_required_for_Eligible
-    validation:
-      - False_rejects
-      - Unknown_is_insufficient_evidence
-      - unrelated_dimension_guard_does_not_apply
-      - foreign_or_unadmitted_transition_is_never_made_eligible
+      - GuardFactSource
+      - when_requires_forbids
+      - conjunctive_scope_evaluation
+      - Eligible_Rejected_InsufficientEvidence_NotDeclared
+      - capability_grounding_required
     evidence:
-      - PR_83_exact_head_5742f07dfa346e9f31de7dc0e2617a5801f35bdb
-      - ci_328_success
-      - packageability_26_success
-      - continuous_hardening_26_success
-      - merge_f5b1020be3f7cd4eb7d2a6d19bca4e0b603032c2
+      - ElasticXxx_PR_83
 
   - id: BE5
     name: runtime_fact_derivation
     status: completed
-    target_crate: elastic-runtime
     delivered:
-      - PredicateEvaluator_and_PredicateEvaluationInput
-      - FactSnapshot_with_source_timestamp_observation_epoch
-      - deterministic_derivation_from_PlanningContext_and_ObservationSnapshot
+      - PredicateEvaluator
+      - FactSnapshot_with_source_epoch_and_resource_generation
       - threshold_presence_freshness_and_capability_predicates
-      - fact_snapshot_capacity_limit
-      - resource_generation_binding
-      - stale_fact_rejection
-      - missing_invalid_stale_NaN_or_infinite_evidence_cannot_fabricate_True
+      - stale_cross_resource_and_nonfinite_fail_closed_rules
     evidence:
-      - PR_84_exact_head_86db9cf40d55434cc59dd7ac2c1f1f622addae73
-      - merge_372416b6932901ca23214f69b74856cee93bbb6e
-    exit_criteria:
-      - applicable_exact_head_required_workflows_green
-      - no_runtime_fact_can_claim_True_without_explicit_source_or_derivation
+      - ElasticXxx_PR_84
 
   - id: BE6
-    name: planner_candidate_pruning
-    status: partial
-    target_crates: [elastic-eir, elastic-runtime, elastic-adapters]
+    name: source_bound_survivor_only_planning
+    status: completed
     delivered:
       - TransitionPruningReport_eligible_rejected_unknown
-      - canonical_partition_and_subset_property
-      - BooleanGuardPreplanner_checks_epoch_generation_and_cross_resource_binding
-      - BooleanGuardPlanner_for_capacity_or_exact_transition_or_any_eligible
-      - Threshold_and_Headroom_true_guard_differential_tests
-      - false_and_unknown_capacity_guards_skip_numeric_planning
+      - BooleanGuardPreplanner
+      - BooleanGuardPlanner
+      - source_bound_EirGuardedResource_restrict_to_eligible
+      - numeric_planner_receives_only_survivors
+      - final_candidate_scope_grounding_and_membership_revalidation
+      - runner_up_selection_after_rejected_old_winner
+      - Threshold_and_Headroom_differential_parity
     evidence:
-      - PR_85_merge_b9cd21a3471c78e65655088a66e5804c635dc75f
-      - PR_86_merge_7095d316fb58a56ce56c4cd283b6395bd9de355b
-    pending_slices:
-      - pr: 92
-        branch: feat/boolean-survivor-only-planning
-        head: ed7aff4cf3ed765fd2b2fc2adea1a4571da16a21
-        status: coded_awaiting_required_CI_and_review_qualification
-        purpose: source_bound_survivor_only_EIR_views_for_existing_numeric_planners
-        implementation:
-          - EirGuardedResource_restrict_to_eligible_public_API
-          - raw_EirResource_restrict_to_candidates_is_crate_private
-          - TransitionPruningReport_retains_complete_guarded_source
-          - source_validation_uses_full_structural_equality_not_hash_alone
-          - reject_unbound_default_foreign_resource_changed_policy_or_changed_content_reports
-          - only_eligible_and_target_scoped_admissions_passed_to_numeric_planner
-          - preserve_invariants_objective_priority_observations_labels_and_identity
-          - filter_orphan_capability_requirements_and_recompute_projected_fingerprint
-          - revalidate_original_declaredness_grounding_target_and_subset_on_output
-          - empty_or_undeclared_exact_targets_return_Unsupported_without_numeric_call
-          - preserve_advisory_candidate_magnitude
-          - expose_freshness_epochs_and_generations_through_public_elastic_facade
-        regression_specifications:
-          - four_EIR_tests_including_all_four_subsets_of_two_transitions
-          - eight_facade_only_integration_tests
-          - all_nine_three_valued_transition_assignments
-          - select_valid_runner_up_after_rejecting_old_numeric_winner
-          - deny_cached_rejected_unknown_ungrounded_or_out_of_scope_outputs
-          - no_numeric_calls_on_stale_cross_resource_or_empty_eligibility_inputs
-          - sixty_four_Threshold_Headroom_legacy_parity_comparisons
-          - original_guarded_identity_used_for_decision_trace_capture
-          - six_source_binding_integration_tests
-          - changed_guard_policy_rejected_even_with_identical_base_EIR
-          - default_unbound_report_rejected_even_for_empty_projection
-          - compile_fail_doctest_for_private_bare_candidate_projection
-        review_follow_up:
-          comment: 4009483517
-          severity: P1
-          issue: unbound_public_candidate_subset_could_reuse_foreign_eligibility
-          response: corrected_in_code_and_regression_specs_not_yet_execution_qualified
-        execution_evidence:
-          local_Rust: unavailable_no_execution_claim
-          ci_run: 34899204315
-          ci_status: queued
-          packageability_run: 34899204317
-          packageability_status: success
-        design_note: docs/design/boolean-survivor-planning.md
-    remaining:
-      - qualify_and_merge_general_planner_survivor_only_interface_in_PR92
-      - execute_multi_transition_invalid_output_and_source_binding_tests
-      - qualify_scope_and_capability_grounding_revalidation_of_final_output
-    caveat: >-
-      Main still passes the original EirResource to the legacy planner before
-      filtering its answer. PR92 supplies a validated survivor projection and
-      now requires a report bound to the complete original guarded resource.
-      Do not count that fix as delivered until its exact-head checks succeed
-      and it is merged. Individual TransitionCandidate values still carry no
-      source identity and are not transferable eligibility proofs. Pure EIR
-      report binding does not establish epoch/generation freshness; the runtime
-      regenerates reports from fresh facts. Numeric-context/fact acquisition
-      coherence and live controller integration remain qualification work.
-      Source cloning and projection allocations require BE13 measurement.
+      - ElasticXxx_PR_85
+      - ElasticXxx_PR_86
+      - ElasticXxx_PR_92
+      - PR92_head_ac023fb8cef9e5c8d4ae230403766d7b477acdee_ci_success
     exit_criteria:
-      - guarded_candidates_are_always_subset_of_declared_candidates
-      - existing_planner_semantics_preserved_when_guards_are_tautologies
-      - survivor_only_ranking_demonstrated_for_general_planners
+      - every_ranked_candidate_is_a_declared_grounded_survivor
+      - foreign_or_stale_policy_reports_cannot_construct_a_public_planning_view
+      - tautological_or_absent_guards_preserve_legacy_planner_semantics
 
   - id: BE7
-    name: invariant_booleanization
-    status: partial
+    name: invariant_boolean_precheck_core
+    status: completed
     delivered:
       - InvariantPredicateBinding
-      - resource_bound_fresh_invariant_precheck_reports
-      - NoCandidate_InvalidCandidate_Passed_Rejected_InsufficientEvidence
-      - shared_invariant_applicability_rule
-      - explicit_separation_static_guard_vs_trusted_runtime_invariant
-      - immediate_pre_actuation_adapter_revalidation_retained
+      - scalar_fail_closed_precheck_reports
+      - conflicting_trusted_checks_rejected_independent_of_order
+      - CompiledInvariantPrecheck
+      - single_word_invariant_masks_up_to_64_applicable_invariants
+      - exact_plan_candidate_context_reuse_checks
+      - no_cached_True_across_fact_snapshots
+      - successful_precheck_never_replaces_validate_with_checks
     evidence:
-      - PR_87_merge_5aa82a51af19d753c2530d0eda619412ae426925
-    pending_slices:
-      - pr: 90
-        branch: fix/invariant-evidence-conflicts
-        head: 045eda4e3e4945b929d12335a0972421601f9494
-        purpose: reject_conflicting_trusted_invariant_checks
-        status: awaiting_required_Rust_CI
-        execution_evidence:
-          ci_run: 34890119028
-          ci_status: queued
-          packageability_run: 34890119007
-          packageability_status: success
-      - pr: 93
-        branch: feat/boolean-compiled-invariant-prechecks
-        head: 5af6b01cc812673d042e71e5e841be154673cf71
-        purpose: compiled_plan_bound_single_word_invariant_prechecks
-        status: coded_requires_rustfmt_correction_and_required_CI
-        implementation:
-          - CompiledInvariantPrecheck_and_InvariantMaskSummary
-          - shared_scalar_binding_provenance_and_freshness_helpers
-          - canonical_applicable_invariant_slots_including_missing_bindings
-          - explicit_64_slot_capacity_after_dimension_filtering
-          - existing_checked_FactMask_and_FactSet_aggregation
-          - exact_resource_candidate_magnitude_and_context_bit_pattern_reuse_checks
-          - refresh_all_fact_values_each_call_without_cached_True
-          - compact_summary_and_optional_scalar_identical_detailed_report
-          - facade_access_via_elastic_runtime_invariant_precheck_namespace
-          - repair_existing_trusted_validator_rustdoc_paths
-        regression_specifications:
-          - ten_runtime_and_one_facade_only_integration_tests
-          - 1728_detailed_report_parity_combinations
-          - full_word_bit_63_shared_key_aliases_and_rejection_at_65
-          - scope_filtering_before_compiled_capacity_check
-          - duplicate_oversized_binding_and_six_provenance_freshness_failures
-          - changed_resource_candidate_magnitude_context_and_signed_zero_denial
-          - fresh_epoch_reuse_no_truth_cache_and_no_trusted_validation_authority
-          - empty_applicable_set_still_checks_resource_provenance
-        supplemental_evidence:
-          independent_Python_mask_rule_cases: 1728
-          independent_Python_mask_rule_mismatches: 0
-          scope: abstract_rule_only_not_Rust_execution_or_CI
-        review_follow_up:
-          comment: 4009684364
-          severity: P1
-          issue: rustfmt_differences_reported_by_review
-          response: exact_1_89_formatting_only_correction_requested_on_existing_branch
-          correction_verified: false
-        execution_evidence:
-          local_Rust: unavailable_no_execution_claim
-          ci_run: 34897846894
-          ci_status: queued
-          packageability_run: 34897846898
-          packageability_status: success
-        design_note: docs/design/boolean-invariant-mask-prechecks.md
-        limits: >-
-          Candidate-bound compiled layout is not proof that resource-bound
-          facts attest the candidate target state or share the numeric context's
-          acquisition. No live controller, persisted decoder, actuation permit
-          or performance claim. Layout compilation clones the source plan.
-    remaining:
-      - correct_and_qualify_PR93_bulk_mask_prechecks_before_merge
-      - candidate_specific_fact_attestation_and_controller_integration_qualification
-      - merge_conflicting_trusted_check_fix_only_after_exact_head_green
-    exit_criteria:
-      - validate_with_checks_remains_authoritative
-      - successful_Boolean_precheck_never_covers_missing_trusted_checks
-      - explicit_failed_trusted_check_cannot_be_hidden_by_a_successful_duplicate
+      - ElasticXxx_PR_87
+      - ElasticXxx_PR_90
+      - ElasticXxx_PR_93
+      - PR90_head_8660a792eb3cbc11386e78fbb2d25dff29fff9d0_ci_success
+      - PR93_head_6dc1ffd0b209c75e00f2254566020dac08d490b9_ci_success
+    moved_to_BE14:
+      - live_controller_integration
+      - candidate_target_fact_attestation_when_a_domain_requires_it
+      - immediate_adapter_revalidation_in_end_to_end_guarded_cycles
 
   - id: BE8
-    name: decision_trace_and_evidence
-    status: partial
-    delivered:
+    name: durable_decision_trace_and_replay_evidence
+    status: active
+    already_delivered:
       - DecisionTrace
-      - predicate_and_unknown_trace
-      - deterministic_aggregate_stop_reason
-      - guard_and_semantic_fact_snapshot_fingerprints
-      - selected_rejected_unknown_candidate_evidence
+      - stable_guard_and_fact_fingerprints
+      - eligible_rejected_unknown_selected_candidate_trace
       - bounded_JSON_encoder
-      - in_memory_replay_identity_checks_without_actuation
+      - in_memory_identity_replay_checks
     evidence:
-      - PR_88_merge_d876196ccd2d2a77b37578ccb31c1a23876626a0
-    remaining:
-      - bounded_persisted_decoder_with_strict_schema_and_roundtrip_tests
-      - per_guard_short_circuit_evidence_and_stable_trace_comparison
-      - integrated_guarded_planning_capture_for_every_outcome
-      - include_invariant_precheck_evidence_without_claiming_trusted_validation
+      - ElasticXxx_PR_88
+    required_slices:
+      - id: BE8a
+        name: strict_persisted_decoder
+        tasks:
+          - define_versioned_DecisionTraceWireV1_or_equivalent_strict_schema
+          - deny_unknown_fields_duplicate_fields_invalid_enums_and_oversized_input
+          - bound_bytes_strings_collections_depth_and_numeric_fields_before_allocation
+          - parse_as_data_only_with_no_actuation_side_effect
+          - roundtrip_encode_decode_semantic_identity
+          - reject_future_schema_versions_by_default
+      - id: BE8b
+        name: deterministic_trace_comparison
+        tasks:
+          - stable_structural_diff_for_guard_fact_candidate_and_stop_reason_changes
+          - classify_policy_change_fact_change_candidate_change_and_unknown_change
+          - preserve_noncryptographic_fingerprint_limitations
+      - id: BE8c
+        name: integrated_guarded_planning_capture
+        tasks:
+          - capture_trace_for_Candidate_NoCandidate_Unsupported_and_InsufficientEvidence
+          - include_pruning_report_identity_and_original_guarded_resource_identity
+          - include_invariant_precheck_summary_without_claiming_trusted_validation
+          - bind_numeric_context_identity_or_explicit_cycle_snapshot_identity
+          - guarantee_trace_capture_does_not_reexecute_actuation
+      - id: BE8d
+        name: replay_qualification
+        tasks:
+          - replay_only_pure_decision_logic_from_qualified_inputs
+          - require_current_resource_policy_fact_and_context_identity_match
+          - deny_replay_on_stale_generation_epoch_policy_or_schema
+          - prove_replay_path_has_no_adapter_actuation
+      - id: BE8e
+        name: fuzz_and_adversarial_decoder_hardening
+        tasks:
+          - fuzz_wire_decoder
+          - fuzz_size_and_depth_limits
+          - property_roundtrip_for_valid_traces
+          - corpus_for_truncation_duplicate_keys_unknown_fields_and_large_counts
     exit_criteria:
-      - every_guarded_decision_explainable_without_reexecuting_actuation
-      - imported_traces_are_data_not_actuation_authority
+      - persisted_trace_can_be_strictly_decoded_and_roundtripped
+      - every_guarded_planning_outcome_has_replayable_explanation
+      - imported_trace_is_never_actuation_authority
+      - malformed_or_oversized_trace_never_panics_or_allocates_unboundedly
 
   - id: BE9
-    name: Rust_programming_surface
-    status: partial
-    target_crates: [elastic, elastic-macros, elastic-downstream]
+    name: public_Rust_programming_surface
+    status: completed
     delivered:
-      - public_ElasticGuard_builders
-      - predicate_helper_and_ElasticPredicates_stable_key_resolution
-      - facade_reexports_for_BE3_through_BE8
-      - facade_only_guard_construction_and_EIR_compile_guard
+      - predicate_helper
+      - ElasticPredicates
+      - ElasticGuard_builder
+      - public_BE3_through_BE8_reexports
+      - facade_only_downstream_examples
+      - elastic_guard_macro
+      - macro_vs_manual_three_valued_equivalence
+      - compile_fail_examples_for_unsupported_syntax
+      - public_freshness_epoch_generation_types
     evidence:
-      - PR_89_exact_head_f070a295bec69775c95f5144a0c71c4c8b90cc73
-      - ci_run_34789743253_success
-      - packageability_run_34789743333_success
-      - merge_50bb85ea84191c01d95e5b4e5e3c81af10e95ebd
-    pending_slices:
-      - pr: 91
-        branch: feat/boolean-guard-macro
-        head: 0e40afbddbbe9b30a3b2ca95d9b2e04c51dcc6e2
-        purpose: hygienic_elastic_guard_macro_and_facade_only_equivalence_tests
-        status: awaiting_required_Rust_CI
-      - pr: 92
-        purpose: expose_missing_freshness_types_and_exercise_actual_guarded_planning_via_facade
-        status: coded_awaiting_required_CI
-      - pr: 93
-        purpose: facade_only_compiled_invariant_layout_construction
-        status: coded_requires_formatting_and_required_CI
-    macro_design: >-
-      The function-like guard macro belongs in the facade as declarative syntax,
-      uses dollar-crate hygiene, and lowers only to existing public builders.
-      No second evaluator or new procedural-macro dependency is needed. Attribute
-      sugar remains deferred until a concrete use case justifies it.
-    remaining:
-      - qualify_macro_against_core_and_compile_fail_examples
-      - executable_usage_documentation
-      - qualify_facade_only_fact_derivation_and_guarded_planning_in_PR92
-      - qualify_facade_compiled_invariant_precheck_surface_in_PR93
+      - ElasticXxx_PR_89
+      - ElasticXxx_PR_91
+      - ElasticXxx_PR_92
+      - ElasticXxx_PR_93
+      - PR91_head_4ed18a8be23d6f3072fc09a7997a2d8bd7eabe11_ci_success
     exit_criteria:
-      - downstream_users_need_only_elastic_facade
-      - macro_extensions_lower_exactly_to_core
+      - normal_downstream_users_need_only_elastic
+      - macro_and_builder_lower_to_the_same_core_semantics
 
   - id: BE10
-    name: CLI_and_operator_configuration
+    name: operator_configuration_and_CLI
     status: planned
-    required_deliverables:
-      - guard_check_eval_explain_list
-      - fingerprint_inspection
-      - strict_versioned_operator_guard_config
-      - dry_run_static_analysis
+    target_crates: [elastic, elastic-runtime, elastic-cli]
+    required_slices:
+      - id: BE10a
+        name: versioned_guard_configuration_schema
+        tasks:
+          - strict_JSON_or_existing_config_format_with_deny_unknown_fields
+          - explicit_schema_version
+          - stable_predicate_keys_and_guard_scopes
+          - no_raw_PredicateId_persistence
+          - bounded_expression_depth_nodes_predicates_and_string_lengths
+          - threshold_predicate_configuration_with_units_and_signal_identity
+          - reject_nonfinite_numeric_thresholds
+          - deterministic_lowering_to_public_library_API
+      - id: BE10b
+        name: read_only_guard_commands
+        commands:
+          - guard-list
+          - guard-check
+          - guard-eval
+          - guard-explain
+          - guard-fingerprint
+        requirements:
+          - no_hidden_semantics_absent_from_library_API
+          - machine_readable_output
+          - explicit_True_False_Unknown
+          - no_actuation
+      - id: BE10c
+        name: guarded_plan_dry_run
+        tasks:
+          - feed_versioned_policy_and_observations_to_public_runtime
+          - emit_survivors_rejected_unknown_numeric_outcome_and_trace
+          - support_strict_non_actuating_dry_run
+      - id: BE10d
+        name: operator_config_integration
+        tasks:
+          - attach_guard_configuration_to_declared_resources
+          - preserve_existing_config_backward_compatibility_or_version_break_explicitly
+          - validate_at_load_time_and_again_at_runtime_boundaries
+      - id: BE10e
+        name: CLI_contract_tests
+        tasks:
+          - process_level_success_and_failure_exit_codes
+          - strict_input_size_limit
+          - malformed_unknown_field_and_nonfinite_rejection
+          - CLI_vs_library_equivalence
     exit_criteria:
-      - CLI_has_no_semantics_absent_from_library_API
+      - operator_can_load_inspect_evaluate_explain_and_dry_run_guards_without_internal_crates
+      - CLI_cannot_do_anything_the_public_library_cannot_express
+      - read_only_commands_never_actuate
 
   - id: BE11
-    name: symbolic_static_analysis
+    name: bounded_symbolic_static_analysis
     status: planned
-    required_deliverables:
-      - bounded_contradiction_tautology_implication_analysis
-      - dead_and_redundant_rule_detection
-      - reachability_and_mutual_exclusion_queries
-      - optional_BDD_or_SAT_backend_only_after_dependency_evaluation
-      - explicit_solver_limits_timeouts_and_failure
+    target_crates: [elastic-core, elastic-eir, elastic]
+    required_slices:
+      - id: BE11a
+        name: dependency_free_exact_small_domain_oracle
+        tasks:
+          - enumerate_all_three_valued_or_boolean_assignments_under_declared_semantics_where_applicable
+          - bounded_satisfiable_unsatisfiable_tautology_contradiction_queries
+          - implication_equivalence_mutual_exclusion_queries
+          - dead_guard_and_redundant_clause_detection
+          - explicit_variable_and_assignment_caps
+      - id: BE11b
+        name: resource_policy_queries
+        tasks:
+          - unreachable_transition_detection
+          - mutually_exclusive_transition_detection
+          - guard_shadowing_and_redundancy
+          - invariant_guard_consistency_diagnostics_without_replacing_runtime_validation
+      - id: BE11c
+        name: optional_symbolic_backend_interface
+        tasks:
+          - backend_trait_with_Sat_Unsat_Unknown_Timeout_ResourceLimit
+          - no_backend_result_can_directly_authorize_actuation
+          - deterministic_limits_and_seed_configuration
+          - dependency_and_license_review_before_adding_RustSAT_BDD_or_Z3_like_backend
+      - id: BE11d
+        name: optional_SAT_or_BDD_backend
+        precondition: BE11a_and_BE11c_qualified
+        tasks:
+          - choose_backend_from_current_maintained_ecosystem_after_review
+          - enforce_timeout_clause_node_and_memory_limits
+          - differential_test_against_exact_small_domain_oracle
+          - preserve_solver_unknown_and_timeout_as_non_results
+      - id: BE11e
+        name: analysis_API_and_CLI
+        tasks:
+          - contradiction_tautology_implication_equivalence_reachability_commands
+          - bounded_diagnostics_and_machine_readable_reports
     exit_criteria:
-      - solver_failure_never_authorizes_transition
+      - small_domains_match_exhaustive_oracle_exactly
+      - backend_timeout_failure_or_unknown_never_becomes_permission
+      - analysis_is_optional_and_not_required_in_runtime_hot_path
 
   - id: BE12
     name: pseudo_boolean_resource_constraints
     status: planned
-    required_deliverables:
-      - weighted_boolean_terms
-      - cardinality_and_le_ge_eq_constraints
-      - capacity_budget_and_mutual_exclusion_encoding
-      - checked_integer_scaling_and_overflow_detection
-      - deterministic_tie_breaking
+    target_crates: [elastic-core, elastic-eir, elastic-runtime]
+    required_slices:
+      - id: BE12a
+        name: typed_constraint_model
+        tasks:
+          - WeightedPredicate_or_equivalent_with_stable_key
+          - relations_LE_GE_EQ
+          - cardinality_at_most_at_least_exactly
+          - explicit_unit_and_integer_scale_metadata
+          - checked_i128_or_equivalent_accumulation
+          - reject_negative_or_overflowing_weights_when_contract_forbids_them
+      - id: BE12b
+        name: deterministic_evaluator
+        tasks:
+          - evaluate_True_False_Unknown_without_collapsing_unknown_terms
+          - define_bounds_that_can_decide_early_under_partial_assignment
+          - deterministic_tie_breaking
+      - id: BE12c
+        name: resource_budget_patterns
+        tasks:
+          - mutually_exclusive_features
+          - replica_or_worker_cardinality
+          - memory_capacity_budget
+          - device_slot_budget
+          - feature_bundle_constraints
+      - id: BE12d
+        name: exact_small_domain_optimizer_or_feasibility_oracle
+        tasks:
+          - bounded_enumeration_reference
+          - compare_any_optional_solver_backend_to_reference
+          - no_claim_of_scalability_from_reference_enumerator
+      - id: BE12e
+        name: EIR_and_trace_integration
+        tasks:
+          - version_constraint_schema
+          - fingerprint_constraints
+          - include_constraint_failure_or_unknown_reason_in_decision_trace
     exit_criteria:
-      - units_scaling_and_overflow_behavior_explicit
+      - overflow_units_and_scaling_are_explicit_and_tested
+      - exact_small_domains_match_reference_enumeration
+      - constraints_only_filter_or_rank_declared_choices_and_never_bypass_validation
 
   - id: BE13
-    name: hardware_friendly_and_parallel_evaluation
+    name: multiword_and_hardware_friendly_evaluation
     status: planned
-    required_deliverables:
-      - multiword_factsets_beyond_64_predicates
-      - word_parallel_bulk_candidate_screening
-      - precomputed_guard_batches
-      - cache_layout_benchmarks
-      - portable_baseline_before_arch_specific_acceleration
-    benchmark_matrix:
-      - scalar_if_chain
-      - generic_BoolExpr
-      - u64_mask_guard
-      - multiword_guard
-      - batch_candidate_filter
-    metrics:
-      - ns_per_guard
-      - candidates_per_second
-      - allocations
-      - bytes_per_guard
-      - branch_misses_when_available
+    target_crates: [elastic-core, elastic-runtime]
+    required_slices:
+      - id: BE13a
+        name: multiword_fact_representation
+        tasks:
+          - support_more_than_64_predicates_without_changing_public_stable_identity
+          - word_index_and_bit_index_checked_math
+          - True_False_Unknown_masks_with_no_overlap
+          - bounded_allocation_limits
+      - id: BE13b
+        name: multiword_compiled_guards
+        tasks:
+          - conjunction_and_disjunction_fast_paths
+          - generic_expression_fallback
+          - exact_equivalence_to_generic_evaluator
+      - id: BE13c
+        name: batch_candidate_screening
+        tasks:
+          - precompute_guard_batches
+          - evaluate_multiple_candidates_word_parallel
+          - preserve_stable_candidate_order
+      - id: BE13d
+        name: portable_benchmark_harness
+        matrix:
+          - scalar_if_chain
+          - generic_BoolExpr
+          - u64_compiled_guard
+          - multiword_guard
+          - batch_filter
+        metrics:
+          - ns_per_guard
+          - candidates_per_second
+          - allocations
+          - bytes_per_guard
+          - memory_peak_when_measurable
+          - branch_misses_only_when_directly_measured
+      - id: BE13e
+        name: architecture_specific_acceleration_gate
+        precondition: portable_benchmark_evidence_exists
+        tasks:
+          - detect_real_CPU_features_at_runtime_or_compile_target
+          - optional_popcount_or_SIMD_paths_only_when_stable_and_justified
+          - keep_portable_scalar_baseline
+          - no_portable_simd_nightly_dependency_in_public_core_without_explicit_policy_change
     exit_criteria:
-      - all_performance_claims_backed_by_reproducible_evidence
+      - multiword_and_u64_paths_are_semantically_identical
+      - every_speed_claim_has_reproducible_raw_evidence_and_exact_SHA
+      - optimized_paths_fall_back_safely
 
   - id: BE14
-    name: domain_integration
+    name: end_to_end_domain_integration
     status: planned
     target_domains:
       - RAM_capacity
@@ -562,104 +519,170 @@ phases:
       - batching
       - device_placement
       - thermal_and_energy_when_observed
-    per_domain_requirements:
-      - typed_predicate_registry
-      - missing_data_to_Unknown
-      - preserve_numeric_objective_stage
-      - differential_test_pre_boolean_behavior
-      - decision_trace
-      - benchmark_before_gain_claim
+    supporting_existing_work:
+      - PR95_verified_capacity_admission_and_shared_concurrency_permits
+    per_domain_contract:
+      - explicit_predicate_catalog_with_stable_keys
+      - numeric_source_signal_and_unit_documentation
+      - missing_stale_invalid_measurement_to_Unknown
+      - guarded_candidate_pruning_before_numeric_ranking
+      - trusted_validation_immediately_before_actuation
+      - post_actuation_verification_and_rollback
+      - DecisionTrace_or_later_durable_trace
+      - differential_baseline_without_boolean_policy
+      - benchmark_before_any_gain_claim
+    ordered_slices:
+      - id: BE14a
+        domain: RAM_capacity
+      - id: BE14b
+        domain: concurrency
+      - id: BE14c
+        domain: model_execution_profiles
+      - id: BE14d
+        domain: KV_cache
+      - id: BE14e
+        domain: representation_precision
+      - id: BE14f
+        domain: kernel_realization
+      - id: BE14g
+        domain: batching_and_device_placement
+      - id: BE14h
+        domain: thermal_and_energy_when_real_observers_exist
+    each_slice_requires:
+      - real_observer_or_explicit_test_provider
+      - at_least_one_false_one_unknown_and_one_true_policy_case
+      - full_OBSERVE_FORECAST_PLAN_VALIDATE_ACT_VERIFY_COMMIT_or_ROLLBACK_cycle_when_actuation_exists
+      - rollback_or_fail_closed_test
+      - trace_assertions
+      - no_semantic_regression_against_unguarded_reference
     exit_criteria:
-      - RAM_concurrency_KV_and_model_execution_have_guarded_end_to_end_cycles
+      - RAM_concurrency_KV_and_model_execution_have_qualified_guarded_cycles
+      - representation_and_kernel_paths_have_versioned_guarded_contracts
+      - no_domain_uses_boolean_logic_to_silently_change_scientific_or_application_semantics
 
   - id: BE15
-    name: cross_repository_research_promotion_and_productization
+    name: cross_repository_promotion_and_productization
     status: planned
-    integrations:
-      BooleanLab:
-        - exhaustive_differential_oracle
-        - simplification_complexity_and_representation_studies
-      TDI:
-        - compare_TDI_9_3_policy_representation_on_permitted_surfaces
-        - preserve_all_confirmation_boundaries
-      SciRust:
-        - promote_only_mathematically_general_reusable_primitives
-      Forge:
-        - optional_bounded_guard_candidate_search
-        - executed_evidence_remains_authoritative
-    productization:
-      - semver_and_MSRV_review
-      - documentation_examples_and_migration_notes
-      - fuzzing_property_tests_and_Miri_where_applicable
-      - packageability_and_downstream_contracts
+    required_slices:
+      - id: BE15a
+        name: BooleanLab_oracle_and_benchmark_bridge
+        tasks:
+          - version_exact_small_domain_test_vectors
+          - compare_generic_compiled_multiword_and_symbolic_results
+          - keep_BooleanLab_experimental_semantics_out_of_production_runtime
+      - id: BE15b
+        name: TDI_9_3_non_final_adapter
+        tasks:
+          - version_representation_adapter
+          - differential_test_True_False_Unknown
+          - preserve_TDI_preregistration_holdout_and_confirmation_boundaries
+          - runtime_integration_never_counts_as_scientific_confirmation
+      - id: BE15c
+        name: SciRust_promotion_review
+        tasks:
+          - promote_only_mathematically_general_primitives_with_multiple_real_consumers
+          - avoid_dependency_cycle
+      - id: BE15d
+        name: Forge_optional_search_bridge
+        tasks:
+          - Forge_may_generate_candidate_guard_or_constraint_forms
+          - ElasticXxx_revalidates_structure_semantics_and_limits
+          - executed_evidence_remains_authoritative
+      - id: BE15e
+        name: ExtremEngine_and_other_real_consumers
+        tasks:
+          - consume_guarded_adaptive_quality_or_resource_contract_only_when_metrics_exist
+          - require_hysteresis_cooldown_and_rollback_where_stateful
+          - benchmark_real_consumer_effects_before_claims
+      - id: BE15f
+        name: release_productization
+        tasks:
+          - semver_review
+          - MSRV_review
+          - license_and_publication_review
+          - rustdoc_and_examples
+          - migration_notes
+          - fuzzing_and_property_tests
+          - Miri_where_applicable
+          - packageability_and_facade_only_downstream_contracts
+          - compatibility_matrix_for_cross_repo_consumers
     final_exit_criteria:
-      - Boolean_guarding_is_supported_public_ElasticXxx_capability
-      - production_domains_have_measured_behavior_and_no_semantic_regression
+      - BE0_through_BE14_exit_criteria_are_satisfied
+      - public_Boolean_guard_and_constraint_contracts_are_versioned_documented_and_tested
+      - production_domain_integrations_have_no_semantic_regression
       - symbolic_backends_are_optional_bounded_and_fail_closed
-      - cross_repo_reuse_is_versioned_not_ad_hoc_copying
+      - cross_repo_reuse_is_versioned_and_not_ad_hoc_copying
+      - release_and_license_state_is_explicit
+      - remaining_work_is_ordinary_maintenance_not_missing_roadmap_functionality
 
-required_test_strategy:
+test_strategy:
   exhaustive_small_domains:
-    - all_TruthValue_pairs_for_each_operator
-    - small_expression_fact_assignments
+    - strong_Kleene_operator_tables
+    - expression_assignments
     - generic_vs_compiled_equivalence
-    - macro_vs_manual_guard_identity_and_evaluation
-    - trusted_invariant_check_sequences_including_conflicts
-    - all_small_transition_subsets_and_three_valued_eligibility_assignments
-    - compiled_invariant_reports_vs_scalar_with_missing_bindings_and_facts
+    - macro_vs_manual_equivalence
+    - pruning_subset_properties
+    - pseudo_boolean_small_domain_reference
+    - symbolic_backend_vs_exact_oracle
   property_families:
     - normalization_idempotence
     - canonicalization_determinism
-    - compiled_guard_never_incorrectly_turns_False_or_Unknown_into_True
-    - pruning_subset_property
-    - numeric_planner_receives_only_survivors_and_output_cannot_expand_them
-    - source_bound_reports_cannot_cross_resource_content_or_guard_policy_changes
-    - compiled_layout_reuse_cannot_cross_plan_changes_or_cache_true_facts
-    - serialization_roundtrip_when_wire_format_exists
+    - stable_fingerprint_identity
+    - compiled_path_never_turns_False_or_Unknown_into_True
+    - survivor_only_planner_input
+    - serialized_roundtrip_for_every_persisted_schema
+    - source_and_epoch_binding
+    - overflow_and_limit_fail_closed
+  adversarial:
+    - malformed_JSON
+    - duplicate_and_unknown_fields
+    - oversized_strings_arrays_nodes_predicates_and_constraints
+    - stale_generation_and_epoch
+    - foreign_resource_and_policy_identity
+    - solver_timeout_resource_limit_and_unknown
   hardening:
-    - bounded_depth_node_and_fact_counts
-    - fuzz_untrusted_decoders_when_added
-    - fuzz_normalizer_and_compiler
-    - no_panics_on_untrusted_inputs
+    - fuzz_untrusted_decoders
+    - fuzz_expression_normalization
+    - fuzz_constraint_parsing
+    - no_panics_on_untrusted_input
+    - Miri_for_core_data_structures_when_applicable
 
-merge_protocol:
-  - implement_one_reviewable_slice_per_PR
-  - run_required_CI_on_exact_head
-  - fix_all_red_checks_and_conflicts
-  - merge_only_green_exact_head
-  - update_this_roadmap_after_each_merged_slice
-  - retain_all_remaining_phase_deliverables
-  - immediately_select_next_unblocked_phase
+documentation_contract:
+  required:
+    - README_current_status
+    - docs_for_each_wire_schema
+    - public_API_rustdoc_examples
+    - CLI_help_and_machine_readable_examples
+    - benchmark_protocol_and_raw_evidence_location
+    - cross_repo_compatibility_matrix
+  rule: planned_candidate_qualified_and_merged_states_must_not_be_conflated
+
+automation_contract:
+  task_name: Memorithm Research Autopilot
+  required_frequency: at_least_daily
+  current_frequency: hourly
+  execution_requirement: >-
+    At least once per calendar day, and whenever ElasticXxx is selected in an
+    hourly pass, inspect current main, open PRs, reviews, CI and this roadmap;
+    implement the earliest unblocked BE slice; fix failures; merge only exact-head
+    green PRs; update this roadmap after material changes; then continue to the
+    next slice while time and tool access permit.
+  priority_until_completion:
+    - BE8
+    - BE10
+    - BE11
+    - BE12
+    - BE13
+    - BE14
+    - BE15
+  completion_behavior: >-
+    Do not create artificial work after BE15. Continue only real correctness,
+    integration, qualification, documentation, security, compatibility or
+    measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE6
-  active_prs: [90, 91, 92, 93]
-  immediate_priority: qualify_trusted_invariant_conflict_fix_and_address_open_review_findings
-  next: qualify_PR92_source_binding_and_PR93_masks_then_BE8_persisted_trace_contract
-  safety_exception: PR90_correctness_fix_precedes_new_features_when_its_execution_gate_is_available
-  rust_ci_observation: >-
-    Required Rust jobs remain queued. PR90/91 packageability is successful on
-    their recorded heads. Corrected PR92 head ed7aff4cf3ed765fd2b2fc2adea1a4571da16a21
-    has queued ci run 34899204315 and successful packageability run 34899204317.
-    PR93 head 5af6b01cc812673d042e71e5e841be154673cf71 has queued ci run 34897846894
-    and successful packageability run 34897846898. Review reports rustfmt
-    differences in PR93; a formatting-only correction has been requested but
-    is not verified. No local Rust toolchain was available and no local Rust
-    execution is claimed. Recheck all current heads and applicable workflows;
-    never merge from this historical checkpoint alone.
-  resume_commands:
-    - cargo +1.89.0 fmt --all
-    - cargo +1.89.0 fmt --all -- --check
-    - cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
-    - cargo +1.89.0 test -p elastic-eir planning_subset
-    - cargo +1.89.0 test -p elastic-eir --test source_bound_planning
-    - cargo +1.89.0 test -p elastic-downstream --test survivor_planning
-    - cargo +1.89.0 test -p elastic-runtime --test compiled_invariant_precheck
-    - cargo +1.89.0 test -p elastic-downstream --test compiled_invariants
-    - cargo +1.89.0 test --workspace
-  documentation_in_PR92:
-    - README.md
-    - docs/design/boolean-survivor-planning.md
-  documentation_in_PR93:
-    - docs/design/boolean-invariant-mask-prechecks.md
+  earliest_incomplete_phase: BE8
+  immediate_next_slice: BE8a_strict_persisted_decoder
+  open_pull_requests_at_checkpoint: 0
+  verified_main: 2462d6250b2f0624dc843be0a058bb1c1002cef3
   performance_claims: none
