@@ -1,12 +1,12 @@
 //! Differential and fail-closed contracts for the optional compiled precheck.
 
 use elastic_core::resource::{
-    AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
-    InvariantKind, LogicalResourceId, ObservationSignalId, ResourceClassId, ResourceSpec,
+    AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant, InvariantKind,
+    LogicalResourceId, ObservationSignalId, ResourceClassId, ResourceSpec,
 };
 use elastic_core::{
-    FreshnessSnapshot, InvariantPredicateBinding, ObservationEpoch, PlannerEpoch,
-    PredicateKey, ResourceGeneration, TransitionMechanism,
+    FreshnessSnapshot, InvariantPredicateBinding, ObservationEpoch, PlannerEpoch, PredicateKey,
+    ResourceGeneration, TransitionMechanism,
 };
 use elastic_eir::{lower, PlanOutcome, PlanningContext, TransitionCandidate};
 use elastic_runtime::invariant_precheck::{
@@ -14,9 +14,9 @@ use elastic_runtime::invariant_precheck::{
 };
 use elastic_runtime::plan::validate_with_checks;
 use elastic_runtime::{
-    precheck_plan_invariants, CapabilityPredicate, FactResourceBinding, FactSnapshot,
-    FactSourceId, InvariantPrecheckError, InvariantPrecheckStatus, ObservationSnapshot,
-    Plan, PredicateEvaluationInput, PredicateEvaluator,
+    precheck_plan_invariants, CapabilityPredicate, FactResourceBinding, FactSnapshot, FactSourceId,
+    InvariantPrecheckError, InvariantPrecheckStatus, ObservationSnapshot, Plan,
+    PredicateEvaluationInput, PredicateEvaluator,
 };
 use std::time::Instant;
 
@@ -154,17 +154,22 @@ fn exhaustive_reports_match_scalar_for_truth_binding_and_presence_combinations()
                     })
                     .collect();
                 let snapshot = facts(&values, Some((ID, 4)), 7);
-                let scalar = precheck_plan_invariants(&plan, &bindings, &snapshot, &freshness)
-                    .unwrap();
+                let scalar =
+                    precheck_plan_invariants(&plan, &bindings, &snapshot, &freshness).unwrap();
                 let actual = compiled.evaluate(&plan, &snapshot, &freshness).unwrap();
                 assert_eq!(actual, scalar);
-                let masks = compiled.evaluate_summary(&plan, &snapshot, &freshness).unwrap();
+                let masks = compiled
+                    .evaluate_summary(&plan, &snapshot, &freshness)
+                    .unwrap();
                 assert_eq!(masks.status(), scalar.status());
                 assert_eq!(masks.required_bits(), 7);
                 assert_eq!(masks.true_bits() & masks.false_bits(), 0);
                 assert_eq!(masks.true_bits() & masks.unknown_bits(), 0);
                 assert_eq!(masks.false_bits() & masks.unknown_bits(), 0);
-                assert_eq!(masks.true_bits() | masks.false_bits() | masks.unknown_bits(), 7);
+                assert_eq!(
+                    masks.true_bits() | masks.false_bits() | masks.unknown_bits(),
+                    7
+                );
                 comparisons += 1;
             }
         }
@@ -185,13 +190,26 @@ fn all_sixty_four_slots_and_shared_predicate_aliases_are_preserved() {
     let compiled = CompiledInvariantPrecheck::compile(&plan, &bindings).unwrap();
     for value in [Some(true), Some(false), None] {
         let snapshot = facts(&[(key.clone(), value)], Some((ID, 4)), 7);
-        let masks = compiled.evaluate_summary(&plan, &snapshot, &current(7, Some(4))).unwrap();
+        let masks = compiled
+            .evaluate_summary(&plan, &snapshot, &current(7, Some(4)))
+            .unwrap();
         assert_eq!(masks.required_bits(), u64::MAX);
-        assert_eq!(masks.true_bits(), if value == Some(true) { u64::MAX } else { 0 });
-        assert_eq!(masks.false_bits(), if value == Some(false) { u64::MAX } else { 0 });
-        assert_eq!(masks.unknown_bits(), if value.is_none() { u64::MAX } else { 0 });
         assert_eq!(
-            compiled.evaluate(&plan, &snapshot, &current(7, Some(4))).unwrap(),
+            masks.true_bits(),
+            if value == Some(true) { u64::MAX } else { 0 }
+        );
+        assert_eq!(
+            masks.false_bits(),
+            if value == Some(false) { u64::MAX } else { 0 }
+        );
+        assert_eq!(
+            masks.unknown_bits(),
+            if value.is_none() { u64::MAX } else { 0 }
+        );
+        assert_eq!(
+            compiled
+                .evaluate(&plan, &snapshot, &current(7, Some(4)))
+                .unwrap(),
             precheck_plan_invariants(&plan, &bindings, &snapshot, &current(7, Some(4))).unwrap()
         );
     }
@@ -206,7 +224,11 @@ fn all_sixty_four_slots_and_shared_predicate_aliases_are_preserved() {
 fn capacity_applies_after_dimension_filtering_and_unrelated_failures_are_ignored() {
     let global = Invariant::new(InvariantKind::PreserveContents);
     let mut declarations = vec![global.clone()];
-    declarations.extend(invariants(65).into_iter().map(|i| i.along(DimensionId::RESIDENCY)));
+    declarations.extend(
+        invariants(65)
+            .into_iter()
+            .map(|i| i.along(DimensionId::RESIDENCY)),
+    );
     let plan = plan_for(&declarations, true, ID);
     let keys = bindings_for(&[global, declarations[1].clone()]);
     let values = vec![
@@ -217,7 +239,9 @@ fn capacity_applies_after_dimension_filtering_and_unrelated_failures_are_ignored
     let compiled = CompiledInvariantPrecheck::compile(&plan, &keys).unwrap();
     assert_eq!(compiled.len(), 1);
     assert_eq!(
-        compiled.evaluate(&plan, &snapshot, &current(7, Some(4))).unwrap(),
+        compiled
+            .evaluate(&plan, &snapshot, &current(7, Some(4)))
+            .unwrap(),
         precheck_plan_invariants(&plan, &keys, &snapshot, &current(7, Some(4))).unwrap()
     );
 }
@@ -256,7 +280,9 @@ fn missing_mismatched_stale_and_future_facts_have_scalar_error_parity() {
     ] {
         let scalar = precheck_plan_invariants(&plan, &bindings, &snapshot, &freshness).unwrap_err();
         assert_eq!(
-            compiled.evaluate_summary(&plan, &snapshot, &freshness).unwrap_err(),
+            compiled
+                .evaluate_summary(&plan, &snapshot, &freshness)
+                .unwrap_err(),
             CompiledInvariantPrecheckError::Precheck(scalar)
         );
     }
@@ -275,12 +301,16 @@ fn changed_plan_resource_candidate_magnitude_or_context_cannot_reuse_layout() {
     changed.resource = plan_for(&invariants(1), true, "foreign").resource;
     changes.push(changed);
     let mut changed = plan.clone();
-    changed.outcome = PlanOutcome::Candidate(plan.candidate().unwrap().clone().with_magnitude(2048));
+    changed.outcome =
+        PlanOutcome::Candidate(plan.candidate().unwrap().clone().with_magnitude(2048));
     changes.push(changed);
     let mut changed = plan.clone();
-    let other = plan.resource.transitions().iter().find(|entry| {
-        entry.transition().dimension() == &DimensionId::RESIDENCY
-    }).unwrap();
+    let other = plan
+        .resource
+        .transitions()
+        .iter()
+        .find(|entry| entry.transition().dimension() == &DimensionId::RESIDENCY)
+        .unwrap();
     changed.outcome = PlanOutcome::Candidate(TransitionCandidate::from_admitted(other));
     changes.push(changed);
     let mut changed = plan.clone();
@@ -291,13 +321,17 @@ fn changed_plan_resource_candidate_magnitude_or_context_cannot_reuse_layout() {
     changes.push(changed);
     for changed in changes {
         assert_eq!(
-            compiled.evaluate_summary(&changed, &snapshot, &current(7, Some(4))).unwrap_err(),
+            compiled
+                .evaluate_summary(&changed, &snapshot, &current(7, Some(4)))
+                .unwrap_err(),
             CompiledInvariantPrecheckError::PlanChanged
         );
     }
     let mut diagnostic_only = plan.clone();
     diagnostic_only.reasoning.push_str("; diagnostic note");
-    assert!(compiled.evaluate_summary(&diagnostic_only, &snapshot, &current(7, Some(4))).is_ok());
+    assert!(compiled
+        .evaluate_summary(&diagnostic_only, &snapshot, &current(7, Some(4)))
+        .is_ok());
 }
 
 #[test]
@@ -308,7 +342,9 @@ fn numeric_context_identity_distinguishes_signed_zero() {
     plan.context = PlanningContext::new().observe(ObservationSignalId::UTILIZATION, -0.0);
     let snapshot = facts(&[], Some((ID, 4)), 7);
     assert_eq!(
-        compiled.evaluate_summary(&plan, &snapshot, &current(7, Some(4))).unwrap_err(),
+        compiled
+            .evaluate_summary(&plan, &snapshot, &current(7, Some(4)))
+            .unwrap_err(),
         CompiledInvariantPrecheckError::PlanChanged
     );
 }
@@ -324,8 +360,14 @@ fn reuse_never_caches_true_and_never_grants_trusted_validation() {
         (8, Some(false), InvariantPrecheckStatus::Rejected),
         (9, None, InvariantPrecheckStatus::InsufficientEvidence),
     ] {
-        let snapshot = facts(&[(bindings[0].predicate().clone(), value)], Some((ID, 4)), epoch);
-        let report = compiled.evaluate(&plan, &snapshot, &current(epoch, Some(4))).unwrap();
+        let snapshot = facts(
+            &[(bindings[0].predicate().clone(), value)],
+            Some((ID, 4)),
+            epoch,
+        );
+        let report = compiled
+            .evaluate(&plan, &snapshot, &current(epoch, Some(4)))
+            .unwrap();
         assert_eq!(report.status(), expected);
         assert!(!validate_with_checks(plan.clone(), Vec::new()).validated);
     }
@@ -338,10 +380,14 @@ fn empty_applicable_set_still_requires_fresh_resource_provenance() {
     let compiled = CompiledInvariantPrecheck::compile(&plan, &[]).unwrap();
     assert!(compiled.is_empty());
     let snapshot = facts(&[], Some((ID, 4)), 7);
-    let summary = compiled.evaluate_summary(&plan, &snapshot, &current(7, Some(4))).unwrap();
+    let summary = compiled
+        .evaluate_summary(&plan, &snapshot, &current(7, Some(4)))
+        .unwrap();
     assert_eq!(summary.required_bits(), 0);
     assert_eq!(summary.status(), InvariantPrecheckStatus::Passed);
-    assert!(compiled.evaluate_summary(&plan, &facts(&[], None, 7), &current(7, Some(4))).is_err());
+    assert!(compiled
+        .evaluate_summary(&plan, &facts(&[], None, 7), &current(7, Some(4)))
+        .is_err());
 }
 
 #[test]

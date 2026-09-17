@@ -27,7 +27,12 @@ fn compiled_invariant_layout_is_available_through_the_public_facade() {
     .unwrap();
     let resource = lower(&spec).unwrap().resources()[0].clone();
     let outcome = FirstGroundedPlanner.propose_transition(&resource);
-    let mut plan = Plan::new(resource, PlanningContext::new(), outcome, "facade test".into());
+    let mut plan = Plan::new(
+        resource,
+        PlanningContext::new(),
+        outcome,
+        "facade test".into(),
+    );
     let binding = InvariantPredicateBinding::new(
         invariant,
         predicate("downstream.invariant", "preserve-contents").unwrap(),

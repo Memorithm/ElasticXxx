@@ -6,15 +6,15 @@
 //! predicate IDs. Different invariants may intentionally share a predicate.
 
 use super::{
-    invariant_binding_map, validate_fact_snapshot, InvariantPrecheckEntry,
-    InvariantPrecheckError, InvariantPrecheckReport, InvariantPrecheckStatus,
+    invariant_binding_map, validate_fact_snapshot, InvariantPrecheckEntry, InvariantPrecheckError,
+    InvariantPrecheckReport, InvariantPrecheckStatus,
 };
 use crate::plan::invariant_applies_to_candidate;
 use crate::{FactSnapshot, Plan};
 use elastic_core::resource::Invariant;
 use elastic_core::{
-    FactMask, FactSet, FreshnessSnapshot, GuardFactSource, InvariantPredicateBinding,
-    LogicError, PredicateId, PredicateKey, TruthValue, FAST_PREDICATE_CAPACITY,
+    FactMask, FactSet, FreshnessSnapshot, GuardFactSource, InvariantPredicateBinding, LogicError,
+    PredicateId, PredicateKey, TruthValue, FAST_PREDICATE_CAPACITY,
 };
 use std::fmt;
 
@@ -116,9 +116,11 @@ impl CompiledInvariantPrecheck {
             .filter(|invariant| invariant_applies_to_candidate(invariant, candidate))
         {
             if slots.len() == MAX_COMPILED_INVARIANTS {
-                return Err(CompiledInvariantPrecheckError::TooManyApplicableInvariants {
-                    max: MAX_COMPILED_INVARIANTS,
-                });
+                return Err(
+                    CompiledInvariantPrecheckError::TooManyApplicableInvariants {
+                        max: MAX_COMPILED_INVARIANTS,
+                    },
+                );
             }
             required.insert(PredicateId::new(slots.len() as u32))?;
             slots.push((invariant.clone(), by_invariant.get(invariant).cloned()));
@@ -160,10 +162,11 @@ impl CompiledInvariantPrecheck {
             .context
             .iter()
             .map(|(signal, value)| (signal, value.to_bits()))
-            .eq(plan.context.iter().map(|(signal, value)| (signal, value.to_bits())));
-        if self.plan.resource != plan.resource
-            || self.plan.outcome != plan.outcome
-            || !same_context
+            .eq(plan
+                .context
+                .iter()
+                .map(|(signal, value)| (signal, value.to_bits())));
+        if self.plan.resource != plan.resource || self.plan.outcome != plan.outcome || !same_context
         {
             return Err(CompiledInvariantPrecheckError::PlanChanged);
         }
@@ -229,7 +232,10 @@ impl fmt::Display for CompiledInvariantPrecheckError {
             Self::NoCandidate => f.write_str("cannot compile invariant checks without a candidate"),
             Self::InvalidCandidate => f.write_str("cannot compile an undeclared candidate"),
             Self::TooManyApplicableInvariants { max } => {
-                write!(f, "compiled precheck supports at most {max} applicable invariants")
+                write!(
+                    f,
+                    "compiled precheck supports at most {max} applicable invariants"
+                )
             }
             Self::PlanChanged => f.write_str("compiled invariant precheck plan has changed"),
             Self::Precheck(error) => error.fmt(f),
