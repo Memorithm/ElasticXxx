@@ -90,11 +90,17 @@ fn unregistered_key_is_rejected_even_behind_absorbing_constants() {
     let rejected = elastic_guard! {
         predicates: predicates, scope: GuardScope::Resource, when: (false && foreign)
     };
-    assert!(matches!(rejected, Err(ElasticGuardError::UnknownPredicate { .. })));
+    assert!(matches!(
+        rejected,
+        Err(ElasticGuardError::UnknownPredicate { .. })
+    ));
     let rejected = elastic_guard! {
         predicates: predicates, scope: GuardScope::Resource, when: (true || foreign)
     };
-    assert!(matches!(rejected, Err(ElasticGuardError::UnknownPredicate { .. })));
+    assert!(matches!(
+        rejected,
+        Err(ElasticGuardError::UnknownPredicate { .. })
+    ));
 }
 
 #[test]
@@ -181,7 +187,10 @@ fn macro_guard_reaches_eir_pruning_through_facade_only() {
     assert_eq!(facts.truth(&a), TruthValue::True);
     let report = prune_transition_candidates(&guarded, &facts).unwrap();
     let legacy = FirstGroundedPlanner.propose_transition(guarded.resource());
-    assert_eq!(report.first_eligible().cloned().map(PlanOutcome::Candidate), Some(legacy));
+    assert_eq!(
+        report.first_eligible().cloned().map(PlanOutcome::Candidate),
+        Some(legacy)
+    );
     let missing = BTreeMap::<PredicateKey, TruthValue>::new();
     let report = prune_transition_candidates(&guarded, &missing).unwrap();
     assert!(report.eligible().is_empty());
