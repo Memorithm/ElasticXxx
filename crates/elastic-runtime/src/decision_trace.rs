@@ -13,7 +13,8 @@
 
 use crate::{
     FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES,
-    MAX_EVIDENCE_COLLECTION_ITEMS,
+    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_NODES,
+    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
 };
 use elastic_core::resource::{DimensionId, LogicalResourceId};
 use elastic_core::{
@@ -23,6 +24,7 @@ use elastic_core::{
 use elastic_eir::{
     prune_transition_candidates, EirGuardedResource, Fingerprint, TransitionCandidate,
 };
+use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
@@ -32,6 +34,9 @@ pub const DECISION_TRACE_SCHEMA_V1: &str = "elastic-boolean-decision-trace-v1";
 
 /// Decision traces share the runtime evidence envelope's maximum byte size.
 pub const MAX_DECISION_TRACE_BYTES: usize = MAX_EVIDENCE_BYTES;
+
+/// Longest numeric token emitted by the v1 schema (`u64::MAX` in base 10).
+const MAX_DECISION_TRACE_NUMBER_BYTES: usize = 20;
 
 /// Non-cryptographic structural identity of one semantic fact snapshot.
 ///
@@ -354,6 +359,12 @@ impl DecisionTrace {
     }
 
     fn to_bounded_json_with_limit(&self, limit: usize) -> Result<String, DecisionTraceError> {
+        if self.resource.as_str().len() > MAX_EVIDENCE_RESOURCE_ID_BYTES {
+            return Err(DecisionTraceError::PersistedBounds(format!(
+                "resource_id has {} bytes; maximum is {MAX_EVIDENCE_RESOURCE_ID_BYTES}",
+                self.resource.as_str().len()
+            )));
+        }
         let value = self.to_json_value();
         let encoded = serde_json::to_string(&value)
             .map_err(|error| DecisionTraceError::Encoding(error.to_string()))?;
@@ -363,6 +374,7 @@ impl DecisionTrace {
                 actual_bytes: encoded.len(),
             });
         }
+        preflight_json_bounds(encoded.as_bytes())?;
         Ok(encoded)
     }
 
@@ -390,6 +402,634 @@ impl DecisionTrace {
             "stop_reason": self.stop_reason.map(stop_reason_text),
         })
     }
+
+    /// Decode one persisted v1 decision trace from bounded, strict JSON.
+    ///
+    /// Decoding is a data-only operation. It performs no observation, planning,
+    /// validation, adapter call, or actuation. Imported traces remain historical
+    /// evidence and must pass [`Self::validate_replay_identity`] against fresh
+    /// trusted state before their decision identity can be reused.
+    ///
+    /// The decoder rejects oversized/deep inputs before JSON materialization,
+    /// unknown or duplicate fields, unsupported schema versions, invalid enum
+    /// values, malformed identifiers, inconsistent classification sets, and a
+    /// fact fingerprint that does not match the materialized predicate entries.
+    pub fn from_bounded_json(bytes: &[u8]) -> Result<Self, DecisionTraceError> {
+        preflight_json_bounds(bytes)?;
+        let wire: DecisionTraceWireV1 = serde_json::from_slice(bytes)
+            .map_err(|error| DecisionTraceError::Decoding(error.to_string()))?;
+        decode_wire_trace(wire)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DecisionTraceWireV1 {
+    schema: String,
+    resource_id: String,
+    guarded_resource_fingerprint: String,
+    fact_snapshot_fingerprint: String,
+    fact_source: String,
+    observation_epoch: u64,
+    resource_generation: u64,
+    predicates: Vec<PredicateTraceWireV1>,
+    eligible: Vec<CandidateTraceWireV1>,
+    rejected: Vec<RejectedCandidateWireV1>,
+    unknown: Vec<UnknownCandidateWireV1>,
+    #[serde(deserialize_with = "deserialize_required_option")]
+    selected: Option<CandidateTraceWireV1>,
+    #[serde(deserialize_with = "deserialize_required_option")]
+    stop_reason: Option<DecisionStopReasonWireV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PredicateTraceWireV1 {
+    namespace: String,
+    name: String,
+    truth: TruthValueWireV1,
+    materialized: bool,
+    referenced_by_guard: bool,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CandidateTraceWireV1 {
+    mechanism: TransitionMechanismWireV1,
+    dimension: String,
+    capability_grounded: bool,
+    #[serde(deserialize_with = "deserialize_required_option")]
+    magnitude: Option<u64>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RejectedCandidateWireV1 {
+    candidate: CandidateTraceWireV1,
+    failed_scope: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UnknownCandidateWireV1 {
+    candidate: CandidateTraceWireV1,
+    unknown_scopes: Vec<String>,
+    capability_grounded: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum TruthValueWireV1 {
+    True,
+    False,
+    Unknown,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum TransitionMechanismWireV1 {
+    Reinterpret,
+    Reencode,
+    Recompute,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+enum DecisionStopReasonWireV1 {
+    NoDeclaredTransitions,
+    AllCandidatesRejected,
+    InsufficientEvidence,
+    NumericPlannerNoCandidate,
+}
+
+fn deserialize_required_option<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer)
+}
+
+#[derive(Clone, Copy)]
+struct JsonContainerBound {
+    opener: u8,
+    commas: usize,
+    has_content: bool,
+}
+
+fn preflight_json_bounds(bytes: &[u8]) -> Result<(), DecisionTraceError> {
+    if bytes.len() > MAX_DECISION_TRACE_BYTES {
+        return Err(DecisionTraceError::PersistedInputTooLarge {
+            max_bytes: MAX_DECISION_TRACE_BYTES,
+            actual_bytes: bytes.len(),
+        });
+    }
+
+    let empty = JsonContainerBound {
+        opener: 0,
+        commas: 0,
+        has_content: false,
+    };
+    let mut stack = [empty; MAX_EVIDENCE_DEPTH];
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut string_bytes = 0usize;
+    let mut scalar_active = false;
+    let mut scalar_numeric = false;
+    let mut scalar_bytes = 0usize;
+    let mut nodes = 0usize;
+
+    for &byte in bytes {
+        if in_string {
+            if escaped {
+                escaped = false;
+                string_bytes = string_bytes.saturating_add(1);
+            } else if byte == b'\\' {
+                escaped = true;
+                string_bytes = string_bytes.saturating_add(1);
+            } else if byte == b'"' {
+                in_string = false;
+            } else {
+                string_bytes = string_bytes.saturating_add(1);
+            }
+            if string_bytes > MAX_EVIDENCE_STRING_BYTES {
+                return Err(DecisionTraceError::PersistedBounds(format!(
+                    "JSON string exceeds maximum {MAX_EVIDENCE_STRING_BYTES} bytes"
+                )));
+            }
+            continue;
+        }
+
+        match byte {
+            b'"' => {
+                mark_container_content(&mut stack, depth);
+                nodes = bounded_node_increment(nodes)?;
+                in_string = true;
+                escaped = false;
+                string_bytes = 0;
+                scalar_active = false;
+                scalar_numeric = false;
+                scalar_bytes = 0;
+            }
+            b'[' | b'{' => {
+                mark_container_content(&mut stack, depth);
+                nodes = bounded_node_increment(nodes)?;
+                if depth >= MAX_EVIDENCE_DEPTH {
+                    return Err(DecisionTraceError::PersistedBounds(format!(
+                        "JSON nesting exceeds maximum depth {MAX_EVIDENCE_DEPTH}"
+                    )));
+                }
+                stack[depth] = JsonContainerBound {
+                    opener: byte,
+                    commas: 0,
+                    has_content: false,
+                };
+                depth += 1;
+                scalar_active = false;
+                scalar_numeric = false;
+                scalar_bytes = 0;
+            }
+            b']' | b'}' => {
+                scalar_active = false;
+                scalar_numeric = false;
+                scalar_bytes = 0;
+                if depth == 0 {
+                    return Err(DecisionTraceError::Decoding(
+                        "unbalanced JSON container".to_owned(),
+                    ));
+                }
+                let frame = stack[depth - 1];
+                let expected = if byte == b']' { b'[' } else { b'{' };
+                if frame.opener != expected {
+                    return Err(DecisionTraceError::Decoding(
+                        "mismatched JSON container".to_owned(),
+                    ));
+                }
+                let items = if frame.has_content {
+                    frame.commas.saturating_add(1)
+                } else {
+                    0
+                };
+                if items > MAX_EVIDENCE_COLLECTION_ITEMS {
+                    return Err(DecisionTraceError::PersistedBounds(format!(
+                        "JSON collection contains {items} items; maximum is {MAX_EVIDENCE_COLLECTION_ITEMS}"
+                    )));
+                }
+                depth -= 1;
+            }
+            b',' => {
+                scalar_active = false;
+                scalar_numeric = false;
+                scalar_bytes = 0;
+                if depth > 0 {
+                    let frame = &mut stack[depth - 1];
+                    frame.commas = frame.commas.saturating_add(1);
+                    if frame.commas >= MAX_EVIDENCE_COLLECTION_ITEMS {
+                        return Err(DecisionTraceError::PersistedBounds(format!(
+                            "JSON collection exceeds maximum {MAX_EVIDENCE_COLLECTION_ITEMS} items"
+                        )));
+                    }
+                }
+            }
+            b':' | b' ' | b'\t' | b'\r' | b'\n' => {
+                scalar_active = false;
+                scalar_numeric = false;
+                scalar_bytes = 0;
+            }
+            _ => {
+                mark_container_content(&mut stack, depth);
+                if !scalar_active {
+                    nodes = bounded_node_increment(nodes)?;
+                    scalar_active = true;
+                    scalar_numeric = byte == b'-' || byte.is_ascii_digit();
+                    scalar_bytes = 1;
+                } else if scalar_numeric {
+                    scalar_bytes = scalar_bytes.saturating_add(1);
+                }
+                if scalar_numeric && scalar_bytes > MAX_DECISION_TRACE_NUMBER_BYTES {
+                    return Err(DecisionTraceError::PersistedBounds(format!(
+                        "JSON numeric token exceeds maximum {MAX_DECISION_TRACE_NUMBER_BYTES} bytes"
+                    )));
+                }
+            }
+        }
+    }
+
+    if in_string || depth != 0 {
+        return Err(DecisionTraceError::Decoding(
+            "truncated or unterminated JSON input".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn mark_container_content(stack: &mut [JsonContainerBound; MAX_EVIDENCE_DEPTH], depth: usize) {
+    if depth > 0 {
+        stack[depth - 1].has_content = true;
+    }
+}
+
+fn bounded_node_increment(nodes: usize) -> Result<usize, DecisionTraceError> {
+    let next = nodes.saturating_add(1);
+    if next > MAX_EVIDENCE_NODES {
+        return Err(DecisionTraceError::PersistedBounds(format!(
+            "JSON node count exceeds maximum {MAX_EVIDENCE_NODES}"
+        )));
+    }
+    Ok(next)
+}
+
+fn decode_wire_trace(wire: DecisionTraceWireV1) -> Result<DecisionTrace, DecisionTraceError> {
+    if wire.schema != DECISION_TRACE_SCHEMA_V1 {
+        return Err(DecisionTraceError::UnsupportedSchema(wire.schema));
+    }
+    if wire.resource_id.len() > MAX_EVIDENCE_RESOURCE_ID_BYTES {
+        return Err(DecisionTraceError::PersistedBounds(format!(
+            "resource_id has {} bytes; maximum is {MAX_EVIDENCE_RESOURCE_ID_BYTES}",
+            wire.resource_id.len()
+        )));
+    }
+    if wire.predicates.len() > MAX_EVIDENCE_COLLECTION_ITEMS {
+        return Err(DecisionTraceError::TooManyTraceEntries {
+            max: MAX_EVIDENCE_COLLECTION_ITEMS,
+            actual: wire.predicates.len(),
+        });
+    }
+
+    let resource = LogicalResourceId::new(wire.resource_id)
+        .map_err(|error| invalid_persisted(format!("invalid resource_id: {error}")))?;
+    let fact_source = FactSourceId::new(wire.fact_source)
+        .map_err(|error| invalid_persisted(format!("invalid fact_source: {error}")))?;
+    let guarded_resource_fingerprint = Fingerprint::from_bits(parse_hex_fingerprint(
+        "guarded_resource_fingerprint",
+        &wire.guarded_resource_fingerprint,
+    )?);
+    let fact_snapshot_fingerprint = FactSnapshotFingerprint(parse_hex_fingerprint(
+        "fact_snapshot_fingerprint",
+        &wire.fact_snapshot_fingerprint,
+    )?);
+
+    let mut predicates = Vec::with_capacity(wire.predicates.len());
+    for entry in wire.predicates {
+        let key = PredicateKey::new(entry.namespace, entry.name)
+            .map_err(|error| invalid_persisted(format!("invalid predicate key: {error}")))?;
+        let truth = match entry.truth {
+            TruthValueWireV1::True => TruthValue::True,
+            TruthValueWireV1::False => TruthValue::False,
+            TruthValueWireV1::Unknown => TruthValue::Unknown,
+        };
+        if !entry.materialized && truth != TruthValue::Unknown {
+            return Err(invalid_persisted(format!(
+                "non-materialized predicate {key} must be unknown"
+            )));
+        }
+        if !entry.materialized && !entry.referenced_by_guard {
+            return Err(invalid_persisted(format!(
+                "predicate {key} is neither materialized nor referenced by a guard"
+            )));
+        }
+        if predicates
+            .last()
+            .is_some_and(|previous: &PredicateTraceEntry| previous.key >= key)
+        {
+            return Err(invalid_persisted(
+                "predicate entries must be strictly ordered by stable key".to_owned(),
+            ));
+        }
+        predicates.push(PredicateTraceEntry {
+            key,
+            truth,
+            materialized: entry.materialized,
+            referenced_by_guard: entry.referenced_by_guard,
+        });
+    }
+
+    let computed_fact_fingerprint = persisted_fact_fingerprint(
+        &resource,
+        &fact_source,
+        wire.observation_epoch,
+        wire.resource_generation,
+        &predicates,
+    );
+    if computed_fact_fingerprint != fact_snapshot_fingerprint {
+        return Err(invalid_persisted(format!(
+            "fact_snapshot_fingerprint {} does not match decoded materialized facts {}",
+            fact_snapshot_fingerprint, computed_fact_fingerprint
+        )));
+    }
+
+    let eligible = wire
+        .eligible
+        .into_iter()
+        .map(decode_candidate)
+        .collect::<Result<Vec<_>, _>>()?;
+    let rejected = wire
+        .rejected
+        .into_iter()
+        .map(|entry| {
+            Ok(RejectedCandidateTrace {
+                candidate: decode_candidate(entry.candidate)?,
+                failed_scope: parse_scope(&entry.failed_scope)?,
+            })
+        })
+        .collect::<Result<Vec<_>, DecisionTraceError>>()?;
+    let unknown = wire
+        .unknown
+        .into_iter()
+        .map(|entry| {
+            let candidate = decode_candidate(entry.candidate)?;
+            if entry.capability_grounded != candidate.capability_grounded {
+                return Err(invalid_persisted(format!(
+                    "unknown candidate {}@{} has inconsistent capability grounding",
+                    mechanism_text(candidate.mechanism),
+                    candidate.dimension
+                )));
+            }
+            let scopes = entry
+                .unknown_scopes
+                .iter()
+                .map(|scope| parse_scope(scope))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(UnknownCandidateTrace {
+                candidate,
+                unknown_scopes: scopes,
+                capability_grounded: entry.capability_grounded,
+            })
+        })
+        .collect::<Result<Vec<_>, DecisionTraceError>>()?;
+    let selected = wire.selected.map(decode_candidate).transpose()?;
+    let stop_reason = wire.stop_reason.map(|reason| match reason {
+        DecisionStopReasonWireV1::NoDeclaredTransitions => {
+            DecisionStopReason::NoDeclaredTransitions
+        }
+        DecisionStopReasonWireV1::AllCandidatesRejected => {
+            DecisionStopReason::AllCandidatesRejected
+        }
+        DecisionStopReasonWireV1::InsufficientEvidence => DecisionStopReason::InsufficientEvidence,
+        DecisionStopReasonWireV1::NumericPlannerNoCandidate => {
+            DecisionStopReason::NumericPlannerNoCandidate
+        }
+    });
+
+    validate_persisted_candidate_sets(
+        &eligible,
+        &rejected,
+        &unknown,
+        selected.as_ref(),
+        stop_reason,
+    )?;
+
+    Ok(DecisionTrace {
+        resource,
+        guarded_resource_fingerprint,
+        fact_snapshot_fingerprint,
+        fact_source,
+        observation_epoch: ObservationEpoch::new(wire.observation_epoch),
+        resource_generation: ResourceGeneration::new(wire.resource_generation),
+        predicates,
+        eligible,
+        rejected,
+        unknown,
+        selected,
+        stop_reason,
+    })
+}
+
+fn decode_candidate(
+    wire: CandidateTraceWireV1,
+) -> Result<CandidateDecisionTrace, DecisionTraceError> {
+    Ok(CandidateDecisionTrace {
+        mechanism: match wire.mechanism {
+            TransitionMechanismWireV1::Reinterpret => TransitionMechanism::Reinterpret,
+            TransitionMechanismWireV1::Reencode => TransitionMechanism::Reencode,
+            TransitionMechanismWireV1::Recompute => TransitionMechanism::Recompute,
+        },
+        dimension: parse_dimension(&wire.dimension)?,
+        capability_grounded: wire.capability_grounded,
+        magnitude: wire.magnitude,
+    })
+}
+
+fn parse_dimension(text: &str) -> Result<DimensionId, DecisionTraceError> {
+    let dimension = match text {
+        "capacity" => DimensionId::CAPACITY,
+        "concurrency" => DimensionId::CONCURRENCY,
+        "residency" => DimensionId::RESIDENCY,
+        "locality" => DimensionId::LOCALITY,
+        "representation" => DimensionId::REPRESENTATION,
+        "precision" => DimensionId::PRECISION,
+        "parallelism" => DimensionId::PARALLELISM,
+        "routing" => DimensionId::ROUTING,
+        "redundancy" => DimensionId::REDUNDANCY,
+        "persistence" => DimensionId::PERSISTENCE,
+        "recomputability" => DimensionId::RECOMPUTABILITY,
+        "bandwidth" => DimensionId::BANDWIDTH,
+        "energy" => DimensionId::ENERGY,
+        custom => DimensionId::custom(custom.to_owned())
+            .map_err(|error| invalid_persisted(format!("invalid dimension: {error}")))?,
+    };
+    Ok(dimension)
+}
+
+fn parse_scope(text: &str) -> Result<GuardScope, DecisionTraceError> {
+    if text == "resource" {
+        return Ok(GuardScope::Resource);
+    }
+    if let Some(dimension) = text.strip_prefix("dimension:") {
+        return Ok(GuardScope::Dimension(parse_dimension(dimension)?));
+    }
+    if let Some(transition) = text.strip_prefix("transition:") {
+        let (mechanism, dimension) = transition
+            .split_once('@')
+            .ok_or_else(|| invalid_persisted(format!("invalid transition guard scope {text:?}")))?;
+        return Ok(GuardScope::Transition {
+            mechanism: parse_mechanism_text(mechanism)?,
+            dimension: parse_dimension(dimension)?,
+        });
+    }
+    Err(invalid_persisted(format!("invalid guard scope {text:?}")))
+}
+
+fn parse_mechanism_text(text: &str) -> Result<TransitionMechanism, DecisionTraceError> {
+    match text {
+        "reinterpret" => Ok(TransitionMechanism::Reinterpret),
+        "reencode" => Ok(TransitionMechanism::Reencode),
+        "recompute" => Ok(TransitionMechanism::Recompute),
+        _ => Err(invalid_persisted(format!(
+            "invalid transition mechanism {text:?}"
+        ))),
+    }
+}
+
+fn parse_hex_fingerprint(field: &str, text: &str) -> Result<u64, DecisionTraceError> {
+    if text.len() != 16 || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(invalid_persisted(format!(
+            "{field} must contain exactly 16 hexadecimal digits"
+        )));
+    }
+    u64::from_str_radix(text, 16)
+        .map_err(|error| invalid_persisted(format!("invalid {field}: {error}")))
+}
+
+fn persisted_fact_fingerprint(
+    resource: &LogicalResourceId,
+    fact_source: &FactSourceId,
+    observation_epoch: u64,
+    resource_generation: u64,
+    predicates: &[PredicateTraceEntry],
+) -> FactSnapshotFingerprint {
+    let materialized_count = predicates.iter().filter(|entry| entry.materialized).count();
+    let mut fingerprint = Fingerprint::EMPTY
+        .text("runtime-fact-snapshot")
+        .number(1)
+        .text(fact_source.as_str())
+        .number(observation_epoch)
+        .text("resource-bound")
+        .text(resource.as_str())
+        .number(resource_generation)
+        .number(materialized_count as u64);
+    for entry in predicates.iter().filter(|entry| entry.materialized) {
+        fingerprint = fingerprint
+            .text(entry.key.namespace())
+            .text(entry.key.name())
+            .number(truth_code(entry.truth));
+    }
+    FactSnapshotFingerprint(fingerprint.bits())
+}
+
+fn validate_persisted_candidate_sets(
+    eligible: &[CandidateDecisionTrace],
+    rejected: &[RejectedCandidateTrace],
+    unknown: &[UnknownCandidateTrace],
+    selected: Option<&CandidateDecisionTrace>,
+    stop_reason: Option<DecisionStopReason>,
+) -> Result<(), DecisionTraceError> {
+    let total = eligible
+        .len()
+        .checked_add(rejected.len())
+        .and_then(|count| count.checked_add(unknown.len()))
+        .ok_or_else(|| invalid_persisted("candidate count overflow".to_owned()))?;
+    if total > MAX_EVIDENCE_COLLECTION_ITEMS {
+        return Err(DecisionTraceError::TooManyCandidates {
+            max: MAX_EVIDENCE_COLLECTION_ITEMS,
+            actual: total,
+        });
+    }
+
+    let mut identities = BTreeSet::new();
+    for candidate in eligible {
+        if !candidate.capability_grounded {
+            return Err(invalid_persisted(format!(
+                "eligible candidate {}@{} is not capability-grounded",
+                mechanism_text(candidate.mechanism),
+                candidate.dimension
+            )));
+        }
+        insert_candidate_identity(&mut identities, candidate)?;
+    }
+    for entry in rejected {
+        insert_candidate_identity(&mut identities, &entry.candidate)?;
+    }
+    for entry in unknown {
+        insert_candidate_identity(&mut identities, &entry.candidate)?;
+    }
+
+    if let Some(candidate) = selected {
+        if !candidate.capability_grounded {
+            return Err(invalid_persisted(
+                "selected candidate is not capability-grounded".to_owned(),
+            ));
+        }
+        if !eligible.iter().any(|entry| {
+            entry.mechanism == candidate.mechanism && entry.dimension == candidate.dimension
+        }) {
+            return Err(invalid_persisted(
+                "selected candidate is not present in the eligible set".to_owned(),
+            ));
+        }
+        if stop_reason.is_some() {
+            return Err(invalid_persisted(
+                "selected candidate and stop_reason cannot both be present".to_owned(),
+            ));
+        }
+        return Ok(());
+    }
+
+    let expected = if total == 0 {
+        DecisionStopReason::NoDeclaredTransitions
+    } else if !eligible.is_empty() {
+        DecisionStopReason::NumericPlannerNoCandidate
+    } else if !unknown.is_empty() {
+        DecisionStopReason::InsufficientEvidence
+    } else {
+        DecisionStopReason::AllCandidatesRejected
+    };
+    if stop_reason != Some(expected) {
+        return Err(invalid_persisted(format!(
+            "stop_reason {:?} is inconsistent with decoded candidate classification; expected {:?}",
+            stop_reason, expected
+        )));
+    }
+    Ok(())
+}
+
+fn insert_candidate_identity(
+    identities: &mut BTreeSet<(TransitionMechanism, DimensionId)>,
+    candidate: &CandidateDecisionTrace,
+) -> Result<(), DecisionTraceError> {
+    if !identities.insert((candidate.mechanism, candidate.dimension.clone())) {
+        return Err(invalid_persisted(format!(
+            "candidate {}@{} appears in more than one decision classification",
+            mechanism_text(candidate.mechanism),
+            candidate.dimension
+        )));
+    }
+    Ok(())
+}
+
+fn invalid_persisted(detail: String) -> DecisionTraceError {
+    DecisionTraceError::InvalidPersistedTrace(detail)
 }
 
 /// Capture deterministic Boolean decision evidence for one fresh fact snapshot.
@@ -593,6 +1233,19 @@ pub enum DecisionTraceError {
     },
     /// JSON encoding failed unexpectedly.
     Encoding(String),
+    /// Persisted JSON exceeded the byte bound before parsing.
+    PersistedInputTooLarge {
+        max_bytes: usize,
+        actual_bytes: usize,
+    },
+    /// Persisted JSON violated a pre-allocation structural bound.
+    PersistedBounds(String),
+    /// Persisted JSON was syntactically invalid, duplicated a field, or used an invalid enum.
+    Decoding(String),
+    /// Persisted trace declared a schema that this decoder does not implement.
+    UnsupportedSchema(String),
+    /// Persisted trace was syntactically valid but semantically inconsistent.
+    InvalidPersistedTrace(String),
 }
 
 impl fmt::Display for DecisionTraceError {
@@ -644,6 +1297,25 @@ impl fmt::Display for DecisionTraceError {
                 "decision trace has {actual_bytes} encoded bytes; maximum is {max_bytes}"
             ),
             Self::Encoding(detail) => write!(f, "decision trace JSON encoding failed: {detail}"),
+            Self::PersistedInputTooLarge {
+                max_bytes,
+                actual_bytes,
+            } => write!(
+                f,
+                "persisted decision trace has {actual_bytes} bytes; maximum is {max_bytes}"
+            ),
+            Self::PersistedBounds(detail) => {
+                write!(f, "persisted decision trace exceeds bounds: {detail}")
+            }
+            Self::Decoding(detail) => {
+                write!(f, "persisted decision trace JSON is invalid: {detail}")
+            }
+            Self::UnsupportedSchema(schema) => {
+                write!(f, "unsupported decision trace schema {schema:?}")
+            }
+            Self::InvalidPersistedTrace(detail) => {
+                write!(f, "persisted decision trace is inconsistent: {detail}")
+            }
         }
     }
 }
@@ -985,5 +1657,181 @@ mod tests {
             trace.to_bounded_json_with_limit(8),
             Err(DecisionTraceError::EvidenceTooLarge { .. })
         ));
+    }
+
+    fn persisted_fixture() -> (DecisionTrace, String) {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let trace =
+            capture_decision_trace(&resource, &facts, &freshness(&resource_id), None).unwrap();
+        let encoded = trace.to_bounded_json().unwrap();
+        (trace, encoded)
+    }
+
+    #[test]
+    fn persisted_trace_roundtrip_preserves_semantic_identity() {
+        let (trace, encoded) = persisted_fixture();
+        let decoded = DecisionTrace::from_bounded_json(encoded.as_bytes()).unwrap();
+
+        assert_eq!(decoded, trace);
+        assert_eq!(decoded.to_bounded_json().unwrap(), encoded);
+    }
+
+    #[test]
+    fn persisted_trace_rejects_unknown_duplicate_and_missing_fields() {
+        let (_, encoded) = persisted_fixture();
+
+        let with_unknown = format!("{{\"unexpected\":0,{}", &encoded[1..]);
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(with_unknown.as_bytes()),
+            Err(DecisionTraceError::Decoding(_))
+        ));
+
+        let with_duplicate = format!(
+            "{{\"schema\":\"{DECISION_TRACE_SCHEMA_V1}\",{}",
+            &encoded[1..]
+        );
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(with_duplicate.as_bytes()),
+            Err(DecisionTraceError::Decoding(_))
+        ));
+
+        let mut missing: Value = serde_json::from_str(&encoded).unwrap();
+        missing.as_object_mut().unwrap().remove("selected");
+        let missing = serde_json::to_vec(&missing).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&missing),
+            Err(DecisionTraceError::Decoding(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_trace_rejects_future_schema_and_invalid_enum() {
+        let (_, encoded) = persisted_fixture();
+        let mut future: Value = serde_json::from_str(&encoded).unwrap();
+        future["schema"] = Value::String("elastic-boolean-decision-trace-v2".to_owned());
+        let future = serde_json::to_vec(&future).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&future),
+            Err(DecisionTraceError::UnsupportedSchema(schema))
+                if schema == "elastic-boolean-decision-trace-v2"
+        ));
+
+        let mut invalid_enum: Value = serde_json::from_str(&encoded).unwrap();
+        invalid_enum["predicates"][0]["truth"] = Value::String("maybe".to_owned());
+        let invalid_enum = serde_json::to_vec(&invalid_enum).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&invalid_enum),
+            Err(DecisionTraceError::Decoding(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_trace_rejects_tampered_fact_fingerprint_and_stop_reason() {
+        let (_, encoded) = persisted_fixture();
+        let mut tampered: Value = serde_json::from_str(&encoded).unwrap();
+        tampered["fact_snapshot_fingerprint"] = Value::String("0000000000000000".to_owned());
+        let tampered = serde_json::to_vec(&tampered).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&tampered),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+
+        let mut inconsistent: Value = serde_json::from_str(&encoded).unwrap();
+        inconsistent["stop_reason"] = Value::String("all-candidates-rejected".to_owned());
+        let inconsistent = serde_json::to_vec(&inconsistent).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&inconsistent),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_trace_preflight_rejects_untrusted_size_depth_collection_and_string_bounds() {
+        let oversized = vec![b' '; MAX_DECISION_TRACE_BYTES + 1];
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&oversized),
+            Err(DecisionTraceError::PersistedInputTooLarge { .. })
+        ));
+
+        let too_deep = format!(
+            "{}0{}",
+            "[".repeat(MAX_EVIDENCE_DEPTH + 1),
+            "]".repeat(MAX_EVIDENCE_DEPTH + 1)
+        );
+        assert!(matches!(
+            preflight_json_bounds(too_deep.as_bytes()),
+            Err(DecisionTraceError::PersistedBounds(_))
+        ));
+
+        let too_many = format!(
+            "[{}]",
+            std::iter::repeat_n("null", MAX_EVIDENCE_COLLECTION_ITEMS + 1)
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        assert!(matches!(
+            preflight_json_bounds(too_many.as_bytes()),
+            Err(DecisionTraceError::PersistedBounds(_))
+        ));
+
+        let long_string = format!("\"{}\"", "a".repeat(MAX_EVIDENCE_STRING_BYTES + 1));
+        assert!(matches!(
+            preflight_json_bounds(long_string.as_bytes()),
+            Err(DecisionTraceError::PersistedBounds(_))
+        ));
+
+        let long_number = "1".repeat(MAX_DECISION_TRACE_NUMBER_BYTES + 1);
+        assert!(matches!(
+            preflight_json_bounds(long_number.as_bytes()),
+            Err(DecisionTraceError::PersistedBounds(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_trace_roundtrips_custom_dimensions_in_transition_scopes() {
+        let resource = LogicalResourceId::new("custom-dimension-trace").unwrap();
+        let source = FactSourceId::new("runtime:custom-dimension-trace").unwrap();
+        let predicates = Vec::new();
+        let fact_snapshot_fingerprint =
+            persisted_fact_fingerprint(&resource, &source, 9, 4, &predicates);
+        let eligible_dimension = DimensionId::custom("kv@tier:hot").unwrap();
+        let rejected_dimension = DimensionId::custom("storage:tier@cold").unwrap();
+        let eligible = CandidateDecisionTrace {
+            mechanism: TransitionMechanism::Reencode,
+            dimension: eligible_dimension.clone(),
+            capability_grounded: true,
+            magnitude: Some(3),
+        };
+        let rejected = RejectedCandidateTrace {
+            candidate: CandidateDecisionTrace {
+                mechanism: TransitionMechanism::Recompute,
+                dimension: rejected_dimension,
+                capability_grounded: true,
+                magnitude: None,
+            },
+            failed_scope: GuardScope::Transition {
+                mechanism: TransitionMechanism::Reencode,
+                dimension: eligible_dimension,
+            },
+        };
+        let trace = DecisionTrace {
+            resource,
+            guarded_resource_fingerprint: Fingerprint::EMPTY.text("custom-trace"),
+            fact_snapshot_fingerprint,
+            fact_source: source,
+            observation_epoch: ObservationEpoch::new(9),
+            resource_generation: ResourceGeneration::new(4),
+            predicates,
+            eligible: vec![eligible],
+            rejected: vec![rejected],
+            unknown: Vec::new(),
+            selected: None,
+            stop_reason: Some(DecisionStopReason::NumericPlannerNoCandidate),
+        };
+
+        let encoded = trace.to_bounded_json().unwrap();
+        let decoded = DecisionTrace::from_bounded_json(encoded.as_bytes()).unwrap();
+        assert_eq!(decoded, trace);
     }
 }

@@ -60,6 +60,17 @@ impl Fingerprint {
         self.0 = self.0.wrapping_mul(0x0000_0100_0000_01b3);
     }
 
+    /// Reconstruct a structural fingerprint from persisted diagnostic bits.
+    ///
+    /// This exists for strict decoding of versioned Elastic evidence. The bits
+    /// remain non-cryptographic and must never be treated as authentication or
+    /// as authority to actuate a resource. Callers must independently revalidate
+    /// the current resource, policy, facts, and capabilities before reuse.
+    #[must_use]
+    pub const fn from_bits(bits: u64) -> Self {
+        Self(bits)
+    }
+
     /// Raw fingerprint bits (diagnostics only).
     #[must_use]
     pub const fn bits(self) -> u64 {
