@@ -6,7 +6,10 @@
 //! admission set. Returned candidates are checked against both the original
 //! declaration and this restricted view. No actuation occurs here.
 
-use crate::{BooleanGuardPreplanner, FactSnapshot, GuardPreplannerError};
+use crate::{
+    fact_derivation::fact_snapshot_fingerprint_bits, BooleanGuardPreplanner, FactSnapshot,
+    GuardPreplannerError,
+};
 use elastic_core::resource::{DimensionId, ObservationSignalId};
 use elastic_core::{FreshnessSnapshot, TransitionMechanism};
 use elastic_eir::{
@@ -60,6 +63,7 @@ pub struct GuardedPlanningDecision {
     outcome: PlanOutcome,
     pruning_report: TransitionPruningReport,
     planning_context_fingerprint: PlanningContextFingerprint,
+    fact_snapshot_fingerprint_bits: u64,
 }
 
 impl GuardedPlanningDecision {
@@ -67,11 +71,13 @@ impl GuardedPlanningDecision {
         outcome: PlanOutcome,
         pruning_report: TransitionPruningReport,
         planning_context_fingerprint: PlanningContextFingerprint,
+        fact_snapshot_fingerprint_bits: u64,
     ) -> Self {
         Self {
             outcome,
             pruning_report,
             planning_context_fingerprint,
+            fact_snapshot_fingerprint_bits,
         }
     }
 
@@ -91,6 +97,12 @@ impl GuardedPlanningDecision {
     #[must_use]
     pub const fn planning_context_fingerprint(&self) -> PlanningContextFingerprint {
         self.planning_context_fingerprint
+    }
+
+    /// Structural identity of the exact fact snapshot used for Boolean pruning.
+    #[must_use]
+    pub const fn fact_snapshot_fingerprint_bits(&self) -> u64 {
+        self.fact_snapshot_fingerprint_bits
     }
 
     /// Consume the detailed result and retain the legacy planner outcome only.
@@ -245,12 +257,14 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
     ) -> Result<GuardedPlanningDecision, GuardPreplannerError> {
         let report = BooleanGuardPreplanner.prune(resource, facts, freshness)?;
         let context_fingerprint = planning_context_fingerprint(context);
+        let facts_fingerprint = fact_snapshot_fingerprint_bits(facts);
 
         if let Some(blocked) = preplanning_block(resource, &report, &self.target) {
             return Ok(GuardedPlanningDecision::new(
                 blocked,
                 report,
                 context_fingerprint,
+                facts_fingerprint,
             ));
         }
 
@@ -269,6 +283,7 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
                     },
                     report,
                     context_fingerprint,
+                    facts_fingerprint,
                 ));
             }
         };
@@ -286,6 +301,7 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
             outcome,
             report,
             context_fingerprint,
+            facts_fingerprint,
         ))
     }
 }

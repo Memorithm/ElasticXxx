@@ -13,7 +13,7 @@ use elastic_core::{
     FreshnessSnapshot, GuardFactSource, ObservationEpoch, PredicateKey, ResourceGeneration,
     TruthValue, MAX_REGISTERED_PREDICATES,
 };
-use elastic_eir::PlanningContext;
+use elastic_eir::{Fingerprint, PlanningContext};
 use std::collections::BTreeMap;
 use std::fmt;
 use std::time::{Duration, Instant};
@@ -481,6 +481,42 @@ impl GuardFactSource for FactSnapshot {
     fn truth(&self, key: &PredicateKey) -> TruthValue {
         self.facts.get(key).copied().unwrap_or(TruthValue::Unknown)
     }
+}
+
+/// Deterministic semantic identity shared by planning-time evidence capture.
+///
+/// Monotonic timestamps are intentionally excluded: freshness is checked
+/// separately, while this identity binds source, observation epoch, optional
+/// resource generation, and the complete ordered fact content.
+pub(crate) fn fact_snapshot_fingerprint_bits(facts: &FactSnapshot) -> u64 {
+    let mut fingerprint = Fingerprint::EMPTY
+        .text("runtime-fact-snapshot")
+        .number(1)
+        .text(facts.source().as_str())
+        .number(facts.observation_epoch().get());
+    match facts.resource_binding() {
+        Some(binding) => {
+            fingerprint = fingerprint
+                .text("resource-bound")
+                .text(binding.resource().as_str())
+                .number(binding.generation().get());
+        }
+        None => {
+            fingerprint = fingerprint.text("resource-unbound");
+        }
+    }
+    fingerprint = fingerprint.number(facts.len() as u64);
+    for (key, truth) in facts.iter() {
+        fingerprint = fingerprint
+            .text(key.namespace())
+            .text(key.name())
+            .number(match truth {
+                TruthValue::False => 0,
+                TruthValue::True => 1,
+                TruthValue::Unknown => 2,
+            });
+    }
+    fingerprint.bits()
 }
 
 /// Runtime fact-derivation construction failures.

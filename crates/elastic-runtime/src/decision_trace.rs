@@ -20,9 +20,10 @@ use crate::invariant_precheck::{
 };
 use crate::plan::Plan;
 use crate::{
-    FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES,
-    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
-    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+    fact_derivation::fact_snapshot_fingerprint_bits, FactFreshnessError, FactSnapshot,
+    FactSourceId, MAX_EVIDENCE_BYTES, MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH,
+    MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES,
+    MAX_EVIDENCE_STRING_BYTES,
 };
 use elastic_core::resource::{DimensionId, LogicalResourceId};
 use elastic_core::{
@@ -1829,6 +1830,15 @@ pub fn capture_guarded_planning_trace(
         });
     }
 
+    let supplied_facts = fact_snapshot_fingerprint(facts);
+    let planned_facts = FactSnapshotFingerprint(decision.fact_snapshot_fingerprint_bits());
+    if supplied_facts != planned_facts {
+        return Err(DecisionTraceError::PlanningFactSnapshotMismatch {
+            planned: planned_facts,
+            supplied: supplied_facts,
+        });
+    }
+
     let selected = match decision.outcome() {
         PlanOutcome::Candidate(candidate) => Some(candidate),
         _ => None,
@@ -2026,30 +2036,7 @@ fn guarded_planning_outcome_trace(
 /// Compute the deterministic semantic identity used by decision traces.
 #[must_use]
 pub fn fact_snapshot_fingerprint(facts: &FactSnapshot) -> FactSnapshotFingerprint {
-    let mut fingerprint = Fingerprint::EMPTY
-        .text("runtime-fact-snapshot")
-        .number(1)
-        .text(facts.source().as_str())
-        .number(facts.observation_epoch().get());
-    match facts.resource_binding() {
-        Some(binding) => {
-            fingerprint = fingerprint
-                .text("resource-bound")
-                .text(binding.resource().as_str())
-                .number(binding.generation().get());
-        }
-        None => {
-            fingerprint = fingerprint.text("resource-unbound");
-        }
-    }
-    fingerprint = fingerprint.number(facts.len() as u64);
-    for (key, truth) in facts.iter() {
-        fingerprint = fingerprint
-            .text(key.namespace())
-            .text(key.name())
-            .number(truth_code(truth));
-    }
-    FactSnapshotFingerprint(fingerprint.bits())
+    FactSnapshotFingerprint(fact_snapshot_fingerprint_bits(facts))
 }
 
 /// Trace construction/encoding failures.
@@ -2083,6 +2070,11 @@ pub enum DecisionTraceError {
     PlanningContextMismatch {
         planned: PlanningContextFingerprint,
         supplied: PlanningContextFingerprint,
+    },
+    /// Supplied facts do not match the exact snapshot used for Boolean pruning.
+    PlanningFactSnapshotMismatch {
+        planned: FactSnapshotFingerprint,
+        supplied: FactSnapshotFingerprint,
     },
     /// Diagnostic detail from an insufficient-evidence outcome exceeded bounds.
     PlanningOutcomeDetailTooLarge {
@@ -2159,6 +2151,10 @@ impl fmt::Display for DecisionTraceError {
             Self::PlanningContextMismatch { planned, supplied } => write!(
                 f,
                 "planning context identity mismatch: planner used {planned}, capture supplied {supplied}"
+            ),
+            Self::PlanningFactSnapshotMismatch { planned, supplied } => write!(
+                f,
+                "planning fact snapshot identity mismatch: planner used {planned}, capture supplied {supplied}"
             ),
             Self::PlanningOutcomeDetailTooLarge {
                 max_bytes,
@@ -2760,6 +2756,62 @@ mod tests {
             Err(DecisionTraceError::PlanningContextMismatch { .. })
         ));
         assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn integrated_capture_rejects_fresh_fact_snapshot_drift_without_replanning() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let planned_facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let planned_freshness = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(
+                &resource,
+                &context,
+                &planned_facts,
+                &planned_freshness,
+            )
+            .unwrap();
+        assert_eq!(calls.get(), 1);
+
+        let now = Instant::now();
+        let observations = ObservationSnapshot::new(now, Vec::new());
+        let fact_context = elastic_eir::PlanningContext::new();
+        let input = PredicateEvaluationInput::new(&fact_context, &observations, now);
+        let primary = CapabilityPredicate::new(key.clone(), Some(false));
+        let extra_key = PredicateKey::new("elastic.trace", "extra").unwrap();
+        let extra = CapabilityPredicate::new(extra_key, Some(false));
+        let evaluators: Vec<&dyn PredicateEvaluator> = vec![&primary, &extra];
+        let supplied_facts = FactSnapshot::derive(
+            FactSourceId::new("runtime:decision-trace-test").unwrap(),
+            ObservationEpoch::new(15),
+            Some(FactResourceBinding::new(
+                resource_id.clone(),
+                ResourceGeneration::new(7),
+            )),
+            &input,
+            &evaluators,
+        )
+        .unwrap();
+        let current_freshness =
+            FreshnessSnapshot::new(PlannerEpoch::new(3), ObservationEpoch::new(15))
+                .with_resource_generation(resource_id, ResourceGeneration::new(7));
+
+        let result = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &supplied_facts,
+            &current_freshness,
+            &decision,
+            &[invariant_binding(&key)],
+        );
+        assert!(matches!(
+            result,
+            Err(DecisionTraceError::PlanningFactSnapshotMismatch { .. })
+        ));
+        assert_eq!(calls.get(), 1, "capture must not re-run numeric planning");
     }
 
     fn persisted_fixture() -> (DecisionTrace, String) {
