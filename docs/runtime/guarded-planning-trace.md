@@ -44,3 +44,11 @@ A summary status of `Passed` means only **continue to trusted validation**. It i
 ## Side-effect contract
 
 Integrated capture performs no adapter call, actuation, verification, commit or rollback. Tests use a counting numeric planner and prove that the call count cannot increase during capture for `Candidate`, `NoCandidate`, `Unsupported`, or `InsufficientEvidence` outcomes.
+
+## Pure replay qualification
+
+`GuardedPlanningTrace::validate_replay_identity` requalifies a captured explanation against current inputs without running the numeric planner. The replay path requires the same guarded-resource policy, a currently fresh fact snapshot with the same semantic fingerprint, and the same numeric planning-context fingerprint. It then re-evaluates only pure Boolean transition pruning and requires the resulting source-bound pruning fingerprint to match the captured report.
+
+A changed observation epoch or resource generation is rejected through the existing freshness contract. A changed guard policy, fact snapshot, numeric context, or Boolean pruning partition is rejected explicitly. Strict persisted `DecisionTrace` schema/version checks remain owned by the bounded decoder before a typed trace can participate in replay.
+
+Successful replay qualification is explanatory evidence only. It does not invoke a numeric planner, trusted validation, adapters, physical actuation, verification, commit, or rollback, and it cannot authorize any of those operations.
