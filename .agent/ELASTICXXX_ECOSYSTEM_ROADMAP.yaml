@@ -62,6 +62,7 @@ verified_current_facts:
   - Stage_B_acceptance_thresholds_final_test_and_allocator_search_remain_NO_GO_until_fixed_real_model_baseline_evidence_exists
   - BE8a_strict_persisted_decision_trace_decoder_completed_through_PR_97_merge_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
   - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
+  - BE8c_integrated_guarded_planning_capture_completed_through_PR_100_merge_d2ae9d0cec83e33ce950a194b13023449e4b1005
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -413,6 +414,18 @@ roadmap:
           - semantically_equivalent_candidate_and_unknown_scope_orderings_compare_equal
           - diff_detail_is_bounded_and_public_change_classes_remain_complete_when_truncated
           - comparison_is_read_only_non_actuating_and_available_through_the_public_facade
+      - id: EX6d
+        name: Integrated guarded planning capture
+        status: complete
+        completion_evidence:
+          - PR_100_exact_head_d0ff081f6066f3fff6b444104b7c1be6067043c2
+          - PR_100_CI_35278821188_completed_success_on_exact_head
+          - PR_100_packageability_35278821235_completed_success_on_exact_head
+          - PR_100_merged_to_main_as_d2ae9d0cec83e33ce950a194b13023449e4b1005
+          - guarded_planning_decision_retains_source_bound_pruning_numeric_context_and_fact_snapshot_identity
+          - fresh_but_different_fact_snapshot_capture_is_rejected_fail_closed
+          - integrated_capture_does_not_reexecute_numeric_planning_or_actuation
+          - invariant_precheck_remains_explanatory_and_non_authoritative
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome
