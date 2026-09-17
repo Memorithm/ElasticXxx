@@ -1,7 +1,7 @@
 schema_version: 3
 kind: elastic_boolean_decision_roadmap
 status: active
-last_updated: "2026-09-17"
+last_updated: "2026-09-18"
 canonical_owner: Memorithm/ElasticXxx
 source_branch: agent/ecosystem-roadmap
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 203c2b10fa552e0940c2c043f779a0b04a378639
-  main_observed_at: "2026-09-17"
-  open_pull_requests: 2
+  main_sha: 08ac2398488dd2ba62291535fbdc072b1e6d41db
+  main_observed_at: "2026-09-18"
+  open_pull_requests: 1
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -73,6 +73,14 @@ current_verified_state:
       packageability_run: 35279669131
       result: success
       purpose: pure_guarded_replay_qualification
+    - pr: 103
+      head: 98a625b797e464036b0359667d32a3bd184aebb3
+      merge: 08ac2398488dd2ba62291535fbdc072b1e6d41db
+      ci_run: 35281645217
+      packageability_run: 35281645215
+      hardening_run: 35281645298
+      result: success
+      purpose: fuzz_and_adversarial_decoder_hardening
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -82,8 +90,9 @@ current_verified_state:
     PR90 through PR93 are merged and their recorded final heads have successful
     ci and packageability runs. The old roadmap still described these slices as
     pending. BE6 and BE9 are therefore closed. BE7 core semantics are closed;
-    live domain/controller qualification belongs to BE14. BE8 remains partial.
-    BE10 through BE15 remain unimplemented unless current default-branch evidence
+    live domain/controller qualification belongs to BE14. BE8 is closed through
+    PR103 decoder fuzz/adversarial hardening. BE10 is active; BE11 through BE15
+    remain unimplemented unless current default-branch evidence
     proves otherwise during a future execution.
 
 hard_invariants:
@@ -130,7 +139,7 @@ ownership:
 
 execution_policy:
   order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
-  active_phase: BE8
+  active_phase: BE10
   next_major_phase_after_BE8: BE10
   rule: earliest_unblocked_reviewable_slice_first
   branch_rule: new_feature_branch_from_current_main_after_every_merge
@@ -263,7 +272,7 @@ phases:
 
   - id: BE8
     name: durable_decision_trace_and_replay_evidence
-    status: active
+    status: completed
     already_delivered:
       - DecisionTrace
       - stable_guard_and_fact_fingerprints
@@ -328,14 +337,21 @@ phases:
           - pure_Boolean_pruning_is_recomputed_and_source_bound_fingerprint_must_match
           - stale_resource_generation_changed_policy_changed_context_and_pruning_drift_fail_closed
           - replay_does_not_invoke_numeric_planning_or_runtime_mutation
-    required_slices:
       - id: BE8e
         name: fuzz_and_adversarial_decoder_hardening
-        tasks:
-          - fuzz_wire_decoder
-          - fuzz_size_and_depth_limits
-          - property_roundtrip_for_valid_traces
-          - corpus_for_truncation_duplicate_keys_unknown_fields_and_large_counts
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_103
+          - PR103_exact_head_98a625b797e464036b0359667d32a3bd184aebb3
+          - PR103_CI_35281645217_completed_success_on_exact_head
+          - PR103_packageability_35281645215_completed_success_on_exact_head
+          - PR103_continuous_hardening_35281645298_completed_success_on_exact_head
+          - PR103_merged_to_main_as_08ac2398488dd2ba62291535fbdc072b1e6d41db
+          - strict_decoder_libfuzzer_target_accepts_arbitrary_bytes_and_roundtrips_only_valid_typed_traces
+          - corpus_covers_valid_v1_truncation_duplicate_unknown_future_schema_depth_and_collection_bounds
+          - scheduled_manual_fuzzing_allows_inputs_one_byte_beyond_the_public_1_MiB_trace_limit
+          - local_20_second_campaign_executed_1037128_inputs_without_crash_as_hardening_evidence_not_proof
+          - pull_request_hardening_checkout_is_bound_to_exact_head_SHA
     exit_criteria:
       - persisted_trace_can_be_strictly_decoded_and_roundtripped
       - every_guarded_planning_outcome_has_replayable_explanation
@@ -367,7 +383,7 @@ phases:
 
   - id: BE10
     name: operator_configuration_and_CLI
-    status: planned
+    status: active
     target_crates: [elastic, elastic-runtime, elastic-cli]
     required_slices:
       - id: BE10a

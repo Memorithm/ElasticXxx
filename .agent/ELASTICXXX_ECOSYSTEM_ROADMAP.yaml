@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-17"
+last_updated: "2026-09-18"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -64,6 +64,7 @@ verified_current_facts:
   - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   - BE8c_integrated_guarded_planning_capture_completed_through_PR_100_merge_d2ae9d0cec83e33ce950a194b13023449e4b1005
   - BE8d_pure_guarded_replay_qualification_completed_through_PR_101_merge_203c2b10fa552e0940c2c043f779a0b04a378639
+  - BE8e_decoder_fuzz_and_adversarial_hardening_completed_through_PR_103_merge_08ac2398488dd2ba62291535fbdc072b1e6d41db
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -438,6 +439,18 @@ roadmap:
           - replay_requires_current_resource_policy_fact_and_numeric_context_identity
           - replay_recomputes_only_pure_Boolean_pruning_and_never_runs_numeric_planning
           - replay_is_explanatory_only_and_cannot_authorize_runtime_mutation
+      - id: EX6f
+        name: Decision trace decoder fuzz and adversarial hardening
+        status: complete
+        completion_evidence:
+          - PR_103_exact_head_98a625b797e464036b0359667d32a3bd184aebb3
+          - PR_103_CI_35281645217_completed_success_on_exact_head
+          - PR_103_packageability_35281645215_completed_success_on_exact_head
+          - PR_103_continuous_hardening_35281645298_completed_success_on_exact_head
+          - PR_103_merged_to_main_as_08ac2398488dd2ba62291535fbdc072b1e6d41db
+          - arbitrary_decoder_inputs_are_bounded_and_valid_traces_must_roundtrip_typed_identity
+          - committed_adversarial_corpus_includes_valid_and_fail_closed_boundary_shapes
+          - fuzzing_is_hardening_evidence_and_not_a_proof_of_defect_absence
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome
