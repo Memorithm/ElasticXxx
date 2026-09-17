@@ -61,6 +61,7 @@ verified_current_facts:
   - ElasticBitAllocation_Stage_B_execution_readiness_dry_run_harness_opened_as_PR_79_exact_head_754a492516f2b7636f5bebe83ce8ff443cfb7826_pending_required_CI_and_merge
   - Stage_B_acceptance_thresholds_final_test_and_allocator_search_remain_NO_GO_until_fixed_real_model_baseline_evidence_exists
   - BE8a_strict_persisted_decision_trace_decoder_completed_through_PR_97_merge_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+  - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -400,6 +401,18 @@ roadmap:
           - persisted_decision_trace_v1_is_strict_bounded_roundtrippable_and_non_actuating
           - custom_and_builtin_dimension_identity_remain_distinct_on_wire
           - impossible_grounded_unknown_and_non_applicable_scope_classifications_fail_closed
+      - id: EX6c
+        name: Deterministic typed Boolean decision trace comparison
+        status: complete
+        completion_evidence:
+          - PR_98_exact_head_c4a6d7922dd27682421cc1f139ccf286662b7d2d
+          - PR_98_CI_35276145694_completed_success_on_exact_head
+          - PR_98_packageability_35276145642_completed_success_on_exact_head
+          - PR_98_merged_to_main_as_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
+          - typed_diff_reports_policy_fact_candidate_unknown_and_stop_reason_changes
+          - semantically_equivalent_candidate_and_unknown_scope_orderings_compare_equal
+          - diff_detail_is_bounded_and_public_change_classes_remain_complete_when_truncated
+          - comparison_is_read_only_non_actuating_and_available_through_the_public_facade
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome

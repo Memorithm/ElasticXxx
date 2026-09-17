@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+  main_sha: 02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   main_observed_at: "2026-09-17"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -52,6 +52,13 @@ current_verified_state:
       packageability_run: 35275123821
       result: success
       purpose: strict_persisted_decision_trace_decoder
+    - pr: 98
+      head: c4a6d7922dd27682421cc1f139ccf286662b7d2d
+      merge: 02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
+      ci_run: 35276145694
+      packageability_run: 35276145642
+      result: success
+      purpose: deterministic_typed_decision_trace_comparison
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -266,13 +273,21 @@ phases:
           - custom_vs_builtin_dimension_identity_round_trips_explicitly
           - impossible_candidate_classifications_and_non_applicable_scopes_fail_closed
           - imported_trace_remains_non_actuating_historical_evidence
-    required_slices:
       - id: BE8b
         name: deterministic_trace_comparison
-        tasks:
-          - stable_structural_diff_for_guard_fact_candidate_and_stop_reason_changes
-          - classify_policy_change_fact_change_candidate_change_and_unknown_change
-          - preserve_noncryptographic_fingerprint_limitations
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_98
+          - PR98_exact_head_c4a6d7922dd27682421cc1f139ccf286662b7d2d
+          - PR98_CI_35276145694_completed_success_on_exact_head
+          - PR98_packageability_35276145642_completed_success_on_exact_head
+          - PR98_merged_to_main_as_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
+          - typed_diff_classifies_policy_fact_candidate_and_unknown_changes
+          - candidate_and_unknown_scope_array_reordering_does_not_create_false_changes
+          - detailed_diff_is_bounded_while_semantic_change_classes_remain_complete
+          - fingerprints_remain_explicitly_noncryptographic_diagnostics
+          - public_elastic_facade_and_single_dependency_downstream_guard_cover_the_diff_surface
+    required_slices:
       - id: BE8c
         name: integrated_guarded_planning_capture
         tasks:
@@ -695,7 +710,7 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE8
-  immediate_next_slice: BE8b_deterministic_trace_comparison
+  immediate_next_slice: BE8c_integrated_guarded_planning_capture
   open_pull_requests_at_checkpoint: 0
-  verified_main: 0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+  verified_main: 02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   performance_claims: none
