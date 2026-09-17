@@ -44,6 +44,7 @@ pub mod forecast;
 pub mod forecast_runtime;
 pub mod guard_planner;
 pub mod guard_preplanner;
+pub mod guarded_planning_trace;
 pub mod invariant_precheck;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
@@ -102,8 +103,15 @@ pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
 };
-pub use guard_planner::{BooleanGuardPlanner, GuardPlannerTarget};
+pub use guard_planner::{
+    BooleanGuardPlanner, GuardPlannerTarget, GuardedPlanningDecision, GuardedPlanningTraceError,
+};
 pub use guard_preplanner::{BooleanGuardPreplanner, GuardPreplannerError};
+pub use guarded_planning_trace::{
+    planning_context_fingerprint, pruning_report_fingerprint, GuardedPlanningCapture,
+    GuardedPlanningOutcomeKind, InvariantPrecheckTraceSummary, PlanningContextFingerprint,
+    PruningReportFingerprint, GUARDED_PLANNING_CAPTURE_SCHEMA_V1,
+};
 pub use invariant_precheck::{
     precheck_plan_invariants, InvariantPrecheckEntry, InvariantPrecheckError,
     InvariantPrecheckReport, InvariantPrecheckStatus,

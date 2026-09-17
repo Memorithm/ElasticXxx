@@ -6,6 +6,8 @@
 //! admission set. Returned candidates are checked against both the original
 //! declaration and this restricted view. No actuation occurs here.
 
+use crate::decision_trace::{capture_decision_trace, DecisionTraceError};
+use crate::guarded_planning_trace::GuardedPlanningCapture;
 use crate::{BooleanGuardPreplanner, FactSnapshot, GuardPreplannerError};
 use elastic_core::resource::DimensionId;
 use elastic_core::{FreshnessSnapshot, TransitionMechanism};
@@ -13,6 +15,7 @@ use elastic_eir::{
     EirGuardedResource, EirResource, PlanOutcome, PlanningContext, TransitionCandidate,
     TransitionPlanner, TransitionPruningReport,
 };
+use std::fmt;
 
 /// Boolean eligibility scope that must survive before a wrapped numeric planner
 /// is allowed to run.
@@ -27,6 +30,65 @@ pub enum GuardPlannerTarget {
         /// Required elastic dimension.
         dimension: DimensionId,
     },
+}
+
+/// One guarded planning result paired with its explanatory trace capture.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GuardedPlanningDecision {
+    outcome: PlanOutcome,
+    capture: GuardedPlanningCapture,
+}
+
+impl GuardedPlanningDecision {
+    /// Honest planning outcome returned to the caller.
+    #[must_use]
+    pub const fn outcome(&self) -> &PlanOutcome {
+        &self.outcome
+    }
+
+    /// Non-actuating explanation bound to the same planning call.
+    #[must_use]
+    pub const fn capture(&self) -> &GuardedPlanningCapture {
+        &self.capture
+    }
+
+    /// Consume the wrapper and recover the original planning outcome and capture.
+    #[must_use]
+    pub fn into_parts(self) -> (PlanOutcome, GuardedPlanningCapture) {
+        (self.outcome, self.capture)
+    }
+}
+
+/// Failures while producing integrated guarded-planning evidence.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GuardedPlanningTraceError {
+    /// Boolean fact provenance/freshness or guard evaluation failed.
+    Preplanning(GuardPreplannerError),
+    /// Explanatory decision-trace construction exceeded or violated its bounds.
+    Trace(DecisionTraceError),
+}
+
+impl fmt::Display for GuardedPlanningTraceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Preplanning(error) => write!(f, "guarded preplanning failed: {error}"),
+            Self::Trace(error) => write!(f, "guarded planning trace failed: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for GuardedPlanningTraceError {}
+
+impl From<GuardPreplannerError> for GuardedPlanningTraceError {
+    fn from(value: GuardPreplannerError) -> Self {
+        Self::Preplanning(value)
+    }
+}
+
+impl From<DecisionTraceError> for GuardedPlanningTraceError {
+    fn from(value: DecisionTraceError) -> Self {
+        Self::Trace(value)
+    }
 }
 
 impl GuardPlannerTarget {
@@ -163,6 +225,42 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
             &report,
             &self.target,
         ))
+    }
+
+    /// Run one guarded numerical planning call and capture bounded explanatory evidence.
+    ///
+    /// The wrapped numeric planner executes exactly once. Trace capture may
+    /// re-evaluate the pure Boolean guards for consistency, but it never calls
+    /// the numeric planner, trusted validator, adapter, or actuator. The returned
+    /// capture therefore cannot authorize physical effects.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GuardedPlanningTraceError::Preplanning`] when fact provenance,
+    /// freshness, or Boolean evaluation fails. Returns
+    /// [`GuardedPlanningTraceError::Trace`] when bounded trace construction fails.
+    pub fn propose_transition_with_trace(
+        &self,
+        resource: &EirGuardedResource,
+        context: &PlanningContext,
+        facts: &FactSnapshot,
+        freshness: &FreshnessSnapshot,
+    ) -> Result<GuardedPlanningDecision, GuardedPlanningTraceError> {
+        let outcome = self.propose_transition_with_context(resource, context, facts, freshness)?;
+        let report = BooleanGuardPreplanner.prune(resource, facts, freshness)?;
+        let selected = match &outcome {
+            PlanOutcome::Candidate(candidate) => Some(candidate),
+            _ => None,
+        };
+        let decision_trace = capture_decision_trace(resource, facts, freshness, selected)?;
+        let capture = GuardedPlanningCapture::from_cycle(
+            resource,
+            context,
+            &report,
+            &outcome,
+            decision_trace,
+        );
+        Ok(GuardedPlanningDecision { outcome, capture })
     }
 }
 
@@ -434,5 +532,116 @@ mod tests {
             .unwrap();
         assert!(matches!(outcome, PlanOutcome::InsufficientEvidence { .. }));
         assert_eq!(calls.get(), 0);
+    }
+
+    #[test]
+    fn integrated_trace_captures_candidate_without_reexecuting_numeric_planner() {
+        use crate::{
+            precheck_plan_invariants, GuardedPlanningOutcomeKind, InvariantPrecheckStatus, Plan,
+        };
+
+        let (resource, facts, freshness) = fixture(Some(true));
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
+        let context = threshold_context();
+        let decision = planner
+            .propose_transition_with_trace(&resource, &context, &facts, &freshness)
+            .unwrap();
+
+        assert!(matches!(decision.outcome(), PlanOutcome::Candidate(_)));
+        assert_eq!(
+            calls.get(),
+            1,
+            "trace capture must not rerun numeric planning"
+        );
+        assert_eq!(
+            decision.capture().outcome(),
+            GuardedPlanningOutcomeKind::Candidate
+        );
+        assert!(decision.capture().decision_trace().selected().is_some());
+        assert_eq!(
+            decision
+                .capture()
+                .decision_trace()
+                .guarded_resource_fingerprint(),
+            resource.fingerprint()
+        );
+        assert!(!decision.capture().actuation_authorized());
+
+        let plan = Plan::new(
+            resource.resource().clone(),
+            context,
+            decision.outcome().clone(),
+            "trace-test".to_owned(),
+        );
+        let precheck = precheck_plan_invariants(&plan, &[], &facts, &freshness).unwrap();
+        let capture = decision
+            .capture()
+            .clone()
+            .with_invariant_precheck(&precheck);
+        let summary = capture.invariant_precheck().unwrap();
+        assert_eq!(summary.status(), InvariantPrecheckStatus::Passed);
+        assert!(!summary.trusted_validation_authorized());
+        assert!(!capture.actuation_authorized());
+
+        let encoded = capture.to_bounded_json().unwrap();
+        assert!(encoded.contains("elastic-guarded-planning-capture-v1"));
+        assert!(encoded.contains("\"trusted_validation_authorized\":false"));
+        assert!(encoded.contains("\"actuation_authorized\":false"));
+    }
+
+    #[test]
+    fn integrated_trace_records_all_non_candidate_outcome_kinds() {
+        use crate::GuardedPlanningOutcomeKind;
+
+        let cases = [
+            (Some(false), GuardedPlanningOutcomeKind::NoCandidate),
+            (None, GuardedPlanningOutcomeKind::InsufficientEvidence),
+        ];
+        for (guard_value, expected) in cases {
+            let (resource, facts, freshness) = fixture(guard_value);
+            let calls = Cell::new(0);
+            let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
+            let decision = planner
+                .propose_transition_with_trace(&resource, &threshold_context(), &facts, &freshness)
+                .unwrap();
+            assert_eq!(decision.capture().outcome(), expected);
+            assert_eq!(calls.get(), 0);
+            assert!(!decision.capture().actuation_authorized());
+        }
+
+        let (resource, facts, freshness) = fixture(Some(true));
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_transition(
+            CountingPlanner { calls: &calls },
+            TransitionMechanism::Reencode,
+            DimensionId::CAPACITY,
+        );
+        let decision = planner
+            .propose_transition_with_trace(&resource, &threshold_context(), &facts, &freshness)
+            .unwrap();
+        assert_eq!(
+            decision.capture().outcome(),
+            GuardedPlanningOutcomeKind::Unsupported
+        );
+        assert_eq!(calls.get(), 0);
+    }
+
+    #[test]
+    fn planning_context_identity_changes_with_numeric_evidence() {
+        use crate::planning_context_fingerprint;
+
+        let base = threshold_context();
+        let changed = PlanningContext::new()
+            .observe(ObservationSignalId::UTILIZATION, 0.8)
+            .observe(custom_signal("committed-bytes"), 100.0);
+        assert_ne!(
+            planning_context_fingerprint(&base),
+            planning_context_fingerprint(&changed)
+        );
+        assert_eq!(
+            planning_context_fingerprint(&base),
+            planning_context_fingerprint(&base)
+        );
     }
 }
