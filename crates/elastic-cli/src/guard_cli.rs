@@ -2,9 +2,10 @@
 //!
 //! These commands deliberately lower through the public `elastic` facade.
 //! The inspect/evaluate commands never construct runtime components. The guarded
-//! planning dry-run may materialize configured components for observation and
-//! planning, but never enters a runtime cycle or calls validation/actuation.
-//! Missing fact values are evaluated as `Unknown` by library-owned semantics.
+//! planning dry-run uses a declaration-only planning view derived from validated
+//! operator configuration; it does not construct a physical resource adapter,
+//! enter a runtime cycle, or call validation/actuation. Missing fact values are
+//! evaluated as `Unknown` by library-owned semantics.
 
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -183,7 +184,7 @@ pub(crate) fn plan_dry_run(
         .collect::<Vec<_>>();
 
     // These counters are local identities for this one immutable dry-run
-    // materialization. They are deliberately not represented as live runtime
+    // snapshot. They are deliberately not represented as live runtime
     // epochs or a physical resource-generation claim.
     let observation_epoch = ObservationEpoch::new(1);
     let planner_epoch = PlannerEpoch::new(1);
