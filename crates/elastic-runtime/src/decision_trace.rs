@@ -13,7 +13,7 @@
 
 use crate::{
     FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES,
-    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_NODES,
+    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
     MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
 };
 use elastic_core::resource::{DimensionId, LogicalResourceId};
@@ -205,6 +205,94 @@ pub enum DecisionStopReason {
     NumericPlannerNoCandidate,
 }
 
+/// Semantic class of one deterministic decision-trace difference.
+///
+/// The classes describe typed Elastic semantics rather than raw JSON paths.
+/// Fingerprint differences are diagnostic structural evidence only; neither a
+/// matching nor differing fingerprint is cryptographic proof of identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DecisionTraceChangeKind {
+    /// Resource identity, guarded-EIR identity, or guard membership changed.
+    Policy,
+    /// Materialized fact source, epoch, generation, or known truth changed.
+    Fact,
+    /// Candidate classification, rejection detail, magnitude, or selection changed.
+    Candidate,
+    /// Missing/unknown facts, unknown candidate evidence, or insufficient-evidence outcome changed.
+    Unknown,
+}
+
+/// One stable, human-readable structural difference between two traces.
+///
+/// `left` and `right` are diagnostic renderings, not a serialization contract.
+/// Consumers that need typed values should inspect the compared traces directly.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DecisionTraceChange {
+    kind: DecisionTraceChangeKind,
+    path: String,
+    left: Option<String>,
+    right: Option<String>,
+}
+
+impl DecisionTraceChange {
+    /// Semantic class of this difference.
+    #[must_use]
+    pub const fn kind(&self) -> DecisionTraceChangeKind {
+        self.kind
+    }
+
+    /// Stable semantic path naming the changed trace component.
+    #[must_use]
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Diagnostic value from the left trace, when present.
+    #[must_use]
+    pub fn left(&self) -> Option<&str> {
+        self.left.as_deref()
+    }
+
+    /// Diagnostic value from the right trace, when present.
+    #[must_use]
+    pub fn right(&self) -> Option<&str> {
+        self.right.as_deref()
+    }
+}
+
+/// Deterministic, bounded semantic comparison of two decision traces.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DecisionTraceDiff {
+    changes: Vec<DecisionTraceChange>,
+    kinds: BTreeSet<DecisionTraceChangeKind>,
+    truncated: bool,
+}
+
+impl DecisionTraceDiff {
+    /// Whether no semantic difference was found.
+    #[must_use]
+    pub fn is_equal(&self) -> bool {
+        self.changes.is_empty() && !self.truncated
+    }
+
+    /// Stable path-ordered differences, capped by the evidence diff bound.
+    #[must_use]
+    pub fn changes(&self) -> &[DecisionTraceChange] {
+        &self.changes
+    }
+
+    /// Whether additional differences existed beyond the public bound.
+    #[must_use]
+    pub const fn truncated(&self) -> bool {
+        self.truncated
+    }
+
+    /// Distinct semantic change classes in deterministic enum order.
+    pub fn kinds(&self) -> impl Iterator<Item = DecisionTraceChangeKind> + '_ {
+        self.kinds.iter().copied()
+    }
+}
+
 /// Full deterministic trace of one guarded planning decision.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DecisionTrace {
@@ -300,6 +388,18 @@ impl DecisionTrace {
     #[must_use]
     pub const fn stop_reason(&self) -> Option<DecisionStopReason> {
         self.stop_reason
+    }
+
+    /// Compare this trace with another trace using typed Elastic semantics.
+    ///
+    /// Candidate arrays are keyed by transition identity before comparison, so
+    /// equivalent candidate sets do not differ merely because their persisted
+    /// array order changed. Differences are sorted by stable semantic path and
+    /// capped at [`MAX_EVIDENCE_DIFF_PATHS`]. This operation is read-only and
+    /// performs no replay, validation, adapter call, or actuation.
+    #[must_use]
+    pub fn diff(&self, other: &Self) -> DecisionTraceDiff {
+        diff_decision_traces(self, other)
     }
 
     /// Validate that a replay uses the same resource policy and semantic fact
@@ -420,6 +520,424 @@ impl DecisionTrace {
             .map_err(|error| DecisionTraceError::Decoding(error.to_string()))?;
         decode_wire_trace(wire)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CandidateTraceClass {
+    Eligible,
+    Rejected,
+    Unknown,
+}
+
+#[derive(Clone, Debug)]
+struct CandidateTraceView<'a> {
+    class: CandidateTraceClass,
+    candidate: &'a CandidateDecisionTrace,
+    failed_scope: Option<&'a GuardScope>,
+    unknown_scopes: &'a [GuardScope],
+}
+
+fn diff_decision_traces(left: &DecisionTrace, right: &DecisionTrace) -> DecisionTraceDiff {
+    let mut changes = Vec::new();
+
+    if left.resource != right.resource {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Policy,
+            "policy.resource",
+            Some(left.resource.as_str().to_owned()),
+            Some(right.resource.as_str().to_owned()),
+        );
+    }
+    if left.guarded_resource_fingerprint != right.guarded_resource_fingerprint {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Policy,
+            "policy.fingerprint",
+            Some(format!("{:016x}", left.guarded_resource_fingerprint.bits())),
+            Some(format!(
+                "{:016x}",
+                right.guarded_resource_fingerprint.bits()
+            )),
+        );
+    }
+    if left.fact_snapshot_fingerprint != right.fact_snapshot_fingerprint {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Fact,
+            "facts.fingerprint",
+            Some(format!("{:016x}", left.fact_snapshot_fingerprint.bits())),
+            Some(format!("{:016x}", right.fact_snapshot_fingerprint.bits())),
+        );
+    }
+    if left.fact_source != right.fact_source {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Fact,
+            "facts.source",
+            Some(left.fact_source.as_str().to_owned()),
+            Some(right.fact_source.as_str().to_owned()),
+        );
+    }
+    if left.observation_epoch != right.observation_epoch {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Fact,
+            "facts.observation_epoch",
+            Some(left.observation_epoch.get().to_string()),
+            Some(right.observation_epoch.get().to_string()),
+        );
+    }
+    if left.resource_generation != right.resource_generation {
+        push_trace_change(
+            &mut changes,
+            DecisionTraceChangeKind::Fact,
+            "facts.resource_generation",
+            Some(left.resource_generation.get().to_string()),
+            Some(right.resource_generation.get().to_string()),
+        );
+    }
+
+    diff_predicates(left, right, &mut changes);
+    diff_candidates(left, right, &mut changes);
+    diff_selected(
+        left.selected.as_ref(),
+        right.selected.as_ref(),
+        &mut changes,
+    );
+
+    if left.stop_reason != right.stop_reason {
+        let kind = if left.stop_reason == Some(DecisionStopReason::InsufficientEvidence)
+            || right.stop_reason == Some(DecisionStopReason::InsufficientEvidence)
+        {
+            DecisionTraceChangeKind::Unknown
+        } else {
+            DecisionTraceChangeKind::Candidate
+        };
+        push_trace_change(
+            &mut changes,
+            kind,
+            "outcome.stop_reason",
+            left.stop_reason.map(stop_reason_text).map(str::to_owned),
+            right.stop_reason.map(stop_reason_text).map(str::to_owned),
+        );
+    }
+
+    changes.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then_with(|| left.kind.cmp(&right.kind))
+            .then_with(|| left.left.cmp(&right.left))
+            .then_with(|| left.right.cmp(&right.right))
+    });
+    let kinds = changes
+        .iter()
+        .map(DecisionTraceChange::kind)
+        .collect::<BTreeSet<_>>();
+    let truncated = changes.len() > MAX_EVIDENCE_DIFF_PATHS;
+    if truncated {
+        changes.truncate(MAX_EVIDENCE_DIFF_PATHS);
+    }
+    DecisionTraceDiff {
+        changes,
+        kinds,
+        truncated,
+    }
+}
+
+fn diff_predicates(
+    left: &DecisionTrace,
+    right: &DecisionTrace,
+    changes: &mut Vec<DecisionTraceChange>,
+) {
+    let left_by_key = left
+        .predicates
+        .iter()
+        .map(|entry| (entry.key.clone(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let right_by_key = right
+        .predicates
+        .iter()
+        .map(|entry| (entry.key.clone(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let keys = left_by_key
+        .keys()
+        .chain(right_by_key.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+
+    for key in keys {
+        let left = left_by_key.get(&key).copied();
+        let right = right_by_key.get(&key).copied();
+        let base = format!("facts.predicates[{key}]");
+
+        let left_truth = left.map(|entry| entry.truth);
+        let right_truth = right.map(|entry| entry.truth);
+        if left_truth != right_truth {
+            let kind = if left_truth == Some(TruthValue::Unknown)
+                || right_truth == Some(TruthValue::Unknown)
+                || left_truth.is_none()
+                || right_truth.is_none()
+            {
+                DecisionTraceChangeKind::Unknown
+            } else {
+                DecisionTraceChangeKind::Fact
+            };
+            push_trace_change(
+                changes,
+                kind,
+                format!("{base}.truth"),
+                left_truth.map(truth_text).map(str::to_owned),
+                right_truth.map(truth_text).map(str::to_owned),
+            );
+        }
+
+        let left_materialized = left.map(|entry| entry.materialized);
+        let right_materialized = right.map(|entry| entry.materialized);
+        if left_materialized != right_materialized {
+            push_trace_change(
+                changes,
+                DecisionTraceChangeKind::Unknown,
+                format!("{base}.materialized"),
+                left_materialized.map(|value| value.to_string()),
+                right_materialized.map(|value| value.to_string()),
+            );
+        }
+
+        let left_referenced = left.map(|entry| entry.referenced_by_guard);
+        let right_referenced = right.map(|entry| entry.referenced_by_guard);
+        if left_referenced != right_referenced {
+            push_trace_change(
+                changes,
+                DecisionTraceChangeKind::Policy,
+                format!("{base}.referenced_by_guard"),
+                left_referenced.map(|value| value.to_string()),
+                right_referenced.map(|value| value.to_string()),
+            );
+        }
+    }
+}
+
+fn diff_candidates(
+    left: &DecisionTrace,
+    right: &DecisionTrace,
+    changes: &mut Vec<DecisionTraceChange>,
+) {
+    let left_map = candidate_trace_map(left);
+    let right_map = candidate_trace_map(right);
+    let identities = left_map
+        .keys()
+        .chain(right_map.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+
+    for identity in identities {
+        let left = left_map.get(&identity);
+        let right = right_map.get(&identity);
+        let base = candidate_diff_path(&identity.0, &identity.1);
+        match (left, right) {
+            (Some(left), Some(right)) => diff_candidate_view(left, right, &base, changes),
+            (Some(left), None) => push_trace_change(
+                changes,
+                candidate_view_kind(left),
+                format!("{base}.classification"),
+                Some(candidate_class_text(left.class).to_owned()),
+                None,
+            ),
+            (None, Some(right)) => push_trace_change(
+                changes,
+                candidate_view_kind(right),
+                format!("{base}.classification"),
+                None,
+                Some(candidate_class_text(right.class).to_owned()),
+            ),
+            (None, None) => unreachable!("candidate identity originates from at least one map"),
+        }
+    }
+}
+
+fn candidate_trace_map(
+    trace: &DecisionTrace,
+) -> BTreeMap<(TransitionMechanism, DimensionId), CandidateTraceView<'_>> {
+    let mut map = BTreeMap::new();
+    for candidate in &trace.eligible {
+        map.insert(
+            (candidate.mechanism, candidate.dimension.clone()),
+            CandidateTraceView {
+                class: CandidateTraceClass::Eligible,
+                candidate,
+                failed_scope: None,
+                unknown_scopes: &[],
+            },
+        );
+    }
+    for entry in &trace.rejected {
+        map.insert(
+            (entry.candidate.mechanism, entry.candidate.dimension.clone()),
+            CandidateTraceView {
+                class: CandidateTraceClass::Rejected,
+                candidate: &entry.candidate,
+                failed_scope: Some(&entry.failed_scope),
+                unknown_scopes: &[],
+            },
+        );
+    }
+    for entry in &trace.unknown {
+        map.insert(
+            (entry.candidate.mechanism, entry.candidate.dimension.clone()),
+            CandidateTraceView {
+                class: CandidateTraceClass::Unknown,
+                candidate: &entry.candidate,
+                failed_scope: None,
+                unknown_scopes: &entry.unknown_scopes,
+            },
+        );
+    }
+    map
+}
+
+fn diff_candidate_view(
+    left: &CandidateTraceView<'_>,
+    right: &CandidateTraceView<'_>,
+    base: &str,
+    changes: &mut Vec<DecisionTraceChange>,
+) {
+    if left.class != right.class {
+        let kind = if left.class == CandidateTraceClass::Unknown
+            || right.class == CandidateTraceClass::Unknown
+        {
+            DecisionTraceChangeKind::Unknown
+        } else {
+            DecisionTraceChangeKind::Candidate
+        };
+        push_trace_change(
+            changes,
+            kind,
+            format!("{base}.classification"),
+            Some(candidate_class_text(left.class).to_owned()),
+            Some(candidate_class_text(right.class).to_owned()),
+        );
+    }
+    if left.candidate.capability_grounded != right.candidate.capability_grounded {
+        let kind = if left.class == CandidateTraceClass::Unknown
+            || right.class == CandidateTraceClass::Unknown
+        {
+            DecisionTraceChangeKind::Unknown
+        } else {
+            DecisionTraceChangeKind::Candidate
+        };
+        push_trace_change(
+            changes,
+            kind,
+            format!("{base}.capability_grounded"),
+            Some(left.candidate.capability_grounded.to_string()),
+            Some(right.candidate.capability_grounded.to_string()),
+        );
+    }
+    if left.candidate.magnitude != right.candidate.magnitude {
+        push_trace_change(
+            changes,
+            DecisionTraceChangeKind::Candidate,
+            format!("{base}.magnitude"),
+            left.candidate.magnitude.map(|value| value.to_string()),
+            right.candidate.magnitude.map(|value| value.to_string()),
+        );
+    }
+    if left.failed_scope != right.failed_scope {
+        push_trace_change(
+            changes,
+            DecisionTraceChangeKind::Candidate,
+            format!("{base}.failed_scope"),
+            left.failed_scope.map(scope_text),
+            right.failed_scope.map(scope_text),
+        );
+    }
+    let left_unknown_scopes = normalized_scopes_text(left.unknown_scopes);
+    let right_unknown_scopes = normalized_scopes_text(right.unknown_scopes);
+    if left_unknown_scopes != right_unknown_scopes {
+        push_trace_change(
+            changes,
+            DecisionTraceChangeKind::Unknown,
+            format!("{base}.unknown_scopes"),
+            Some(left_unknown_scopes),
+            Some(right_unknown_scopes),
+        );
+    }
+}
+
+fn diff_selected(
+    left: Option<&CandidateDecisionTrace>,
+    right: Option<&CandidateDecisionTrace>,
+    changes: &mut Vec<DecisionTraceChange>,
+) {
+    if left == right {
+        return;
+    }
+    push_trace_change(
+        changes,
+        DecisionTraceChangeKind::Candidate,
+        "outcome.selected",
+        left.map(candidate_trace_text),
+        right.map(candidate_trace_text),
+    );
+}
+
+fn candidate_view_kind(view: &CandidateTraceView<'_>) -> DecisionTraceChangeKind {
+    if view.class == CandidateTraceClass::Unknown {
+        DecisionTraceChangeKind::Unknown
+    } else {
+        DecisionTraceChangeKind::Candidate
+    }
+}
+
+const fn candidate_class_text(class: CandidateTraceClass) -> &'static str {
+    match class {
+        CandidateTraceClass::Eligible => "eligible",
+        CandidateTraceClass::Rejected => "rejected",
+        CandidateTraceClass::Unknown => "unknown",
+    }
+}
+
+fn candidate_diff_path(identity: &TransitionMechanism, dimension: &DimensionId) -> String {
+    format!(
+        "candidates[mechanism={},dimension={:?}]",
+        mechanism_text(*identity),
+        dimension_wire_text(dimension)
+    )
+}
+
+fn candidate_trace_text(candidate: &CandidateDecisionTrace) -> String {
+    let magnitude = candidate
+        .magnitude
+        .map_or_else(|| "none".to_owned(), |value| value.to_string());
+    format!(
+        "{}@{};grounded={};magnitude={magnitude}",
+        mechanism_text(candidate.mechanism),
+        dimension_wire_text(&candidate.dimension),
+        candidate.capability_grounded
+    )
+}
+
+fn normalized_scopes_text(scopes: &[GuardScope]) -> String {
+    let mut scopes = scopes.iter().map(scope_text).collect::<Vec<_>>();
+    scopes.sort();
+    scopes.dedup();
+    scopes.join(",")
+}
+
+fn push_trace_change(
+    changes: &mut Vec<DecisionTraceChange>,
+    kind: DecisionTraceChangeKind,
+    path: impl Into<String>,
+    left: Option<String>,
+    right: Option<String>,
+) {
+    changes.push(DecisionTraceChange {
+        kind,
+        path: path.into(),
+        left,
+        right,
+    });
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1939,5 +2457,225 @@ mod tests {
         let encoded = trace.to_bounded_json().unwrap();
         let decoded = DecisionTrace::from_bounded_json(encoded.as_bytes()).unwrap();
         assert_eq!(decoded, trace);
+    }
+
+    #[test]
+    fn decision_trace_diff_is_empty_for_identical_traces() {
+        let (trace, _) = persisted_fixture();
+        let diff = trace.diff(&trace);
+
+        assert!(diff.is_equal());
+        assert!(!diff.truncated());
+        assert!(diff.changes().is_empty());
+        assert_eq!(diff.kinds().collect::<Vec<_>>(), Vec::new());
+    }
+
+    #[test]
+    fn decision_trace_diff_classifies_policy_changes_without_trusting_fingerprints() {
+        let (left, _) = persisted_fixture();
+        let mut right = left.clone();
+        right.guarded_resource_fingerprint = Fingerprint::EMPTY.text("changed-policy");
+        right.predicates[0].referenced_by_guard = false;
+
+        let diff = left.diff(&right);
+        assert!(!diff.is_equal());
+        assert_eq!(
+            diff.kinds().collect::<Vec<_>>(),
+            vec![DecisionTraceChangeKind::Policy]
+        );
+        assert!(diff
+            .changes()
+            .iter()
+            .any(|change| change.path() == "policy.fingerprint"));
+        assert!(diff.changes().iter().any(|change| {
+            change.path().ends_with(".referenced_by_guard")
+                && change.kind() == DecisionTraceChangeKind::Policy
+        }));
+    }
+
+    #[test]
+    fn decision_trace_diff_classifies_known_fact_changes() {
+        let (left, _) = persisted_fixture();
+        let mut right = left.clone();
+        right.fact_snapshot_fingerprint = FactSnapshotFingerprint(0x55aa);
+        right.fact_source = FactSourceId::new("runtime:changed-source").unwrap();
+        right.observation_epoch = ObservationEpoch::new(right.observation_epoch.get() + 1);
+        right.resource_generation = ResourceGeneration::new(right.resource_generation.get() + 1);
+        right.predicates[0].truth = TruthValue::False;
+
+        let diff = left.diff(&right);
+        assert_eq!(
+            diff.kinds().collect::<Vec<_>>(),
+            vec![DecisionTraceChangeKind::Fact]
+        );
+        let paths = diff
+            .changes()
+            .iter()
+            .map(DecisionTraceChange::path)
+            .collect::<Vec<_>>();
+        assert!(paths.contains(&"facts.fingerprint"));
+        assert!(paths.contains(&"facts.source"));
+        assert!(paths.contains(&"facts.observation_epoch"));
+        assert!(paths.contains(&"facts.resource_generation"));
+        assert!(paths.iter().any(|path| path.ends_with(".truth")));
+    }
+
+    #[test]
+    fn decision_trace_diff_classifies_unknown_evidence_changes() {
+        let (left, _) = persisted_fixture();
+        let mut right = left.clone();
+        right.predicates[0].truth = TruthValue::Unknown;
+        right.predicates[0].materialized = false;
+        let candidate = right.eligible.remove(0);
+        let scope = GuardScope::Transition {
+            mechanism: candidate.mechanism,
+            dimension: candidate.dimension.clone(),
+        };
+        right.unknown.push(UnknownCandidateTrace {
+            candidate,
+            unknown_scopes: vec![scope],
+            capability_grounded: true,
+        });
+        right.stop_reason = Some(DecisionStopReason::InsufficientEvidence);
+
+        let diff = left.diff(&right);
+        assert_eq!(
+            diff.kinds().collect::<Vec<_>>(),
+            vec![DecisionTraceChangeKind::Unknown]
+        );
+        assert!(diff.changes().iter().any(|change| {
+            change.path().ends_with(".unknown_scopes")
+                && change.kind() == DecisionTraceChangeKind::Unknown
+        }));
+        assert!(diff.changes().iter().any(|change| {
+            change.path() == "outcome.stop_reason"
+                && change.kind() == DecisionTraceChangeKind::Unknown
+        }));
+    }
+
+    #[test]
+    fn decision_trace_diff_classifies_candidate_and_selection_changes() {
+        let (left, _) = persisted_fixture();
+        let mut right = left.clone();
+        right.eligible[0].magnitude = Some(7);
+        right.selected = Some(CandidateDecisionTrace {
+            magnitude: Some(7),
+            ..right.eligible[0].clone()
+        });
+        right.stop_reason = None;
+
+        let diff = left.diff(&right);
+        assert_eq!(
+            diff.kinds().collect::<Vec<_>>(),
+            vec![DecisionTraceChangeKind::Candidate]
+        );
+        assert!(diff
+            .changes()
+            .iter()
+            .any(|change| change.path().ends_with(".magnitude")));
+        assert!(diff
+            .changes()
+            .iter()
+            .any(|change| change.path() == "outcome.selected"));
+        assert!(diff
+            .changes()
+            .iter()
+            .any(|change| change.path() == "outcome.stop_reason"));
+    }
+
+    #[test]
+    fn decision_trace_diff_ignores_candidate_and_unknown_scope_array_order() {
+        let (mut left, _) = persisted_fixture();
+        let mut right = left.clone();
+        let second = CandidateDecisionTrace {
+            mechanism: TransitionMechanism::Recompute,
+            dimension: DimensionId::custom("secondary").unwrap(),
+            capability_grounded: true,
+            magnitude: Some(2),
+        };
+        left.eligible.push(second.clone());
+        right.eligible.insert(0, second);
+        assert!(left.diff(&right).is_equal());
+
+        let mut left_unknown = left.clone();
+        let candidate = left_unknown.eligible.remove(0);
+        left_unknown.unknown.push(UnknownCandidateTrace {
+            candidate: candidate.clone(),
+            unknown_scopes: vec![
+                GuardScope::Resource,
+                GuardScope::Dimension(candidate.dimension.clone()),
+            ],
+            capability_grounded: true,
+        });
+        left_unknown.stop_reason = Some(DecisionStopReason::NumericPlannerNoCandidate);
+        let mut right_unknown = left_unknown.clone();
+        right_unknown.unknown[0].unknown_scopes.reverse();
+        assert!(left_unknown.diff(&right_unknown).is_equal());
+    }
+
+    #[test]
+    fn decision_trace_diff_bounds_detail_without_losing_change_classes() {
+        let (mut left, _) = persisted_fixture();
+        left.predicates = (0..MAX_EVIDENCE_COLLECTION_ITEMS)
+            .map(|index| PredicateTraceEntry {
+                key: PredicateKey::new("elastic.diff", format!("p-{index:03}")).unwrap(),
+                truth: TruthValue::True,
+                materialized: true,
+                referenced_by_guard: true,
+            })
+            .collect();
+        let mut right = left.clone();
+        for entry in &mut right.predicates {
+            entry.truth = TruthValue::Unknown;
+            entry.materialized = false;
+            entry.referenced_by_guard = false;
+        }
+        right.eligible[0].magnitude = Some(99);
+
+        let diff = left.diff(&right);
+        assert!(diff.truncated());
+        assert_eq!(diff.changes().len(), MAX_EVIDENCE_DIFF_PATHS);
+        assert_eq!(
+            diff.kinds().collect::<Vec<_>>(),
+            vec![
+                DecisionTraceChangeKind::Policy,
+                DecisionTraceChangeKind::Candidate,
+                DecisionTraceChangeKind::Unknown,
+            ]
+        );
+    }
+
+    #[test]
+    fn decision_trace_diff_paths_are_stable_and_symmetric() {
+        let (left, _) = persisted_fixture();
+        let mut right = left.clone();
+        right.guarded_resource_fingerprint = Fingerprint::EMPTY.text("policy-2");
+        right.predicates[0].truth = TruthValue::Unknown;
+        right.predicates[0].materialized = false;
+        right.eligible[0].magnitude = Some(9);
+        right.stop_reason = Some(DecisionStopReason::AllCandidatesRejected);
+
+        let forward = left.diff(&right);
+        let reverse = right.diff(&left);
+        let forward_paths = forward
+            .changes()
+            .iter()
+            .map(DecisionTraceChange::path)
+            .collect::<Vec<_>>();
+        let reverse_paths = reverse
+            .changes()
+            .iter()
+            .map(DecisionTraceChange::path)
+            .collect::<Vec<_>>();
+
+        assert_eq!(forward_paths, reverse_paths);
+        assert!(forward_paths
+            .windows(2)
+            .all(|window| window[0] <= window[1]));
+        for (forward, reverse) in forward.changes().iter().zip(reverse.changes()) {
+            assert_eq!(forward.kind(), reverse.kind());
+            assert_eq!(forward.left(), reverse.right());
+            assert_eq!(forward.right(), reverse.left());
+        }
     }
 }

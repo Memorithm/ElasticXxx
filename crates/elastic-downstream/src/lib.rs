@@ -74,6 +74,15 @@ pub fn public_evidence_surface_smoke() {
     let _bounded_ingest_limit = MAX_EVIDENCE_BYTES;
 }
 
+/// Compile-time proof that typed decision-trace comparison is reachable through
+/// the single public `elastic` dependency.
+pub fn public_decision_trace_diff_surface_smoke() {
+    let kind = DecisionTraceChangeKind::Policy;
+    let _change: Option<DecisionTraceChange> = None;
+    let _diff: Option<DecisionTraceDiff> = None;
+    assert_eq!(kind, DecisionTraceChangeKind::Policy);
+}
+
 /// Compile-time and semantic proof that the low-level Boolean primitives remain
 /// reachable through the public facade without importing `elastic-core`.
 pub fn public_boolean_surface_smoke() {
@@ -155,6 +164,7 @@ mod tests {
 
         public_surface_smoke();
         public_evidence_surface_smoke();
+        public_decision_trace_diff_surface_smoke();
         public_boolean_surface_smoke();
         public_stable_guard_surface_smoke();
     }
