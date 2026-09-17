@@ -6,16 +6,18 @@
 //! instantiated. The resulting controller still delegates every state-changing
 //! operation to the existing trusted [`TransactionalActuator`] boundary.
 
-use elastic_adapters::{HeadroomPlanner, ThresholdPlanner};
-use elastic_core::resource::ResourceSpec;
+use elastic_adapters::{ConcurrencyPermits, HeadroomPlanner, RamBudget, ThresholdPlanner};
+use elastic_core::resource::{ObservationSignalId, ResourceSpec};
 use elastic_eir::{
     lower, EirResource, FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionPlanner,
 };
 
 use crate::{
+    active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
+    ram_configured_max_bytes_signal, ram_configured_min_bytes_signal, ram_in_use_bytes_signal,
     Actuation, CommitRecord, ConfiguredForecaster, ControllerConfig, ForecastController,
-    ForecasterSelection, InvariantCheck, Observation, Observer, OperatorConfig, Plan,
-    PlannerConfig, PlannerSelection, ResourceConfig, RollbackRecord, Runtime, RuntimeConfig,
+    ForecasterSelection, InvariantCheck, Observation, ObservationSource, Observer, OperatorConfig,
+    Plan, PlannerConfig, PlannerSelection, ResourceConfig, RollbackRecord, Runtime, RuntimeConfig,
     RuntimeError, TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
     VerificationResult,
 };
@@ -26,6 +28,48 @@ pub enum ConfiguredPlanner {
     FirstGrounded(FirstGroundedPlanner),
     Headroom(HeadroomPlanner),
     Threshold(ThresholdPlanner),
+}
+
+/// Pure declaration-only planning view derived from validated operator configuration.
+///
+/// This view contains the normalized resource declaration, configured planner,
+/// and the resource's declared initial observation state without constructing a
+/// physical adapter. It is suitable for read-only planning tools that must not
+/// allocate RAM, acquire permits, or create an actuation boundary.
+#[derive(Clone, Debug)]
+pub struct ConfiguredPlanningView {
+    resource_spec: ResourceSpec,
+    ir: EirResource,
+    planner: ConfiguredPlanner,
+    context: PlanningContext,
+    observations: Vec<Observation>,
+}
+
+impl ConfiguredPlanningView {
+    #[must_use]
+    pub const fn resource_spec(&self) -> &ResourceSpec {
+        &self.resource_spec
+    }
+
+    #[must_use]
+    pub const fn ir(&self) -> &EirResource {
+        &self.ir
+    }
+
+    #[must_use]
+    pub const fn planner(&self) -> ConfiguredPlanner {
+        self.planner
+    }
+
+    #[must_use]
+    pub const fn context(&self) -> &PlanningContext {
+        &self.context
+    }
+
+    #[must_use]
+    pub fn observations(&self) -> &[Observation] {
+        &self.observations
+    }
 }
 
 impl TransitionPlanner for ConfiguredPlanner {
@@ -183,8 +227,64 @@ impl OperatorConfig {
     ///
     /// # Errors
     ///
+    /// Build a declaration-only read-only planning view for one resource.
+    ///
+    /// Unlike [`OperatorConfig::build_controller`], this does not instantiate
+    /// `TransactionalRam` or `TransactionalConcurrency`; therefore it cannot
+    /// allocate the configured RAM commitment or expose an actuation boundary.
+    /// The observation snapshot represents only the explicitly configured
+    /// initial state.
+    ///
+    /// # Errors
+    ///
     /// Returns a configuration error for invalid configuration, an unknown or
-    /// uncontrolled resource id, or a component that cannot be constructed.
+    /// uncontrolled resource id, or a declaration that cannot be lowered.
+    pub fn build_planning_view(
+        &self,
+        resource_id: &str,
+    ) -> Result<ConfiguredPlanningView, RuntimeError> {
+        self.validate()?;
+        let controller = self
+            .controllers
+            .iter()
+            .find(|controller| controller.resource == resource_id)
+            .ok_or_else(|| {
+                RuntimeError::configuration(format!(
+                    "no configured controller for resource '{resource_id}'"
+                ))
+            })?;
+        let resource = self
+            .resources
+            .iter()
+            .find(|resource| resource.id() == resource_id)
+            .ok_or_else(|| {
+                RuntimeError::configuration(format!(
+                    "controller resource '{resource_id}' disappeared after validation"
+                ))
+            })?;
+
+        let resource_spec = declaration_resource_spec(resource)?;
+        let document = lower(&resource_spec).map_err(|error| {
+            RuntimeError::configuration(format!(
+                "configured declaration cannot lower to EIR: {error}"
+            ))
+        })?;
+        let ir = document
+            .resource(resource_id)
+            .ok_or_else(|| RuntimeError::configuration("configured declaration lost its EIR node"))?
+            .clone();
+        let planner = materialize_planner(&controller.planner)?;
+        let (context, observations) = declaration_observations(resource, &resource_spec);
+
+        Ok(ConfiguredPlanningView {
+            resource_spec,
+            ir,
+            planner,
+            context,
+            observations,
+        })
+    }
+
     pub fn build_controller(
         &self,
         resource_id: &str,
@@ -270,6 +370,68 @@ fn build_controller(
     Ok(ForecastController::new(
         runtime, ir, planner, observer, actuator, forecaster,
     ))
+}
+
+fn declaration_resource_spec(config: &ResourceConfig) -> Result<ResourceSpec, RuntimeError> {
+    match config {
+        ResourceConfig::Ram { id, .. } => RamBudget::declaration(id),
+        ResourceConfig::Concurrency { id, .. } => ConcurrencyPermits::declaration(id),
+    }
+    .map_err(|error| RuntimeError::configuration(error.to_string()))
+}
+
+fn declaration_observations(
+    config: &ResourceConfig,
+    spec: &ResourceSpec,
+) -> (PlanningContext, Vec<Observation>) {
+    let values: Vec<(ObservationSignalId, f64)> = match config {
+        ResourceConfig::Ram {
+            host_total,
+            min,
+            max,
+            initial,
+            ..
+        } => vec![
+            (
+                ObservationSignalId::FREE_CAPACITY,
+                host_total.saturating_sub(*initial) as f64,
+            ),
+            (
+                ObservationSignalId::UTILIZATION,
+                *initial as f64 / *host_total as f64,
+            ),
+            (fixed_signal("committed-bytes"), *initial as f64),
+            (fixed_signal("host-total-bytes"), *host_total as f64),
+            (ram_configured_min_bytes_signal(), *min as f64),
+            (ram_configured_max_bytes_signal(), *max as f64),
+            (ram_in_use_bytes_signal(), 0.0),
+        ],
+        ResourceConfig::Concurrency {
+            max_width,
+            initial_width,
+            ..
+        } => vec![
+            (ObservationSignalId::UTILIZATION, 0.0),
+            (concurrency_capacity_signal(), *max_width as f64),
+            (concurrency_width_signal(), *initial_width as f64),
+            (active_permits_signal(), 0.0),
+        ],
+    };
+    let now = std::time::Instant::now();
+    let source = ObservationSource::Resource(spec.resource_id().clone());
+    let mut context = PlanningContext::new();
+    let observations = values
+        .into_iter()
+        .map(|(signal, value)| {
+            context = context.clone().observe(signal.clone(), value);
+            Observation::from_source(source.clone(), signal, value, now)
+        })
+        .collect();
+    (context, observations)
+}
+
+fn fixed_signal(id: &str) -> ObservationSignalId {
+    ObservationSignalId::custom(id).expect("fixed configured observation signal is valid")
 }
 
 fn materialize_resource(config: &ResourceConfig) -> Result<ConfiguredResource, RuntimeError> {
@@ -519,6 +681,43 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(ids, vec!["a-ram", "z-ram"]);
+    }
+
+    #[test]
+    fn planning_view_matches_materialized_initial_ram_state_without_actuation() {
+        let config = ram_config(ExecutionModeConfig::PlanOnly);
+        let view = config.build_planning_view("ram").unwrap();
+        let controller = config.build_controller("ram").unwrap();
+        let (live_context, _) = controller.observer().observe();
+
+        assert_eq!(view.ir().fingerprint(), controller.resource().fingerprint());
+        for (signal, value) in live_context.iter() {
+            assert_eq!(view.context().get(signal.clone()), Some(value));
+        }
+    }
+
+    #[test]
+    fn planning_view_accepts_huge_declared_ram_without_allocating_it() {
+        let mut config = ram_config(ExecutionModeConfig::PlanOnly);
+        config.resources[0] = ResourceConfig::Ram {
+            id: "ram".into(),
+            host_total: 1_u64 << 44,
+            min: 1_u64 << 30,
+            max: 1_u64 << 44,
+            initial: 1_u64 << 43,
+            max_step: Some(1_u64 << 30),
+        };
+
+        let view = config.build_planning_view("ram").unwrap();
+
+        assert_eq!(
+            view.context().get(fixed_signal("committed-bytes")),
+            Some((1_u64 << 43) as f64)
+        );
+        assert_eq!(
+            view.context().get(ObservationSignalId::FREE_CAPACITY),
+            Some((1_u64 << 43) as f64)
+        );
     }
 
     #[test]

@@ -71,24 +71,7 @@ impl RamBudget {
             return Err(AdapterError::InitialOutOfBounds { initial, min, max });
         }
 
-        let spec = ResourceSpec::builder(
-            ResourceClassId::CAPACITY_RESOURCE,
-            LogicalResourceId::new(id).map_err(|_| AdapterError::BlankIdentifier)?,
-        )
-        .allow(DimensionId::CAPACITY)
-        .preserve(Invariant::new(InvariantKind::PreserveContents))
-        .optimize(ObjectiveId::MEMORY_FOOTPRINT)
-        .admit(AdmissibleTransition::new(
-            TransitionMechanism::Reinterpret,
-            DimensionId::CAPACITY,
-        ))
-        .require_capability(CapabilityRequirement::new(
-            TransitionMechanism::Reinterpret,
-            DimensionId::CAPACITY,
-        ))
-        .build()
-        .map_err(|_| AdapterError::BlankIdentifier)?;
-
+        let spec = Self::declaration(id)?;
         let document = lower(&spec).map_err(|_| AdapterError::BlankIdentifier)?;
         let ir = document
             .resource(id)
@@ -104,6 +87,35 @@ impl RamBudget {
             buffer: vec![0_u8; usize::try_from(initial).unwrap_or(usize::MAX)],
             in_use: 0,
         })
+    }
+
+    /// Build the canonical RAM-budget resource declaration without allocating memory.
+    ///
+    /// This is the pure declaration counterpart of [`RamBudget::new`]. It is
+    /// intended for inspection and planning surfaces that need the exact same
+    /// EIR semantics without materializing the configured RAM commitment.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AdapterError::BlankIdentifier`] for an invalid resource id.
+    pub fn declaration(id: &str) -> Result<ResourceSpec, AdapterError> {
+        ResourceSpec::builder(
+            ResourceClassId::CAPACITY_RESOURCE,
+            LogicalResourceId::new(id).map_err(|_| AdapterError::BlankIdentifier)?,
+        )
+        .allow(DimensionId::CAPACITY)
+        .preserve(Invariant::new(InvariantKind::PreserveContents))
+        .optimize(ObjectiveId::MEMORY_FOOTPRINT)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .build()
+        .map_err(|_| AdapterError::BlankIdentifier)
     }
 
     /// The validated declaration backing this adapter.

@@ -57,6 +57,8 @@ pub enum EvidenceCommand {
     GuardEval,
     #[serde(rename = "guard-explain")]
     GuardExplain,
+    #[serde(rename = "guard-plan-dry-run")]
+    GuardPlanDryRun,
 }
 
 impl EvidenceCommand {
@@ -78,6 +80,7 @@ impl EvidenceCommand {
             Self::GuardFingerprint => "guard-fingerprint",
             Self::GuardEval => "guard-eval",
             Self::GuardExplain => "guard-explain",
+            Self::GuardPlanDryRun => "guard-plan-dry-run",
         }
     }
 }

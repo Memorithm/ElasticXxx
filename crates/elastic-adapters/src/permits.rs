@@ -49,7 +49,32 @@ impl ConcurrencyPermits {
                 max: max_width as u64,
             });
         }
-        let spec = ResourceSpec::builder(
+        let spec = Self::declaration(id)?;
+        let document = lower(&spec).map_err(|_| AdapterError::BlankIdentifier)?;
+        let ir = document
+            .resource(id)
+            .ok_or(AdapterError::BlankIdentifier)?
+            .clone();
+        Ok(Self {
+            spec,
+            ir,
+            max_width,
+            width: initial_width,
+            active: 0,
+        })
+    }
+
+    /// Build the canonical concurrency resource declaration without creating a permit ledger.
+    ///
+    /// This is the pure declaration counterpart of [`ConcurrencyPermits::new`].
+    /// It allows read-only planning to reuse the exact adapter semantics without
+    /// constructing mutable resource state.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AdapterError::BlankIdentifier`] for an invalid resource id.
+    pub fn declaration(id: &str) -> Result<ResourceSpec, AdapterError> {
+        ResourceSpec::builder(
             ResourceClassId::SHARED,
             LogicalResourceId::new(id).map_err(|_| AdapterError::BlankIdentifier)?,
         )
@@ -66,19 +91,7 @@ impl ConcurrencyPermits {
             DimensionId::CONCURRENCY,
         ))
         .build()
-        .map_err(|_| AdapterError::BlankIdentifier)?;
-        let document = lower(&spec).map_err(|_| AdapterError::BlankIdentifier)?;
-        let ir = document
-            .resource(id)
-            .ok_or(AdapterError::BlankIdentifier)?
-            .clone();
-        Ok(Self {
-            spec,
-            ir,
-            max_width,
-            width: initial_width,
-            active: 0,
-        })
+        .map_err(|_| AdapterError::BlankIdentifier)
     }
 
     /// The validated declaration backing this adapter.
