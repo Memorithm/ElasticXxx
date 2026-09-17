@@ -63,6 +63,7 @@ verified_current_facts:
   - BE8a_strict_persisted_decision_trace_decoder_completed_through_PR_97_merge_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
   - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   - BE8c_integrated_guarded_planning_capture_completed_through_PR_100_merge_d2ae9d0cec83e33ce950a194b13023449e4b1005
+  - BE8d_pure_guarded_replay_qualification_completed_through_PR_101_merge_203c2b10fa552e0940c2c043f779a0b04a378639
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -426,6 +427,17 @@ roadmap:
           - fresh_but_different_fact_snapshot_capture_is_rejected_fail_closed
           - integrated_capture_does_not_reexecute_numeric_planning_or_actuation
           - invariant_precheck_remains_explanatory_and_non_authoritative
+      - id: EX6e
+        name: Pure guarded replay qualification
+        status: complete
+        completion_evidence:
+          - PR_101_exact_head_a84aebc759c62559bfa26c4a058dd9564e890006
+          - PR_101_CI_35279669348_completed_success_on_exact_head
+          - PR_101_packageability_35279669131_completed_success_on_exact_head
+          - PR_101_merged_to_main_as_203c2b10fa552e0940c2c043f779a0b04a378639
+          - replay_requires_current_resource_policy_fact_and_numeric_context_identity
+          - replay_recomputes_only_pure_Boolean_pruning_and_never_runs_numeric_planning
+          - replay_is_explanatory_only_and_cannot_authorize_runtime_mutation
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome

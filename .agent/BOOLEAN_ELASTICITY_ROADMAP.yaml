@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: d2ae9d0cec83e33ce950a194b13023449e4b1005
+  main_sha: 203c2b10fa552e0940c2c043f779a0b04a378639
   main_observed_at: "2026-09-17"
-  open_pull_requests: 1
+  open_pull_requests: 2
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -66,6 +66,13 @@ current_verified_state:
       packageability_run: 35278821235
       result: success
       purpose: integrated_guarded_planning_capture_with_fact_snapshot_binding
+    - pr: 101
+      head: a84aebc759c62559bfa26c4a058dd9564e890006
+      merge: 203c2b10fa552e0940c2c043f779a0b04a378639
+      ci_run: 35279669348
+      packageability_run: 35279669131
+      result: success
+      purpose: pure_guarded_replay_qualification
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -308,14 +315,20 @@ phases:
           - planning_time_fact_snapshot_identity_is_retained_and_fresh_snapshot_drift_is_rejected
           - invariant_precheck_summary_remains_non_authoritative_for_trusted_validation_or_actuation
           - material_P1_fact_snapshot_binding_review_was_fixed_and_resolved_before_merge
-    required_slices:
       - id: BE8d
         name: replay_qualification
-        tasks:
-          - replay_only_pure_decision_logic_from_qualified_inputs
-          - require_current_resource_policy_fact_and_context_identity_match
-          - deny_replay_on_stale_generation_epoch_policy_or_schema
-          - prove_replay_path_has_no_adapter_actuation
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_101
+          - PR101_exact_head_a84aebc759c62559bfa26c4a058dd9564e890006
+          - PR101_CI_35279669348_completed_success_on_exact_head
+          - PR101_packageability_35279669131_completed_success_on_exact_head
+          - PR101_merged_to_main_as_203c2b10fa552e0940c2c043f779a0b04a378639
+          - current_resource_policy_fact_and_numeric_context_identities_are_required
+          - pure_Boolean_pruning_is_recomputed_and_source_bound_fingerprint_must_match
+          - stale_resource_generation_changed_policy_changed_context_and_pruning_drift_fail_closed
+          - replay_does_not_invoke_numeric_planning_or_runtime_mutation
+    required_slices:
       - id: BE8e
         name: fuzz_and_adversarial_decoder_hardening
         tasks:
