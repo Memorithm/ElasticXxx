@@ -235,7 +235,9 @@ fn ungrounded_custom_output_cannot_borrow_an_eligible_pairs_grounding() {
     let bad = candidate(ungrounded.resource(), &DimensionId::CAPACITY);
     assert!(!bad.capability_grounded());
     let (facts, freshness) = evidence(&guarded, [Some(true), Some(true)]);
-    let report = BooleanGuardPreplanner.prune(&guarded, &facts, &freshness).unwrap();
+    let report = BooleanGuardPreplanner
+        .prune(&guarded, &facts, &freshness)
+        .unwrap();
     assert!(matches!(
         guarded.restrict_to_eligible(&report, std::slice::from_ref(&bad)),
         Err(PlanningSubsetError::InvalidCandidate(_))
@@ -333,7 +335,12 @@ fn stale_or_foreign_facts_never_run_the_numeric_planner() {
     let (_, freshness) = evidence(&guarded, [Some(true), Some(true)]);
     let planner = BooleanGuardPlanner::new(RecordingRanker::default());
     assert!(matches!(
-        planner.propose_transition_with_context(&other, &PlanningContext::new(), &facts, &freshness),
+        planner.propose_transition_with_context(
+            &other,
+            &PlanningContext::new(),
+            &facts,
+            &freshness
+        ),
         Err(GuardPreplannerError::ResourceBindingMismatch { .. })
     ));
     assert_eq!(planner.inner().calls.get(), 0);
@@ -393,7 +400,10 @@ fn true_and_absent_guards_preserve_capacity_controller_results() {
                         ObservationSignalId::custom("committed-bytes").unwrap(),
                         committed,
                     )
-                    .observe(ObservationSignalId::custom("host-total-bytes").unwrap(), 200.0);
+                    .observe(
+                        ObservationSignalId::custom("host-total-bytes").unwrap(),
+                        200.0,
+                    );
                 assert_legacy_parity(
                     ThresholdPlanner::new(0.25, 0.75, 0.2).unwrap(),
                     &guarded,

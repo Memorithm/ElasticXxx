@@ -123,7 +123,9 @@ impl TransitionPruningReport {
     /// by the runtime before deriving the report.
     #[must_use]
     pub fn is_for_resource(&self, resource: &EirGuardedResource) -> bool {
-        self.source.as_ref().is_some_and(|source| source == resource)
+        self.source
+            .as_ref()
+            .is_some_and(|source| source == resource)
     }
 
     /// Candidates permitted to reach later numeric ranking.

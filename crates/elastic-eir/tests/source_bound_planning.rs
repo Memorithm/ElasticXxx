@@ -1,12 +1,12 @@
 //! The public projection boundary must not accept foreign eligibility reports.
 
 use elastic_core::resource::{
-    AdmissibleTransition, CapabilityRequirement, DimensionId, LogicalResourceId,
-    ResourceClassId, ResourceSpec,
+    AdmissibleTransition, CapabilityRequirement, DimensionId, LogicalResourceId, ResourceClassId,
+    ResourceSpec,
 };
 use elastic_core::{
-    BoolExpr, BooleanGuard, GuardScope, GuardedResourceSpec, PredicateKey,
-    PredicateRegistry, TransitionMechanism, TruthValue,
+    BoolExpr, BooleanGuard, GuardScope, GuardedResourceSpec, PredicateKey, PredicateRegistry,
+    TransitionMechanism, TruthValue,
 };
 use elastic_eir::{
     lower_guarded, prune_transition_candidates, EirGuardedResource, PlanningSubsetError,
@@ -53,9 +53,14 @@ fn same_transition_pairs_do_not_allow_foreign_resource_report_reuse() {
     let report = prune_transition_candidates(&original, &empty_facts()).unwrap();
     assert!(report.is_for_resource(&original));
     assert!(!report.is_for_resource(&foreign));
-    assert_eq!(original.resource().transitions(), foreign.resource().transitions());
     assert_eq!(
-        foreign.restrict_to_eligible(&report, report.eligible()).unwrap_err(),
+        original.resource().transitions(),
+        foreign.resource().transitions()
+    );
+    assert_eq!(
+        foreign
+            .restrict_to_eligible(&report, report.eligible())
+            .unwrap_err(),
         PlanningSubsetError::SourceMismatch
     );
     assert_eq!(
@@ -72,7 +77,9 @@ fn guard_policy_changes_invalidate_report_even_when_base_eir_is_identical() {
     assert_eq!(allowed.resource(), blocked.resource());
     assert_ne!(allowed.fingerprint(), blocked.fingerprint());
     assert_eq!(
-        blocked.restrict_to_eligible(&report, report.eligible()).unwrap_err(),
+        blocked
+            .restrict_to_eligible(&report, report.eligible())
+            .unwrap_err(),
         PlanningSubsetError::SourceMismatch
     );
 }
@@ -85,7 +92,9 @@ fn resource_content_change_invalidates_report_without_renaming_resource() {
     assert_eq!(before.resource().identity(), after.resource().identity());
     assert_eq!(before.guards(), after.guards());
     assert_eq!(
-        after.restrict_to_eligible(&report, report.eligible()).unwrap_err(),
+        after
+            .restrict_to_eligible(&report, report.eligible())
+            .unwrap_err(),
         PlanningSubsetError::SourceMismatch
     );
 }
