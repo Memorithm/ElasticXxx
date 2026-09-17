@@ -467,6 +467,40 @@ impl GuardedPlanningTrace {
     pub const fn invariant_precheck(&self) -> &InvariantPrecheckTraceSummary {
         &self.invariant_precheck
     }
+
+    /// Requalify this historical explanation against current pure decision inputs.
+    ///
+    /// This rechecks resource/policy/facts/context identity and re-evaluates only
+    /// Boolean pruning. It does not invoke numeric planning or runtime mutation.
+    pub fn validate_replay_identity(
+        &self,
+        resource: &EirGuardedResource,
+        context: &PlanningContext,
+        facts: &FactSnapshot,
+        freshness: &FreshnessSnapshot,
+    ) -> Result<(), DecisionReplayError> {
+        self.decision_trace
+            .validate_replay_identity(resource, facts, freshness)?;
+        let current_context = planning_context_fingerprint(context);
+        if self.planning_context_fingerprint != current_context {
+            return Err(DecisionReplayError::PlanningContextMismatch {
+                trace: self.planning_context_fingerprint,
+                current: current_context,
+            });
+        }
+        let current_report =
+            prune_transition_candidates(resource, facts).map_err(DecisionReplayError::Logic)?;
+        let current_report_fingerprint = current_report
+            .fingerprint()
+            .ok_or(DecisionReplayError::UnboundPruningReport)?;
+        if self.pruning_report_fingerprint != current_report_fingerprint {
+            return Err(DecisionReplayError::PruningReportFingerprintMismatch {
+                trace: self.pruning_report_fingerprint,
+                current: current_report_fingerprint,
+            });
+        }
+        Ok(())
+    }
 }
 
 /// Full deterministic trace of one guarded planning decision.
@@ -2247,6 +2281,16 @@ pub enum DecisionReplayError {
         trace: FactSnapshotFingerprint,
         current: FactSnapshotFingerprint,
     },
+    PlanningContextMismatch {
+        trace: PlanningContextFingerprint,
+        current: PlanningContextFingerprint,
+    },
+    Logic(LogicError),
+    UnboundPruningReport,
+    PruningReportFingerprintMismatch {
+        trace: Fingerprint,
+        current: Fingerprint,
+    },
 }
 
 impl fmt::Display for DecisionReplayError {
@@ -2283,6 +2327,18 @@ impl fmt::Display for DecisionReplayError {
                     "trace fact identity {trace} does not match current {current}"
                 )
             }
+            Self::PlanningContextMismatch { trace, current } => write!(
+                f,
+                "trace planning context {trace} does not match current {current}"
+            ),
+            Self::Logic(error) => write!(f, "replay Boolean evaluation failed: {error}"),
+            Self::UnboundPruningReport => {
+                f.write_str("replay Boolean pruning report has no source binding")
+            }
+            Self::PruningReportFingerprintMismatch { trace, current } => write!(
+                f,
+                "trace pruning identity {trace} does not match current {current}"
+            ),
         }
     }
 }
@@ -2812,6 +2868,86 @@ mod tests {
             Err(DecisionTraceError::PlanningFactSnapshotMismatch { .. })
         ));
         assert_eq!(calls.get(), 1, "capture must not re-run numeric planning");
+    }
+
+    #[test]
+    fn integrated_replay_requalifies_pure_decision_inputs_without_replanning() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let current = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(&resource, &context, &facts, &current)
+            .unwrap();
+        let trace = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &facts,
+            &current,
+            &decision,
+            &[invariant_binding(&key)],
+        )
+        .unwrap();
+        assert_eq!(calls.get(), 1);
+
+        trace
+            .validate_replay_identity(&resource, &context, &facts, &current)
+            .unwrap();
+        assert_eq!(calls.get(), 1, "replay must not invoke numeric planning");
+    }
+
+    #[test]
+    fn integrated_replay_rejects_context_policy_freshness_and_pruning_drift() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let current = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(&resource, &context, &facts, &current)
+            .unwrap();
+        let trace = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &facts,
+            &current,
+            &decision,
+            &[invariant_binding(&key)],
+        )
+        .unwrap();
+
+        let changed_context = PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 0.5);
+        assert!(matches!(
+            trace.validate_replay_identity(&resource, &changed_context, &facts, &current),
+            Err(DecisionReplayError::PlanningContextMismatch { .. })
+        ));
+
+        let (changed_policy, _, _) = guarded_fixture(true);
+        assert!(matches!(
+            trace.validate_replay_identity(&changed_policy, &context, &facts, &current),
+            Err(DecisionReplayError::GuardFingerprintMismatch { .. })
+        ));
+
+        let stale_generation =
+            FreshnessSnapshot::new(PlannerEpoch::new(3), ObservationEpoch::new(14))
+                .with_resource_generation(resource_id, ResourceGeneration::new(8));
+        assert!(matches!(
+            trace.validate_replay_identity(&resource, &context, &facts, &stale_generation),
+            Err(DecisionReplayError::StaleFacts(
+                FactFreshnessError::ResourceGenerationMismatch { .. }
+            ))
+        ));
+
+        let mut tampered = trace.clone();
+        tampered.pruning_report_fingerprint = Fingerprint::EMPTY.number(0x5a);
+        assert!(matches!(
+            tampered.validate_replay_identity(&resource, &context, &facts, &current),
+            Err(DecisionReplayError::PruningReportFingerprintMismatch { .. })
+        ));
+        assert_eq!(calls.get(), 1);
     }
 
     fn persisted_fixture() -> (DecisionTrace, String) {
