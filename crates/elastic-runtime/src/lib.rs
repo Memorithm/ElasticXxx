@@ -42,6 +42,7 @@ pub mod evidence;
 pub mod fact_derivation;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod guard_config;
 pub mod guard_planner;
 pub mod guard_preplanner;
 pub mod invariant_precheck;
@@ -102,6 +103,14 @@ pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastSta
 pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
+};
+pub use guard_config::{
+    BuiltinDimensionConfigV1, BuiltinObservationSignalConfigV1, ConfiguredThresholdPredicateV1,
+    DimensionConfigV1, GuardConfigError, GuardConfigV1, GuardExprConfigV1, GuardRuleConfigV1,
+    GuardScopeConfigV1, LoweredGuardConfigV1, ObservationSignalConfigV1, PredicateConfigV1,
+    PredicateKeyConfigV1, ThresholdComparisonConfigV1, TransitionMechanismConfigV1,
+    GUARD_CONFIG_SCHEMA_V1, MAX_GUARD_CONFIG_BYTES, MAX_GUARD_CONFIG_EXPR_NODES,
+    MAX_GUARD_CONFIG_GUARDS, MAX_GUARD_CONFIG_TERM_BYTES,
 };
 pub use guard_planner::{
     planning_context_fingerprint, BooleanGuardPlanner, GuardPlannerTarget, GuardedPlanningDecision,
