@@ -19,6 +19,9 @@ path = "../crates/elastic-core"
 [dependencies.elastic-kv]
 path = "../crates/elastic-kv"
 
+[dependencies.elastic-runtime]
+path = "../crates/elastic-runtime"
+
 [[bin]]
 name = "transition_pipeline"
 path = "fuzz_targets/transition_pipeline.rs"
@@ -29,6 +32,13 @@ bench = false
 [[bin]]
 name = "identifier_validation"
 path = "fuzz_targets/identifier_validation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "decision_trace_decode"
+path = "fuzz_targets/decision_trace_decode.rs"
 test = false
 doc = false
 bench = false

@@ -5,6 +5,7 @@ on:
     paths:
       - "crates/elastic-core/**"
       - "crates/elastic-kv/**"
+      - "crates/elastic-runtime/**"
       - "fuzz/**"
       - ".github/workflows/continuous-hardening.yml"
   schedule:
@@ -25,6 +26,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
@@ -44,6 +48,10 @@ jobs:
       - name: Fuzz transition pipeline
         if: github.event_name != 'pull_request'
         run: cargo +nightly fuzz run transition_pipeline -- -max_total_time=60
+
+      - name: Fuzz decision trace decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run decision_trace_decode -- -max_total_time=60 -max_len=1048577
 
   miri:
     name: miri-core-kv
