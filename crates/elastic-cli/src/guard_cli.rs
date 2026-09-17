@@ -1,16 +1,26 @@
 //! Read-only BE10 Boolean guard operator commands.
 //!
-//! These commands deliberately lower through the public `elastic` facade and
-//! never construct an actuator, controller, or runtime. Missing fact values are
-//! evaluated as `Unknown` by the library-owned strong-Kleene guard semantics.
+//! These commands deliberately lower through the public `elastic` facade.
+//! The inspect/evaluate commands never construct runtime components. The guarded
+//! planning dry-run may materialize configured components for observation and
+//! planning, but never enters a runtime cycle or calls validation/actuation.
+//! Missing fact values are evaluated as `Unknown` by library-owned semantics.
 
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Error as IoError, ErrorKind, Read};
 use std::path::Path;
+use std::time::Instant;
 
-use elastic::{GuardConfigV1, PredicateKey, TruthValue, MAX_GUARD_CONFIG_BYTES};
+use elastic::{
+    capture_guarded_planning_trace, lower_guarded, BooleanGuardPlanner, CandidateDecisionTrace,
+    FactResourceBinding, FactSnapshot, FactSourceId, FreshnessSnapshot, GuardConfigV1,
+    GuardedPlanningOutcomeTrace, GuardedResourceSpec, InvariantPrecheckStatus, ObservationEpoch,
+    ObservationSnapshot, Observer, OperatorConfig, PlannerEpoch, PredicateEvaluationInput,
+    PredicateEvaluator, PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
+    MAX_GUARD_CONFIG_BYTES,
+};
 use serde_json::{json, Value};
 
 use crate::evidence::print_json;
@@ -143,46 +153,188 @@ fn evaluate(path: &Path, assignments: &[String], explain: bool) -> CommandResult
     print_json(value)
 }
 
-fn read_config(path: &Path) -> Result<GuardConfigV1, Box<dyn Error>> {
+pub(crate) fn plan_dry_run(
+    operator_config_path: &Path,
+    guard_config_path: &Path,
+    resource_id: &str,
+) -> CommandResult {
+    let operator_config = read_operator_config(operator_config_path)?;
+    operator_config.validate()?;
+    let controller = operator_config.build_controller(resource_id)?;
+
+    let guard_config = read_config(guard_config_path)?;
+    let lowered = guard_config.lower()?;
+    let runtime_config = controller.forecast_runtime().runtime().config();
+    let guarded_spec = GuardedResourceSpec::new(
+        runtime_config.resource_spec.clone(),
+        lowered.guards().to_vec(),
+    )?;
+    let guarded = lower_guarded(&guarded_spec)?;
+
+    // The dry-run observes only the freshly materialized configured resource.
+    // It never enters Runtime::cycle or any TransactionalActuator method.
+    let (context, observations) = controller.observer().observe();
+    let now = Instant::now();
+    let observation_snapshot = ObservationSnapshot::new(now, observations);
+    let input = PredicateEvaluationInput::new(&context, &observation_snapshot, now);
+    let evaluators = lowered
+        .predicates()
+        .iter()
+        .map(|predicate| predicate.evaluator() as &dyn PredicateEvaluator)
+        .collect::<Vec<_>>();
+
+    // These counters are local identities for this one immutable dry-run
+    // materialization. They are deliberately not represented as live runtime
+    // epochs or a physical resource-generation claim.
+    let observation_epoch = ObservationEpoch::new(1);
+    let planner_epoch = PlannerEpoch::new(1);
+    let resource_generation = ResourceGeneration::new(0);
+    let resource = guarded.resource().identity().clone();
+    let facts = FactSnapshot::derive(
+        FactSourceId::new("elastic-cli:guard-plan-dry-run")?,
+        observation_epoch,
+        Some(FactResourceBinding::new(
+            resource.clone(),
+            resource_generation,
+        )),
+        &input,
+        &evaluators,
+    )?;
+    let freshness = FreshnessSnapshot::new(planner_epoch, observation_epoch)
+        .with_resource_generation(resource.clone(), resource_generation);
+
+    let planner = BooleanGuardPlanner::new(*controller.planner());
+    let decision =
+        planner.propose_transition_detailed_with_context(&guarded, &context, &facts, &freshness)?;
+    let trace =
+        capture_guarded_planning_trace(&guarded, &context, &facts, &freshness, &decision, &[])?;
+    let decision_trace: Value = serde_json::from_str(&trace.decision_trace().to_bounded_json()?)?;
+    let precheck = trace.invariant_precheck();
+
+    print_json(json!({
+        "command": "guard-plan-dry-run",
+        "operator_config_version": operator_config.version,
+        "guard_schema_version": guard_config.schema_version,
+        "resource_id": resource.as_str(),
+        "observation_source": "freshly-materialized-configured-resource",
+        "freshness_identity_scope": "dry-run-local",
+        "freshness": {
+            "planner_epoch": planner_epoch.get(),
+            "observation_epoch": observation_epoch.get(),
+            "resource_generation": resource_generation.get(),
+        },
+        "pruning": {
+            "eligible": trace.decision_trace().eligible().len(),
+            "rejected": trace.decision_trace().rejected().len(),
+            "unknown": trace.decision_trace().unknown().len(),
+            "fingerprint": trace.pruning_report_fingerprint().to_string(),
+        },
+        "numeric_outcome": render_guarded_outcome(trace.planning_outcome()),
+        "planning_context_fingerprint": trace.planning_context_fingerprint().to_string(),
+        "invariant_precheck": {
+            "status": invariant_precheck_status_name(precheck.status()),
+            "entries": precheck.entries(),
+            "true": precheck.true_count(),
+            "false": precheck.false_count(),
+            "unknown": precheck.unknown_count(),
+            "authoritative_validation": false,
+        },
+        "decision_trace": decision_trace,
+        "read_only": true,
+        "actuation_authorized": false,
+        "trusted_validation_performed": false,
+        "runtime_cycle_executed": false,
+    }))
+}
+
+fn read_operator_config(path: &Path) -> Result<OperatorConfig, Box<dyn Error>> {
+    let bytes = read_bounded_file(path, "operator config", MAX_GUARD_CONFIG_BYTES)?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+
+fn read_bounded_file(
+    path: &Path,
+    label: &str,
+    max_bytes: usize,
+) -> Result<Vec<u8>, Box<dyn Error>> {
     let metadata = std::fs::metadata(path).map_err(|error| {
         IoError::new(
             error.kind(),
-            format!("cannot inspect guard config '{}': {error}", path.display()),
+            format!("cannot inspect {label} '{}': {error}", path.display()),
         )
     })?;
     if !metadata.is_file() {
         return Err(IoError::new(
             ErrorKind::InvalidData,
-            format!(
-                "guard config path '{}' is not a regular file",
-                path.display()
-            ),
+            format!("{label} path '{}' is not a regular file", path.display()),
         )
         .into());
     }
-    if metadata.len() > MAX_GUARD_CONFIG_BYTES as u64 {
+    if metadata.len() > max_bytes as u64 {
         return Err(IoError::new(
             ErrorKind::InvalidData,
-            format!(
-                "guard config '{}' exceeds {} bytes",
-                path.display(),
-                MAX_GUARD_CONFIG_BYTES
-            ),
+            format!("{label} '{}' exceeds {max_bytes} bytes", path.display()),
         )
         .into());
     }
-
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
     File::open(path)?
-        .take((MAX_GUARD_CONFIG_BYTES + 1) as u64)
+        .take((max_bytes + 1) as u64)
         .read_to_end(&mut bytes)?;
-    if bytes.len() > MAX_GUARD_CONFIG_BYTES {
+    if bytes.len() > max_bytes {
         return Err(IoError::new(
             ErrorKind::InvalidData,
-            "guard config grew beyond the bounded ingestion limit while reading",
+            format!("{label} grew beyond the bounded ingestion limit while reading"),
         )
         .into());
     }
+    Ok(bytes)
+}
+
+fn render_guarded_outcome(outcome: &GuardedPlanningOutcomeTrace) -> Value {
+    match outcome {
+        GuardedPlanningOutcomeTrace::Candidate(candidate) => json!({
+            "kind": "candidate",
+            "candidate": render_candidate(candidate),
+        }),
+        GuardedPlanningOutcomeTrace::NoCandidate => json!({"kind": "no-candidate"}),
+        GuardedPlanningOutcomeTrace::Unsupported => json!({"kind": "unsupported"}),
+        GuardedPlanningOutcomeTrace::InsufficientEvidence { detail } => json!({
+            "kind": "insufficient-evidence",
+            "detail": detail,
+        }),
+    }
+}
+
+fn render_candidate(candidate: &CandidateDecisionTrace) -> Value {
+    json!({
+        "mechanism": mechanism_name(candidate.mechanism()),
+        "dimension": candidate.dimension().to_string(),
+        "capability_grounded": candidate.capability_grounded(),
+        "magnitude": candidate.magnitude(),
+    })
+}
+
+const fn mechanism_name(mechanism: TransitionMechanism) -> &'static str {
+    match mechanism {
+        TransitionMechanism::Reinterpret => "reinterpret",
+        TransitionMechanism::Reencode => "reencode",
+        TransitionMechanism::Recompute => "recompute",
+    }
+}
+
+const fn invariant_precheck_status_name(status: InvariantPrecheckStatus) -> &'static str {
+    match status {
+        InvariantPrecheckStatus::NoCandidate => "no-candidate",
+        InvariantPrecheckStatus::InvalidCandidate => "invalid-candidate",
+        InvariantPrecheckStatus::Passed => "passed-non-authoritative",
+        InvariantPrecheckStatus::Rejected => "rejected",
+        InvariantPrecheckStatus::InsufficientEvidence => "insufficient-evidence",
+    }
+}
+
+fn read_config(path: &Path) -> Result<GuardConfigV1, Box<dyn Error>> {
+    let bytes = read_bounded_file(path, "guard config", MAX_GUARD_CONFIG_BYTES)?;
     Ok(GuardConfigV1::from_bounded_json(&bytes)?)
 }
 

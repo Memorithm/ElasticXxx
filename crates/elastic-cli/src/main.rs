@@ -17,7 +17,7 @@ use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
 use guard_cli::{
     check as guard_check, eval as guard_eval, explain as guard_explain,
-    fingerprint as guard_fingerprint, list as guard_list,
+    fingerprint as guard_fingerprint, list as guard_list, plan_dry_run as guard_plan_dry_run,
 };
 use model_contracts::{build_contracts, validate_contracts};
 use model_plan::{model_plan, ModelPlanOptions};
@@ -398,6 +398,15 @@ enum Commands {
         #[arg(long = "fact", value_name = "NAMESPACE::NAME=TRUTH")]
         facts: Vec<String>,
     },
+    /// Perform guarded numeric planning against configured observations without validation or actuation.
+    GuardPlanDryRun {
+        #[arg(long, value_name = "FILE")]
+        operator_config: PathBuf,
+        #[arg(long, value_name = "FILE")]
+        guard_config: PathBuf,
+        #[arg(long, value_name = "ID")]
+        resource: String,
+    },
 }
 
 fn main() -> ExitCode {
@@ -431,6 +440,11 @@ fn main() -> ExitCode {
         Commands::GuardFingerprint { config } => guard_fingerprint(&config),
         Commands::GuardEval { config, facts } => guard_eval(&config, &facts),
         Commands::GuardExplain { config, facts } => guard_explain(&config, &facts),
+        Commands::GuardPlanDryRun {
+            operator_config,
+            guard_config,
+            resource,
+        } => guard_plan_dry_run(&operator_config, &guard_config, &resource),
     };
 
     match result {
@@ -716,6 +730,30 @@ mod tests {
             Commands::GuardEval { config, facts }
                 if config == PathBuf::from("guards.json")
                     && facts == ["elastic.ram::healthy=true"]
+        ));
+    }
+    #[test]
+    fn guard_plan_dry_run_syntax_requires_explicit_configs_and_resource() {
+        let cli = Cli::try_parse_from([
+            "elastic",
+            "guard-plan-dry-run",
+            "--operator-config",
+            "operator.json",
+            "--guard-config",
+            "guards.json",
+            "--resource",
+            "ram",
+        ])
+        .unwrap();
+        assert!(matches!(
+            cli.command,
+            Commands::GuardPlanDryRun {
+                operator_config,
+                guard_config,
+                resource,
+            } if operator_config == PathBuf::from("operator.json")
+                && guard_config == PathBuf::from("guards.json")
+                && resource == "ram"
         ));
     }
 }
