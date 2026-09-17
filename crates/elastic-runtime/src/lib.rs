@@ -77,11 +77,12 @@ pub use configured_controller::{
 pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
 pub use decision_trace::{
-    capture_decision_trace, fact_snapshot_fingerprint, CandidateDecisionTrace, DecisionReplayError,
-    DecisionStopReason, DecisionTrace, DecisionTraceChange, DecisionTraceChangeKind,
-    DecisionTraceDiff, DecisionTraceError, FactSnapshotFingerprint, PredicateTraceEntry,
-    RejectedCandidateTrace, UnknownCandidateTrace, DECISION_TRACE_SCHEMA_V1,
-    MAX_DECISION_TRACE_BYTES,
+    capture_decision_trace, capture_guarded_planning_trace, fact_snapshot_fingerprint,
+    CandidateDecisionTrace, DecisionReplayError, DecisionStopReason, DecisionTrace,
+    DecisionTraceChange, DecisionTraceChangeKind, DecisionTraceDiff, DecisionTraceError,
+    FactSnapshotFingerprint, GuardedPlanningOutcomeTrace, GuardedPlanningTrace,
+    InvariantPrecheckTraceSummary, PredicateTraceEntry, RejectedCandidateTrace,
+    UnknownCandidateTrace, DECISION_TRACE_SCHEMA_V1, MAX_DECISION_TRACE_BYTES,
 };
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
@@ -102,7 +103,10 @@ pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
 };
-pub use guard_planner::{BooleanGuardPlanner, GuardPlannerTarget};
+pub use guard_planner::{
+    planning_context_fingerprint, BooleanGuardPlanner, GuardPlannerTarget, GuardedPlanningDecision,
+    PlanningContextFingerprint,
+};
 pub use guard_preplanner::{BooleanGuardPreplanner, GuardPreplannerError};
 pub use invariant_precheck::{
     precheck_plan_invariants, InvariantPrecheckEntry, InvariantPrecheckError,

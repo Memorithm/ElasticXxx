@@ -11,18 +11,28 @@
 //! inside one trust domain. They are intentionally non-cryptographic and must
 //! not be treated as authentication tokens.
 
+use crate::guard_planner::{
+    planning_context_fingerprint, GuardedPlanningDecision, PlanningContextFingerprint,
+};
+use crate::invariant_precheck::{
+    precheck_plan_invariants, InvariantPrecheckError, InvariantPrecheckReport,
+    InvariantPrecheckStatus,
+};
+use crate::plan::Plan;
 use crate::{
-    FactFreshnessError, FactSnapshot, FactSourceId, MAX_EVIDENCE_BYTES,
-    MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH, MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES,
-    MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
+    fact_derivation::fact_snapshot_fingerprint_bits, FactFreshnessError, FactSnapshot,
+    FactSourceId, MAX_EVIDENCE_BYTES, MAX_EVIDENCE_COLLECTION_ITEMS, MAX_EVIDENCE_DEPTH,
+    MAX_EVIDENCE_DIFF_PATHS, MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES,
+    MAX_EVIDENCE_STRING_BYTES,
 };
 use elastic_core::resource::{DimensionId, LogicalResourceId};
 use elastic_core::{
-    FreshnessSnapshot, GuardScope, LogicError, ObservationEpoch, PredicateKey, ResourceGeneration,
-    TransitionMechanism, TruthValue,
+    FreshnessSnapshot, GuardScope, InvariantPredicateBinding, LogicError, ObservationEpoch,
+    PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
 };
 use elastic_eir::{
-    prune_transition_candidates, EirGuardedResource, Fingerprint, TransitionCandidate,
+    prune_transition_candidates, EirGuardedResource, Fingerprint, PlanOutcome, PlanningContext,
+    TransitionCandidate, TransitionPruningReport,
 };
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
@@ -290,6 +300,172 @@ impl DecisionTraceDiff {
     /// Distinct semantic change classes in deterministic enum order.
     pub fn kinds(&self) -> impl Iterator<Item = DecisionTraceChangeKind> + '_ {
         self.kinds.iter().copied()
+    }
+}
+
+/// Exact final planning outcome retained by integrated guarded evidence.
+///
+/// This is deliberately separate from [`DecisionTrace::stop_reason`], which
+/// describes the lower-level guard/pruning state represented by the v1 trace.
+/// For example, an exact-target request may be `Unsupported` even though the
+/// resource declares other transitions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum GuardedPlanningOutcomeTrace {
+    /// Numeric planning selected one Boolean-eligible candidate.
+    Candidate(CandidateDecisionTrace),
+    /// Eligible/admitted transitions existed but no candidate was selected.
+    NoCandidate,
+    /// The request or numeric planner result was outside the supported declaration.
+    Unsupported,
+    /// Current evidence was insufficient to justify a final candidate.
+    InsufficientEvidence {
+        /// Bounded diagnostic detail copied from [`PlanOutcome`].
+        detail: String,
+    },
+}
+
+impl GuardedPlanningOutcomeTrace {
+    /// Selected candidate when the final planner outcome contains one.
+    #[must_use]
+    pub const fn candidate(&self) -> Option<&CandidateDecisionTrace> {
+        match self {
+            Self::Candidate(candidate) => Some(candidate),
+            _ => None,
+        }
+    }
+
+    /// Diagnostic insufficient-evidence detail, when present.
+    #[must_use]
+    pub fn insufficient_evidence_detail(&self) -> Option<&str> {
+        match self {
+            Self::InsufficientEvidence { detail } => Some(detail),
+            _ => None,
+        }
+    }
+}
+
+/// Non-authoritative summary of the Boolean invariant precheck run for the
+/// exact captured planning outcome.
+///
+/// `Passed` means only that the early Boolean precheck found no reason to stop.
+/// It never means trusted validation succeeded and never authorizes actuation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct InvariantPrecheckTraceSummary {
+    status: InvariantPrecheckStatus,
+    entries: usize,
+    true_count: usize,
+    false_count: usize,
+    unknown_count: usize,
+}
+
+impl InvariantPrecheckTraceSummary {
+    fn from_report(report: &InvariantPrecheckReport) -> Self {
+        let true_count = report
+            .entries()
+            .iter()
+            .filter(|entry| entry.truth() == TruthValue::True)
+            .count();
+        let false_count = report
+            .entries()
+            .iter()
+            .filter(|entry| entry.truth() == TruthValue::False)
+            .count();
+        let unknown_count = report
+            .entries()
+            .iter()
+            .filter(|entry| entry.truth() == TruthValue::Unknown)
+            .count();
+        Self {
+            status: report.status(),
+            entries: report.entries().len(),
+            true_count,
+            false_count,
+            unknown_count,
+        }
+    }
+
+    /// Aggregate early-precheck disposition; this is not trusted validation.
+    #[must_use]
+    pub const fn status(&self) -> InvariantPrecheckStatus {
+        self.status
+    }
+
+    /// Number of applicable invariant entries summarized.
+    #[must_use]
+    pub const fn entries(&self) -> usize {
+        self.entries
+    }
+
+    /// Number of explicitly true invariant facts.
+    #[must_use]
+    pub const fn true_count(&self) -> usize {
+        self.true_count
+    }
+
+    /// Number of explicitly false invariant facts.
+    #[must_use]
+    pub const fn false_count(&self) -> usize {
+        self.false_count
+    }
+
+    /// Number of missing or explicitly unknown invariant facts.
+    #[must_use]
+    pub const fn unknown_count(&self) -> usize {
+        self.unknown_count
+    }
+}
+
+/// Integrated, non-actuating evidence for one guarded numeric planning call.
+///
+/// The embedded [`DecisionTrace`] explains the Boolean partition. The outer
+/// envelope additionally binds the exact final [`PlanOutcome`], source-bound
+/// pruning report identity, numeric-context identity, and early invariant
+/// precheck summary. No field in this type grants trusted validation or
+/// physical actuation authority.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GuardedPlanningTrace {
+    decision_trace: DecisionTrace,
+    planning_outcome: GuardedPlanningOutcomeTrace,
+    pruning_report_fingerprint: Fingerprint,
+    planning_context_fingerprint: PlanningContextFingerprint,
+    invariant_precheck: InvariantPrecheckTraceSummary,
+}
+
+impl GuardedPlanningTrace {
+    /// Boolean partition/fact trace bound to the original guarded resource.
+    #[must_use]
+    pub const fn decision_trace(&self) -> &DecisionTrace {
+        &self.decision_trace
+    }
+
+    /// Exact post-filter numeric planning outcome.
+    #[must_use]
+    pub const fn planning_outcome(&self) -> &GuardedPlanningOutcomeTrace {
+        &self.planning_outcome
+    }
+
+    /// Original guarded resource structural identity.
+    #[must_use]
+    pub const fn original_guarded_resource_fingerprint(&self) -> Fingerprint {
+        self.decision_trace.guarded_resource_fingerprint
+    }
+
+    /// Structural identity of the exact source-bound pruning partition.
+    #[must_use]
+    pub const fn pruning_report_fingerprint(&self) -> Fingerprint {
+        self.pruning_report_fingerprint
+    }
+
+    /// Structural identity of the numeric observations used by the planner.
+    #[must_use]
+    pub const fn planning_context_fingerprint(&self) -> PlanningContextFingerprint {
+        self.planning_context_fingerprint
+    }
+
+    /// Early invariant precheck summary. `Passed` is not trusted validation.
+    #[must_use]
+    pub const fn invariant_precheck(&self) -> &InvariantPrecheckTraceSummary {
+        &self.invariant_precheck
     }
 }
 
@@ -1593,6 +1769,10 @@ fn invalid_persisted(detail: String) -> DecisionTraceError {
 /// validator, or actuator is invoked. If `selected` is supplied, it must match
 /// an eligible mechanism/dimension pair from the same re-evaluation.
 ///
+/// For an already executed [`GuardedPlanningDecision`], prefer
+/// [`capture_guarded_planning_trace`], which reuses its exact pruning report and
+/// therefore does not repeat pruning or numeric planning.
+///
 /// # Errors
 ///
 /// Fails closed for stale/cross-resource facts, Boolean evaluation failures,
@@ -1603,6 +1783,92 @@ pub fn capture_decision_trace(
     freshness: &FreshnessSnapshot,
     selected: Option<&TransitionCandidate>,
 ) -> Result<DecisionTrace, DecisionTraceError> {
+    validate_trace_inputs(resource, facts, freshness)?;
+    let report = prune_transition_candidates(resource, facts)?;
+    decision_trace_from_report(resource, facts, &report, selected)
+}
+
+/// Capture integrated evidence for one already-completed guarded planning call.
+///
+/// This function does **not** invoke the Boolean preplanner, numeric planner,
+/// trusted validator, adapter, actuator, verifier, or rollback path. It reuses
+/// the exact source-bound pruning report and outcome retained by
+/// [`GuardedPlanningDecision`], verifies that the supplied numeric context has
+/// the same structural identity, and runs only the pure early invariant
+/// precheck for explanatory evidence.
+///
+/// The invariant summary cannot authorize actuation: even a `Passed` status
+/// means only that trusted validation may continue through the ordinary runtime
+/// boundary.
+///
+/// # Errors
+///
+/// Fails closed for stale/cross-resource facts, a foreign pruning report,
+/// mismatched numeric context, oversized diagnostic outcome detail, an invalid
+/// selected candidate, or invariant-precheck provenance/freshness failures.
+pub fn capture_guarded_planning_trace(
+    resource: &EirGuardedResource,
+    context: &PlanningContext,
+    facts: &FactSnapshot,
+    freshness: &FreshnessSnapshot,
+    decision: &GuardedPlanningDecision,
+    invariant_bindings: &[InvariantPredicateBinding],
+) -> Result<GuardedPlanningTrace, DecisionTraceError> {
+    validate_trace_inputs(resource, facts, freshness)?;
+    if !decision.pruning_report().is_for_resource(resource) {
+        return Err(DecisionTraceError::PruningReportResourceMismatch);
+    }
+    let pruning_report_fingerprint = decision
+        .pruning_report()
+        .fingerprint()
+        .ok_or(DecisionTraceError::UnboundPruningReport)?;
+    let actual_context = planning_context_fingerprint(context);
+    if actual_context != decision.planning_context_fingerprint() {
+        return Err(DecisionTraceError::PlanningContextMismatch {
+            planned: decision.planning_context_fingerprint(),
+            supplied: actual_context,
+        });
+    }
+
+    let supplied_facts = fact_snapshot_fingerprint(facts);
+    let planned_facts = FactSnapshotFingerprint(decision.fact_snapshot_fingerprint_bits());
+    if supplied_facts != planned_facts {
+        return Err(DecisionTraceError::PlanningFactSnapshotMismatch {
+            planned: planned_facts,
+            supplied: supplied_facts,
+        });
+    }
+
+    let selected = match decision.outcome() {
+        PlanOutcome::Candidate(candidate) => Some(candidate),
+        _ => None,
+    };
+    let decision_trace =
+        decision_trace_from_report(resource, facts, decision.pruning_report(), selected)?;
+    let planning_outcome = guarded_planning_outcome_trace(decision.outcome())?;
+
+    let plan = Plan::new(
+        resource.resource().clone(),
+        context.clone(),
+        decision.outcome().clone(),
+        "integrated guarded planning trace capture".to_owned(),
+    );
+    let invariant_precheck = precheck_plan_invariants(&plan, invariant_bindings, facts, freshness)?;
+
+    Ok(GuardedPlanningTrace {
+        decision_trace,
+        planning_outcome,
+        pruning_report_fingerprint,
+        planning_context_fingerprint: actual_context,
+        invariant_precheck: InvariantPrecheckTraceSummary::from_report(&invariant_precheck),
+    })
+}
+
+fn validate_trace_inputs(
+    resource: &EirGuardedResource,
+    facts: &FactSnapshot,
+    freshness: &FreshnessSnapshot,
+) -> Result<(), DecisionTraceError> {
     facts.validate_freshness(freshness)?;
     let Some(binding) = facts.resource_binding() else {
         return Err(DecisionTraceError::MissingResourceBinding);
@@ -1613,8 +1879,18 @@ pub fn capture_decision_trace(
             requested: resource.resource().identity().clone(),
         });
     }
+    Ok(())
+}
 
-    let report = prune_transition_candidates(resource, facts)?;
+fn decision_trace_from_report(
+    resource: &EirGuardedResource,
+    facts: &FactSnapshot,
+    report: &TransitionPruningReport,
+    selected: Option<&TransitionCandidate>,
+) -> Result<DecisionTrace, DecisionTraceError> {
+    if !report.is_for_resource(resource) {
+        return Err(DecisionTraceError::PruningReportResourceMismatch);
+    }
     if report.total_classified() != resource.resource().transitions().len() {
         return Err(DecisionTraceError::IncompletePruningReport {
             classified: report.total_classified(),
@@ -1708,6 +1984,15 @@ pub fn capture_decision_trace(
     } else {
         Some(DecisionStopReason::AllCandidatesRejected)
     };
+    let Some(binding) = facts.resource_binding() else {
+        return Err(DecisionTraceError::MissingResourceBinding);
+    };
+    if binding.resource() != resource.resource().identity() {
+        return Err(DecisionTraceError::ResourceBindingMismatch {
+            snapshot: binding.resource().clone(),
+            requested: resource.resource().identity().clone(),
+        });
+    }
 
     Ok(DecisionTrace {
         resource: resource.resource().identity().clone(),
@@ -1725,33 +2010,33 @@ pub fn capture_decision_trace(
     })
 }
 
+fn guarded_planning_outcome_trace(
+    outcome: &PlanOutcome,
+) -> Result<GuardedPlanningOutcomeTrace, DecisionTraceError> {
+    match outcome {
+        PlanOutcome::Candidate(candidate) => Ok(GuardedPlanningOutcomeTrace::Candidate(
+            CandidateDecisionTrace::from_candidate(candidate),
+        )),
+        PlanOutcome::NoCandidate => Ok(GuardedPlanningOutcomeTrace::NoCandidate),
+        PlanOutcome::Unsupported => Ok(GuardedPlanningOutcomeTrace::Unsupported),
+        PlanOutcome::InsufficientEvidence { detail } => {
+            if detail.len() > MAX_EVIDENCE_STRING_BYTES {
+                return Err(DecisionTraceError::PlanningOutcomeDetailTooLarge {
+                    max_bytes: MAX_EVIDENCE_STRING_BYTES,
+                    actual_bytes: detail.len(),
+                });
+            }
+            Ok(GuardedPlanningOutcomeTrace::InsufficientEvidence {
+                detail: detail.clone(),
+            })
+        }
+    }
+}
+
 /// Compute the deterministic semantic identity used by decision traces.
 #[must_use]
 pub fn fact_snapshot_fingerprint(facts: &FactSnapshot) -> FactSnapshotFingerprint {
-    let mut fingerprint = Fingerprint::EMPTY
-        .text("runtime-fact-snapshot")
-        .number(1)
-        .text(facts.source().as_str())
-        .number(facts.observation_epoch().get());
-    match facts.resource_binding() {
-        Some(binding) => {
-            fingerprint = fingerprint
-                .text("resource-bound")
-                .text(binding.resource().as_str())
-                .number(binding.generation().get());
-        }
-        None => {
-            fingerprint = fingerprint.text("resource-unbound");
-        }
-    }
-    fingerprint = fingerprint.number(facts.len() as u64);
-    for (key, truth) in facts.iter() {
-        fingerprint = fingerprint
-            .text(key.namespace())
-            .text(key.name())
-            .number(truth_code(truth));
-    }
-    FactSnapshotFingerprint(fingerprint.bits())
+    FactSnapshotFingerprint(fact_snapshot_fingerprint_bits(facts))
 }
 
 /// Trace construction/encoding failures.
@@ -1777,6 +2062,27 @@ pub enum DecisionTraceError {
         mechanism: TransitionMechanism,
         dimension: DimensionId,
     },
+    /// Detailed planning evidence carried a pruning report for another source.
+    PruningReportResourceMismatch,
+    /// A detailed planning report lacked its required source binding.
+    UnboundPruningReport,
+    /// Supplied numeric observations do not match the context used by planning.
+    PlanningContextMismatch {
+        planned: PlanningContextFingerprint,
+        supplied: PlanningContextFingerprint,
+    },
+    /// Supplied facts do not match the exact snapshot used for Boolean pruning.
+    PlanningFactSnapshotMismatch {
+        planned: FactSnapshotFingerprint,
+        supplied: FactSnapshotFingerprint,
+    },
+    /// Diagnostic detail from an insufficient-evidence outcome exceeded bounds.
+    PlanningOutcomeDetailTooLarge {
+        max_bytes: usize,
+        actual_bytes: usize,
+    },
+    /// Pure early invariant precheck could not establish trustworthy provenance/freshness.
+    InvariantPrecheck(InvariantPrecheckError),
     /// Predicate trace exceeded the evidence collection bound.
     TooManyTraceEntries { max: usize, actual: usize },
     /// Candidate trace exceeded the evidence collection bound.
@@ -1836,6 +2142,30 @@ impl fmt::Display for DecisionTraceError {
                 mechanism_text(*mechanism),
                 dimension
             ),
+            Self::PruningReportResourceMismatch => f.write_str(
+                "guarded planning trace pruning report belongs to another guarded resource",
+            ),
+            Self::UnboundPruningReport => {
+                f.write_str("guarded planning trace pruning report has no source binding")
+            }
+            Self::PlanningContextMismatch { planned, supplied } => write!(
+                f,
+                "planning context identity mismatch: planner used {planned}, capture supplied {supplied}"
+            ),
+            Self::PlanningFactSnapshotMismatch { planned, supplied } => write!(
+                f,
+                "planning fact snapshot identity mismatch: planner used {planned}, capture supplied {supplied}"
+            ),
+            Self::PlanningOutcomeDetailTooLarge {
+                max_bytes,
+                actual_bytes,
+            } => write!(
+                f,
+                "planning outcome detail has {actual_bytes} bytes; maximum is {max_bytes}"
+            ),
+            Self::InvariantPrecheck(error) => {
+                write!(f, "invariant precheck trace capture failed: {error}")
+            }
             Self::TooManyTraceEntries { max, actual } => write!(
                 f,
                 "decision trace has {actual} predicate entries; maximum is {max}"
@@ -1886,6 +2216,12 @@ impl From<FactFreshnessError> for DecisionTraceError {
 impl From<LogicError> for DecisionTraceError {
     fn from(value: LogicError) -> Self {
         Self::Logic(value)
+    }
+}
+
+impl From<InvariantPrecheckError> for DecisionTraceError {
+    fn from(value: InvariantPrecheckError) -> Self {
+        Self::InvariantPrecheck(value)
     }
 }
 
@@ -2038,16 +2374,18 @@ fn same_transition(left: &TransitionCandidate, right: &TransitionCandidate) -> b
 mod tests {
     use super::*;
     use crate::{
-        CapabilityPredicate, FactResourceBinding, ObservationSnapshot, PredicateEvaluationInput,
-        PredicateEvaluator,
+        BooleanGuardPlanner, CapabilityPredicate, FactResourceBinding, ObservationSnapshot,
+        PredicateEvaluationInput, PredicateEvaluator,
     };
     use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, ResourceClassId, ResourceSpec,
+        AdmissibleTransition, CapabilityRequirement, Invariant, InvariantKind, ObservationSignalId,
+        ResourceClassId, ResourceSpec,
     };
     use elastic_core::{
         BoolExpr, BooleanGuard, GuardedResourceSpec, PlannerEpoch, PredicateRegistry,
     };
-    use elastic_eir::lower_guarded;
+    use elastic_eir::{lower_guarded, PlanningContext, TransitionPlanner};
+    use std::cell::Cell;
     use std::time::{Duration, Instant};
 
     fn guarded_fixture(
@@ -2056,6 +2394,7 @@ mod tests {
         let resource_id = LogicalResourceId::new("decision-trace").unwrap();
         let spec = ResourceSpec::builder(ResourceClassId::CAPACITY_RESOURCE, resource_id.clone())
             .allow(DimensionId::CAPACITY)
+            .preserve(Invariant::new(InvariantKind::PreserveContents))
             .admit(AdmissibleTransition::new(
                 TransitionMechanism::Reinterpret,
                 DimensionId::CAPACITY,
@@ -2122,6 +2461,41 @@ mod tests {
     fn freshness(resource_id: &LogicalResourceId) -> FreshnessSnapshot {
         FreshnessSnapshot::new(PlannerEpoch::new(3), ObservationEpoch::new(14))
             .with_resource_generation(resource_id.clone(), ResourceGeneration::new(7))
+    }
+
+    struct CountingFirstPlanner<'a> {
+        calls: &'a Cell<usize>,
+    }
+
+    impl TransitionPlanner for CountingFirstPlanner<'_> {
+        fn propose_transition(&self, resource: &elastic_eir::EirResource) -> PlanOutcome {
+            self.propose_transition_with_context(resource, &PlanningContext::new())
+        }
+
+        fn propose_transition_with_context(
+            &self,
+            resource: &elastic_eir::EirResource,
+            _context: &PlanningContext,
+        ) -> PlanOutcome {
+            self.calls.set(self.calls.get() + 1);
+            resource
+                .transitions()
+                .first()
+                .map(|admitted| {
+                    PlanOutcome::Candidate(
+                        TransitionCandidate::from_admitted(admitted).with_magnitude(4096),
+                    )
+                })
+                .unwrap_or(PlanOutcome::Unsupported)
+        }
+    }
+
+    fn invariant_binding(key: &PredicateKey) -> InvariantPredicateBinding {
+        InvariantPredicateBinding::new(Invariant::new(InvariantKind::PreserveContents), key.clone())
+    }
+
+    fn integrated_context() -> PlanningContext {
+        PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 0.75)
     }
 
     #[test]
@@ -2222,6 +2596,222 @@ mod tests {
             trace.to_bounded_json_with_limit(8),
             Err(DecisionTraceError::EvidenceTooLarge { .. })
         ));
+    }
+
+    #[test]
+    fn integrated_capture_retains_candidate_report_context_and_precheck_without_replanning() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let freshness = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(&resource, &context, &facts, &freshness)
+            .unwrap();
+        assert_eq!(calls.get(), 1);
+
+        let trace = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &facts,
+            &freshness,
+            &decision,
+            &[invariant_binding(&key)],
+        )
+        .unwrap();
+
+        assert_eq!(calls.get(), 1, "capture must not re-run numeric planning");
+        assert_eq!(
+            trace.original_guarded_resource_fingerprint(),
+            resource.fingerprint()
+        );
+        assert_eq!(
+            trace.pruning_report_fingerprint(),
+            decision.pruning_report().fingerprint().unwrap()
+        );
+        assert_eq!(
+            trace.planning_context_fingerprint(),
+            planning_context_fingerprint(&context)
+        );
+        let selected = trace.planning_outcome().candidate().unwrap();
+        assert_eq!(selected.magnitude(), Some(4096));
+        assert_eq!(trace.decision_trace().selected(), Some(selected));
+        assert_eq!(
+            trace.invariant_precheck().status(),
+            InvariantPrecheckStatus::Passed
+        );
+        assert_eq!(trace.invariant_precheck().entries(), 1);
+        assert_eq!(trace.invariant_precheck().true_count(), 1);
+        assert_eq!(trace.invariant_precheck().false_count(), 0);
+        assert_eq!(trace.invariant_precheck().unknown_count(), 0);
+    }
+
+    #[test]
+    fn integrated_capture_preserves_all_non_candidate_plan_outcomes_without_replanning() {
+        for (guard_value, expected) in [
+            (Some(false), "no-candidate"),
+            (None, "insufficient-evidence"),
+        ] {
+            let (resource, key, resource_id) = guarded_fixture(false);
+            let facts = fact_snapshot(&resource_id, &key, guard_value, Instant::now(), false);
+            let freshness = freshness(&resource_id);
+            let context = integrated_context();
+            let calls = Cell::new(0);
+            let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+            let decision = planner
+                .propose_transition_detailed_with_context(&resource, &context, &facts, &freshness)
+                .unwrap();
+            assert_eq!(calls.get(), 0);
+            let trace = capture_guarded_planning_trace(
+                &resource,
+                &context,
+                &facts,
+                &freshness,
+                &decision,
+                &[invariant_binding(&key)],
+            )
+            .unwrap();
+            assert_eq!(calls.get(), 0);
+            match (expected, trace.planning_outcome()) {
+                ("no-candidate", GuardedPlanningOutcomeTrace::NoCandidate) => {}
+                (
+                    "insufficient-evidence",
+                    GuardedPlanningOutcomeTrace::InsufficientEvidence { detail },
+                ) => assert!(!detail.is_empty()),
+                _ => panic!("unexpected captured planning outcome"),
+            }
+            assert_eq!(
+                trace.invariant_precheck().status(),
+                InvariantPrecheckStatus::NoCandidate
+            );
+        }
+
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let freshness = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_transition(
+            CountingFirstPlanner { calls: &calls },
+            TransitionMechanism::Recompute,
+            DimensionId::CAPACITY,
+        );
+        let decision = planner
+            .propose_transition_detailed_with_context(&resource, &context, &facts, &freshness)
+            .unwrap();
+        assert_eq!(calls.get(), 0);
+        let trace = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &facts,
+            &freshness,
+            &decision,
+            &[invariant_binding(&key)],
+        )
+        .unwrap();
+        assert_eq!(calls.get(), 0);
+        assert!(matches!(
+            trace.planning_outcome(),
+            GuardedPlanningOutcomeTrace::Unsupported
+        ));
+        // Low-level pruning still had an eligible transition; final request
+        // support is carried by the integrated outcome rather than mutating v1.
+        assert_eq!(
+            trace.decision_trace().stop_reason(),
+            Some(DecisionStopReason::NumericPlannerNoCandidate)
+        );
+    }
+
+    #[test]
+    fn integrated_capture_rejects_numeric_context_drift_without_replanning() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let freshness = freshness(&resource_id);
+        let planned_context = integrated_context();
+        let supplied_context =
+            PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 0.5);
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(
+                &resource,
+                &planned_context,
+                &facts,
+                &freshness,
+            )
+            .unwrap();
+        assert_eq!(calls.get(), 1);
+
+        let result = capture_guarded_planning_trace(
+            &resource,
+            &supplied_context,
+            &facts,
+            &freshness,
+            &decision,
+            &[invariant_binding(&key)],
+        );
+        assert!(matches!(
+            result,
+            Err(DecisionTraceError::PlanningContextMismatch { .. })
+        ));
+        assert_eq!(calls.get(), 1);
+    }
+
+    #[test]
+    fn integrated_capture_rejects_fresh_fact_snapshot_drift_without_replanning() {
+        let (resource, key, resource_id) = guarded_fixture(false);
+        let planned_facts = fact_snapshot(&resource_id, &key, Some(true), Instant::now(), false);
+        let planned_freshness = freshness(&resource_id);
+        let context = integrated_context();
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingFirstPlanner { calls: &calls });
+        let decision = planner
+            .propose_transition_detailed_with_context(
+                &resource,
+                &context,
+                &planned_facts,
+                &planned_freshness,
+            )
+            .unwrap();
+        assert_eq!(calls.get(), 1);
+
+        let now = Instant::now();
+        let observations = ObservationSnapshot::new(now, Vec::new());
+        let fact_context = elastic_eir::PlanningContext::new();
+        let input = PredicateEvaluationInput::new(&fact_context, &observations, now);
+        let primary = CapabilityPredicate::new(key.clone(), Some(false));
+        let extra_key = PredicateKey::new("elastic.trace", "extra").unwrap();
+        let extra = CapabilityPredicate::new(extra_key, Some(false));
+        let evaluators: Vec<&dyn PredicateEvaluator> = vec![&primary, &extra];
+        let supplied_facts = FactSnapshot::derive(
+            FactSourceId::new("runtime:decision-trace-test").unwrap(),
+            ObservationEpoch::new(15),
+            Some(FactResourceBinding::new(
+                resource_id.clone(),
+                ResourceGeneration::new(7),
+            )),
+            &input,
+            &evaluators,
+        )
+        .unwrap();
+        let current_freshness =
+            FreshnessSnapshot::new(PlannerEpoch::new(3), ObservationEpoch::new(15))
+                .with_resource_generation(resource_id, ResourceGeneration::new(7));
+
+        let result = capture_guarded_planning_trace(
+            &resource,
+            &context,
+            &supplied_facts,
+            &current_freshness,
+            &decision,
+            &[invariant_binding(&key)],
+        );
+        assert!(matches!(
+            result,
+            Err(DecisionTraceError::PlanningFactSnapshotMismatch { .. })
+        ));
+        assert_eq!(calls.get(), 1, "capture must not re-run numeric planning");
     }
 
     fn persisted_fixture() -> (DecisionTrace, String) {

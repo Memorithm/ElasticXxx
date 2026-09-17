@@ -74,6 +74,18 @@ pub fn public_evidence_surface_smoke() {
     let _bounded_ingest_limit = MAX_EVIDENCE_BYTES;
 }
 
+/// Compile-time proof that integrated guarded-planning evidence remains
+/// available through the single public `elastic` dependency.
+pub fn public_guarded_planning_trace_surface_smoke() {
+    let _capture = capture_guarded_planning_trace;
+    let _context_fingerprint = planning_context_fingerprint;
+    let _decision: Option<GuardedPlanningDecision> = None;
+    let _outcome: Option<GuardedPlanningOutcomeTrace> = None;
+    let _trace: Option<GuardedPlanningTrace> = None;
+    let _summary: Option<InvariantPrecheckTraceSummary> = None;
+    let _fingerprint: Option<PlanningContextFingerprint> = None;
+}
+
 /// Compile-time proof that typed decision-trace comparison is reachable through
 /// the single public `elastic` dependency.
 pub fn public_decision_trace_diff_surface_smoke() {
@@ -164,6 +176,7 @@ mod tests {
 
         public_surface_smoke();
         public_evidence_surface_smoke();
+        public_guarded_planning_trace_surface_smoke();
         public_decision_trace_diff_surface_smoke();
         public_boolean_surface_smoke();
         public_stable_guard_surface_smoke();

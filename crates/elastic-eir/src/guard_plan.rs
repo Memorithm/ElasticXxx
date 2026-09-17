@@ -6,7 +6,8 @@
 //! a later concern for candidates that survive this filter.
 
 use crate::resource::AdmittedTransition;
-use crate::{EirGuard, EirGuardedResource, TransitionCandidate};
+use crate::{EirGuard, EirGuardedResource, Fingerprint, TransitionCandidate};
+use elastic_core::resource::DimensionId;
 use elastic_core::{
     FactSet, GuardFactSource, GuardScope, LogicError, TransitionMechanism, TruthValue,
 };
@@ -168,6 +169,93 @@ impl TransitionPruningReport {
     #[must_use]
     pub fn first_eligible(&self) -> Option<&TransitionCandidate> {
         self.eligible.first()
+    }
+
+    /// Structural identity of this source-bound pruning result.
+    ///
+    /// Default/unbound reports return `None`. The fingerprint absorbs the full
+    /// original guarded-resource identity plus each classified candidate and
+    /// its guard evidence in deterministic partition order. Built-in and custom
+    /// dimensions are explicitly discriminated even when they share canonical
+    /// text. This is non-cryptographic diagnostic identity, not authentication
+    /// and not runtime freshness evidence.
+    #[must_use]
+    pub fn fingerprint(&self) -> Option<Fingerprint> {
+        let source = self.source.as_ref()?;
+        let mut fingerprint = Fingerprint::EMPTY
+            .text("transition-pruning-report")
+            .number(1)
+            .number(source.fingerprint().bits());
+        fingerprint = fingerprint.number(self.eligible.len() as u64);
+        for candidate in &self.eligible {
+            fingerprint = fingerprint_candidate(fingerprint.text("eligible"), candidate);
+        }
+        fingerprint = fingerprint.number(self.rejected.len() as u64);
+        for rejected in &self.rejected {
+            fingerprint = fingerprint_candidate(fingerprint.text("rejected"), rejected.candidate());
+            fingerprint = fingerprint_guard_scope(fingerprint, rejected.failed_scope());
+        }
+        fingerprint = fingerprint.number(self.unknown.len() as u64);
+        for unknown in &self.unknown {
+            fingerprint = fingerprint_candidate(fingerprint.text("unknown"), unknown.candidate());
+            fingerprint = fingerprint.number(u64::from(unknown.capability_grounded()));
+            fingerprint = fingerprint.number(unknown.unknown_scopes().len() as u64);
+            for scope in unknown.unknown_scopes() {
+                fingerprint = fingerprint_guard_scope(fingerprint, scope);
+            }
+        }
+        Some(fingerprint)
+    }
+}
+
+fn fingerprint_candidate(
+    mut fingerprint: Fingerprint,
+    candidate: &TransitionCandidate,
+) -> Fingerprint {
+    fingerprint = fingerprint
+        .text(mechanism_text(candidate.mechanism()))
+        .text(dimension_kind(candidate.dimension()))
+        .text(candidate.dimension().as_str())
+        .number(u64::from(candidate.capability_grounded()));
+    match candidate.magnitude() {
+        Some(magnitude) => fingerprint.text("magnitude").number(magnitude),
+        None => fingerprint.text("no-magnitude"),
+    }
+}
+
+fn fingerprint_guard_scope(mut fingerprint: Fingerprint, scope: &GuardScope) -> Fingerprint {
+    match scope {
+        GuardScope::Resource => fingerprint.text("scope-resource"),
+        GuardScope::Dimension(dimension) => fingerprint
+            .text("scope-dimension")
+            .text(dimension_kind(dimension))
+            .text(dimension.as_str()),
+        GuardScope::Transition {
+            mechanism,
+            dimension,
+        } => {
+            fingerprint = fingerprint
+                .text("scope-transition")
+                .text(mechanism_text(*mechanism))
+                .text(dimension_kind(dimension));
+            fingerprint.text(dimension.as_str())
+        }
+    }
+}
+
+const fn dimension_kind(dimension: &DimensionId) -> &'static str {
+    if dimension.builtin_part().is_some() {
+        "builtin"
+    } else {
+        "custom"
+    }
+}
+
+const fn mechanism_text(mechanism: TransitionMechanism) -> &'static str {
+    match mechanism {
+        TransitionMechanism::Reinterpret => "reinterpret",
+        TransitionMechanism::Reencode => "reencode",
+        TransitionMechanism::Recompute => "recompute",
     }
 }
 
@@ -461,6 +549,61 @@ mod tests {
         assert!(report.rejected().is_empty());
         assert_eq!(report.unknown().len(), 1);
         assert_eq!(report.unknown()[0].unknown_scopes().len(), 2);
+    }
+
+    #[test]
+    fn pruning_report_fingerprint_is_source_bound_and_classification_sensitive() {
+        let (resource, keys) = fixture();
+        let true_facts = BTreeMap::from([
+            (keys[0].clone(), TruthValue::True),
+            (keys[1].clone(), TruthValue::True),
+            (keys[2].clone(), TruthValue::True),
+        ]);
+        let false_facts = BTreeMap::from([
+            (keys[0].clone(), TruthValue::True),
+            (keys[1].clone(), TruthValue::False),
+            (keys[2].clone(), TruthValue::True),
+        ]);
+        let first = prune_transition_candidates(&resource, &true_facts).unwrap();
+        let second = prune_transition_candidates(&resource, &true_facts).unwrap();
+        let rejected = prune_transition_candidates(&resource, &false_facts).unwrap();
+
+        assert_eq!(first.fingerprint(), second.fingerprint());
+        assert_ne!(first.fingerprint(), rejected.fingerprint());
+        assert!(first.fingerprint().is_some());
+        assert_eq!(TransitionPruningReport::default().fingerprint(), None);
+    }
+
+    #[test]
+    fn pruning_report_fingerprint_distinguishes_builtin_from_same_text_custom_dimension() {
+        fn lowered(dimension: DimensionId, id: &str) -> EirGuardedResource {
+            let spec = ResourceSpec::builder(
+                ResourceClassId::CAPACITY_RESOURCE,
+                LogicalResourceId::new(id).unwrap(),
+            )
+            .allow(dimension.clone())
+            .admit(AdmissibleTransition::new(
+                TransitionMechanism::Reinterpret,
+                dimension.clone(),
+            ))
+            .require_capability(CapabilityRequirement::new(
+                TransitionMechanism::Reinterpret,
+                dimension,
+            ))
+            .build()
+            .unwrap();
+            lower_guarded(&GuardedResourceSpec::new(spec, Vec::new()).unwrap()).unwrap()
+        }
+
+        let builtin = lowered(DimensionId::CAPACITY, "same-text-dimension");
+        let custom = lowered(
+            DimensionId::custom("capacity").unwrap(),
+            "same-text-dimension",
+        );
+        let builtin_report = prune_transition_candidates(&builtin, &BTreeMap::new()).unwrap();
+        let custom_report = prune_transition_candidates(&custom, &BTreeMap::new()).unwrap();
+
+        assert_ne!(builtin_report.fingerprint(), custom_report.fingerprint());
     }
 
     #[test]

@@ -6,13 +6,111 @@
 //! admission set. Returned candidates are checked against both the original
 //! declaration and this restricted view. No actuation occurs here.
 
-use crate::{BooleanGuardPreplanner, FactSnapshot, GuardPreplannerError};
-use elastic_core::resource::DimensionId;
+use crate::{
+    fact_derivation::fact_snapshot_fingerprint_bits, BooleanGuardPreplanner, FactSnapshot,
+    GuardPreplannerError,
+};
+use elastic_core::resource::{DimensionId, ObservationSignalId};
 use elastic_core::{FreshnessSnapshot, TransitionMechanism};
 use elastic_eir::{
-    EirGuardedResource, EirResource, PlanOutcome, PlanningContext, TransitionCandidate,
-    TransitionPlanner, TransitionPruningReport,
+    EirGuardedResource, EirResource, Fingerprint, PlanOutcome, PlanningContext,
+    TransitionCandidate, TransitionPlanner, TransitionPruningReport,
 };
+use std::fmt;
+
+/// Non-cryptographic structural identity of the numeric planning context.
+///
+/// The fingerprint absorbs every observation in canonical signal order, the
+/// built-in/custom signal discriminator, and the exact IEEE-754 bit pattern of
+/// each value. It is suitable for cycle-local identity checks and durable
+/// diagnostics, not authentication or actuation authority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PlanningContextFingerprint(u64);
+
+impl PlanningContextFingerprint {
+    /// Raw structural fingerprint bits for diagnostics and persisted evidence.
+    #[must_use]
+    pub const fn bits(self) -> u64 {
+        self.0
+    }
+}
+
+impl fmt::Display for PlanningContextFingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "context-fp:{:016x}", self.0)
+    }
+}
+
+/// Compute deterministic identity for one numeric planning context.
+#[must_use]
+pub fn planning_context_fingerprint(context: &PlanningContext) -> PlanningContextFingerprint {
+    let mut fingerprint = Fingerprint::EMPTY
+        .text("runtime-planning-context")
+        .number(1);
+    for (signal, value) in context.iter() {
+        fingerprint = fingerprint
+            .text(observation_signal_kind(signal))
+            .text(signal.as_str())
+            .number(value.to_bits());
+    }
+    PlanningContextFingerprint(fingerprint.bits())
+}
+
+/// Exact guarded-planning result captured at the Boolean/numeric planning
+/// boundary before any trusted validation or actuation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct GuardedPlanningDecision {
+    outcome: PlanOutcome,
+    pruning_report: TransitionPruningReport,
+    planning_context_fingerprint: PlanningContextFingerprint,
+    fact_snapshot_fingerprint_bits: u64,
+}
+
+impl GuardedPlanningDecision {
+    fn new(
+        outcome: PlanOutcome,
+        pruning_report: TransitionPruningReport,
+        planning_context_fingerprint: PlanningContextFingerprint,
+        fact_snapshot_fingerprint_bits: u64,
+    ) -> Self {
+        Self {
+            outcome,
+            pruning_report,
+            planning_context_fingerprint,
+            fact_snapshot_fingerprint_bits,
+        }
+    }
+
+    /// Final post-filter numeric planning outcome.
+    #[must_use]
+    pub const fn outcome(&self) -> &PlanOutcome {
+        &self.outcome
+    }
+
+    /// Source-bound Boolean pruning report used for this exact planning call.
+    #[must_use]
+    pub const fn pruning_report(&self) -> &TransitionPruningReport {
+        &self.pruning_report
+    }
+
+    /// Structural identity of the numeric observations used by the planner.
+    #[must_use]
+    pub const fn planning_context_fingerprint(&self) -> PlanningContextFingerprint {
+        self.planning_context_fingerprint
+    }
+
+    /// Structural identity of the exact fact snapshot used for Boolean pruning.
+    #[must_use]
+    pub const fn fact_snapshot_fingerprint_bits(&self) -> u64 {
+        self.fact_snapshot_fingerprint_bits
+    }
+
+    /// Consume the detailed result and retain the legacy planner outcome only.
+    #[must_use]
+    pub fn into_outcome(self) -> PlanOutcome {
+        self.outcome
+    }
+}
 
 /// Boolean eligibility scope that must survive before a wrapped numeric planner
 /// is allowed to run.
@@ -133,10 +231,41 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
         facts: &FactSnapshot,
         freshness: &FreshnessSnapshot,
     ) -> Result<PlanOutcome, GuardPreplannerError> {
+        self.propose_transition_detailed_with_context(resource, context, facts, freshness)
+            .map(GuardedPlanningDecision::into_outcome)
+    }
+
+    /// Perform the same guarded planning operation while retaining the exact
+    /// source-bound pruning report and numeric-context identity used to reach
+    /// the final outcome.
+    ///
+    /// This is the evidence-producing form of [`Self::propose_transition_with_context`].
+    /// It does not execute the inner numeric planner more than once, performs no
+    /// validation or actuation, and keeps the original guarded resource outside
+    /// the projected numeric planning view.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`GuardPreplannerError`] under exactly the same freshness and
+    /// Boolean-evaluation failures as the legacy outcome-only method.
+    pub fn propose_transition_detailed_with_context(
+        &self,
+        resource: &EirGuardedResource,
+        context: &PlanningContext,
+        facts: &FactSnapshot,
+        freshness: &FreshnessSnapshot,
+    ) -> Result<GuardedPlanningDecision, GuardPreplannerError> {
         let report = BooleanGuardPreplanner.prune(resource, facts, freshness)?;
+        let context_fingerprint = planning_context_fingerprint(context);
+        let facts_fingerprint = fact_snapshot_fingerprint_bits(facts);
 
         if let Some(blocked) = preplanning_block(resource, &report, &self.target) {
-            return Ok(blocked);
+            return Ok(GuardedPlanningDecision::new(
+                blocked,
+                report,
+                context_fingerprint,
+                facts_fingerprint,
+            ));
         }
 
         let candidates: Vec<_> = report
@@ -148,21 +277,40 @@ impl<P: TransitionPlanner> BooleanGuardPlanner<P> {
         let planning_resource = match resource.restrict_to_eligible(&report, &candidates) {
             Ok(view) => view,
             Err(error) => {
-                return Ok(PlanOutcome::InsufficientEvidence {
-                    detail: format!("cannot construct Boolean planning subset: {error}"),
-                });
+                return Ok(GuardedPlanningDecision::new(
+                    PlanOutcome::InsufficientEvidence {
+                        detail: format!("cannot construct Boolean planning subset: {error}"),
+                    },
+                    report,
+                    context_fingerprint,
+                    facts_fingerprint,
+                ));
             }
         };
         let outcome = self
             .inner
             .propose_transition_with_context(&planning_resource, context);
-        Ok(filter_planner_outcome(
+        let outcome = filter_planner_outcome(
             outcome,
             resource.resource(),
             &planning_resource,
             &report,
             &self.target,
+        );
+        Ok(GuardedPlanningDecision::new(
+            outcome,
+            report,
+            context_fingerprint,
+            facts_fingerprint,
         ))
+    }
+}
+
+const fn observation_signal_kind(signal: &ObservationSignalId) -> &'static str {
+    if signal.builtin_part().is_some() {
+        "builtin"
+    } else {
+        "custom"
     }
 }
 
@@ -364,6 +512,35 @@ mod tests {
     }
 
     #[test]
+    fn planning_context_fingerprint_is_order_independent_bit_exact_and_term_typed() {
+        let first = PlanningContext::new()
+            .observe(ObservationSignalId::UTILIZATION, 0.5)
+            .observe(custom_signal("zeta"), -0.0);
+        let reordered = PlanningContext::new()
+            .observe(custom_signal("zeta"), -0.0)
+            .observe(ObservationSignalId::UTILIZATION, 0.5);
+        let positive_zero = PlanningContext::new()
+            .observe(ObservationSignalId::UTILIZATION, 0.5)
+            .observe(custom_signal("zeta"), 0.0);
+        let builtin = PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 0.5);
+        let custom_same_text = PlanningContext::new()
+            .observe(ObservationSignalId::custom("utilization").unwrap(), 0.5);
+
+        assert_eq!(
+            planning_context_fingerprint(&first),
+            planning_context_fingerprint(&reordered)
+        );
+        assert_ne!(
+            planning_context_fingerprint(&first),
+            planning_context_fingerprint(&positive_zero)
+        );
+        assert_ne!(
+            planning_context_fingerprint(&builtin),
+            planning_context_fingerprint(&custom_same_text)
+        );
+    }
+
+    #[test]
     fn true_guard_preserves_threshold_planner_output() {
         let (resource, facts, freshness) = fixture(Some(true));
         let numeric = ThresholdPlanner::new(0.25, 0.75, 0.20).unwrap();
@@ -409,6 +586,48 @@ mod tests {
                     PlanOutcome::Candidate(TransitionCandidate::from_admitted(admitted))
                 })
                 .unwrap_or(PlanOutcome::Unsupported)
+        }
+    }
+
+    #[test]
+    fn detailed_planning_retains_exact_report_context_and_single_numeric_call() {
+        let (resource, facts, freshness) = fixture(Some(true));
+        let calls = Cell::new(0);
+        let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
+        let context = threshold_context();
+        let detailed = planner
+            .propose_transition_detailed_with_context(&resource, &context, &facts, &freshness)
+            .unwrap();
+
+        assert_eq!(calls.get(), 1);
+        assert!(matches!(detailed.outcome(), PlanOutcome::Candidate(_)));
+        assert!(detailed.pruning_report().is_for_resource(&resource));
+        assert!(detailed.pruning_report().fingerprint().is_some());
+        assert_eq!(
+            detailed.planning_context_fingerprint(),
+            planning_context_fingerprint(&context)
+        );
+    }
+
+    #[test]
+    fn detailed_blocked_outcomes_never_call_numeric_planner() {
+        for guard_value in [Some(false), None] {
+            let (resource, facts, freshness) = fixture(guard_value);
+            let calls = Cell::new(0);
+            let planner = BooleanGuardPlanner::for_capacity(CountingPlanner { calls: &calls });
+            let detailed = planner
+                .propose_transition_detailed_with_context(
+                    &resource,
+                    &threshold_context(),
+                    &facts,
+                    &freshness,
+                )
+                .unwrap();
+            assert_eq!(calls.get(), 0);
+            assert!(matches!(
+                detailed.outcome(),
+                PlanOutcome::NoCandidate | PlanOutcome::InsufficientEvidence { .. }
+            ));
         }
     }
 
