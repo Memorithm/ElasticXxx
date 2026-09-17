@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 2462d6250b2f0624dc843be0a058bb1c1002cef3
+  main_sha: 0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
   main_observed_at: "2026-09-17"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -45,6 +45,13 @@ current_verified_state:
       packageability_run: 35178753984
       result: success
       purpose: source_bound_survivor_only_numeric_planning
+    - pr: 97
+      head: 62089e807ad5d4a7d6b733c4fd5841effd50a580
+      merge: 0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+      ci_run: 35275123778
+      packageability_run: 35275123821
+      result: success
+      purpose: strict_persisted_decision_trace_decoder
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -244,16 +251,22 @@ phases:
       - in_memory_identity_replay_checks
     evidence:
       - ElasticXxx_PR_88
-    required_slices:
+    completed_slices:
       - id: BE8a
         name: strict_persisted_decoder
-        tasks:
-          - define_versioned_DecisionTraceWireV1_or_equivalent_strict_schema
-          - deny_unknown_fields_duplicate_fields_invalid_enums_and_oversized_input
-          - bound_bytes_strings_collections_depth_and_numeric_fields_before_allocation
-          - parse_as_data_only_with_no_actuation_side_effect
-          - roundtrip_encode_decode_semantic_identity
-          - reject_future_schema_versions_by_default
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_97
+          - PR97_exact_head_62089e807ad5d4a7d6b733c4fd5841effd50a580
+          - PR97_CI_35275123778_completed_success_on_exact_head
+          - PR97_packageability_35275123821_completed_success_on_exact_head
+          - PR97_merged_to_main_as_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+          - strict_v1_decoder_rejects_unknown_duplicate_missing_future_schema_and_invalid_enums
+          - preallocation_bounds_cover_bytes_depth_nodes_collections_strings_and_numeric_tokens
+          - custom_vs_builtin_dimension_identity_round_trips_explicitly
+          - impossible_candidate_classifications_and_non_applicable_scopes_fail_closed
+          - imported_trace_remains_non_actuating_historical_evidence
+    required_slices:
       - id: BE8b
         name: deterministic_trace_comparison
         tasks:
@@ -682,7 +695,7 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE8
-  immediate_next_slice: BE8a_strict_persisted_decoder
+  immediate_next_slice: BE8b_deterministic_trace_comparison
   open_pull_requests_at_checkpoint: 0
-  verified_main: 2462d6250b2f0624dc843be0a058bb1c1002cef3
+  verified_main: 0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
   performance_claims: none

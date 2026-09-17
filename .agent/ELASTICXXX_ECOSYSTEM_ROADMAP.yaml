@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-13"
+last_updated: "2026-09-17"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -60,6 +60,7 @@ verified_current_facts:
   - ElasticBitAllocation_Stage_B_SmolLM2_preregistration_is_frozen_through_PR_78_merge_1cec5cb5ef55acb0f55056769cbf2dda82fde318_without_execution_or_allocator_authorization
   - ElasticBitAllocation_Stage_B_execution_readiness_dry_run_harness_opened_as_PR_79_exact_head_754a492516f2b7636f5bebe83ce8ff443cfb7826_pending_required_CI_and_merge
   - Stage_B_acceptance_thresholds_final_test_and_allocator_search_remain_NO_GO_until_fixed_real_model_baseline_evidence_exists
+  - BE8a_strict_persisted_decision_trace_decoder_completed_through_PR_97_merge_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -388,6 +389,17 @@ roadmap:
           - replay_and_diff_are_bounded_read_only_and_perform_no_physical_actuation
           - facade_and_downstream_single_dependency_guard_cover_the_shared_evidence_contract
           - workspace_all_targets_and_clippy_D_warnings_completed_success_on_Rust_1_89_0_before_PR_publication
+      - id: EX6b
+        name: Strict persisted Boolean decision trace decoder
+        status: complete
+        completion_evidence:
+          - PR_97_exact_head_62089e807ad5d4a7d6b733c4fd5841effd50a580
+          - PR_97_CI_35275123778_completed_success_on_exact_head
+          - PR_97_packageability_35275123821_completed_success_on_exact_head
+          - PR_97_merged_to_main_as_0eb3a37b72acc058fd5ad8471f5a95bb90dc3bf2
+          - persisted_decision_trace_v1_is_strict_bounded_roundtrippable_and_non_actuating
+          - custom_and_builtin_dimension_identity_remain_distinct_on_wire
+          - impossible_grounded_unknown_and_non_applicable_scope_classifications_fail_closed
     goals:
       - version_plan_and_cycle_records
       - capture_exact_preconditions_observations_actions_verification_and_outcome
