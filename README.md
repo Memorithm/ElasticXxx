@@ -162,3 +162,7 @@ SLHAv2 is intended to be the first demanding reference environment. The core Ela
 ## Status
 
 Research prototype / specification work in progress.
+
+## License
+
+Copyright 2026 Tarek Zekriti. ElasticXxx source code is available under the [PolyForm Noncommercial License 1.0.0](LICENSE.md), with the Required Notice preserved there. Commercial use is not granted by the noncommercial license; see [LICENSING.md](LICENSING.md) for the separate commercial-licensing path. Third-party dependencies and separately identified third-party material retain their own terms and notices.
