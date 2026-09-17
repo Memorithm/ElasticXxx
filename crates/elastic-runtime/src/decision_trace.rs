@@ -768,9 +768,19 @@ fn decode_wire_trace(wire: DecisionTraceWireV1) -> Result<DecisionTrace, Decisio
         .rejected
         .into_iter()
         .map(|entry| {
+            let candidate = decode_candidate(entry.candidate)?;
+            let failed_scope = parse_scope(&entry.failed_scope)?;
+            if !failed_scope.applies_to(candidate.mechanism, &candidate.dimension) {
+                return Err(invalid_persisted(format!(
+                    "rejected candidate {}@{} names non-applicable failed scope {}",
+                    mechanism_text(candidate.mechanism),
+                    candidate.dimension,
+                    failed_scope
+                )));
+            }
             Ok(RejectedCandidateTrace {
-                candidate: decode_candidate(entry.candidate)?,
-                failed_scope: parse_scope(&entry.failed_scope)?,
+                candidate,
+                failed_scope,
             })
         })
         .collect::<Result<Vec<_>, DecisionTraceError>>()?;
@@ -791,6 +801,24 @@ fn decode_wire_trace(wire: DecisionTraceWireV1) -> Result<DecisionTrace, Decisio
                 .iter()
                 .map(|scope| parse_scope(scope))
                 .collect::<Result<Vec<_>, _>>()?;
+            if candidate.capability_grounded && scopes.is_empty() {
+                return Err(invalid_persisted(format!(
+                    "grounded unknown candidate {}@{} requires at least one unknown guard scope",
+                    mechanism_text(candidate.mechanism),
+                    candidate.dimension
+                )));
+            }
+            if let Some(scope) = scopes
+                .iter()
+                .find(|scope| !scope.applies_to(candidate.mechanism, &candidate.dimension))
+            {
+                return Err(invalid_persisted(format!(
+                    "unknown candidate {}@{} names non-applicable unknown scope {}",
+                    mechanism_text(candidate.mechanism),
+                    candidate.dimension,
+                    scope
+                )));
+            }
             Ok(UnknownCandidateTrace {
                 candidate,
                 unknown_scopes: scopes,
@@ -852,24 +880,33 @@ fn decode_candidate(
 }
 
 fn parse_dimension(text: &str) -> Result<DimensionId, DecisionTraceError> {
-    let dimension = match text {
-        "capacity" => DimensionId::CAPACITY,
-        "concurrency" => DimensionId::CONCURRENCY,
-        "residency" => DimensionId::RESIDENCY,
-        "locality" => DimensionId::LOCALITY,
-        "representation" => DimensionId::REPRESENTATION,
-        "precision" => DimensionId::PRECISION,
-        "parallelism" => DimensionId::PARALLELISM,
-        "routing" => DimensionId::ROUTING,
-        "redundancy" => DimensionId::REDUNDANCY,
-        "persistence" => DimensionId::PERSISTENCE,
-        "recomputability" => DimensionId::RECOMPUTABILITY,
-        "bandwidth" => DimensionId::BANDWIDTH,
-        "energy" => DimensionId::ENERGY,
-        custom => DimensionId::custom(custom.to_owned())
-            .map_err(|error| invalid_persisted(format!("invalid dimension: {error}")))?,
-    };
-    Ok(dimension)
+    if let Some(builtin) = text.strip_prefix("builtin:") {
+        return match builtin {
+            "capacity" => Ok(DimensionId::CAPACITY),
+            "concurrency" => Ok(DimensionId::CONCURRENCY),
+            "residency" => Ok(DimensionId::RESIDENCY),
+            "locality" => Ok(DimensionId::LOCALITY),
+            "representation" => Ok(DimensionId::REPRESENTATION),
+            "precision" => Ok(DimensionId::PRECISION),
+            "parallelism" => Ok(DimensionId::PARALLELISM),
+            "routing" => Ok(DimensionId::ROUTING),
+            "redundancy" => Ok(DimensionId::REDUNDANCY),
+            "persistence" => Ok(DimensionId::PERSISTENCE),
+            "recomputability" => Ok(DimensionId::RECOMPUTABILITY),
+            "bandwidth" => Ok(DimensionId::BANDWIDTH),
+            "energy" => Ok(DimensionId::ENERGY),
+            _ => Err(invalid_persisted(format!(
+                "unknown built-in dimension {builtin:?}"
+            ))),
+        };
+    }
+    let custom = text.strip_prefix("custom:").ok_or_else(|| {
+        invalid_persisted(format!(
+            "dimension {text:?} must carry an explicit builtin: or custom: discriminator"
+        ))
+    })?;
+    DimensionId::custom(custom.to_owned())
+        .map_err(|error| invalid_persisted(format!("invalid custom dimension: {error}")))
 }
 
 fn parse_scope(text: &str) -> Result<GuardScope, DecisionTraceError> {
@@ -1411,23 +1448,33 @@ fn predicate_json(entry: &PredicateTraceEntry) -> Value {
 fn candidate_json(candidate: &CandidateDecisionTrace) -> Value {
     json!({
         "mechanism": mechanism_text(candidate.mechanism),
-        "dimension": candidate.dimension.as_str(),
+        "dimension": dimension_wire_text(&candidate.dimension),
         "capability_grounded": candidate.capability_grounded,
         "magnitude": candidate.magnitude,
     })
 }
 
+fn dimension_wire_text(dimension: &DimensionId) -> String {
+    if dimension.builtin_part().is_some() {
+        format!("builtin:{}", dimension.as_str())
+    } else {
+        format!("custom:{}", dimension.as_str())
+    }
+}
+
 fn scope_text(scope: &GuardScope) -> String {
     match scope {
         GuardScope::Resource => "resource".to_owned(),
-        GuardScope::Dimension(dimension) => format!("dimension:{}", dimension.as_str()),
+        GuardScope::Dimension(dimension) => {
+            format!("dimension:{}", dimension_wire_text(dimension))
+        }
         GuardScope::Transition {
             mechanism,
             dimension,
         } => format!(
             "transition:{}@{}",
             mechanism_text(*mechanism),
-            dimension.as_str()
+            dimension_wire_text(dimension)
         ),
     }
 }
@@ -1789,13 +1836,72 @@ mod tests {
     }
 
     #[test]
+    fn persisted_trace_rejects_impossible_grounded_unknown_without_unknown_scope() {
+        let (_, encoded) = persisted_fixture();
+        let mut value: Value = serde_json::from_str(&encoded).unwrap();
+        let candidate = value["eligible"][0].clone();
+        value["eligible"] = json!([]);
+        value["unknown"] = json!([{
+            "candidate": candidate,
+            "unknown_scopes": [],
+            "capability_grounded": true
+        }]);
+        value["selected"] = Value::Null;
+        value["stop_reason"] = Value::String("insufficient-evidence".to_owned());
+
+        let encoded = serde_json::to_vec(&value).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&encoded),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+    }
+
+    #[test]
+    fn persisted_trace_rejects_non_applicable_rejected_and_unknown_scopes() {
+        let (_, encoded) = persisted_fixture();
+        let base: Value = serde_json::from_str(&encoded).unwrap();
+        let candidate = base["eligible"][0].clone();
+
+        let mut rejected = base.clone();
+        rejected["eligible"] = json!([]);
+        rejected["rejected"] = json!([{
+            "candidate": candidate.clone(),
+            "failed_scope": "dimension:builtin:concurrency"
+        }]);
+        rejected["selected"] = Value::Null;
+        rejected["stop_reason"] = Value::String("all-candidates-rejected".to_owned());
+        let rejected = serde_json::to_vec(&rejected).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&rejected),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+
+        let mut unknown = base;
+        unknown["eligible"] = json!([]);
+        unknown["unknown"] = json!([{
+            "candidate": candidate,
+            "unknown_scopes": ["dimension:builtin:concurrency"],
+            "capability_grounded": true
+        }]);
+        unknown["selected"] = Value::Null;
+        unknown["stop_reason"] = Value::String("insufficient-evidence".to_owned());
+        let unknown = serde_json::to_vec(&unknown).unwrap();
+        assert!(matches!(
+            DecisionTrace::from_bounded_json(&unknown),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+    }
+
+    #[test]
     fn persisted_trace_roundtrips_custom_dimensions_in_transition_scopes() {
         let resource = LogicalResourceId::new("custom-dimension-trace").unwrap();
         let source = FactSourceId::new("runtime:custom-dimension-trace").unwrap();
         let predicates = Vec::new();
         let fact_snapshot_fingerprint =
             persisted_fact_fingerprint(&resource, &source, 9, 4, &predicates);
-        let eligible_dimension = DimensionId::custom("kv@tier:hot").unwrap();
+        // Custom terms are allowed to reuse built-in canonical text and must
+        // remain distinguishable from the built-in variant on the wire.
+        let eligible_dimension = DimensionId::custom("capacity").unwrap();
         let rejected_dimension = DimensionId::custom("storage:tier@cold").unwrap();
         let eligible = CandidateDecisionTrace {
             mechanism: TransitionMechanism::Reencode,
@@ -1806,13 +1912,13 @@ mod tests {
         let rejected = RejectedCandidateTrace {
             candidate: CandidateDecisionTrace {
                 mechanism: TransitionMechanism::Recompute,
-                dimension: rejected_dimension,
+                dimension: rejected_dimension.clone(),
                 capability_grounded: true,
                 magnitude: None,
             },
             failed_scope: GuardScope::Transition {
-                mechanism: TransitionMechanism::Reencode,
-                dimension: eligible_dimension,
+                mechanism: TransitionMechanism::Recompute,
+                dimension: rejected_dimension.clone(),
             },
         };
         let trace = DecisionTrace {

@@ -30,6 +30,8 @@ The v1 JSON object contains all of the following fields, including nullable `sel
 - `selected`;
 - `stop_reason`.
 
+Every persisted dimension carries an explicit textual discriminator: `builtin:<canonical-name>` or `custom:<extension-text>`. Guard-scope strings embed the same discriminated form. This is required because a valid custom term may intentionally reuse built-in text (for example, `custom("capacity")`) while remaining semantically distinct from `DimensionId::CAPACITY`.
+
 Unknown fields, duplicate fields, missing required fields, invalid enum values, and future schema identifiers are rejected.
 
 ## Bounds before JSON materialization
