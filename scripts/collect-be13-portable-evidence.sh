@@ -159,11 +159,12 @@ COLLECTOR_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
 HOST_TRIPLE=$(rustc +1.89.0 -Vv | awk -F': ' '$1 == "host" {print $2}')
 TARGET_RUSTFLAGS_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_RUSTFLAGS"
 RUSTFLAGS_VALUE=${RUSTFLAGS:-}
+CARGO_BUILD_RUSTFLAGS_VALUE=${CARGO_BUILD_RUSTFLAGS:-}
 CARGO_ENCODED_RUSTFLAGS_VALUE=${CARGO_ENCODED_RUSTFLAGS:-}
 TARGET_RUSTFLAGS_VALUE=${!TARGET_RUSTFLAGS_VAR:-}
-if [[ -z "$RUSTFLAGS_VALUE" && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
+if [[ -z "$RUSTFLAGS_VALUE" && -z "$CARGO_BUILD_RUSTFLAGS_VALUE" && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
   CODEGEN_PROFILE=portable
-elif [[ "$RUSTFLAGS_VALUE" == '-C target-cpu=native' && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
+elif [[ "$RUSTFLAGS_VALUE" == '-C target-cpu=native' && -z "$CARGO_BUILD_RUSTFLAGS_VALUE" && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
   CODEGEN_PROFILE=native
 else
   CODEGEN_PROFILE=custom
@@ -172,8 +173,8 @@ if [[ -n "$EXPECTED_CODEGEN_PROFILE" && "$CODEGEN_PROFILE" != "$EXPECTED_CODEGEN
   echo "effective codegen profile $CODEGEN_PROFILE does not match expected $EXPECTED_CODEGEN_PROFILE" >&2
   exit 2
 fi
-if [[ "$REQUIRE_QUALIFIED" == 1 && -n "$EXPECTED_CODEGEN_PROFILE" && -z "$SOURCE_REF" ]]; then
-  echo "qualified codegen evidence requires BE13_SOURCE_REF=refs/tags/..." >&2
+if [[ -z "$SOURCE_REF" ]]; then
+  echo "attested BE13 evidence requires BE13_SOURCE_REF=refs/tags/..." >&2
   exit 2
 fi
 
@@ -185,6 +186,7 @@ print(base64.b64encode(sys.argv[1].encode('utf-8')).decode('ascii'))
 PY64
 }
 RUSTFLAGS_BASE64=$(base64_text "$RUSTFLAGS_VALUE")
+CARGO_BUILD_RUSTFLAGS_BASE64=$(base64_text "$CARGO_BUILD_RUSTFLAGS_VALUE")
 CARGO_ENCODED_RUSTFLAGS_BASE64=$(base64_text "$CARGO_ENCODED_RUSTFLAGS_VALUE")
 TARGET_RUSTFLAGS_BASE64=$(base64_text "$TARGET_RUSTFLAGS_VALUE")
 METRICS_HELPER_SOURCE="$ROOT/tools/be13/process_metrics.c"
@@ -195,13 +197,21 @@ TIMING_ANALYZER_SHA256=$(sha256sum "$TIMING_ANALYZER_SOURCE" | awk '{print $1}')
 COMPILER_CFG="$OUT_DIR/compiler_cfg.txt"
 CARGO_CONFIG_INVENTORY="$OUT_DIR/cargo_config_inventory.txt"
 : >"$CARGO_CONFIG_INVENTORY"
-for config_path in \
-  "$ROOT/.cargo/config.toml" \
-  "$ROOT/.cargo/config" \
-  "${CARGO_HOME:-$HOME/.cargo}/config.toml" \
-  "${CARGO_HOME:-$HOME/.cargo}/config"; do
+config_dir="$ROOT"
+while true; do
+  for config_path in "$config_dir/.cargo/config.toml" "$config_dir/.cargo/config"; do
+    if [[ -f "$config_path" ]]; then
+      printf '%s %s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" >>"$CARGO_CONFIG_INVENTORY"
+    fi
+  done
+  [[ "$config_dir" == / ]] && break
+  config_dir=$(dirname "$config_dir")
+done
+for config_path in "${CARGO_HOME:-$HOME/.cargo}/config.toml" "${CARGO_HOME:-$HOME/.cargo}/config"; do
   if [[ -f "$config_path" ]]; then
-    printf '%s %s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" >>"$CARGO_CONFIG_INVENTORY"
+    if ! grep -Fqx -- "$(sha256sum "$config_path" | awk '{print $1}') $config_path" "$CARGO_CONFIG_INVENTORY"; then
+      printf '%s %s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" >>"$CARGO_CONFIG_INVENTORY"
+    fi
   fi
 done
 if [[ ! -s "$CARGO_CONFIG_INVENTORY" ]]; then
@@ -582,9 +592,10 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
   echo 'schema=elasticxxx-be13-portable-evidence/v2'
   echo "source_sha=$SOURCE_SHA"
   echo "source_ref=${SOURCE_REF:-none}"
-  echo 'codegen_attestation=cargo-rustc-print-cfg-v1'
+  echo 'codegen_attestation=cargo-rustc-print-cfg-v2'
   echo "codegen_profile=$CODEGEN_PROFILE"
   echo "rustflags_base64=$RUSTFLAGS_BASE64"
+  echo "cargo_build_rustflags_base64=$CARGO_BUILD_RUSTFLAGS_BASE64"
   echo "cargo_encoded_rustflags_base64=$CARGO_ENCODED_RUSTFLAGS_BASE64"
   echo "target_rustflags_variable=$TARGET_RUSTFLAGS_VAR"
   echo "target_rustflags_base64=$TARGET_RUSTFLAGS_BASE64"

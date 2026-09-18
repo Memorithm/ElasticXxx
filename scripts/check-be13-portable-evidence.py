@@ -283,6 +283,14 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         if codegen_profile is not None and codegen_profile not in {"portable", "native"}:
             raise AssertionError(f"unsupported legacy codegen_profile {codegen_profile!r}")
     elif codegen_attestation == "cargo-rustc-print-cfg-v1":
+        # v1 did not capture CARGO_BUILD_RUSTFLAGS or ancestor Cargo config files.
+        # Retain those files as archival evidence only; they are insufficient
+        # for portable/native codegen attribution.
+        if codegen_profile not in {"portable", "native"}:
+            raise AssertionError(f"legacy attested codegen_profile must be portable or native, got {codegen_profile!r}")
+        if meta.get("source_ref", "none") == "none":
+            raise AssertionError("legacy attested codegen evidence requires a permanent source_ref")
+    elif codegen_attestation == "cargo-rustc-print-cfg-v2":
         if codegen_profile not in {"portable", "native"}:
             raise AssertionError(f"attested codegen_profile must be portable or native, got {codegen_profile!r}")
         if meta.get("source_ref", "none") == "none":
@@ -298,13 +306,14 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
                 raise AssertionError(f"invalid base64 metadata field {name}") from error
 
         rustflags = decoded("rustflags_base64")
+        cargo_build_rustflags = decoded("cargo_build_rustflags_base64")
         encoded = decoded("cargo_encoded_rustflags_base64")
         target_flags = decoded("target_rustflags_base64")
         expected_profile = (
             "portable"
-            if not rustflags and not encoded and not target_flags
+            if not rustflags and not cargo_build_rustflags and not encoded and not target_flags
             else "native"
-            if rustflags == "-C target-cpu=native" and not encoded and not target_flags
+            if rustflags == "-C target-cpu=native" and not cargo_build_rustflags and not encoded and not target_flags
             else "custom"
         )
         if expected_profile != codegen_profile:
@@ -505,7 +514,7 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
             "frequency_samples.csv",
             "process_metrics.csv",
             "timing_stability.json",
-            *( ["compiler_cfg.txt", "cargo_config_inventory.txt"] if codegen_attestation == "cargo-rustc-print-cfg-v1" else [] ),
+            *( ["compiler_cfg.txt", "cargo_config_inventory.txt"] if codegen_attestation in {"cargo-rustc-print-cfg-v1", "cargo-rustc-print-cfg-v2"} else [] ),
             "metadata.txt",
             "README.md",
         ],
