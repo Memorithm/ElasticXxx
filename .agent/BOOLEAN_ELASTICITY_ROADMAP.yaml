@@ -16,7 +16,7 @@ mission: >-
 current_verified_state:
   main_sha: d0a6656731bb1cef4e9bfa0dd578b0a6145b56bd
   main_observed_at: "2026-09-18"
-  open_pull_requests: 0
+  open_pull_requests: 1
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -632,6 +632,20 @@ phases:
         name: optional_SAT_or_BDD_backend
         status: active
         precondition: BE11a_and_BE11c_qualified
+        current_review:
+          observed_at: "2026-09-18"
+          candidate: rustsat_0_7_5_plus_rustsat_minisat_0_7_5
+          observed_metadata:
+            - crates_io_reports_MIT_for_both_crates
+            - crates_io_reports_rust_version_1_76_0_for_both_crates
+            - minisat_adapter_exposes_conflict_and_propagation_limits_and_interrupt
+          blocking_gap: >-
+            The inspected 0.7.5 Minisat adapter does not expose a direct hard
+            memory limit matching the generic BE11c finite-memory contract.
+            Therefore this candidate is not qualified or selected. Exact
+            transitive/native dependency and licence review is also still
+            required before any adoption.
+          result: non_qualified_candidate_review
         tasks:
           - choose_backend_from_current_maintained_ecosystem_after_review
           - enforce_timeout_clause_node_and_memory_limits
@@ -639,6 +653,17 @@ phases:
           - preserve_solver_unknown_and_timeout_as_non_results
       - id: BE11e
         name: analysis_API_and_CLI
+        status: candidate
+        candidate_evidence:
+          - ElasticXxx_PR_113
+          - PR113_exact_head_b7ae1bc078d0977808a2cc0d69936e77437068cd
+          - local_workspace_all_targets_pass
+          - local_elastic_cli_guard_analysis_tests_pass
+          - local_process_level_guard_analyze_pass
+          - local_clippy_D_warnings_pass
+        qualification_rule: >-
+          Remains candidate until exact-head GitHub CI, packageability and
+          applicable hardening gates complete successfully and the PR is merged.
         tasks:
           - contradiction_tautology_implication_equivalence_reachability_commands
           - bounded_diagnostics_and_machine_readable_reports
