@@ -1428,8 +1428,6 @@ phases:
               - selection_is_explanatory_only_and_cannot_reserve_dispatch_lease_or_actuate_a_device_or_worker
               - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
             remaining:
-              - trusted_validation_actuation_verification_and_rollback_boundary_when_actuation_exists
-              - explicit_non_boolean_differential_baseline
               - portable_benchmark_before_any_performance_claim
         planned_slices:
           - id: BE14g_durable_trace_binding
@@ -1449,7 +1447,24 @@ phases:
               - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
             remaining: []
           - id: BE14g_trusted_transaction_and_differential_baseline
-            status: planned
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_153
+              - PR153_exact_head_8253e0586052917c9f6e018f8e22a7424504a21c
+              - PR153_ci_35384815391_completed_success_on_exact_head
+              - PR153_continuous_hardening_35384815396_completed_success_on_exact_head
+              - PR153_packageability_35384815206_completed_success_on_exact_head
+              - PR153_BE14e_benchmark_smoke_35384815380_completed_success_on_exact_head
+              - PR153_merged_as_5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
+              - BatchDevicePlacementBackendV1_drives_VALIDATE_ACT_VERIFY_COMMIT_or_ROLLBACK_for_an_already_authorized_local_surface
+              - guarded_transaction_recomputes_exact_trace_against_fresh_capacity_before_backend_validation
+              - Unknown_NoCandidate_generation_drift_freshness_drift_and_trace_or_policy_mismatch_block_before_backend_access
+              - rollback_is_attempted_after_possible_mutation_and_retains_backend_rollback_error_evidence
+              - unguarded_reference_rejects_undeclared_or_modified_candidates_and_requires_fresh_complete_capacity
+              - guarded_and_unguarded_reference_paths_commit_identical_local_state_for_the_same_declared_candidate
+              - backend_contract_explicitly_does_not_acquire_or_renew_Hub_leases_or_fencing_tokens_dispatch_workers_discover_devices_or_transport_data
+              - only_explicit_test_provider_exercised_no_production_device_placement_claim
+            remaining: []
           - id: BE14g_portable_benchmark
             status: planned
       - id: BE14h
@@ -1588,20 +1603,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14g_trusted_transaction_and_differential_baseline
+  immediate_next_slice: BE14g_portable_benchmark
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_PR152_merge
-  verified_main: 9a7f9f8d82f973d5213e162cf16089db9ac608af
-  latest_qualified_slice: BE14g_durable_trace_binding
-  latest_qualified_pr: 152
-  latest_qualified_head: 43987d511e16f4d2b5cb916d0ad85f319f693fab
-  latest_merge: 9a7f9f8d82f973d5213e162cf16089db9ac608af
-  latest_merged_progress_slice: BE14g_durable_trace_binding
-  latest_merged_progress_pr: 152
-  latest_merged_progress_head: 43987d511e16f4d2b5cb916d0ad85f319f693fab
-  latest_merged_progress_merge: 9a7f9f8d82f973d5213e162cf16089db9ac608af
+  current_candidate_status: no_ElasticXxx_candidate_open_after_PR153_merge
+  verified_main: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
+  latest_qualified_slice: BE14g_trusted_transaction_and_differential_baseline
+  latest_qualified_pr: 153
+  latest_qualified_head: 8253e0586052917c9f6e018f8e22a7424504a21c
+  latest_merge: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
+  latest_merged_progress_slice: BE14g_trusted_transaction_and_differential_baseline
+  latest_merged_progress_pr: 153
+  latest_merged_progress_head: 8253e0586052917c9f6e018f8e22a7424504a21c
+  latest_merged_progress_merge: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
