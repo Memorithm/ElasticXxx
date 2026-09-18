@@ -33,6 +33,7 @@ pub mod predicate;
 pub mod representation;
 pub mod resource;
 pub mod resource_policy_analysis;
+pub mod symbolic_backend;
 
 pub use canonical::{
     BoolExprFingerprint, CanonicalizationError, BOOLEAN_EXPRESSION_SCHEMA_V1,
@@ -81,4 +82,9 @@ pub use resource_policy_analysis::{
     ResourcePolicyAnalysis, ResourcePolicyAnalysisError, TransitionPairAnalysis,
     TransitionPolicyAnalysis, MAX_RESOURCE_POLICY_INVARIANT_BINDINGS, MAX_RESOURCE_POLICY_PAIRS,
     MAX_RESOURCE_POLICY_TRANSITIONS,
+};
+pub use symbolic_backend::{
+    SymbolicBackend, SymbolicBackendConfig, SymbolicBackendConfigError, SymbolicBackendResult,
+    SymbolicResource, DEFAULT_SYMBOLIC_MAX_CLAUSES, DEFAULT_SYMBOLIC_MAX_MEMORY_BYTES,
+    DEFAULT_SYMBOLIC_MAX_NODES, DEFAULT_SYMBOLIC_SEED, DEFAULT_SYMBOLIC_TIMEOUT_MILLIS,
 };
