@@ -132,3 +132,13 @@ was collected from exact source
 
 These facts qualify the **measurement protocol** for controlled portable
 comparison. They do not establish a speedup or an architecture-specific benefit.
+
+## BE13e architecture-specific acceleration gate
+
+BE13d controlled evidence now permits architecture-specific candidates to be
+measured, but not assumed beneficial. The BE13e gate and retained portable vs
+`target-cpu=native` comparison are documented in
+[`boolean-be13-acceleration-gate.md`](boolean-be13-acceleration-gate.md). The
+qualified decision keeps the portable production path and enables no SVE/SVE2
+or native-codegen dispatch because the specialized probe did not dominate the
+portable candidate on the target multiword paths.

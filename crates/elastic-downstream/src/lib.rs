@@ -99,6 +99,10 @@ pub fn public_decision_trace_diff_surface_smoke() {
 /// Compile-time and semantic proof that the low-level Boolean primitives remain
 /// reachable through the public facade without importing `elastic-core`.
 pub fn public_boolean_surface_smoke() {
+    let cpu_features = BooleanCpuFeatures::detect();
+    assert_eq!(cpu_features, BooleanCpuFeatures::detect());
+    let _architecture: BooleanCpuArchitecture = cpu_features.architecture();
+
     let capacity_ok = PredicateId::new(0);
     let pressure_critical = PredicateId::new(1);
     let expression = BoolExpr::all([
