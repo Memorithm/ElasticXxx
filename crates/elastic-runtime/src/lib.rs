@@ -67,6 +67,7 @@ pub mod registry;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
 pub mod thermal_energy_boolean_admission;
+pub mod thermal_energy_transaction;
 pub mod transaction;
 pub mod verification;
 
@@ -235,6 +236,12 @@ pub use thermal_energy_boolean_admission::{
     BooleanThermalEnergyEvidenceV1, BooleanThermalEnergyPreplannerV1, BooleanThermalEnergyReportV1,
     BooleanThermalEnergyStatusV1, ENERGY_RATE_WITHIN_BUDGET_PREDICATE_NAME, THERMAL_ENERGY_MAX_AGE,
     THERMAL_ENERGY_PREDICATE_NAMESPACE, THERMAL_MARGIN_SUFFICIENT_PREDICATE_NAME,
+};
+pub use thermal_energy_transaction::{
+    execute_guarded_thermal_energy_transaction, execute_unguarded_thermal_energy_transaction,
+    CommittedThermalEnergyTransitionV1, GuardedThermalEnergyTransactionOutcomeV1,
+    ThermalEnergyTransactionBlockV1, ThermalEnergyTransactionFailureV1,
+    ThermalEnergyTransactionStageV1, ThermalEnergyTransitionBackendV1,
 };
 pub use transaction::TransactionalActuator;
 pub use verification::VerificationResult;

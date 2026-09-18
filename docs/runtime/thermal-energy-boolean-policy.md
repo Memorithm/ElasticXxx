@@ -93,3 +93,24 @@ trusted `ObservationEpoch` and current `ResourceGeneration`; the BE14h
 preplanner does not invent either value from local call order. Those exact
 caller-supplied values are bound into `FactSnapshot`, freshness validation, and
 the durable `DecisionTrace`.
+
+## Trusted transaction and non-Boolean reference
+
+`execute_guarded_thermal_energy_transaction` keeps the Boolean result as a
+precheck. On an eligible fresh snapshot it immediately re-evaluates the exact
+source-bound numeric thresholds without Boolean pruning, then calls the
+backend-owned `validate_transition` before any mutation. Only after that gate may
+a caller-provided `ThermalEnergyTransitionBackendV1` enter ACT → VERIFY → COMMIT.
+Any failure after a possible mutation attempts backend rollback and retains the
+original stage plus a possible rollback error.
+
+`execute_unguarded_thermal_energy_transaction` is the explicit differential
+reference. It skips Boolean pruning/ranking but uses the same source-bound
+numeric policy and the same trusted backend lifecycle. This permits semantic
+comparison without treating a `DecisionTrace` as authority.
+
+ElasticXxx intentionally provides **no concrete thermal, fan, clock, or power
+actuator** in this slice. Tests use an explicit deterministic test backend. A
+real device integration remains unqualified until that backend has its own
+capability, validation, verification, rollback, and hardware evidence. No
+performance or energy-saving claim follows from the software transaction tests.
