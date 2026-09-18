@@ -1,0 +1,10 @@
+schema=booleanlab.elasticxxx-exact-vectors-manifest.v1
+vector_schema_version=1
+generator_repository=Memorithm/BooleanLab
+generator_commit=7fd929a62cfc219a525b21ff02801fbc8bcb012e
+generator_module=crates/booleanlab-discovery/src/elastic_interop_vectors.rs
+generator_module_sha256=85dcf9951b27b9da3aae64e56326e2737f86ae4ca7f2483d67588d396189bef7
+fixture=interop/elasticxxx/exact-vectors-v1.tsv
+fixture_sha256=b27f14593c908a5d3ccdb2d410d64d3420d1f9c42da593621e9ca7a6f339dd59
+row_order=p0-least-significant-assignment-bit
+claim_boundary=exact-test-vectors-only
