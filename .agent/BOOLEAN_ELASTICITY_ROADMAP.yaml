@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 2e979dc3a8a2ba59e31b192d8cda737a91d09106
+  main_sha: ddab025d34cb42f8d080962b8cc8af0b0443751f
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -144,6 +144,14 @@ current_verified_state:
       hardening_run: 35297739587
       result: success
       purpose: bounded_dependency_free_guard_analysis_CLI
+    - pr: 114
+      head: 9124f84ac977ad31365b838e306ea54e14086b00
+      merge: ddab025d34cb42f8d080962b8cc8af0b0443751f
+      ci_run: 35298181537
+      packageability_run: 35298181622
+      hardening_run: 35298181525
+      result: success
+      purpose: bounded_compiled_pseudo_Boolean_core_and_partial_evaluator
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -684,11 +692,25 @@ phases:
 
   - id: BE12
     name: pseudo_boolean_resource_constraints
-    status: planned
+    status: active
     target_crates: [elastic-core, elastic-eir, elastic-runtime]
     required_slices:
       - id: BE12a
         name: typed_constraint_model
+        status: in_progress
+        qualification_evidence:
+          - ElasticXxx_PR_114
+          - PR114_exact_head_9124f84ac977ad31365b838e306ea54e14086b00
+          - PR114_CI_35298181537_completed_success_on_exact_head
+          - PR114_packageability_35298181622_completed_success_on_exact_head
+          - PR114_hardening_35298181525_completed_success_on_exact_head
+          - PR114_merged_to_main_as_ddab025d34cb42f8d080962b8cc8af0b0443751f
+          - bounded_compiled_WeightedPredicate_with_LE_GE_EQ_and_cardinality_helpers
+          - explicit_unit_and_integer_quantum_metadata
+          - checked_i128_accumulation_and_overflow_fail_closed
+        remaining:
+          - durable_stable_PredicateKey_declaration_and_binding_to_compact_PredicateId
+          - contract_specific_rejection_of_negative_weights_where_a_domain_forbids_them
         tasks:
           - WeightedPredicate_or_equivalent_with_stable_key
           - relations_LE_GE_EQ
@@ -698,6 +720,15 @@ phases:
           - reject_negative_or_overflowing_weights_when_contract_forbids_them
       - id: BE12b
         name: deterministic_evaluator
+        status: in_progress
+        qualification_evidence:
+          - ElasticXxx_PR_114
+          - partial_assignment_bounds_preserve_True_False_Unknown
+          - signed_weight_bounds_are_deterministic
+          - equality_does_not_claim_reachability_from_interval_membership
+        remaining:
+          - bind_durable_stable_key_declarations_before_closing_the_slice
+          - exact_small_domain_reference_differential_remains_BE12d
         tasks:
           - evaluate_True_False_Unknown_without_collapsing_unknown_terms
           - define_bounds_that_can_decide_early_under_partial_assignment
