@@ -45,3 +45,17 @@ authorize a specialized execution path.
 See `docs/boolean-be13-acceleration-gate.md` for the bounded interpretation and
 gate decision. The conclusion is intentionally conservative: no specialized
 SIMD/SVE/native dispatch is enabled by these measurements.
+
+### BE13e provenance hardening
+
+The original `2026-09-18-be13e-e8268e8-{portable,native}` files predate
+collector-level codegen attestation. They remain archival controlled timing
+sets, but their post-hoc codegen labels are not sufficient for codegen
+attribution. The source commit itself is retained by
+`refs/tags/elasticxxx-be13e-source-e8268e8`.
+
+The corrected `2026-09-18-be13e-attested-32415254-{portable,native}` sets bind to
+`refs/tags/elasticxxx-be13e-source-32415254` and include collector-generated
+rustflag metadata, `cargo rustc -- --print cfg` output, Cargo-config inventory,
+and SHA-256 bindings. These are the evidence sets used by the current BE13e gate
+decision.

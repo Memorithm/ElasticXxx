@@ -1,0 +1,82 @@
+{
+  "block_size": 5,
+  "maximum_block_median_spread_ratio": 0.1,
+  "method": "contiguous_nonoverlapping_block_medians_no_posthoc_row_deletion",
+  "minimum_repetitions": 30,
+  "paths": {
+    "batch_filter": {
+      "block_median_spread_ratio": 0.006514612583954182,
+      "block_medians_ns_per_guard": [
+        6.805871,
+        6.846765,
+        6.828361,
+        6.845762,
+        6.821762,
+        6.802358
+      ],
+      "median_ns_per_guard": 6.816522,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "generic_bool_expr": {
+      "block_median_spread_ratio": 0.03379581856369455,
+      "block_medians_ns_per_guard": [
+        15.884624,
+        16.287924,
+        16.27994,
+        16.434382,
+        16.002696,
+        16.12042
+      ],
+      "median_ns_per_guard": 16.267042,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "multiword_guard": {
+      "block_median_spread_ratio": 0.02493018622417419,
+      "block_medians_ns_per_guard": [
+        8.276338,
+        8.110722,
+        8.230898,
+        8.070526,
+        8.255784,
+        8.259598
+      ],
+      "median_ns_per_guard": 8.255534,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "scalar_if_chain": {
+      "block_median_spread_ratio": 0.014078404217696301,
+      "block_medians_ns_per_guard": [
+        1.70566,
+        1.683236,
+        1.682102,
+        1.682732,
+        1.681974,
+        1.682434
+      ],
+      "median_ns_per_guard": 1.682435,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "u64_compiled_guard": {
+      "block_median_spread_ratio": 0.017397403865726458,
+      "block_medians_ns_per_guard": [
+        1.772606,
+        1.803214,
+        1.798288,
+        1.773416,
+        1.776436,
+        1.77236
+      ],
+      "median_ns_per_guard": 1.7734830000000001,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    }
+  },
+  "repetitions": 30,
+  "schema": "elasticxxx-be13-timing-stability/v1",
+  "stable": true,
+  "worst_block_median_spread_ratio": 0.03379581856369455
+}

@@ -41,6 +41,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
+          fetch-tags: true
+      - name: Fetch permanent measurement refs
+        shell: bash
+        run: git fetch --force --tags origin
       - name: Require trusted persistent runner
         shell: bash
         run: |
