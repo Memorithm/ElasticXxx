@@ -277,6 +277,16 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
 
     codegen_profile = meta.get("codegen_profile")
     codegen_attestation = meta.get("codegen_attestation")
+
+    def decoded(name: str) -> str:
+        value = meta.get(name)
+        if value is None:
+            raise AssertionError(f"missing attested metadata field {name}")
+        try:
+            return base64.b64decode(value, validate=True).decode("utf-8")
+        except Exception as error:
+            raise AssertionError(f"invalid base64 metadata field {name}") from error
+
     if codegen_attestation is None:
         # Historical BE13e files may carry post-hoc labels. They remain archival
         # evidence but are not sufficient for codegen attribution.
@@ -287,15 +297,6 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
             raise AssertionError(f"attested codegen_profile must be portable or native, got {codegen_profile!r}")
         if meta.get("source_ref", "none") == "none":
             raise AssertionError("attested codegen evidence requires a permanent source_ref")
-
-        def decoded(name: str) -> str:
-            value = meta.get(name)
-            if value is None:
-                raise AssertionError(f"missing attested metadata field {name}")
-            try:
-                return base64.b64decode(value, validate=True).decode("utf-8")
-            except Exception as error:
-                raise AssertionError(f"invalid base64 metadata field {name}") from error
 
         rustflags = decoded("rustflags_base64")
         encoded = decoded("cargo_encoded_rustflags_base64")
@@ -334,6 +335,59 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         if codegen_profile == "native" and meta.get("rustc_host", "").startswith("aarch64-"):
             if 'target_feature="sve"' not in cfg_lines or 'target_feature="sve2"' not in cfg_lines:
                 raise AssertionError("AArch64 native attestation lacks effective SVE/SVE2 target features")
+    elif codegen_attestation == "cargo-build-context-v2":
+        if codegen_profile not in {"portable", "native", "custom"}:
+            raise AssertionError(f"invalid v2 codegen_profile {codegen_profile!r}")
+        if meta.get("source_ref", "none") == "none":
+            raise AssertionError("v2 codegen attestation requires a permanent source_ref")
+
+        rustflags = decoded("rustflags_base64")
+        encoded = decoded("cargo_encoded_rustflags_base64")
+        target_flags = decoded("target_rustflags_base64")
+        build_rustflags = decoded("cargo_build_rustflags_base64")
+        build_target = decoded("cargo_build_target_base64")
+        cargo_incremental = decoded("cargo_incremental_base64")
+
+        compiler_cfg = directory / "compiler_cfg.txt"
+        cargo_inventory = directory / "cargo_config_inventory.txt"
+        build_env_inventory = directory / "build_env_inventory.txt"
+        for path, field in (
+            (compiler_cfg, "compiler_cfg_sha256"),
+            (cargo_inventory, "cargo_config_inventory_sha256"),
+            (build_env_inventory, "build_env_inventory_sha256"),
+        ):
+            if not path.is_file():
+                raise AssertionError(f"missing v2 codegen attestation file: {path}")
+            if meta.get(field) != sha256(path):
+                raise AssertionError(f"{field} does not match {path}")
+
+        cargo_inventory_text = cargo_inventory.read_text(encoding="utf-8").strip()
+        build_env_text = build_env_inventory.read_text(encoding="utf-8").strip()
+        configs_present = cargo_inventory_text != "none"
+        bench_overrides_present = build_env_text != "none"
+        if meta.get("cargo_configs_present") != str(configs_present).lower():
+            raise AssertionError("cargo_configs_present disagrees with cargo_config_inventory.txt")
+        if meta.get("bench_profile_overrides_present") != str(bench_overrides_present).lower():
+            raise AssertionError("bench_profile_overrides_present disagrees with build_env_inventory.txt")
+
+        clean_context = not any(
+            (encoded, target_flags, build_rustflags, build_target, cargo_incremental)
+        ) and not configs_present and not bench_overrides_present
+        expected_profile = (
+            "portable"
+            if clean_context and not rustflags
+            else "native"
+            if clean_context and rustflags == "-C target-cpu=native"
+            else "custom"
+        )
+        if expected_profile != codegen_profile:
+            raise AssertionError(
+                f"v2 codegen profile {codegen_profile!r} disagrees with captured build context ({expected_profile})"
+            )
+
+        cfg_lines = set(compiler_cfg.read_text(encoding="utf-8").splitlines())
+        if not any(line.startswith('target_arch=') for line in cfg_lines):
+            raise AssertionError("compiler_cfg.txt lacks target_arch")
     else:
         raise AssertionError(f"unsupported codegen_attestation {codegen_attestation!r}")
 
@@ -505,7 +559,13 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
             "frequency_samples.csv",
             "process_metrics.csv",
             "timing_stability.json",
-            *( ["compiler_cfg.txt", "cargo_config_inventory.txt"] if codegen_attestation == "cargo-rustc-print-cfg-v1" else [] ),
+            *(
+                ["compiler_cfg.txt", "cargo_config_inventory.txt"]
+                if codegen_attestation == "cargo-rustc-print-cfg-v1"
+                else ["compiler_cfg.txt", "cargo_config_inventory.txt", "build_env_inventory.txt"]
+                if codegen_attestation == "cargo-build-context-v2"
+                else []
+            ),
             "metadata.txt",
             "README.md",
         ],
