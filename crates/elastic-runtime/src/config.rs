@@ -1,6 +1,6 @@
 //! Runtime configuration.
 //!
-//! Immutable configuration that defines the behavior of a [`Runtime`] instance.
+//! Immutable configuration that defines the behavior of a [`crate::runtime::Runtime`] instance.
 //! This includes resource declarations, adapter settings, planner configuration,
 //! and control loop parameters.
 
@@ -9,7 +9,7 @@ use std::time::Duration;
 use elastic_core::resource::ResourceSpec;
 use elastic_eir::EirResource;
 
-/// Configuration for a [`Runtime`] instance.
+/// Configuration for a [`crate::runtime::Runtime`] instance.
 ///
 /// This is immutable after construction and defines the full policy boundary
 /// for the runtime control loop.
