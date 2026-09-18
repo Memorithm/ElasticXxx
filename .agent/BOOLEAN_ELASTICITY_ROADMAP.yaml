@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: b05c1906ee39bf3373fc541feedfa25520fbe433
+  main_sha: a8d4310ef2d655bb5856f2822ae5c1340a1a623b
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1191,8 +1191,8 @@ phases:
           - verification_failure_rolls_back_and_no_performance_or_model_quality_claim
       - id: BE14d
         domain: KV_cache
-        status: active
-        progress_evidence:
+        status: completed
+        qualification_evidence:
           - ElasticXxx_PR_136_first_planning_evidence_slice
           - PR136_exact_head_ef03172858c30c36708c10a9dec0d4c92e198fe5
           - PR136_ci_35344037484_completed_success_on_exact_head
@@ -1243,9 +1243,23 @@ phases:
           - PR141_merged_to_main_as_b05c1906ee39bf3373fc541feedfa25520fbe433
           - CurrentStateForecaster_is_explicitly_between_observation_and_Boolean_planning_with_zero_horizon_and_no_confidence_claim
           - frozen_V1_wire_is_preserved_while_V2_records_forecast_method_horizon_and_confidence_boundary
-          - BE14d_remains_active_pending_durable_trace_consumption_and_explicit_differential_unguarded_physical_baseline_qualification
+          - ElasticXxx_PR_142_durable_trace_and_differential_physical_baseline_slice
+          - PR142_exact_head_f22e57afe87475249fd2ee187222511af086bcdf
+          - PR142_ci_35356844821_completed_success_on_exact_head
+          - PR142_packageability_35356844799_completed_success_on_exact_head
+          - PR142_merged_to_main_as_a8d4310ef2d655bb5856f2822ae5c1340a1a623b
+          - persisted_DecisionTrace_v1_is_decoded_through_public_facade_and_requires_selected_candidate
+          - explicit_unguarded_physical_baseline_commits_identical_encoded_bytes_and_semantic_values
+          - SLHAv2_PR_113_real_physical_KV_consumer
+          - SLHAv2_PR113_exact_head_03244af7727dafa752755bd96f4ec2c812ae4394
+          - SLHAv2_PR113_CI_35354196002_completed_success_on_exact_head
+          - SLHAv2_PR113_merged_as_4a7cbeb871430301b101dc4ee4291b6db2a84d53
+          - real_SLHAv2_cache_observer_reuses_exact_resource_identity_and_physical_free_bytes
+          - real_consumer_covers_True_False_Unknown_zero_horizon_forecast_physical_commit_and_rollback_authority
+          - BE14d_closed_without_latency_bandwidth_memory_saving_GPU_energy_or_model_quality_claim
       - id: BE14e
         domain: representation_precision
+        status: active
       - id: BE14f
         domain: kernel_realization
       - id: BE14g
