@@ -53,9 +53,10 @@ pub use elastic_core::resource::{
 };
 pub use elastic_core::{
     BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard,
-    ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
-    ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError, GuardFactSource, GuardScope,
-    GuardedResourceSpec, InvariantPredicateBinding, LogicError, PredicateComponent,
+    ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
+    ExactPropertyReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
+    GuardFactSource, GuardScope, GuardedResourceSpec, InvariantPredicateBinding, KleeneOracleError,
+    KleenePropertyReport, KleeneSatisfiabilityReport, LogicError, PredicateComponent,
     PredicateComponentError, PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError,
     TransitionGuard, TransitionMechanism, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1,
     BOOLEAN_PREDICATE_SCHEMA_V1, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
@@ -183,9 +184,10 @@ pub mod prelude {
     };
     pub use elastic_core::{
         BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard, ExactBooleanOracle,
-        ExactOracleError, ExactOracleLimits, ExactPropertyReport, ExactSatisfiabilityReport,
-        FactMask, FactSet, GuardBindingError, GuardScope, GuardedResourceSpec,
-        InvariantPredicateBinding, LogicError, PredicateId, PredicateKey, PredicateRegistry,
+        ExactKleeneOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
+        ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError, GuardScope,
+        GuardedResourceSpec, InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
+        KleeneSatisfiabilityReport, LogicError, PredicateId, PredicateKey, PredicateRegistry,
         PredicateRegistryError, TransitionGuard, TransitionMechanism, TruthValue,
         DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES, FAST_PREDICATE_CAPACITY,
         MAX_BOOLEAN_EXPR_DEPTH, MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES,
