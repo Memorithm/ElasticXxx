@@ -30,6 +30,7 @@ pub mod invariant_predicate;
 pub mod kleene_oracle;
 pub mod logic;
 pub mod multiword;
+pub mod multiword_batch;
 pub mod multiword_guard;
 pub mod predicate;
 pub mod pseudo_boolean;
@@ -68,6 +69,9 @@ pub use logic::{
 pub use multiword::{
     MultiwordFactError, MultiwordFactSet, MultiwordFactWord, MAX_MULTIWORD_FACT_PREDICATES,
     MAX_MULTIWORD_FACT_WORDS, MULTIWORD_FACT_WORD_BITS,
+};
+pub use multiword_batch::{
+    MultiwordBatchError, MultiwordBatchScreen, MultiwordGuardBatch, MAX_MULTIWORD_GUARDS_PER_BATCH,
 };
 pub use multiword_guard::{MultiwordCompiledGuard, MultiwordGuardError, MultiwordGuardPath};
 pub use predicate::{
