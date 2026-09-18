@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: a8d4310ef2d655bb5856f2822ae5c1340a1a623b
+  main_sha: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1277,7 +1277,25 @@ phases:
               - public_facade_tests_cover_True_and_Unknown_and_runtime_tests_cover_True_False_Unknown
               - no_latency_throughput_memory_saving_hardware_energy_numerical_quality_or_model_quality_claim
             remaining:
-              - bind_BE14e_outcome_into_durable_decision_trace_without_actuation_authority
+              - qualify_real_representation_precision_consumer_with_authoritative_VALIDATE_VERIFY_and_rollback_when_actuation_exists
+              - add_explicit_unguarded_differential_baseline
+              - benchmark_before_any_performance_claim
+          - id: BE14e_durable_decision_trace_binding
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_144
+              - PR144_exact_head_b925e7eb5f4450e8350c4129dcb5d34650c364dc
+              - PR144_ci_35362052621_completed_success_on_exact_head
+              - PR144_packageability_35362052585_completed_success_on_exact_head
+              - PR144_continuous_hardening_35362052578_completed_success_on_exact_head
+              - PR144_merged_as_c36f0723311078f4cc109c28d2b9e5d70da5c5f3
+              - additive_V2_evidence_envelope_preserves_V1_planning_wire_contract
+              - evaluated_False_Unknown_and_selected_True_candidates_bind_strict_bounded_DecisionTrace_v1
+              - traces_bind_exact_observation_epoch_and_resource_generation
+              - structural_or_capability_rejection_records_no_fabricated_precision_guard_trace
+              - replay_and_decoding_remain_explanatory_and_non_actuating
+              - no_latency_throughput_memory_saving_hardware_energy_numerical_quality_or_model_quality_claim
+            remaining:
               - qualify_real_representation_precision_consumer_with_authoritative_VALIDATE_VERIFY_and_rollback_when_actuation_exists
               - add_explicit_unguarded_differential_baseline
               - benchmark_before_any_performance_claim
@@ -1421,20 +1439,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14e_durable_trace_binding
+  immediate_next_slice: BE14e_real_consumer_validation_verify_rollback
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_fixed_width_preplanning_merge
-  verified_main: ea85ec690df730d486908cc6abe71836f76922e5
-  latest_qualified_slice: BE14e_fixed_width_fail_closed_preplanning
-  latest_qualified_pr: 143
-  latest_qualified_head: ef92faf61d920579902635060f81ea504c710c0e
-  latest_merge: ea85ec690df730d486908cc6abe71836f76922e5
-  latest_merged_progress_slice: BE14e_fixed_width_fail_closed_preplanning
-  latest_merged_progress_pr: 143
-  latest_merged_progress_head: ef92faf61d920579902635060f81ea504c710c0e
-  latest_merged_progress_merge: ea85ec690df730d486908cc6abe71836f76922e5
+  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_durable_trace_merge
+  verified_main: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
+  latest_qualified_slice: BE14e_durable_decision_trace_binding
+  latest_qualified_pr: 144
+  latest_qualified_head: b925e7eb5f4450e8350c4129dcb5d34650c364dc
+  latest_merge: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
+  latest_merged_progress_slice: BE14e_durable_decision_trace_binding
+  latest_merged_progress_pr: 144
+  latest_merged_progress_head: b925e7eb5f4450e8350c4129dcb5d34650c364dc
+  latest_merged_progress_merge: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
