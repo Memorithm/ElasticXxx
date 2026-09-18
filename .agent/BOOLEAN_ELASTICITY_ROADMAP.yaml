@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 0629928199e2348a7943a766635b0ef9ed2d8c9e
+  main_sha: 302bb9058e2ee173676f87157c171c885fa164f4
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -241,6 +241,22 @@ current_verified_state:
       evidence_integrity_run: 35313385809
       result: success
       purpose: retained_exact_source_portable_measurement_evidence_with_explicit_DVFS_confound
+    - pr: 126
+      head: 08380f5fe0d64b78105e591781ff4835cbd6a198
+      merge: cd6c144c05a16e0a7275fdce2f18d42c992a0b7c
+      ci_run: 35315401661
+      packageability_run: 35315401621
+      hardening_run: 35315401629
+      result: success
+      purpose: BE14a_RAM_capacity_guarded_transactional_cycle
+    - pr: 127
+      head: 53fe7c64f51e1dda3cb6576d36b31b522599269f
+      merge: 302bb9058e2ee173676f87157c171c885fa164f4
+      ci_run: 35320020583
+      packageability_run: 35320020562
+      hardening_run: 35320020604
+      result: success
+      purpose: BE14a_explicit_forecast_boundary_and_versioned_RAM_evidence_v2
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -254,7 +270,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121, BE13b compiled multiword guards through PR122, and BE13c stable-order batch screening through PR123. PR124 qualifies the portable benchmark harness and its exact-head smoke contract. PR125 retains 30-repetition exact-source development timing evidence plus integrity checks, but the recorded CPU0 frequency samples vary from 972000 to 2601000 kHz and allocations, peak memory, and branch misses remain explicitly unmeasured. This is retained negative/confounded evidence rather than a speedup or BE13e authorization. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121, BE13b compiled multiword guards through PR122, and BE13c stable-order batch screening through PR123. PR124 qualifies the portable benchmark harness and its exact-head smoke contract. PR125 retains 30-repetition exact-source development timing evidence plus integrity checks, but the recorded CPU0 frequency samples vary from 972000 to 2601000 kHz and allocations, peak memory, and branch misses remain explicitly unmeasured. This is retained negative/confounded evidence rather than a speedup or BE13e authorization. BE14a RAM capacity is qualified through PR126 plus PR127 with a guarded transactional cycle, an explicit CurrentStateForecaster boundary, DecisionTrace evidence, and a frozen strict V1 wire plus explicit V2 forecast metadata. BE13d remains the earliest incomplete slice; BE14b onward and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -1017,7 +1033,7 @@ phases:
 
   - id: BE14
     name: end_to_end_domain_integration
-    status: planned
+    status: active
     target_domains:
       - RAM_capacity
       - concurrency
@@ -1043,6 +1059,27 @@ phases:
     ordered_slices:
       - id: BE14a
         domain: RAM_capacity
+        status: completed
+        qualification_evidence:
+          - ElasticXxx_PR_126
+          - PR126_exact_head_08380f5fe0d64b78105e591781ff4835cbd6a198
+          - PR126_CI_35315401661_completed_success_on_exact_head
+          - PR126_packageability_35315401621_completed_success_on_exact_head
+          - PR126_hardening_35315401629_completed_success_on_exact_head
+          - PR126_merged_to_main_as_cd6c144c05a16e0a7275fdce2f18d42c992a0b7c
+          - ElasticXxx_PR_127
+          - PR127_exact_head_53fe7c64f51e1dda3cb6576d36b31b522599269f
+          - PR127_CI_35320020583_completed_success_on_exact_head
+          - PR127_packageability_35320020562_completed_success_on_exact_head
+          - PR127_hardening_35320020604_completed_success_on_exact_head
+          - PR127_material_V1_wire_compatibility_review_finding_resolved_before_merge
+          - PR127_merged_to_main_as_302bb9058e2ee173676f87157c171c885fa164f4
+          - stable_elastic_ram_capacity_sufficient_predicate_over_free_capacity_bytes
+          - missing_stale_invalid_or_inexact_RAM_evidence_maps_to_Unknown_and_fails_closed
+          - True_case_delegates_to_existing_numeric_capacity_controller_with_trusted_validation_verification_and_rollback
+          - differential_unguarded_baseline_and_live_holder_fail_closed_tests
+          - explicit_CurrentStateForecaster_zero_horizon_boundary_without_confidence_claim
+          - DecisionTrace_v1_explanation_and_versioned_RAM_evidence_V2_forecast_metadata
       - id: BE14b
         domain: concurrency
       - id: BE14c
@@ -1193,11 +1230,11 @@ current_execution:
   earliest_incomplete_phase: BE13
   immediate_next_slice: BE13d_measurement_stability_and_missing_counters
   open_pull_requests_at_checkpoint: 0
-  verified_main: 0629928199e2348a7943a766635b0ef9ed2d8c9e
-  latest_qualified_slice: BE13d_retained_evidence_infrastructure
-  latest_qualified_pr: 125
-  latest_qualified_head: f0932e0f50b8cdef57dcfe0ab14b4f7fbfdef4ed
-  latest_merge: 0629928199e2348a7943a766635b0ef9ed2d8c9e
+  verified_main: 302bb9058e2ee173676f87157c171c885fa164f4
+  latest_qualified_slice: BE14a_RAM_capacity
+  latest_qualified_pr: 127
+  latest_qualified_head: 53fe7c64f51e1dda3cb6576d36b31b522599269f
+  latest_merge: 302bb9058e2ee173676f87157c171c885fa164f4
   BE13e_authorized: false
   BE13e_block_reason: retained_raw_timing_has_DVFS_confound_and_required_counters_remain_unmeasured
   performance_claims: none
