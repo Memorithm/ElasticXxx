@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: cb18b1c490bd31b3a0968dadae2971ec4c80434a
+  main_sha: 9d1f996a47536670e9f7d3610a4e13bc238c6042
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -318,6 +318,13 @@ current_verified_state:
       packageability_run: 35369569028
       result: success
       purpose: BE14f_fail_closed_kernel_capability_preplanning_without_actuation_authority
+    - pr: 148
+      head: 0ae26c4383770c062dc7d7890e71b303999cf880
+      merge: 9d1f996a47536670e9f7d3610a4e13bc238c6042
+      ci_run: 35375083817
+      packageability_run: 35375083738
+      result: success
+      purpose: durable_kernel_decision_trace_binding
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -1354,8 +1361,20 @@ phases:
               - True_survivors_delegate_to_existing_deterministic_kernel_planner
               - existing_kernel_lifecycle_remains_authoritative_for_VALIDATE_ACT_VERIFY_COMMIT_or_ROLLBACK
               - no_actuation_performance_GPU_memory_bandwidth_energy_or_model_quality_claim
+          - id: BE14f_durable_decision_trace_binding
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_148
+              - PR148_exact_head_0ae26c4383770c062dc7d7890e71b303999cf880
+              - PR148_ci_35375083817_completed_success_on_exact_head
+              - PR148_packageability_35375083738_completed_success_on_exact_head
+              - PR148_merged_as_9d1f996a47536670e9f7d3610a4e13bc238c6042
+              - strict_bounded_versioned_BooleanKernelDecisionTraceV1
+              - logical_resource_workload_capability_policy_boolean_partition_and_planner_outcome_are_bound
+              - unknown_duplicate_fields_future_schema_oversized_input_and_inconsistent_selection_fail_closed
+              - explanatory_context_validation_is_non_actuating_and_does_not_replace_fresh_capability_or_lifecycle_validation
+              - no_latency_throughput_GPU_memory_bandwidth_energy_model_quality_or_end_to_end_performance_claim
             remaining:
-              - durable_decision_trace_binding
               - trusted_transaction_or_real_consumer_VALIDATE_ACT_VERIFY_COMMIT_or_ROLLBACK_when_actuation_exists
               - explicit_unguarded_differential_baseline
               - portable_benchmark_before_any_performance_claim
