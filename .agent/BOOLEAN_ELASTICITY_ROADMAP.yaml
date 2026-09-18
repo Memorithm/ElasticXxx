@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 6aaa54eac91be30d62d0c654e5ad1e03bd438785
+  main_sha: ab00157dd7b01142b88afc1e1145f9b49518c1a0
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -207,6 +207,14 @@ current_verified_state:
       hardening_run: 35306766020
       result: success
       purpose: bounded_multiword_three_valued_fact_storage_beyond_u64_fast_path
+    - pr: 122
+      head: 3d025702be87cefd6e211fddbc9019cc80c6d9b8
+      merge: ab00157dd7b01142b88afc1e1145f9b49518c1a0
+      ci_run: 35307258271
+      packageability_run: 35307258177
+      hardening_run: 35307258170
+      result: success
+      purpose: bounded_multiword_compiled_conjunction_disjunction_and_generic_Kleene_fallback
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -220,7 +228,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121; BE13b compiled multiword guards is now the earliest incomplete slice. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121 and BE13b compiled multiword guards is closed through PR122; BE13c stable-order batch screening is now the earliest incomplete slice. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -895,7 +903,17 @@ phases:
           - bounded_allocation_limits
       - id: BE13b
         name: multiword_compiled_guards
-        status: active
+        status: completed
+        qualification_evidence:
+          - ElasticXxx_PR_122
+          - PR122_exact_head_3d025702be87cefd6e211fddbc9019cc80c6d9b8
+          - PR122_CI_35307258271_completed_success_on_exact_head
+          - PR122_packageability_35307258177_completed_success_on_exact_head
+          - PR122_hardening_35307258170_completed_success_on_exact_head
+          - PR122_automated_review_completed_without_material_findings
+          - PR122_merged_to_main_as_ab00157dd7b01142b88afc1e1145f9b49518c1a0
+          - multiword_conjunction_and_disjunction_mask_fast_paths_with_exact_generic_strong_Kleene_fallback
+          - no_performance_or_actuation_claim
         tasks:
           - conjunction_and_disjunction_fast_paths
           - generic_expression_fallback
@@ -1110,10 +1128,10 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE13
-  immediate_next_slice: BE13b_multiword_compiled_guards
+  immediate_next_slice: BE13c_batch_screening
   open_pull_requests_at_checkpoint: 0
-  verified_main: 6aaa54eac91be30d62d0c654e5ad1e03bd438785
-  latest_qualified_slice: BE13a_multiword_fact_representation
-  latest_qualified_pr: 121
-  latest_qualified_head: c55475a6f21d349e6d755cf4e574b7bc06e596c2
+  verified_main: ab00157dd7b01142b88afc1e1145f9b49518c1a0
+  latest_qualified_slice: BE13b_multiword_compiled_guards
+  latest_qualified_pr: 122
+  latest_qualified_head: 3d025702be87cefd6e211fddbc9019cc80c6d9b8
   performance_claims: none
