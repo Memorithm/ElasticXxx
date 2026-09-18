@@ -26,6 +26,8 @@ SETTLE_SECONDS=${BE13_SETTLE_SECONDS:-2}
 PROCESS_METRICS_MODE=${BE13_PROCESS_METRICS:-auto}
 METRIC_REPETITIONS=${BE13_METRIC_REPETITIONS:-10}
 REQUIRE_QUALIFIED=${BE13_REQUIRE_QUALIFIED:-0}
+SOURCE_REF=${BE13_SOURCE_REF:-}
+EXPECTED_CODEGEN_PROFILE=${BE13_CODEGEN_PROFILE_EXPECTED:-}
 
 for pair in \
   "BE13_REPETITIONS:$REPETITIONS" \
@@ -60,6 +62,14 @@ case "$REQUIRE_QUALIFIED" in
   0|1) ;;
   *) echo "BE13_REQUIRE_QUALIFIED must be 0 or 1" >&2; exit 2 ;;
 esac
+case "$EXPECTED_CODEGEN_PROFILE" in
+  ""|portable|native) ;;
+  *) echo "BE13_CODEGEN_PROFILE_EXPECTED must be portable, native, or empty" >&2; exit 2 ;;
+esac
+if [[ -n "$SOURCE_REF" && "$SOURCE_REF" != refs/tags/* ]]; then
+  echo "BE13_SOURCE_REF must be an explicit refs/tags/... permanent ref" >&2
+  exit 2
+fi
 if (( REPETITIONS < 30 || REPETITIONS % 5 != 0 )); then
   echo "BE13_REPETITIONS must be at least 30 and divisible by 5 for the preregistered timing-stability gate" >&2
   exit 2
@@ -136,12 +146,74 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 SOURCE_SHA=$(git rev-parse HEAD)
+if [[ -n "$SOURCE_REF" ]]; then
+  SOURCE_REF_SHA=$(git rev-parse "${SOURCE_REF}^{commit}" 2>/dev/null || true)
+  if [[ "$SOURCE_REF_SHA" != "$SOURCE_SHA" ]]; then
+    echo "BE13_SOURCE_REF $SOURCE_REF resolves to ${SOURCE_REF_SHA:-missing}, expected $SOURCE_SHA" >&2
+    exit 2
+  fi
+fi
 COLLECTED_AT_UTC=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 COLLECTOR_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
+
+HOST_TRIPLE=$(rustc +1.89.0 -Vv | awk -F': ' '$1 == "host" {print $2}')
+TARGET_RUSTFLAGS_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_RUSTFLAGS"
+RUSTFLAGS_VALUE=${RUSTFLAGS:-}
+CARGO_ENCODED_RUSTFLAGS_VALUE=${CARGO_ENCODED_RUSTFLAGS:-}
+TARGET_RUSTFLAGS_VALUE=${!TARGET_RUSTFLAGS_VAR:-}
+if [[ -z "$RUSTFLAGS_VALUE" && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
+  CODEGEN_PROFILE=portable
+elif [[ "$RUSTFLAGS_VALUE" == '-C target-cpu=native' && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
+  CODEGEN_PROFILE=native
+else
+  CODEGEN_PROFILE=custom
+fi
+if [[ -n "$EXPECTED_CODEGEN_PROFILE" && "$CODEGEN_PROFILE" != "$EXPECTED_CODEGEN_PROFILE" ]]; then
+  echo "effective codegen profile $CODEGEN_PROFILE does not match expected $EXPECTED_CODEGEN_PROFILE" >&2
+  exit 2
+fi
+if [[ "$REQUIRE_QUALIFIED" == 1 && -n "$EXPECTED_CODEGEN_PROFILE" && -z "$SOURCE_REF" ]]; then
+  echo "qualified codegen evidence requires BE13_SOURCE_REF=refs/tags/..." >&2
+  exit 2
+fi
+
+base64_text() {
+  python3 - "$1" <<'PY64'
+import base64
+import sys
+print(base64.b64encode(sys.argv[1].encode('utf-8')).decode('ascii'))
+PY64
+}
+RUSTFLAGS_BASE64=$(base64_text "$RUSTFLAGS_VALUE")
+CARGO_ENCODED_RUSTFLAGS_BASE64=$(base64_text "$CARGO_ENCODED_RUSTFLAGS_VALUE")
+TARGET_RUSTFLAGS_BASE64=$(base64_text "$TARGET_RUSTFLAGS_VALUE")
 METRICS_HELPER_SOURCE="$ROOT/tools/be13/process_metrics.c"
 METRICS_HELPER_SHA256=$(sha256sum "$METRICS_HELPER_SOURCE" | awk '{print $1}')
 TIMING_ANALYZER_SOURCE="$ROOT/scripts/be13_timing_stability.py"
 TIMING_ANALYZER_SHA256=$(sha256sum "$TIMING_ANALYZER_SOURCE" | awk '{print $1}')
+
+COMPILER_CFG="$OUT_DIR/compiler_cfg.txt"
+CARGO_CONFIG_INVENTORY="$OUT_DIR/cargo_config_inventory.txt"
+: >"$CARGO_CONFIG_INVENTORY"
+for config_path in \
+  "$ROOT/.cargo/config.toml" \
+  "$ROOT/.cargo/config" \
+  "${CARGO_HOME:-$HOME/.cargo}/config.toml" \
+  "${CARGO_HOME:-$HOME/.cargo}/config"; do
+  if [[ -f "$config_path" ]]; then
+    printf '%s %s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" >>"$CARGO_CONFIG_INVENTORY"
+  fi
+done
+if [[ ! -s "$CARGO_CONFIG_INVENTORY" ]]; then
+  echo 'none' >"$CARGO_CONFIG_INVENTORY"
+fi
+if ! CARGO_TARGET_DIR="$TMP/cfg-target" cargo +1.89.0 rustc -p elastic-core --bench be13_portable -- \
+  --print cfg >"$COMPILER_CFG" 2>"$TMP/compiler-cfg.stderr"; then
+  cat "$TMP/compiler-cfg.stderr" >&2
+  exit 4
+fi
+COMPILER_CFG_SHA256=$(sha256sum "$COMPILER_CFG" | awk '{print $1}')
+CARGO_CONFIG_INVENTORY_SHA256=$(sha256sum "$CARGO_CONFIG_INVENTORY" | awk '{print $1}')
 
 BUILD_JSON="$TMP/build.jsonl"
 if ! cargo +1.89.0 bench -p elastic-core --bench be13_portable --no-run \
@@ -509,6 +581,15 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
 {
   echo 'schema=elasticxxx-be13-portable-evidence/v2'
   echo "source_sha=$SOURCE_SHA"
+  echo "source_ref=${SOURCE_REF:-none}"
+  echo 'codegen_attestation=cargo-rustc-print-cfg-v1'
+  echo "codegen_profile=$CODEGEN_PROFILE"
+  echo "rustflags_base64=$RUSTFLAGS_BASE64"
+  echo "cargo_encoded_rustflags_base64=$CARGO_ENCODED_RUSTFLAGS_BASE64"
+  echo "target_rustflags_variable=$TARGET_RUSTFLAGS_VAR"
+  echo "target_rustflags_base64=$TARGET_RUSTFLAGS_BASE64"
+  echo "compiler_cfg_sha256=$COMPILER_CFG_SHA256"
+  echo "cargo_config_inventory_sha256=$CARGO_CONFIG_INVENTORY_SHA256"
   echo "collected_at_utc=$COLLECTED_AT_UTC"
   echo "collector_sha256=$COLLECTOR_SHA256"
   echo "metrics_helper_sha256=$METRICS_HELPER_SHA256"
@@ -578,6 +659,11 @@ cat >"$OUT_DIR/README.md" <<EOF
 
 Source: \`$SOURCE_SHA\` on \`$DEVICE_MODEL\` with Rust 1.89.0.
 
+- permanent source ref: \`${SOURCE_REF:-none}\`;
+- collector-derived codegen profile: \`$CODEGEN_PROFILE\`;
+- effective Cargo/rustc cfg retained in \`compiler_cfg.txt\`;
+- Cargo config inventory retained in \`cargo_config_inventory.txt\`;
+
 - timing repetitions: $REPETITIONS; warmup: $WARMUP; iterations: $ITERATIONS;
 - timing paths run one-per-process in a deterministic rotating order;
 - CPU affinity: ${CPU:-none}; CPUFreq mode: $FREQ_MODE; lock target: $LOCK_TARGET_KHZ kHz;
@@ -592,7 +678,7 @@ Source: \`$SOURCE_SHA\` on \`$DEVICE_MODEL\` with Rust 1.89.0.
 The CPUFreq sample is a kernel policy report and is not claimed to be an exact instantaneous hardware-frequency measurement. Whole-process PMU/RSS metrics have a wider scope than the Rust timed evaluation loop and are retained separately in \`process_metrics.csv\`. This evidence makes no speedup, hardware, energy, scientific-novelty or actuation claim.
 EOF
 
-(cd "$OUT_DIR" && sha256sum raw.csv frequencies.csv frequency_samples.csv process_metrics.csv timing_stability.json metadata.txt README.md > SHA256SUMS)
+(cd "$OUT_DIR" && sha256sum raw.csv frequencies.csv frequency_samples.csv process_metrics.csv timing_stability.json compiler_cfg.txt cargo_config_inventory.txt metadata.txt README.md > SHA256SUMS)
 
 echo "BE13 evidence written to $OUT_DIR for $SOURCE_SHA (comparison_qualified=$COMPARISON_QUALIFIED)"
 if [[ "$REQUIRE_QUALIFIED" == 1 && "$COMPARISON_QUALIFIED" != true ]]; then

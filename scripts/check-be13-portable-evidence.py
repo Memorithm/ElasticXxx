@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
 import csv
 import hashlib
 import json
@@ -82,6 +83,25 @@ def require_source_commit(meta: dict[str, str], meta_path: Path) -> str:
     )
     if proc.returncode != 0:
         raise AssertionError(f"source_sha {source_sha} is not available as a commit")
+
+    source_ref = meta.get("source_ref")
+    if source_ref and source_ref != "none":
+        if not source_ref.startswith("refs/tags/"):
+            raise AssertionError(f"source_ref must be a permanent refs/tags/... ref in {meta_path}")
+        resolved = subprocess.run(
+            ["git", "rev-parse", f"{source_ref}^{{commit}}"],
+            cwd=ROOT,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if resolved.returncode != 0:
+            raise AssertionError(f"source_ref {source_ref} is not available in {meta_path}")
+        if resolved.stdout.strip() != source_sha:
+            raise AssertionError(
+                f"source_ref {source_ref} resolves to {resolved.stdout.strip()}, expected {source_sha}"
+            )
     return source_sha
 
 
@@ -256,19 +276,60 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         raise AssertionError("v2 allocations must remain explicit unmeasured")
 
     codegen_profile = meta.get("codegen_profile")
-    if codegen_profile is not None:
+    codegen_attestation = meta.get("codegen_attestation")
+    if codegen_attestation is None:
+        # Historical BE13e files may carry post-hoc labels. They remain archival
+        # evidence but are not sufficient for codegen attribution.
+        if codegen_profile is not None and codegen_profile not in {"portable", "native"}:
+            raise AssertionError(f"unsupported legacy codegen_profile {codegen_profile!r}")
+    elif codegen_attestation == "cargo-rustc-print-cfg-v1":
         if codegen_profile not in {"portable", "native"}:
-            raise AssertionError(f"unsupported codegen_profile {codegen_profile!r}")
-        rustflags = meta.get("rustflags")
-        if codegen_profile == "portable" and rustflags != "none":
-            raise AssertionError("portable codegen evidence must declare rustflags=none")
-        if codegen_profile == "native" and rustflags != "-C target-cpu=native":
-            raise AssertionError("native codegen evidence must declare the exact target-cpu=native flag")
-        if meta.get("feature_probe_method") != "rust_1_89_std_arch_runtime_detection":
-            raise AssertionError("codegen-comparison evidence requires the qualified Rust feature probe")
-        for field in ("runtime_neon", "runtime_sve", "runtime_sve2", "compile_time_neon"):
-            if meta.get(field) not in {"true", "false"}:
-                raise AssertionError(f"{field} must be an explicit Boolean in codegen evidence")
+            raise AssertionError(f"attested codegen_profile must be portable or native, got {codegen_profile!r}")
+        if meta.get("source_ref", "none") == "none":
+            raise AssertionError("attested codegen evidence requires a permanent source_ref")
+
+        def decoded(name: str) -> str:
+            value = meta.get(name)
+            if value is None:
+                raise AssertionError(f"missing attested metadata field {name}")
+            try:
+                return base64.b64decode(value, validate=True).decode("utf-8")
+            except Exception as error:
+                raise AssertionError(f"invalid base64 metadata field {name}") from error
+
+        rustflags = decoded("rustflags_base64")
+        encoded = decoded("cargo_encoded_rustflags_base64")
+        target_flags = decoded("target_rustflags_base64")
+        expected_profile = (
+            "portable"
+            if not rustflags and not encoded and not target_flags
+            else "native"
+            if rustflags == "-C target-cpu=native" and not encoded and not target_flags
+            else "custom"
+        )
+        if expected_profile != codegen_profile:
+            raise AssertionError(
+                f"attested codegen profile {codegen_profile!r} disagrees with captured rustflags ({expected_profile})"
+            )
+
+        compiler_cfg = directory / "compiler_cfg.txt"
+        cargo_inventory = directory / "cargo_config_inventory.txt"
+        for path, field in (
+            (compiler_cfg, "compiler_cfg_sha256"),
+            (cargo_inventory, "cargo_config_inventory_sha256"),
+        ):
+            if not path.is_file():
+                raise AssertionError(f"missing codegen attestation file: {path}")
+            if meta.get(field) != sha256(path):
+                raise AssertionError(f"{field} does not match {path}")
+        cfg_lines = set(compiler_cfg.read_text(encoding="utf-8").splitlines())
+        if not any(line.startswith('target_arch=') for line in cfg_lines):
+            raise AssertionError("compiler_cfg.txt lacks target_arch")
+        if codegen_profile == "native" and meta.get("rustc_host", "").startswith("aarch64-"):
+            if 'target_feature="sve"' not in cfg_lines or 'target_feature="sve2"' not in cfg_lines:
+                raise AssertionError("AArch64 native attestation lacks effective SVE/SVE2 target features")
+    else:
+        raise AssertionError(f"unsupported codegen_attestation {codegen_attestation!r}")
 
     raw_path = directory / "raw.csv"
     raw_rows = read_raw_rows(raw_path, repetitions)
@@ -438,6 +499,7 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
             "frequency_samples.csv",
             "process_metrics.csv",
             "timing_stability.json",
+            *( ["compiler_cfg.txt", "cargo_config_inventory.txt"] if codegen_attestation == "cargo-rustc-print-cfg-v1" else [] ),
             "metadata.txt",
             "README.md",
         ],
