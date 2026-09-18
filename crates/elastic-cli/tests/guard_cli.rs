@@ -84,6 +84,35 @@ fn check_list_and_fingerprint_are_machine_readable_and_non_actuating() {
 }
 
 #[test]
+fn exact_guard_analysis_is_bounded_machine_readable_and_non_actuating() {
+    let path = fixture_path();
+    let output = run(&[
+        "guard-analyze",
+        path.to_str().unwrap(),
+        "--max-variables",
+        "4",
+        "--max-assignments",
+        "16",
+    ]);
+    let output = payload(&output);
+    assert_eq!(output["command"], "guard-analyze");
+    assert_eq!(
+        output["analysis_semantics"],
+        "fully-grounded-boolean-exhaustive-v1"
+    );
+    assert_eq!(output["solver_backend"], "dependency-free-exact-oracle");
+    assert_eq!(output["limits"]["max_variables"], 4);
+    assert_eq!(output["limits"]["max_assignments"], 16);
+    assert_eq!(output["guards"][0]["satisfiable"], true);
+    assert_eq!(output["guards"][0]["contradiction"], false);
+    assert_eq!(output["guards"][0]["tautology"], false);
+    assert_eq!(output["read_only"], true);
+    assert_eq!(output["actuation_authorized"], false);
+    assert_eq!(output["trusted_validation_performed"], false);
+    fs::remove_file(path).unwrap();
+}
+
+#[test]
 fn eval_and_explain_preserve_true_false_unknown_semantics() {
     let path = fixture_path();
     let path_text = path.to_str().unwrap();
