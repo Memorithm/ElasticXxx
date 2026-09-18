@@ -9,12 +9,14 @@ mod capacity_admission;
 mod commands;
 mod config_run;
 mod evidence;
+mod guard_analysis;
 mod guard_cli;
 mod model_contracts;
 mod model_plan;
 use commands::*;
 use config_run::{run_config, run_config_to_file};
 use evidence::{diff, replay};
+use guard_analysis::analyze as guard_analyze;
 use guard_cli::{
     check as guard_check, eval as guard_eval, explain as guard_explain,
     fingerprint as guard_fingerprint, list as guard_list, plan_dry_run as guard_plan_dry_run,
@@ -398,6 +400,16 @@ enum Commands {
         #[arg(long = "fact", value_name = "NAMESPACE::NAME=TRUTH")]
         facts: Vec<String>,
     },
+    /// Run bounded exact Boolean analysis over configured guards without actuation.
+    GuardAnalyze {
+        config: PathBuf,
+        /// Maximum distinct predicates permitted in one exact query.
+        #[arg(long, default_value_t = elastic::DEFAULT_EXACT_ORACLE_VARIABLES)]
+        max_variables: usize,
+        /// Maximum assignments permitted in one exact query.
+        #[arg(long, default_value_t = elastic::DEFAULT_EXACT_ORACLE_ASSIGNMENTS)]
+        max_assignments: usize,
+    },
     /// Perform guarded numeric planning against configured observations without validation or actuation.
     GuardPlanDryRun {
         #[arg(long, value_name = "FILE")]
@@ -441,6 +453,11 @@ fn main() -> ExitCode {
         Commands::GuardFingerprint { config } => guard_fingerprint(&config),
         Commands::GuardEval { config, facts } => guard_eval(&config, &facts),
         Commands::GuardExplain { config, facts } => guard_explain(&config, &facts),
+        Commands::GuardAnalyze {
+            config,
+            max_variables,
+            max_assignments,
+        } => guard_analyze(&config, max_variables, max_assignments),
         Commands::GuardPlanDryRun {
             operator_config,
             guard_config,
