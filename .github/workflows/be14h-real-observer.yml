@@ -1,0 +1,114 @@
+name: BE14h real thermal power observer
+
+on:
+  pull_request:
+    paths:
+      - 'crates/elastic-runtime/src/observers.rs'
+      - 'crates/elastic-runtime/src/lib.rs'
+      - 'crates/elastic/src/lib.rs'
+      - 'crates/elastic/examples/linux_thermal_energy.rs'
+      - 'crates/elastic/tests/be14h_linux_observers_public.rs'
+      - 'docs/runtime/linux-thermal-energy-observers.md'
+      - '.github/workflows/be14h-real-observer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/elastic-runtime/src/observers.rs'
+      - 'crates/elastic-runtime/src/lib.rs'
+      - 'crates/elastic/src/lib.rs'
+      - 'crates/elastic/examples/linux_thermal_energy.rs'
+      - 'crates/elastic/tests/be14h_linux_observers_public.rs'
+      - 'docs/runtime/linux-thermal-energy-observers.md'
+      - '.github/workflows/be14h-real-observer.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require trusted Thor runner and Rust 1.89
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::BE14h real-observer gate requires a trusted Thor runner; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rustc +1.89.0 -Vv
+      - name: Discover named kernel sensors
+        id: sensors
+        shell: bash
+        run: |
+          set -euo pipefail
+          thermal_zone=
+          for zone in /sys/class/thermal/thermal_zone*; do
+            [[ -r "$zone/type" ]] || continue
+            if [[ "$(tr -d '\n\0' < "$zone/type")" == "cpu-thermal" ]]; then
+              thermal_zone=$zone
+              break
+            fi
+          done
+          [[ -n "$thermal_zone" ]] || {
+            echo '::error::cpu-thermal zone not found'
+            exit 1
+          }
+
+          power_input=
+          for hwmon in /sys/class/hwmon/hwmon*; do
+            [[ -r "$hwmon/name" ]] || continue
+            if [[ "$(tr -d '\n\0' < "$hwmon/name")" == "ina238" && -r "$hwmon/power1_input" ]]; then
+              power_input="$hwmon/power1_input"
+              break
+            fi
+          done
+          [[ -n "$power_input" ]] || {
+            echo '::error::INA238 direct power1_input not found'
+            exit 1
+          }
+
+          printf 'thermal_zone=%s\n' "$thermal_zone" >> "$GITHUB_OUTPUT"
+          printf 'power_input=%s\n' "$power_input" >> "$GITHUB_OUTPUT"
+          printf 'Qualified thermal source: %s (%s)\n' "$thermal_zone" "$(cat "$thermal_zone/type")"
+          printf 'Qualified direct-power source: %s\n' "$power_input"
+      - name: Observe real thermal margin and direct power
+        shell: bash
+        env:
+          THERMAL_ZONE: ${{ steps.sensors.outputs.thermal_zone }}
+          POWER_INPUT: ${{ steps.sensors.outputs.power_input }}
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/be14h-real-observer.txt"
+          cargo +1.89.0 run -q -p elastic --example linux_thermal_energy -- \
+            "$THERMAL_ZONE" "$POWER_INPUT" | tee "$output"
+          python3 - "$output" <<'PY'
+          import math
+          import re
+          import sys
+
+          text = open(sys.argv[1], encoding='utf-8').read().splitlines()
+          found = {}
+          for line in text:
+              match = re.search(r'signal=(thermal-margin|energy-rate) value=([^ ]+)', line)
+              if match:
+                  found[match.group(1)] = float(match.group(2))
+          assert set(found) == {'thermal-margin', 'energy-rate'}, found
+          assert all(math.isfinite(value) for value in found.values()), found
+          assert found['energy-rate'] >= 0.0, found
+          print('BE14h real-observer signals are finite and source-backed:', found)
+          PY

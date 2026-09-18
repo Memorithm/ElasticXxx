@@ -200,8 +200,9 @@ pub use observers::{
     host_memory_available_bytes_signal, host_memory_total_bytes_signal,
     host_memory_used_bytes_signal, host_memory_utilization_signal, ram_configured_max_bytes_signal,
     ram_configured_min_bytes_signal, ram_in_use_bytes_signal, runtime_uptime_seconds_signal,
-    ConcurrencyPermitsObserver, HostMemoryObserver, ObserverSet, RamBudgetObserver,
-    RuntimeTimingObserver,
+    ConcurrencyPermitsObserver, HostMemoryObserver, LinuxHwmonPowerObserver,
+    LinuxThermalMarginObserver, ObserverSet, RamBudgetObserver, RuntimeTimingObserver,
+    ENERGY_RATE_SOURCE_UNIT, THERMAL_MARGIN_SOURCE_UNIT,
 };
 pub use operator_config::{
     CadenceConfig, ControllerConfig, ExecutionModeConfig, ForecasterSelection, OperatorConfig,
