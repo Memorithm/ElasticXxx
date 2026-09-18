@@ -1,0 +1,52 @@
+name: BE13 retained evidence integrity
+
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/be13/evidence/**'
+      - 'scripts/collect-be13-portable-evidence.sh'
+      - 'scripts/check-be13-portable-evidence.py'
+      - 'docs/boolean-be13-benchmark.md'
+      - '.github/workflows/be13-evidence-integrity.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/be13/evidence/**'
+      - 'scripts/collect-be13-portable-evidence.sh'
+      - 'scripts/check-be13-portable-evidence.py'
+      - 'docs/boolean-be13-benchmark.md'
+      - '.github/workflows/be13-evidence-integrity.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Require trusted persistent runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::BE13 evidence validation requires a trusted runner; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+      - name: Validate retained evidence
+        run: python3 scripts/check-be13-portable-evidence.py
+      - name: Validate collector shell syntax
+        run: bash -n scripts/collect-be13-portable-evidence.sh
