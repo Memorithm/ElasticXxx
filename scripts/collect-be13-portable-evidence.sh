@@ -146,12 +146,14 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 SOURCE_SHA=$(git rev-parse HEAD)
-if [[ -n "$SOURCE_REF" ]]; then
-  SOURCE_REF_SHA=$(git rev-parse "${SOURCE_REF}^{commit}" 2>/dev/null || true)
-  if [[ "$SOURCE_REF_SHA" != "$SOURCE_SHA" ]]; then
-    echo "BE13_SOURCE_REF $SOURCE_REF resolves to ${SOURCE_REF_SHA:-missing}, expected $SOURCE_SHA" >&2
-    exit 2
-  fi
+if [[ -z "$SOURCE_REF" ]]; then
+  echo "all BE13 v2 attested evidence requires BE13_SOURCE_REF=refs/tags/..." >&2
+  exit 2
+fi
+SOURCE_REF_SHA=$(git rev-parse "${SOURCE_REF}^{commit}" 2>/dev/null || true)
+if [[ "$SOURCE_REF_SHA" != "$SOURCE_SHA" ]]; then
+  echo "BE13_SOURCE_REF $SOURCE_REF resolves to ${SOURCE_REF_SHA:-missing}, expected $SOURCE_SHA" >&2
+  exit 2
 fi
 COLLECTED_AT_UTC=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
 COLLECTOR_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
@@ -159,23 +161,20 @@ COLLECTOR_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
 HOST_TRIPLE=$(rustc +1.89.0 -Vv | awk -F': ' '$1 == "host" {print $2}')
 TARGET_RUSTFLAGS_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_RUSTFLAGS"
 RUSTFLAGS_VALUE=${RUSTFLAGS:-}
+CARGO_ENCODED_RUSTFLAGS_PRESENT=false
+if [[ -v CARGO_ENCODED_RUSTFLAGS ]]; then
+  CARGO_ENCODED_RUSTFLAGS_PRESENT=true
+fi
 CARGO_ENCODED_RUSTFLAGS_VALUE=${CARGO_ENCODED_RUSTFLAGS:-}
 TARGET_RUSTFLAGS_VALUE=${!TARGET_RUSTFLAGS_VAR:-}
-if [[ -z "$RUSTFLAGS_VALUE" && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
-  CODEGEN_PROFILE=portable
-elif [[ "$RUSTFLAGS_VALUE" == '-C target-cpu=native' && -z "$CARGO_ENCODED_RUSTFLAGS_VALUE" && -z "$TARGET_RUSTFLAGS_VALUE" ]]; then
-  CODEGEN_PROFILE=native
-else
-  CODEGEN_PROFILE=custom
-fi
-if [[ -n "$EXPECTED_CODEGEN_PROFILE" && "$CODEGEN_PROFILE" != "$EXPECTED_CODEGEN_PROFILE" ]]; then
-  echo "effective codegen profile $CODEGEN_PROFILE does not match expected $EXPECTED_CODEGEN_PROFILE" >&2
-  exit 2
-fi
-if [[ "$REQUIRE_QUALIFIED" == 1 && -n "$EXPECTED_CODEGEN_PROFILE" && -z "$SOURCE_REF" ]]; then
-  echo "qualified codegen evidence requires BE13_SOURCE_REF=refs/tags/..." >&2
-  exit 2
-fi
+CARGO_BUILD_RUSTFLAGS_VALUE=${CARGO_BUILD_RUSTFLAGS:-}
+CARGO_BUILD_TARGET_VALUE=${CARGO_BUILD_TARGET:-}
+CARGO_INCREMENTAL_VALUE=${CARGO_INCREMENTAL:-}
+RUSTC_VALUE=${RUSTC:-}
+RUSTC_WRAPPER_VALUE=${RUSTC_WRAPPER:-}
+RUSTC_WORKSPACE_WRAPPER_VALUE=${RUSTC_WORKSPACE_WRAPPER:-}
+TARGET_LINKER_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_LINKER"
+TARGET_LINKER_VALUE=${!TARGET_LINKER_VAR:-}
 
 base64_text() {
   python3 - "$1" <<'PY64'
@@ -187,6 +186,13 @@ PY64
 RUSTFLAGS_BASE64=$(base64_text "$RUSTFLAGS_VALUE")
 CARGO_ENCODED_RUSTFLAGS_BASE64=$(base64_text "$CARGO_ENCODED_RUSTFLAGS_VALUE")
 TARGET_RUSTFLAGS_BASE64=$(base64_text "$TARGET_RUSTFLAGS_VALUE")
+CARGO_BUILD_RUSTFLAGS_BASE64=$(base64_text "$CARGO_BUILD_RUSTFLAGS_VALUE")
+CARGO_BUILD_TARGET_BASE64=$(base64_text "$CARGO_BUILD_TARGET_VALUE")
+CARGO_INCREMENTAL_BASE64=$(base64_text "$CARGO_INCREMENTAL_VALUE")
+RUSTC_BASE64=$(base64_text "$RUSTC_VALUE")
+RUSTC_WRAPPER_BASE64=$(base64_text "$RUSTC_WRAPPER_VALUE")
+RUSTC_WORKSPACE_WRAPPER_BASE64=$(base64_text "$RUSTC_WORKSPACE_WRAPPER_VALUE")
+TARGET_LINKER_BASE64=$(base64_text "$TARGET_LINKER_VALUE")
 METRICS_HELPER_SOURCE="$ROOT/tools/be13/process_metrics.c"
 METRICS_HELPER_SHA256=$(sha256sum "$METRICS_HELPER_SOURCE" | awk '{print $1}')
 TIMING_ANALYZER_SOURCE="$ROOT/scripts/be13_timing_stability.py"
@@ -194,19 +200,90 @@ TIMING_ANALYZER_SHA256=$(sha256sum "$TIMING_ANALYZER_SOURCE" | awk '{print $1}')
 
 COMPILER_CFG="$OUT_DIR/compiler_cfg.txt"
 CARGO_CONFIG_INVENTORY="$OUT_DIR/cargo_config_inventory.txt"
-: >"$CARGO_CONFIG_INVENTORY"
+BUILD_ENV_INVENTORY="$OUT_DIR/build_env_inventory.txt"
+
+python3 - "$BUILD_ENV_INVENTORY" <<'PYENV'
+import base64
+import os
+import sys
+
+path = sys.argv[1]
+keys = sorted(key for key in os.environ if key.startswith("CARGO_PROFILE_"))
+with open(path, "w", encoding="utf-8") as out:
+    if not keys:
+        out.write("none\n")
+    else:
+        for key in keys:
+            value = base64.b64encode(os.environ[key].encode("utf-8")).decode("ascii")
+            out.write(f"{key}={value}\n")
+PYENV
+
+: >"$TMP/cargo-config-inventory.unsorted"
+config_dir=$(readlink -f "$ROOT")
+while :; do
+  for basename in config.toml config; do
+    config_path="$config_dir/.cargo/$basename"
+    if [[ -f "$config_path" ]]; then
+      printf '%s\t%s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" \
+        >>"$TMP/cargo-config-inventory.unsorted"
+    fi
+  done
+  parent=$(dirname "$config_dir")
+  [[ "$parent" == "$config_dir" ]] && break
+  config_dir=$parent
+done
 for config_path in \
-  "$ROOT/.cargo/config.toml" \
-  "$ROOT/.cargo/config" \
   "${CARGO_HOME:-$HOME/.cargo}/config.toml" \
   "${CARGO_HOME:-$HOME/.cargo}/config"; do
   if [[ -f "$config_path" ]]; then
-    printf '%s %s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" >>"$CARGO_CONFIG_INVENTORY"
+    printf '%s\t%s\n' "$(sha256sum "$config_path" | awk '{print $1}')" "$config_path" \
+      >>"$TMP/cargo-config-inventory.unsorted"
   fi
 done
-if [[ ! -s "$CARGO_CONFIG_INVENTORY" ]]; then
+if [[ -s "$TMP/cargo-config-inventory.unsorted" ]]; then
+  LC_ALL=C sort -u "$TMP/cargo-config-inventory.unsorted" >"$CARGO_CONFIG_INVENTORY"
+else
   echo 'none' >"$CARGO_CONFIG_INVENTORY"
 fi
+
+CARGO_CONFIGS_PRESENT=false
+[[ "$(cat "$CARGO_CONFIG_INVENTORY")" != none ]] && CARGO_CONFIGS_PRESENT=true
+CARGO_PROFILE_OVERRIDES_PRESENT=false
+[[ "$(cat "$BUILD_ENV_INVENTORY")" != none ]] && CARGO_PROFILE_OVERRIDES_PRESENT=true
+
+CLEAN_BUILD_CONTEXT=true
+[[ "$CARGO_ENCODED_RUSTFLAGS_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
+for value in \
+  "$CARGO_ENCODED_RUSTFLAGS_VALUE" \
+  "$TARGET_RUSTFLAGS_VALUE" \
+  "$CARGO_BUILD_RUSTFLAGS_VALUE" \
+  "$CARGO_BUILD_TARGET_VALUE" \
+  "$CARGO_INCREMENTAL_VALUE" \
+  "$RUSTC_VALUE" \
+  "$RUSTC_WRAPPER_VALUE" \
+  "$RUSTC_WORKSPACE_WRAPPER_VALUE" \
+  "$TARGET_LINKER_VALUE"; do
+  [[ -n "$value" ]] && CLEAN_BUILD_CONTEXT=false
+done
+[[ "$CARGO_CONFIGS_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
+[[ "$CARGO_PROFILE_OVERRIDES_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
+
+if [[ "$CLEAN_BUILD_CONTEXT" == true && -z "$RUSTFLAGS_VALUE" ]]; then
+  CODEGEN_PROFILE=portable
+elif [[ "$CLEAN_BUILD_CONTEXT" == true && "$RUSTFLAGS_VALUE" == '-C target-cpu=native' ]]; then
+  CODEGEN_PROFILE=native
+else
+  CODEGEN_PROFILE=custom
+fi
+if [[ "$REQUIRE_QUALIFIED" == 1 && -z "$EXPECTED_CODEGEN_PROFILE" ]]; then
+  echo "qualified BE13 evidence requires BE13_CODEGEN_PROFILE_EXPECTED=portable|native" >&2
+  exit 2
+fi
+if [[ -n "$EXPECTED_CODEGEN_PROFILE" && "$CODEGEN_PROFILE" != "$EXPECTED_CODEGEN_PROFILE" ]]; then
+  echo "effective codegen profile $CODEGEN_PROFILE does not match expected $EXPECTED_CODEGEN_PROFILE" >&2
+  exit 2
+fi
+
 if ! CARGO_TARGET_DIR="$TMP/cfg-target" cargo +1.89.0 rustc -p elastic-core --bench be13_portable -- \
   --print cfg >"$COMPILER_CFG" 2>"$TMP/compiler-cfg.stderr"; then
   cat "$TMP/compiler-cfg.stderr" >&2
@@ -214,6 +291,7 @@ if ! CARGO_TARGET_DIR="$TMP/cfg-target" cargo +1.89.0 rustc -p elastic-core --be
 fi
 COMPILER_CFG_SHA256=$(sha256sum "$COMPILER_CFG" | awk '{print $1}')
 CARGO_CONFIG_INVENTORY_SHA256=$(sha256sum "$CARGO_CONFIG_INVENTORY" | awk '{print $1}')
+BUILD_ENV_INVENTORY_SHA256=$(sha256sum "$BUILD_ENV_INVENTORY" | awk '{print $1}')
 
 BUILD_JSON="$TMP/build.jsonl"
 if ! cargo +1.89.0 bench -p elastic-core --bench be13_portable --no-run \
@@ -582,14 +660,26 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
   echo 'schema=elasticxxx-be13-portable-evidence/v2'
   echo "source_sha=$SOURCE_SHA"
   echo "source_ref=${SOURCE_REF:-none}"
-  echo 'codegen_attestation=cargo-rustc-print-cfg-v1'
+  echo 'codegen_attestation=cargo-build-context-v2'
   echo "codegen_profile=$CODEGEN_PROFILE"
   echo "rustflags_base64=$RUSTFLAGS_BASE64"
   echo "cargo_encoded_rustflags_base64=$CARGO_ENCODED_RUSTFLAGS_BASE64"
+  echo "cargo_encoded_rustflags_present=$CARGO_ENCODED_RUSTFLAGS_PRESENT"
   echo "target_rustflags_variable=$TARGET_RUSTFLAGS_VAR"
   echo "target_rustflags_base64=$TARGET_RUSTFLAGS_BASE64"
+  echo "cargo_build_rustflags_base64=$CARGO_BUILD_RUSTFLAGS_BASE64"
+  echo "cargo_build_target_base64=$CARGO_BUILD_TARGET_BASE64"
+  echo "cargo_incremental_base64=$CARGO_INCREMENTAL_BASE64"
+  echo "rustc_override_base64=$RUSTC_BASE64"
+  echo "rustc_wrapper_base64=$RUSTC_WRAPPER_BASE64"
+  echo "rustc_workspace_wrapper_base64=$RUSTC_WORKSPACE_WRAPPER_BASE64"
+  echo "target_linker_variable=$TARGET_LINKER_VAR"
+  echo "target_linker_base64=$TARGET_LINKER_BASE64"
   echo "compiler_cfg_sha256=$COMPILER_CFG_SHA256"
   echo "cargo_config_inventory_sha256=$CARGO_CONFIG_INVENTORY_SHA256"
+  echo "build_env_inventory_sha256=$BUILD_ENV_INVENTORY_SHA256"
+  echo "cargo_configs_present=$CARGO_CONFIGS_PRESENT"
+  echo "cargo_profile_overrides_present=$CARGO_PROFILE_OVERRIDES_PRESENT"
   echo "collected_at_utc=$COLLECTED_AT_UTC"
   echo "collector_sha256=$COLLECTOR_SHA256"
   echo "metrics_helper_sha256=$METRICS_HELPER_SHA256"
@@ -633,7 +723,8 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
   echo "warmup=$WARMUP"
   echo "iterations=$ITERATIONS"
   echo "settle_seconds=$SETTLE_SECONDS"
-  echo 'profile=bench/optimized'
+  echo 'profile=bench'
+  echo 'profile_contract=workspace_source_plus_captured_CARGO_PROFILE_environment'
   echo 'timing_execution=one_selected_path_per_process_with_deterministic_rotating_path_order'
   echo 'timing_region=Rust_Instant_around_evaluation_loop_after_path_specific_warmup'
   echo 'timing_stability_method=contiguous_nonoverlapping_blocks_of_5_median_spread_no_posthoc_row_deletion'
@@ -662,7 +753,8 @@ Source: \`$SOURCE_SHA\` on \`$DEVICE_MODEL\` with Rust 1.89.0.
 - permanent source ref: \`${SOURCE_REF:-none}\`;
 - collector-derived codegen profile: \`$CODEGEN_PROFILE\`;
 - effective Cargo/rustc cfg retained in \`compiler_cfg.txt\`;
-- Cargo config inventory retained in \`cargo_config_inventory.txt\`;
+- Cargo config inventory (workspace ancestors plus Cargo home) retained in \`cargo_config_inventory.txt\`;
+- Cargo profile environment overrides retained in \`build_env_inventory.txt\`;
 
 - timing repetitions: $REPETITIONS; warmup: $WARMUP; iterations: $ITERATIONS;
 - timing paths run one-per-process in a deterministic rotating order;
@@ -678,7 +770,7 @@ Source: \`$SOURCE_SHA\` on \`$DEVICE_MODEL\` with Rust 1.89.0.
 The CPUFreq sample is a kernel policy report and is not claimed to be an exact instantaneous hardware-frequency measurement. Whole-process PMU/RSS metrics have a wider scope than the Rust timed evaluation loop and are retained separately in \`process_metrics.csv\`. This evidence makes no speedup, hardware, energy, scientific-novelty or actuation claim.
 EOF
 
-(cd "$OUT_DIR" && sha256sum raw.csv frequencies.csv frequency_samples.csv process_metrics.csv timing_stability.json compiler_cfg.txt cargo_config_inventory.txt metadata.txt README.md > SHA256SUMS)
+(cd "$OUT_DIR" && sha256sum raw.csv frequencies.csv frequency_samples.csv process_metrics.csv timing_stability.json compiler_cfg.txt cargo_config_inventory.txt build_env_inventory.txt metadata.txt README.md > SHA256SUMS)
 
 echo "BE13 evidence written to $OUT_DIR for $SOURCE_SHA (comparison_qualified=$COMPARISON_QUALIFIED)"
 if [[ "$REQUIRE_QUALIFIED" == 1 && "$COMPARISON_QUALIFIED" != true ]]; then
