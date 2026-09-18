@@ -1259,7 +1259,7 @@ phases:
           - BE14d_closed_without_latency_bandwidth_memory_saving_GPU_energy_or_model_quality_claim
       - id: BE14e
         domain: representation_precision
-        status: active
+        status: completed
         completed_slices:
           - id: BE14e_fixed_width_fail_closed_preplanning
             status: complete_planning_only
@@ -1313,6 +1313,21 @@ phases:
               - same_width_fixture_is_not_compression_mixed_precision_quality_memory_hardware_or_performance_evidence
             remaining:
               - benchmark_before_any_performance_claim
+          - id: BE14e_portable_benchmark_before_performance_claim
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_146
+              - PR146_exact_head_b3fa3df9c038a58367346313ef7af1ff0004bd39
+              - PR146_ci_35366033727_completed_success_on_exact_head
+              - PR146_packageability_35366033909_completed_success_on_exact_head
+              - PR146_continuous_hardening_35366034052_completed_success_on_exact_head
+              - PR146_BE14e_benchmark_smoke_35366033857_completed_success_on_exact_head
+              - PR146_merged_as_5777a4053dab4eeb4f0e5d55c3b17f4090bc4555
+              - portable_fixture_compares_boolean_false_then_true_preplanning_plus_authoritative_validation_against_non_boolean_declared_transition_validation
+              - both_paths_resolve_the_same_declared_tensor_int8_target_before_timing
+              - benchmark_output_is_host_side_planning_and_validation_measurement_only
+              - no_physical_reencode_memory_saving_bandwidth_device_GPU_numerical_model_quality_energy_allocation_branch_or_end_to_end_claim_authorized
+            remaining: []
       - id: BE14f
         domain: kernel_realization
       - id: BE14g
@@ -1453,20 +1468,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14e_portable_benchmark_before_performance_claim
+  immediate_next_slice: BE14f_kernel_realization
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_real_consumer_merge
-  verified_main: c01a6fecd55a403af0a834c86cb0906c18033a89
-  latest_qualified_slice: BE14e_real_consumer_validation_verify_rollback
-  latest_qualified_pr: 145
-  latest_qualified_head: 9dfbfb9fa4cb443b6959b20834aa2b6acb5ce1b5
-  latest_merge: c01a6fecd55a403af0a834c86cb0906c18033a89
-  latest_merged_progress_slice: BE14e_real_consumer_validation_verify_rollback
-  latest_merged_progress_pr: 145
-  latest_merged_progress_head: 9dfbfb9fa4cb443b6959b20834aa2b6acb5ce1b5
-  latest_merged_progress_merge: c01a6fecd55a403af0a834c86cb0906c18033a89
+  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_portable_benchmark_merge
+  verified_main: 5777a4053dab4eeb4f0e5d55c3b17f4090bc4555
+  latest_qualified_slice: BE14e_portable_benchmark_before_performance_claim
+  latest_qualified_pr: 146
+  latest_qualified_head: b3fa3df9c038a58367346313ef7af1ff0004bd39
+  latest_merge: 5777a4053dab4eeb4f0e5d55c3b17f4090bc4555
+  latest_merged_progress_slice: BE14e_portable_benchmark_before_performance_claim
+  latest_merged_progress_pr: 146
+  latest_merged_progress_head: b3fa3df9c038a58367346313ef7af1ff0004bd39
+  latest_merged_progress_merge: 5777a4053dab4eeb4f0e5d55c3b17f4090bc4555
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
