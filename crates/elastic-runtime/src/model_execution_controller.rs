@@ -399,6 +399,27 @@ where
         &mut self,
     ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
         let result = self.inner.cycle()?;
+        self.capture_cycle_evidence(result)
+    }
+
+    /// Execute one cycle from an already captured observer result and bind the
+    /// ordinary model-cycle evidence to that exact observation set.
+    ///
+    /// This crate-private path exists for pre-planning eligibility layers. It
+    /// never re-reads the physical telemetry provider.
+    pub(crate) fn cycle_from_observations_with_evidence(
+        &mut self,
+        current: PlanningContext,
+        observations: Vec<Observation>,
+    ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
+        let result = self.inner.cycle_from_observations(current, observations)?;
+        self.capture_cycle_evidence(result)
+    }
+
+    fn capture_cycle_evidence(
+        &self,
+        result: ForecastCycleResult,
+    ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
         let final_profile_rank = self.current_profile_rank()?;
         let contracts = self.controller_contracts()?;
         let resource_id = self.resource_id();

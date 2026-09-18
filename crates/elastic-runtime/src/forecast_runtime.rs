@@ -342,10 +342,32 @@ where
         O: Observer,
         A: TransactionalActuator,
     {
+        let (current, observations) = observer.observe();
+        self.cycle_from_observations_attempt(resource, planner, current, observations, actuator)
+    }
+
+    /// Execute one cycle from an already captured observer result.
+    ///
+    /// This crate-private composition point lets an eligibility layer inspect
+    /// one observation set and then execute that exact set through forecasting
+    /// and the trusted runtime. The physical observer is never called again.
+    pub(crate) fn cycle_from_observations_attempt<P, A>(
+        &self,
+        resource: &EirResource,
+        planner: &P,
+        current: PlanningContext,
+        observations: Vec<Observation>,
+        actuator: &mut A,
+    ) -> ForecastCycleAttempt
+    where
+        P: TransitionPlanner,
+        A: TransactionalActuator,
+    {
         if matches!(self.runtime.config().mode, RuntimeMode::ObserveOnly) {
+            let frozen_observer = FrozenObserver::new(current, observations);
             return match self
                 .runtime
-                .cycle_attempt(resource, planner, observer, actuator)
+                .cycle_attempt(resource, planner, &frozen_observer, actuator)
             {
                 CycleAttempt::Completed(transaction) => {
                     ForecastCycleAttempt::Completed(Box::new(ForecastCycleResult {
@@ -365,7 +387,6 @@ where
             };
         }
 
-        let (current, observations) = observer.observe();
         let forecast_input = ObservationSnapshot::new(Instant::now(), observations.clone());
         let forecast = match self.forecaster.forecast(&forecast_input, &current) {
             Ok(forecast) => forecast,
@@ -710,6 +731,33 @@ where
             &self.resource,
             &self.planner,
             &self.observer,
+            &mut self.actuator,
+        )
+    }
+
+    /// Execute one cycle from an already captured observer result without
+    /// reading the owned observer again.
+    pub(crate) fn cycle_from_observations(
+        &mut self,
+        current: PlanningContext,
+        observations: Vec<Observation>,
+    ) -> Result<ForecastCycleResult, RuntimeError> {
+        self.cycle_from_observations_attempt(current, observations)
+            .into_result()
+    }
+
+    /// Attempt one cycle from already captured observations while retaining the
+    /// exact failure phase.
+    pub(crate) fn cycle_from_observations_attempt(
+        &mut self,
+        current: PlanningContext,
+        observations: Vec<Observation>,
+    ) -> ForecastCycleAttempt {
+        self.runtime.cycle_from_observations_attempt(
+            &self.resource,
+            &self.planner,
+            current,
+            observations,
             &mut self.actuator,
         )
     }
