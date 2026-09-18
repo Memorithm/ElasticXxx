@@ -1,62 +1,113 @@
 # BE13 portable Boolean screening benchmark protocol
 
-Status: **portable harness qualified by PR #124; reproducible measurement evidence in progress; no performance claim**.
+Status: **portable harness qualified; v1 retained timing is DVFS-confounded; v2 controlled evidence path implemented; no performance claim**.
 
 The dependency-free `be13_portable` benchmark compares five declared execution
 paths on the same three-valued conjunction and stable fact assignment:
 `scalar_if_chain`, generic `BoolExpr`, `u64_compiled_guard`,
 `multiword_guard`, and `batch_filter`.
 
-Run it only from a clean exact revision and record that revision beside the raw
-output:
+The benchmark supports the historical five-path run and a single-path mode:
 
 ```bash
 git rev-parse HEAD
-cargo bench -p elastic-core --bench be13_portable -- --warmup 10000 --iterations 200000
+cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+  --warmup 10000 --iterations 200000
+cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+  --warmup 10000 --iterations 200000 --path u64_compiled_guard
 ```
 
-The CSV fields report elapsed nanoseconds, evaluated guards, derived
-`ns_per_guard`, derived candidates/second, and the Rust stack size of the guard
+`raw.csv` timing fields report elapsed nanoseconds, evaluated guards, derived
+`ns_per_guard`, derived candidates/second, and Rust stack size of the guard
 value. `stack_bytes_per_guard` is **not** total retained memory and excludes heap
-storage.
+storage. Allocation count, peak memory and branch misses in `raw.csv` remain the
+literal `unmeasured`: differently scoped instrumentation must not be silently
+mixed into the Rust `Instant` timing region.
 
-Allocation count, peak memory and branch misses are deliberately emitted as
-`unmeasured`. They must not be interpreted as zero. A later measurement slice
-may add a reviewed portable/instrumented allocator or platform counter path,
-but only if its dependencies, licences and measurement semantics are explicit.
+## Evidence schemas
 
-The benchmark performs no actuation and grants no validation authority. Timing
-numbers are host- and build-specific development evidence only. No speedup claim
-is valid unless raw output, toolchain/build mode, hardware identity and exact
-commit SHA are retained and the compared paths are semantically equivalent.
+`elasticxxx-be13-portable-evidence/v1` is retained for historical evidence. Its
+CPU-frequency samples are before/after samples only. The retained v1 Jetson AGX
+Thor set varies from 972000 to 2601000 kHz and is therefore explicitly
+DVFS-confounded.
 
+`elasticxxx-be13-portable-evidence/v2` adds controls and supplementary metrics
+without changing v1 evidence:
 
-## Reproducible evidence collector
+- one selected path per benchmark process;
+- deterministic rotation of path order across repetitions;
+- optional transactional CPUFreq `lock-max` control with original policy
+  restoration on success, failure, or interruption;
+- continuous `scaling_cur_freq` sampling plus before/after samples for each path;
+- a preregistered timing-drift gate: at least 30 repetitions, contiguous non-overlapping blocks of 5, and per-path block-median spread no greater than 10% of the overall median, with no row deletion;
+- a separate `process_metrics.csv` obtained through a small Linux C helper;
+- direct generalized hardware `PERF_COUNT_HW_BRANCH_MISSES` counting when the
+  PMU permits it, user-space only;
+- whole-process peak RSS from `wait4(2)` / `ru_maxrss`;
+- allocation count remains explicit `unmeasured` until a reviewed region-scoped
+  allocation method exists.
 
-Use `scripts/collect-be13-portable-evidence.sh` from a clean exact revision to
-retain repeated raw rows together with toolchain and hardware provenance. The
-collector defaults to 30 repetitions, 10,000 warmup evaluations, 500,000 timed
-iterations, and CPU 0 affinity when `taskset` is available. The repetition,
-warmup, iteration and CPU settings are explicit environment variables.
+Linux CPUFreq's `performance` governor requests the highest frequency permitted
+by the policy. The v2 collector additionally sets `scaling_min_freq` and
+`scaling_max_freq` to the same target while measurements run and restores the
+previous governor and limits afterwards. `scaling_cur_freq` is retained as a
+kernel CPUFreq policy report; it is **not claimed to be exact instantaneous
+hardware frequency**. A v2 set is marked `comparison_qualified=true` only when
+the `lock-max` policy was accepted, all continuous and edge samples matched the
+target, the original policy was successfully restored, and every benchmark path
+passes the preregistered block-median timing-drift gate. The 10% limit is an
+ElasticXxx engineering qualification threshold, not a statistical significance
+test or an external standard.
+
+The direct branch-miss and RSS measurements have a deliberately wider scope
+than `raw.csv`: they cover the whole selected-path process, including dynamic
+loader, setup, path-specific warmup, timed region, and output. They are retained
+separately and must not be interpreted as branch misses or resident bytes of the
+timed loop alone.
+
+## Controlled evidence collection
+
+The portable default remains observation-only and requires no privileged
+CPU-frequency change:
 
 ```bash
 BE13_REPETITIONS=30 \
 BE13_WARMUP=10000 \
 BE13_ITERATIONS=500000 \
 BE13_CPU=0 \
-./scripts/collect-be13-portable-evidence.sh /tmp/be13-evidence
+./scripts/collect-be13-portable-evidence.sh /tmp/be13-observed
 ```
 
-The collector refuses a dirty worktree and a non-empty destination. It validates
-that every repetition contains the five declared paths and preserves the expected
-`True` semantic result. `allocations`, `memory_peak_bytes`, and `branch_misses`
-remain explicit `unmeasured` fields until a separately reviewed measurement path
-exists. Retained timing evidence is descriptive development evidence for one
-source SHA and host configuration; it does not by itself authorize BE13e or any
-speedup claim.
+On a reviewed host where the selected CPU exposes a writable CPUFreq policy,
+controlled comparison evidence can be requested explicitly:
 
-Retained evidence is checked by the dedicated `BE13 retained evidence integrity`
-workflow. The gate validates the complete five-path repetition matrix, explicit
-`unmeasured` fields, finite numeric fields, per-repetition CPU-frequency
-samples when available, and SHA-256 binding of raw CSV, frequency samples and
-metadata. It does not reinterpret the measurements as a speedup claim.
+```bash
+BE13_REPETITIONS=30 \
+BE13_METRIC_REPETITIONS=10 \
+BE13_WARMUP=10000 \
+BE13_ITERATIONS=500000 \
+BE13_CPU=0 \
+BE13_FREQUENCY_MODE=lock-max \
+BE13_PROCESS_METRICS=required \
+BE13_REQUIRE_QUALIFIED=1 \
+./scripts/collect-be13-portable-evidence.sh /tmp/be13-controlled
+```
+
+The collector refuses a dirty worktree and a non-empty destination. It builds
+the benchmark before applying any CPUFreq lock, pins the benchmark to the
+selected CPU when `taskset` is available, rotates path order, verifies the five
+semantic `True` results, samples the CPUFreq policy during the campaign, and
+restores the original CPU policy before finalizing metadata. A lock file prevents
+two BE13 collectors from changing the same policy concurrently.
+
+The retained-evidence validator supports both v1 and v2. For v2 it validates the
+exact repetition/path matrices, deterministic order, recomputes the timing
+stability summary from raw rows, checks continuous frequency samples, policy
+restoration, process-counter semantics, SHA-256 files, and the historical
+collector/helper/stability-analyzer blobs from the recorded source SHA. The
+evidence CI uses full Git history so this source binding can be checked.
+
+This benchmark performs no actuation and grants no validation authority. No
+speedup, hardware, energy, or scientific-novelty claim is valid merely because a
+v2 set is comparison-qualified; any such claim still requires review of the raw
+data, measurement scope, semantic parity, and exact source SHA.
