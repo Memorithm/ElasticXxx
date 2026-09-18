@@ -21,6 +21,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod acceleration;
 pub mod canonical;
 pub mod control;
 pub mod exact_oracle;
@@ -40,6 +41,7 @@ pub mod resource;
 pub mod resource_policy_analysis;
 pub mod symbolic_backend;
 
+pub use acceleration::{BooleanCpuArchitecture, BooleanCpuFeatures};
 pub use canonical::{
     BoolExprFingerprint, CanonicalizationError, BOOLEAN_EXPRESSION_SCHEMA_V1,
     MAX_CANONICAL_EXPRESSION_NODES,

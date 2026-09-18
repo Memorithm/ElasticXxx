@@ -362,20 +362,23 @@ fn evaluate_conjunction(
     if constant_false {
         return TruthValue::False;
     }
+
+    // Accumulate both decisive contradictions and missing evidence in one
+    // bounded pass. A contradiction must dominate missing evidence under
+    // strong-Kleene conjunction semantics, so the two masks remain separate
+    // until the final classification.
+    let mut conflict = 0_u64;
+    let mut missing = 0_u64;
     for (word, (&need_true, &need_false)) in required_true.iter().zip(required_false).enumerate() {
         let known_true = facts.known_true_words()[word];
         let known_false = facts.known_false_words()[word];
-        if known_false & need_true != 0 || known_true & need_false != 0 {
-            return TruthValue::False;
-        }
+        conflict |= (known_false & need_true) | (known_true & need_false);
+        missing |= (need_true & !known_true) | (need_false & !known_false);
     }
-    let complete = required_true.iter().zip(required_false).enumerate().all(
-        |(word, (&need_true, &need_false))| {
-            facts.known_true_words()[word] & need_true == need_true
-                && facts.known_false_words()[word] & need_false == need_false
-        },
-    );
-    if complete {
+
+    if conflict != 0 {
+        TruthValue::False
+    } else if missing == 0 {
         TruthValue::True
     } else {
         TruthValue::Unknown
@@ -391,24 +394,24 @@ fn evaluate_disjunction(
     if constant_true {
         return TruthValue::True;
     }
+
+    // Dual of the conjunction kernel: one satisfying literal dominates any
+    // unknown literal. If none is satisfied, missing evidence yields Unknown;
+    // only a fully contradicted disjunction is False.
+    let mut satisfied = 0_u64;
+    let mut missing = 0_u64;
     for (word, (&accept_true, &accept_false)) in
         sufficient_true.iter().zip(sufficient_false).enumerate()
     {
         let known_true = facts.known_true_words()[word];
         let known_false = facts.known_false_words()[word];
-        if known_true & accept_true != 0 || known_false & accept_false != 0 {
-            return TruthValue::True;
-        }
+        satisfied |= (known_true & accept_true) | (known_false & accept_false);
+        missing |= (accept_true & !known_false) | (accept_false & !known_true);
     }
-    let all_false = sufficient_true
-        .iter()
-        .zip(sufficient_false)
-        .enumerate()
-        .all(|(word, (&accept_true, &accept_false))| {
-            facts.known_false_words()[word] & accept_true == accept_true
-                && facts.known_true_words()[word] & accept_false == accept_false
-        });
-    if all_false {
+
+    if satisfied != 0 {
+        TruthValue::True
+    } else if missing == 0 {
         TruthValue::False
     } else {
         TruthValue::Unknown
