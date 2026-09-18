@@ -10,3 +10,7 @@ publish = false
 description = "Core state-space and transition contracts for ElasticXxx"
 
 [dependencies]
+
+[[bench]]
+name = "be13_portable"
+harness = false
