@@ -70,9 +70,6 @@ pub struct BooleanRamCapacityEvidenceV1 {
     pub source_signal: String,
     pub source_unit: String,
     pub required_memory_bytes: Option<u64>,
-    pub forecast_method: Option<String>,
-    pub forecast_horizon_milliseconds: Option<u64>,
-    pub forecast_confidence_claimed: bool,
     pub truth: String,
     pub decision_trace_json: Option<String>,
 }
@@ -84,6 +81,58 @@ pub struct BooleanRamCapacityAdmissionReportV1 {
     pub schema_version: u16,
     pub guard: BooleanRamCapacityEvidenceV1,
     pub admission: CapacityAdmissionReportV1,
+}
+
+/// Version-2 durable Boolean evidence that explicitly records the forecast boundary.
+///
+/// V1 is intentionally frozen for backward wire compatibility. V2 adds only
+/// explanatory forecast metadata; it grants no planning, validation, or actuation authority.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanRamCapacityEvidenceV2 {
+    pub schema_version: u16,
+    pub predicate_key: String,
+    pub source_signal: String,
+    pub source_unit: String,
+    pub required_memory_bytes: Option<u64>,
+    pub forecast_method: Option<String>,
+    pub forecast_horizon_milliseconds: Option<u64>,
+    pub forecast_confidence_claimed: bool,
+    pub truth: String,
+    pub decision_trace_json: Option<String>,
+}
+
+/// Version-2 BE14a report retaining forecast-boundary metadata.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanRamCapacityAdmissionReportV2 {
+    pub schema_version: u16,
+    pub guard: BooleanRamCapacityEvidenceV2,
+    pub admission: CapacityAdmissionReportV1,
+}
+
+impl From<BooleanRamCapacityEvidenceV2> for BooleanRamCapacityEvidenceV1 {
+    fn from(value: BooleanRamCapacityEvidenceV2) -> Self {
+        Self {
+            schema_version: 1,
+            predicate_key: value.predicate_key,
+            source_signal: value.source_signal,
+            source_unit: value.source_unit,
+            required_memory_bytes: value.required_memory_bytes,
+            truth: value.truth,
+            decision_trace_json: value.decision_trace_json,
+        }
+    }
+}
+
+impl From<BooleanRamCapacityAdmissionReportV2> for BooleanRamCapacityAdmissionReportV1 {
+    fn from(value: BooleanRamCapacityAdmissionReportV2) -> Self {
+        Self {
+            schema_version: 1,
+            guard: value.guard.into(),
+            admission: value.admission,
+        }
+    }
 }
 
 /// RAM-capacity Boolean front-end for the existing admission controller.
@@ -166,6 +215,18 @@ impl BooleanRamCapacityAdmissionControllerV1 {
         &mut self,
         request: CapacityAdmissionRequestV1,
     ) -> Result<BooleanRamCapacityAdmissionReportV1, String> {
+        self.admit_v2(request).map(Into::into)
+    }
+
+    /// Apply the BE14a Boolean RAM gate and retain the explicit forecast boundary.
+    ///
+    /// This executes the same control path as [`Self::admit`]; only the durable
+    /// evidence envelope differs. V1 remains frozen while V2 records forecast
+    /// method, horizon, and whether a calibrated confidence value was claimed.
+    pub fn admit_v2(
+        &mut self,
+        request: CapacityAdmissionRequestV1,
+    ) -> Result<BooleanRamCapacityAdmissionReportV2, String> {
         request.validate()?;
         if request.max_concurrency > self.max_width {
             return Err("request exceeds immutable controller maximum".into());
@@ -294,10 +355,10 @@ impl BooleanRamCapacityAdmissionControllerV1 {
             admission.events.clear();
         }
 
-        Ok(BooleanRamCapacityAdmissionReportV1 {
-            schema_version: 1,
-            guard: BooleanRamCapacityEvidenceV1 {
-                schema_version: 1,
+        Ok(BooleanRamCapacityAdmissionReportV2 {
+            schema_version: 2,
+            guard: BooleanRamCapacityEvidenceV2 {
+                schema_version: 2,
                 predicate_key: predicate_key.to_string(),
                 source_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
                 source_unit: RAM_CAPACITY_SOURCE_UNIT.to_owned(),
@@ -354,12 +415,12 @@ impl BooleanRamCapacityAdmissionControllerV1 {
         &self,
         request: CapacityAdmissionRequestV1,
         reason: &str,
-    ) -> Result<BooleanRamCapacityAdmissionReportV1, String> {
+    ) -> Result<BooleanRamCapacityAdmissionReportV2, String> {
         let admission = self.blocked_report(request, reason)?;
-        Ok(BooleanRamCapacityAdmissionReportV1 {
-            schema_version: 1,
-            guard: BooleanRamCapacityEvidenceV1 {
-                schema_version: 1,
+        Ok(BooleanRamCapacityAdmissionReportV2 {
+            schema_version: 2,
+            guard: BooleanRamCapacityEvidenceV2 {
+                schema_version: 2,
                 predicate_key: ram_capacity_predicate_key().to_string(),
                 source_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
                 source_unit: RAM_CAPACITY_SOURCE_UNIT.to_owned(),
@@ -471,7 +532,9 @@ mod tests {
         .unwrap();
         let mut boolean = guarded(4);
         let expected = baseline.admit(request()).unwrap();
-        let actual = boolean.admit(request()).unwrap();
+        let actual = boolean.admit_v2(request()).unwrap();
+        assert_eq!(actual.schema_version, 2);
+        assert_eq!(actual.guard.schema_version, 2);
         assert_eq!(actual.guard.truth, "true");
         assert_eq!(actual.guard.required_memory_bytes, Some(200));
         assert_eq!(
@@ -494,6 +557,32 @@ mod tests {
         )
         .unwrap();
         assert!(decoded.selected().is_some());
+    }
+
+    #[test]
+    fn v1_wire_shape_remains_frozen_while_v2_adds_forecast_metadata() {
+        let mut v1_controller = guarded(4);
+        let v1 = v1_controller.admit(request()).unwrap();
+        let v1_value = serde_json::to_value(&v1).unwrap();
+        assert_eq!(v1.schema_version, 1);
+        assert_eq!(v1.guard.schema_version, 1);
+        let guard = v1_value["guard"].as_object().unwrap();
+        assert!(!guard.contains_key("forecast_method"));
+        assert!(!guard.contains_key("forecast_horizon_milliseconds"));
+        assert!(!guard.contains_key("forecast_confidence_claimed"));
+        let v1_roundtrip: BooleanRamCapacityAdmissionReportV1 =
+            serde_json::from_value(v1_value).unwrap();
+        assert_eq!(v1_roundtrip, v1);
+
+        let mut v2_controller = guarded(4);
+        let v2 = v2_controller.admit_v2(request()).unwrap();
+        let v2_value = serde_json::to_value(&v2).unwrap();
+        assert_eq!(v2.schema_version, 2);
+        assert_eq!(v2.guard.schema_version, 2);
+        assert_eq!(v2_value["guard"]["forecast_method"], "current-state");
+        assert_eq!(v2_value["guard"]["forecast_horizon_milliseconds"], 0);
+        assert_eq!(v2_value["guard"]["forecast_confidence_claimed"], false);
+        assert!(serde_json::from_value::<BooleanRamCapacityAdmissionReportV1>(v2_value).is_err());
     }
 
     #[test]
