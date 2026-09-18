@@ -10,17 +10,17 @@
 use std::fmt;
 use std::time::{Duration, Instant};
 
-use elastic_core::resource::{DimensionId, ObservationSignalId, ResourceSpec};
+use elastic_core::resource::{DimensionId, LogicalResourceId, ObservationSignalId, ResourceSpec};
 use elastic_core::{
     BoolExpr, BooleanGuard, CapabilitySet, FreshnessSnapshot, GuardFactSource, GuardScope,
     GuardedResourceSpec, ObservationEpoch, PlannerEpoch, PredicateKey, PredicateRegistry,
     RepresentationState, ResourceGeneration, TransitionAttestations, TransitionMechanism,
     TruthValue,
 };
-use elastic_eir::{lower_guarded, EirGuardedResource, TransitionCandidate};
+use elastic_eir::{lower_guarded, EirGuardedResource, PlanningContext, TransitionCandidate};
 use elastic_runtime::{
     capture_decision_trace, BooleanGuardPreplanner, FactResourceBinding, FactSnapshot,
-    FactSourceId, ObservationSnapshot, ObservationSource, PredicateEvaluationInput,
+    FactSourceId, Observation, ObservationSnapshot, ObservationSource, PredicateEvaluationInput,
     PredicateEvaluator,
 };
 use serde::{Deserialize, Serialize};
@@ -36,6 +36,103 @@ const MAX_EXACT_F64_INTEGER_U64: u64 = 1_u64 << 53;
 pub fn kv_capacity_predicate_key() -> PredicateKey {
     PredicateKey::new(KV_CAPACITY_PREDICATE_NAMESPACE, KV_CAPACITY_PREDICATE_NAME)
         .expect("static BE14d PredicateKey is valid")
+}
+
+/// Versioned, source-bound input for the BE14d KV capacity guard.
+///
+/// Consumers should prefer this helper over assembling a [`PlanningContext`]
+/// and [`ObservationSnapshot`] independently. It keeps the numeric context and
+/// telemetry record bit-identical and binds `free-capacity` to the exact
+/// [`LogicalResourceId`] that produced it. Values that cannot be represented
+/// exactly by the current `f64` observation transport are emitted as explicit
+/// unsupported evidence instead of being rounded.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KvCapacityObservationV1 {
+    planning_context: PlanningContext,
+    observations: ObservationSnapshot,
+}
+
+impl KvCapacityObservationV1 {
+    /// Build a valid byte-capacity reading when the integer can cross the
+    /// current observation transport without loss. Larger values fail closed
+    /// to unsupported/`Unknown` evidence.
+    #[must_use]
+    pub fn measured(
+        resource: LogicalResourceId,
+        free_capacity_bytes: u64,
+        observed_at: Instant,
+    ) -> Self {
+        let source = ObservationSource::Resource(resource);
+        if free_capacity_bytes > MAX_EXACT_F64_INTEGER_U64 {
+            return Self {
+                planning_context: PlanningContext::new(),
+                observations: ObservationSnapshot::new(
+                    observed_at,
+                    vec![Observation::unsupported_from_source(
+                        source,
+                        ObservationSignalId::FREE_CAPACITY,
+                        observed_at,
+                        "free-capacity bytes exceed exact f64 integer range",
+                    )],
+                ),
+            };
+        }
+
+        let value = free_capacity_bytes as f64;
+        Self {
+            planning_context: PlanningContext::new()
+                .observe(ObservationSignalId::FREE_CAPACITY, value),
+            observations: ObservationSnapshot::new(
+                observed_at,
+                vec![Observation::from_source(
+                    source,
+                    ObservationSignalId::FREE_CAPACITY,
+                    value,
+                    observed_at,
+                )],
+            ),
+        }
+    }
+
+    /// Build explicit unavailable capacity evidence without fabricating a zero.
+    #[must_use]
+    pub fn unsupported(
+        resource: LogicalResourceId,
+        observed_at: Instant,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self {
+            planning_context: PlanningContext::new(),
+            observations: ObservationSnapshot::new(
+                observed_at,
+                vec![Observation::unsupported_from_source(
+                    ObservationSource::Resource(resource),
+                    ObservationSignalId::FREE_CAPACITY,
+                    observed_at,
+                    reason,
+                )],
+            ),
+        }
+    }
+
+    /// Numeric planning context paired with the source-bound observation.
+    #[must_use]
+    pub const fn planning_context(&self) -> &PlanningContext {
+        &self.planning_context
+    }
+
+    /// Source-bound runtime observation snapshot.
+    #[must_use]
+    pub const fn observations(&self) -> &ObservationSnapshot {
+        &self.observations
+    }
+
+    /// Split the provider value into the exact inputs accepted by the existing
+    /// capacity preflight. This remains planning evidence only.
+    #[must_use]
+    pub fn into_parts(self) -> (PlanningContext, ObservationSnapshot) {
+        (self.planning_context, self.observations)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -218,9 +315,25 @@ impl BooleanKvCapacityPreflightControllerV1 {
         })
     }
 
+    /// Evaluate one source-bound provider value without allowing the numeric
+    /// planning context to drift from its observation provenance.
+    pub fn evaluate_observation(
+        &mut self,
+        observation: &KvCapacityObservationV1,
+        target_materialized_bytes: u64,
+        now: Instant,
+    ) -> Result<BooleanKvCapacityReportV1, BooleanKvCapacityError> {
+        self.evaluate(
+            observation.planning_context(),
+            observation.observations(),
+            target_materialized_bytes,
+            now,
+        )
+    }
+
     pub fn evaluate(
         &mut self,
-        planning_context: &elastic_eir::PlanningContext,
+        planning_context: &PlanningContext,
         observations: &ObservationSnapshot,
         target_materialized_bytes: u64,
         now: Instant,
@@ -321,7 +434,7 @@ impl BooleanKvCapacityPreflightControllerV1 {
         capabilities: &CapabilitySet,
         attestations: TransitionAttestations,
         target_materialization: KvTargetMaterialization,
-        planning_context: &elastic_eir::PlanningContext,
+        planning_context: &PlanningContext,
         observations: &ObservationSnapshot,
         target_materialized_bytes: u64,
         now: Instant,
@@ -366,17 +479,12 @@ fn truth_text(value: TruthValue) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, LogicalResourceId, ResourceClassId,
-    };
-    use elastic_core::{
-        EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
-    };
-    use elastic_eir::PlanningContext;
-    use elastic_runtime::Observation;
-
     use crate::{
         KeyEncodingPipeline, KeyTransformScope, KvPrecision, KvRecoverySource, KvResidency,
+    };
+    use elastic_core::resource::{AdmissibleTransition, CapabilityRequirement, ResourceClassId};
+    use elastic_core::{
+        EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
     };
 
     fn spec(id: &str) -> ResourceSpec {
@@ -470,6 +578,96 @@ mod tests {
             KeyEncodingPipeline::TransformThenCodec,
             KvRecoverySource::StoredCanonicalRaw,
         )
+    }
+
+    #[test]
+    fn source_bound_capacity_provider_keeps_context_and_observation_identical() {
+        let now = Instant::now();
+        let resource = LogicalResourceId::new("kv-provider").unwrap();
+        let input = KvCapacityObservationV1::measured(resource.clone(), 4096, now);
+
+        assert_eq!(
+            input
+                .planning_context()
+                .get(ObservationSignalId::FREE_CAPACITY),
+            Some(4096.0)
+        );
+        let observation = input
+            .observations()
+            .get(ObservationSignalId::FREE_CAPACITY)
+            .unwrap();
+        assert_eq!(observation.source(), &ObservationSource::Resource(resource));
+        assert_eq!(observation.value(), 4096.0);
+        assert!(observation.is_valid());
+    }
+
+    #[test]
+    fn source_bound_capacity_provider_drives_the_existing_preflight() {
+        let now = Instant::now();
+        let resource_id = "kv-provider-preflight";
+        let input = KvCapacityObservationV1::measured(
+            LogicalResourceId::new(resource_id).unwrap(),
+            4096,
+            now,
+        );
+        let mut controller = BooleanKvCapacityPreflightControllerV1::new(
+            spec(resource_id),
+            TransitionMechanism::Reencode,
+            KV_CAPACITY_DEFAULT_MAX_AGE,
+        )
+        .unwrap();
+
+        let report = controller.evaluate_observation(&input, 2048, now).unwrap();
+
+        assert_eq!(report.status, BooleanKvCapacityStatusV1::Eligible);
+        assert_eq!(report.evidence.truth, "true");
+    }
+
+    #[test]
+    fn source_bound_capacity_provider_fails_closed_when_bytes_are_inexact() {
+        let now = Instant::now();
+        let input = KvCapacityObservationV1::measured(
+            LogicalResourceId::new("kv-provider-large").unwrap(),
+            MAX_EXACT_F64_INTEGER_U64 + 1,
+            now,
+        );
+
+        assert_eq!(
+            input
+                .planning_context()
+                .get(ObservationSignalId::FREE_CAPACITY),
+            None
+        );
+        let observation = input
+            .observations()
+            .get(ObservationSignalId::FREE_CAPACITY)
+            .unwrap();
+        assert!(observation.is_unsupported());
+        assert_eq!(
+            observation.unsupported_reason(),
+            Some("free-capacity bytes exceed exact f64 integer range")
+        );
+    }
+
+    #[test]
+    fn explicit_unsupported_capacity_has_no_numeric_planning_value() {
+        let now = Instant::now();
+        let resource = LogicalResourceId::new("kv-provider-unavailable").unwrap();
+        let input = KvCapacityObservationV1::unsupported(resource.clone(), now, "offline");
+
+        assert_eq!(
+            input
+                .planning_context()
+                .get(ObservationSignalId::FREE_CAPACITY),
+            None
+        );
+        let observation = input
+            .observations()
+            .get(ObservationSignalId::FREE_CAPACITY)
+            .unwrap();
+        assert_eq!(observation.source(), &ObservationSource::Resource(resource));
+        assert!(observation.is_unsupported());
+        assert_eq!(observation.unsupported_reason(), Some("offline"));
     }
 
     #[test]
