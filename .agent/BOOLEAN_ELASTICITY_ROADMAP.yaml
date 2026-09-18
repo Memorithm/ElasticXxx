@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 4daafec48d1f6cc51ae5cd501dfe9152c7d2aa81
+  main_sha: 82575e5de1cc624016d9afe97f993d418c6030dc
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -160,6 +160,14 @@ current_verified_state:
       hardening_run: 35299142295
       result: success
       purpose: durable_stable_PredicateKey_pseudo_Boolean_declaration_and_fail_closed_registry_binding
+    - pr: 116
+      head: 5f912be80350ed22735b844c16ddc281fe08d58a
+      merge: 82575e5de1cc624016d9afe97f993d418c6030dc
+      ci_run: 35299666639
+      packageability_run: 35299666567
+      hardening_run: 35299666634
+      result: success
+      purpose: contract_specific_non_negative_weight_rejection_for_budget_domains
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -705,7 +713,7 @@ phases:
     required_slices:
       - id: BE12a
         name: typed_constraint_model
-        status: in_progress
+        status: completed
         qualification_evidence:
           - ElasticXxx_PR_114
           - PR114_exact_head_9124f84ac977ad31365b838e306ea54e14086b00
@@ -724,8 +732,13 @@ phases:
           - PR115_merged_to_main_as_4daafec48d1f6cc51ae5cd501dfe9152c7d2aa81
           - durable_stable_PredicateKey_declaration_and_fail_closed_binding_to_compact_PredicateId
           - semantic_equivalence_under_different_compact_registry_layouts
-        remaining:
-          - contract_specific_rejection_of_negative_weights_where_a_domain_forbids_them
+          - ElasticXxx_PR_116
+          - PR116_exact_head_5f912be80350ed22735b844c16ddc281fe08d58a
+          - PR116_CI_35299666639_completed_success_on_exact_head
+          - PR116_packageability_35299666567_completed_success_on_exact_head
+          - PR116_hardening_35299666634_completed_success_on_exact_head
+          - PR116_merged_to_main_as_82575e5de1cc624016d9afe97f993d418c6030dc
+          - contract_specific_non_negative_weight_rejection_for_domains_that_forbid_negative_weights
         tasks:
           - WeightedPredicate_or_equivalent_with_stable_key
           - relations_LE_GE_EQ
