@@ -54,6 +54,7 @@ pub mod contextual;
 pub mod lifecycle;
 pub mod planner;
 pub mod requirements;
+pub mod transaction;
 
 pub use boolean_admission::{
     kernel_capability_predicate_key, plan_with_boolean_admission,
@@ -86,4 +87,9 @@ pub use planner::{
 pub use requirements::{
     DispatchGrid, FeatureRequirement, KernelRequirements,
     RejectionReason as CapabilityRejectionReason, RequirementsError,
+};
+pub use transaction::{
+    execute_guarded_kernel_transaction, execute_kernel_transaction,
+    GuardedKernelTransactionOutcomeV1, KernelRealizationBackendV1, KernelTransactionBlockV1,
+    KernelTransactionFailureV1, KernelTransactionStageV1,
 };
