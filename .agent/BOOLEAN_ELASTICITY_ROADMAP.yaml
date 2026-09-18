@@ -1609,6 +1609,22 @@ phases:
           - keep_BooleanLab_experimental_semantics_out_of_production_runtime
       - id: BE15b
         name: TDI_9_3_non_final_adapter
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_162
+          - PR162_exact_head_352a6e9f2011a0f479150a104ee94f5509b43f73
+          - PR162_merge_b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
+          - PR162_ci_35402387469_completed_success_on_exact_head
+          - PR162_packageability_35402387405_completed_success_on_exact_head
+          - PR162_BE14h_real_thermal_power_observer_35402387593_completed_success_on_exact_head
+          - TDI_source_PR_505_merge_7dab3bfa97e74eeff7965cefcada56c59b4322ab
+          - TDI_source_schema_tdi9_3_elasticxxx_c3_carrier_v1_pinned
+          - TDI_fixture_SHA256_4dc0d135af3ad99fae9c76c8c7721ab61e22aa36d68b055daedceb1f6d1d7635_pinned
+          - TDI_generator_SHA256_5a6fb59f4d2e3902773994aad8781d51625f3c4ec059ee05a05b4de7f364d84a_pinned
+          - grounded_512_row_binary_carrier_roundtrip_differential_passed
+          - every_row_every_missing_predicate_maps_to_Unknown_and_cannot_project_to_TDI_binary
+          - adapter_exposes_no_TDI_action_preregistration_holdout_confirmation_or_scientific_authority
+          - no_performance_or_scientific_novelty_claim
         tasks:
           - version_representation_adapter
           - differential_test_True_False_Unknown
@@ -1726,20 +1742,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15b_TDI_9_3_non_final_adapter
+  immediate_next_slice: BE15c_SciRust_promotion_review
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: none_BE15a_completed
-  verified_main: 7cb03916bf911fd690ae2b9de95565e00addd647
-  latest_qualified_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
-  latest_qualified_pr: 161
-  latest_qualified_head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
-  latest_merge: 7cb03916bf911fd690ae2b9de95565e00addd647
-  latest_merged_progress_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
-  latest_merged_progress_pr: 161
-  latest_merged_progress_head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
-  latest_merged_progress_merge: 7cb03916bf911fd690ae2b9de95565e00addd647
+  current_candidate_status: none_BE15b_completed
+  verified_main: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
+  latest_qualified_slice: BE15b_TDI_9_3_non_final_adapter
+  latest_qualified_pr: 162
+  latest_qualified_head: 352a6e9f2011a0f479150a104ee94f5509b43f73
+  latest_merge: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
+  latest_merged_progress_slice: BE15b_TDI_9_3_non_final_adapter
+  latest_merged_progress_pr: 162
+  latest_merged_progress_head: 352a6e9f2011a0f479150a104ee94f5509b43f73
+  latest_merged_progress_merge: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
