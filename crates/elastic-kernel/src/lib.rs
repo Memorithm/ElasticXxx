@@ -26,8 +26,8 @@
 //!   a selected realization is exposed for downstream use only after its
 //!   planner/observation/resource-generation assumptions are revalidated;
 //! - the semantic core (`elastic-core`) remains untouched by compute-domain
-//!   concepts; where core vocabulary fits ([`ObjectiveId`],
-//!   [`ContractId`], fingerprints), this crate reuses it instead of
+//!   concepts; where core vocabulary fits ([`elastic_core::ObjectiveId`],
+//!   [`elastic_core::ContractId`], fingerprints), this crate reuses it instead of
 //!   duplicating it.
 //!
 //! Honesty guarantees:
@@ -35,7 +35,7 @@
 //! - outcomes are exactly `{selected, no candidate, insufficient evidence,
 //!   unsupported}` — see [`plan`] and [`SelectionOutcome`];
 //! - unknown capabilities are never treated as present or absent
-//!   ([`FeatureSupport::Unknown`], [`RejectionReason::FeatureUnknown`]);
+//!   ([`FeatureSupport::Unknown`], [`requirements::RejectionReason::FeatureUnknown`]);
 //! - measured facts, static estimates, and unknown evidence are distinct
 //!   types ([`Evidence`]); a guessed latency can never pose as a
 //!   measurement;
