@@ -43,6 +43,15 @@ const VALIDATION_PARQUET_SHA256: &str =
 const TEST_PARQUET_SHA256: &str =
     "5f1bea067869d04849c0f975a2b29c4ff47d867f484f5010ea5e861eab246d91";
 
+/// Exact preregistration bytes frozen by issue #29 / PR #78.
+///
+/// Stage B is preregistered research: semantically similar rewrites are not an
+/// acceptable substitute for the reviewed artifact. Binding the Rust loader to
+/// the exact checked-in bytes prevents an omitted field-level check from
+/// silently changing the experiment protocol.
+const FROZEN_STAGE_B_MANIFEST: &str =
+    include_str!("../../../research/elastic-bit-allocation-stage-b-smollm2-v1.json");
+
 /// Errors raised while validating Stage B readiness gates.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum StageBError {
@@ -565,6 +574,11 @@ fn require_null(object: &Map<String, Value>, key: &str, where_: &str) -> Result<
 pub fn load_stage_b_preregistration(json: &str) -> Result<StageBPreregistration, StageBError> {
     let root: Value =
         serde_json::from_str(json).map_err(|error| StageBError::InvalidJson(error.to_string()))?;
+    if json != FROZEN_STAGE_B_MANIFEST {
+        return Err(StageBError::ProtocolViolation(
+            "manifest bytes differ from the frozen issue #29 Stage B preregistration".into(),
+        ));
+    }
     let root = require_object(&root, "root")?;
     require_exact_keys(
         root,
@@ -873,11 +887,73 @@ fn validate_dataset_file(
     Ok(())
 }
 
+fn validate_preregistration_token(
+    preregistration: &StageBPreregistration,
+) -> Result<(), StageBError> {
+    require_eq_str(
+        &preregistration.model_repository,
+        "HuggingFaceTB/SmolLM2-135M",
+        "preregistration.model_repository",
+    )?;
+    require_eq_str(
+        &preregistration.model_revision,
+        PINNED_MODEL_REVISION,
+        "preregistration.model_revision",
+    )?;
+    require_eq_str(
+        &preregistration.source_model_sha256,
+        PINNED_MODEL_SHA256,
+        "preregistration.source_model_sha256",
+    )?;
+    require_eq_str(
+        &preregistration.tokenizer_sha256,
+        PINNED_TOKENIZER_SHA256,
+        "preregistration.tokenizer_sha256",
+    )?;
+    require_eq_str(
+        &preregistration.dataset_repository,
+        "Salesforce/wikitext",
+        "preregistration.dataset_repository",
+    )?;
+    require_eq_str(
+        &preregistration.dataset_revision,
+        PINNED_DATASET_REVISION,
+        "preregistration.dataset_revision",
+    )?;
+    require_eq_str(
+        &preregistration.nnis_revision,
+        PINNED_NNIS_REVISION,
+        "preregistration.nnis_revision",
+    )?;
+    require_eq_bool(
+        preregistration.final_test_locked,
+        true,
+        "preregistration.final_test_locked",
+    )?;
+    require_eq_bool(
+        preregistration.allocator_unauthorized,
+        true,
+        "preregistration.allocator_unauthorized",
+    )?;
+    require_eq_bool(
+        preregistration.low_bit_runtime_qualified,
+        false,
+        "preregistration.low_bit_runtime_qualified",
+    )?;
+    require_eq_bool(
+        preregistration.structural_runtime_qualified,
+        false,
+        "preregistration.structural_runtime_qualified",
+    )?;
+    Ok(())
+}
+
 /// Fail closed if final-test access is requested while locked.
 pub fn authorize_partition_access(
     preregistration: &StageBPreregistration,
     partition: StageBPartition,
 ) -> Result<(), StageBError> {
+    validate_preregistration_token(preregistration)?;
     match partition {
         StageBPartition::Calibration | StageBPartition::Development => Ok(()),
         StageBPartition::FinalTest => {
@@ -895,6 +971,7 @@ pub fn authorize_partition_access(
 
 /// Fail closed if allocator/search work is requested.
 pub fn authorize_allocator(preregistration: &StageBPreregistration) -> Result<(), StageBError> {
+    validate_preregistration_token(preregistration)?;
     if preregistration.allocator_unauthorized {
         Err(StageBError::AllocatorUnauthorized)
     } else {
@@ -1039,6 +1116,31 @@ mod tests {
 
     const FROZEN_MANIFEST: &str =
         include_str!("../../../research/elastic-bit-allocation-stage-b-smollm2-v1.json");
+
+    #[test]
+    fn any_frozen_manifest_byte_drift_fails_closed() {
+        let drifted =
+            FROZEN_MANIFEST.replacen("\"sequence_length\": 2048", "\"sequence_length\": 1024", 1);
+        assert_ne!(drifted, FROZEN_MANIFEST);
+        assert!(matches!(
+            load_stage_b_preregistration(&drifted),
+            Err(StageBError::ProtocolViolation(message))
+                if message.contains("manifest bytes differ")
+        ));
+    }
+
+    #[test]
+    fn forged_public_preregistration_cannot_authorize_a_campaign() {
+        let mut forged =
+            load_stage_b_preregistration(FROZEN_MANIFEST).expect("frozen manifest must validate");
+        forged.model_revision = "forged-revision".into();
+
+        assert!(matches!(
+            dry_run_fixed_baseline_campaign(&forged, StageBPartition::Development),
+            Err(StageBError::ProtocolViolation(message))
+                if message.contains("preregistration.model_revision")
+        ));
+    }
 
     #[test]
     fn frozen_manifest_loads_and_dry_runs_without_numeric_claims() {
