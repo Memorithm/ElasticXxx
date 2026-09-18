@@ -79,12 +79,14 @@ pub use configured_controller::{
 pub use configured_forecaster::ConfiguredForecaster;
 pub use controller::Controller;
 pub use decision_trace::{
-    capture_decision_trace, capture_guarded_planning_trace, fact_snapshot_fingerprint,
-    CandidateDecisionTrace, DecisionReplayError, DecisionStopReason, DecisionTrace,
-    DecisionTraceChange, DecisionTraceChangeKind, DecisionTraceDiff, DecisionTraceError,
-    FactSnapshotFingerprint, GuardedPlanningOutcomeTrace, GuardedPlanningTrace,
-    InvariantPrecheckTraceSummary, PredicateTraceEntry, RejectedCandidateTrace,
-    UnknownCandidateTrace, DECISION_TRACE_SCHEMA_V1, MAX_DECISION_TRACE_BYTES,
+    capture_constrained_decision_trace, capture_decision_trace, capture_guarded_planning_trace,
+    fact_snapshot_fingerprint, CandidateDecisionTrace, ConstrainedDecisionTrace,
+    DecisionReplayError, DecisionStopReason, DecisionTrace, DecisionTraceChange,
+    DecisionTraceChangeKind, DecisionTraceDiff, DecisionTraceError, FactSnapshotFingerprint,
+    GuardedPlanningOutcomeTrace, GuardedPlanningTrace, InvariantPrecheckTraceSummary,
+    PredicateTraceEntry, PseudoBooleanConstraintTermTrace, PseudoBooleanConstraintTrace,
+    RejectedCandidateTrace, UnknownCandidateTrace, UnknownConstraintPredicateTrace,
+    CONSTRAINED_DECISION_TRACE_SCHEMA_V1, DECISION_TRACE_SCHEMA_V1, MAX_DECISION_TRACE_BYTES,
 };
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};

@@ -27,12 +27,16 @@ use crate::{
 };
 use elastic_core::resource::{DimensionId, LogicalResourceId};
 use elastic_core::{
-    FreshnessSnapshot, GuardScope, InvariantPredicateBinding, LogicError, ObservationEpoch,
-    PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
+    FactSet, FreshnessSnapshot, GuardFactSource, GuardScope, InvariantPredicateBinding, LogicError,
+    ObservationEpoch, PredicateKey, PredicateRegistry, PredicateRegistryError, PseudoBooleanError,
+    PseudoBooleanRelation, PseudoBooleanScale, ResourceGeneration, TransitionMechanism, TruthValue,
+    WeightedPredicate, BOOLEAN_PREDICATE_SCHEMA_V1,
 };
 use elastic_eir::{
-    prune_transition_candidates, EirGuardedResource, Fingerprint, PlanOutcome, PlanningContext,
-    TransitionCandidate, TransitionPruningReport,
+    prune_transition_candidates, EirConstrainedResource, EirGuardedResource,
+    EirPseudoBooleanConstraint, Fingerprint, PlanOutcome, PlanningContext, TransitionCandidate,
+    TransitionPruningReport, EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
+    MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
 use serde::{Deserialize, Deserializer};
 use serde_json::{json, Value};
@@ -41,6 +45,9 @@ use std::fmt;
 
 /// Schema identifier for the first typed Boolean decision-trace contract.
 pub const DECISION_TRACE_SCHEMA_V1: &str = "elastic-boolean-decision-trace-v1";
+
+/// Schema identifier for durable pseudo-Boolean constraint decision evidence.
+pub const CONSTRAINED_DECISION_TRACE_SCHEMA_V1: &str = "elastic-pseudo-boolean-decision-trace-v1";
 
 /// Decision traces share the runtime evidence envelope's maximum byte size.
 pub const MAX_DECISION_TRACE_BYTES: usize = MAX_EVIDENCE_BYTES;
@@ -498,6 +505,188 @@ impl GuardedPlanningTrace {
                 trace: self.pruning_report_fingerprint,
                 current: current_report_fingerprint,
             });
+        }
+        Ok(())
+    }
+}
+
+/// One weighted predicate contribution retained as durable constraint evidence.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PseudoBooleanConstraintTermTrace {
+    key: PredicateKey,
+    weight: i128,
+    truth: TruthValue,
+    materialized: bool,
+}
+
+impl PseudoBooleanConstraintTermTrace {
+    #[must_use]
+    pub const fn key(&self) -> &PredicateKey {
+        &self.key
+    }
+    #[must_use]
+    pub const fn weight(&self) -> i128 {
+        self.weight
+    }
+    #[must_use]
+    pub const fn truth(&self) -> TruthValue {
+        self.truth
+    }
+    #[must_use]
+    pub const fn materialized(&self) -> bool {
+        self.materialized
+    }
+}
+
+/// One stable predicate whose missing/unknown value contributes to an
+/// inconclusive pseudo-Boolean constraint evaluation.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct UnknownConstraintPredicateTrace {
+    key: PredicateKey,
+    materialized: bool,
+}
+
+impl UnknownConstraintPredicateTrace {
+    #[must_use]
+    pub const fn key(&self) -> &PredicateKey {
+        &self.key
+    }
+
+    #[must_use]
+    pub const fn materialized(&self) -> bool {
+        self.materialized
+    }
+}
+
+/// Deterministic explanatory result for one pseudo-Boolean constraint.
+/// This is diagnostic evidence only and never grants actuation authority.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PseudoBooleanConstraintTrace {
+    fingerprint: Fingerprint,
+    terms: Vec<PseudoBooleanConstraintTermTrace>,
+    truth: TruthValue,
+    minimum: i128,
+    maximum: i128,
+    relation: PseudoBooleanRelation,
+    threshold: i128,
+    scale: PseudoBooleanScale,
+    unknown_predicates: Vec<UnknownConstraintPredicateTrace>,
+}
+
+impl PseudoBooleanConstraintTrace {
+    #[must_use]
+    pub const fn fingerprint(&self) -> Fingerprint {
+        self.fingerprint
+    }
+    #[must_use]
+    pub fn terms(&self) -> &[PseudoBooleanConstraintTermTrace] {
+        &self.terms
+    }
+    #[must_use]
+    pub const fn truth(&self) -> TruthValue {
+        self.truth
+    }
+    #[must_use]
+    pub const fn minimum(&self) -> i128 {
+        self.minimum
+    }
+    #[must_use]
+    pub const fn maximum(&self) -> i128 {
+        self.maximum
+    }
+    #[must_use]
+    pub const fn relation(&self) -> PseudoBooleanRelation {
+        self.relation
+    }
+    #[must_use]
+    pub const fn threshold(&self) -> i128 {
+        self.threshold
+    }
+    #[must_use]
+    pub const fn scale(&self) -> &PseudoBooleanScale {
+        &self.scale
+    }
+    #[must_use]
+    pub fn unknown_predicates(&self) -> &[UnknownConstraintPredicateTrace] {
+        &self.unknown_predicates
+    }
+}
+
+/// Durable wrapper that leaves the historical BE8 decision-trace schema intact.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstrainedDecisionTrace {
+    constrained_resource_fingerprint: Fingerprint,
+    decision_trace: DecisionTrace,
+    constraints: Vec<PseudoBooleanConstraintTrace>,
+}
+impl ConstrainedDecisionTrace {
+    #[must_use]
+    pub const fn constrained_resource_fingerprint(&self) -> Fingerprint {
+        self.constrained_resource_fingerprint
+    }
+    #[must_use]
+    pub const fn decision_trace(&self) -> &DecisionTrace {
+        &self.decision_trace
+    }
+    #[must_use]
+    pub fn constraints(&self) -> &[PseudoBooleanConstraintTrace] {
+        &self.constraints
+    }
+    #[must_use]
+    pub fn all_constraints_satisfied(&self) -> bool {
+        self.constraints
+            .iter()
+            .all(|entry| entry.truth == TruthValue::True)
+    }
+
+    pub fn to_bounded_json(&self) -> Result<String, DecisionTraceError> {
+        let value = json!({
+            "schema": CONSTRAINED_DECISION_TRACE_SCHEMA_V1,
+            "constrained_resource_fingerprint": format!("{:016x}", self.constrained_resource_fingerprint.bits()),
+            "decision_trace": self.decision_trace.to_json_value(),
+            "constraints": self.constraints.iter().map(constraint_trace_json).collect::<Vec<_>>(),
+        });
+        let encoded = serde_json::to_string(&value)
+            .map_err(|error| DecisionTraceError::Encoding(error.to_string()))?;
+        if encoded.len() > MAX_DECISION_TRACE_BYTES {
+            return Err(DecisionTraceError::EvidenceTooLarge {
+                max_bytes: MAX_DECISION_TRACE_BYTES,
+                actual_bytes: encoded.len(),
+            });
+        }
+        preflight_json_bounds(encoded.as_bytes())?;
+        Ok(encoded)
+    }
+
+    pub fn from_bounded_json(bytes: &[u8]) -> Result<Self, DecisionTraceError> {
+        preflight_json_bounds(bytes)?;
+        let wire: ConstrainedDecisionTraceWireV1 = serde_json::from_slice(bytes)
+            .map_err(|error| DecisionTraceError::Decoding(error.to_string()))?;
+        decode_constrained_wire_trace(wire)
+    }
+
+    /// Pure replay check. No validation or physical effect is performed.
+    pub fn validate_replay_identity(
+        &self,
+        resource: &EirConstrainedResource,
+        facts: &FactSnapshot,
+        freshness: &FreshnessSnapshot,
+    ) -> Result<(), DecisionReplayError> {
+        self.decision_trace.validate_replay_identity(
+            resource.guarded_resource(),
+            facts,
+            freshness,
+        )?;
+        if self.constrained_resource_fingerprint != resource.fingerprint() {
+            return Err(DecisionReplayError::ConstraintFingerprintMismatch {
+                trace: self.constrained_resource_fingerprint,
+                current: resource.fingerprint(),
+            });
+        }
+        let current = evaluate_constraint_traces(resource, facts)
+            .map_err(DecisionReplayError::ConstraintEvaluation)?;
+        if self.constraints != current {
+            return Err(DecisionReplayError::ConstraintEvidenceMismatch);
         }
         Ok(())
     }
@@ -1205,6 +1394,47 @@ struct UnknownCandidateWireV1 {
     capability_grounded: bool,
 }
 
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConstrainedDecisionTraceWireV1 {
+    schema: String,
+    constrained_resource_fingerprint: String,
+    decision_trace: DecisionTraceWireV1,
+    constraints: Vec<PseudoBooleanConstraintTraceWireV1>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PseudoBooleanConstraintTraceWireV1 {
+    fingerprint: String,
+    terms: Vec<PseudoBooleanConstraintTermTraceWireV1>,
+    truth: TruthValueWireV1,
+    minimum: String,
+    maximum: String,
+    relation: PseudoBooleanRelationWireV1,
+    threshold: String,
+    unit: String,
+    quantum: u64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PseudoBooleanConstraintTermTraceWireV1 {
+    namespace: String,
+    name: String,
+    weight: String,
+    truth: TruthValueWireV1,
+    materialized: bool,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum PseudoBooleanRelationWireV1 {
+    Le,
+    Ge,
+    Eq,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum TruthValueWireV1 {
@@ -1592,6 +1822,358 @@ fn decode_wire_trace(wire: DecisionTraceWireV1) -> Result<DecisionTrace, Decisio
     })
 }
 
+fn constraint_trace_json(entry: &PseudoBooleanConstraintTrace) -> Value {
+    json!({
+        "fingerprint": format!("{:016x}", entry.fingerprint.bits()),
+        "terms": entry.terms.iter().map(|term| json!({
+            "namespace": term.key.namespace(),
+            "name": term.key.name(),
+            "weight": term.weight.to_string(),
+            "truth": truth_text(term.truth),
+            "materialized": term.materialized,
+        })).collect::<Vec<_>>(),
+        "truth": truth_text(entry.truth),
+        "minimum": entry.minimum.to_string(),
+        "maximum": entry.maximum.to_string(),
+        "relation": pseudo_boolean_relation_text(entry.relation),
+        "threshold": entry.threshold.to_string(),
+        "unit": entry.scale.unit(),
+        "quantum": entry.scale.quantum(),
+    })
+}
+
+fn pseudo_boolean_relation_text(relation: PseudoBooleanRelation) -> &'static str {
+    match relation {
+        PseudoBooleanRelation::LessOrEqual => "le",
+        PseudoBooleanRelation::GreaterOrEqual => "ge",
+        PseudoBooleanRelation::Equal => "eq",
+    }
+}
+
+fn truth_from_constraint_bounds(
+    relation: PseudoBooleanRelation,
+    threshold: i128,
+    minimum: i128,
+    maximum: i128,
+) -> TruthValue {
+    match relation {
+        PseudoBooleanRelation::LessOrEqual if maximum <= threshold => TruthValue::True,
+        PseudoBooleanRelation::LessOrEqual if minimum > threshold => TruthValue::False,
+        PseudoBooleanRelation::GreaterOrEqual if minimum >= threshold => TruthValue::True,
+        PseudoBooleanRelation::GreaterOrEqual if maximum < threshold => TruthValue::False,
+        PseudoBooleanRelation::Equal if minimum == maximum && minimum == threshold => {
+            TruthValue::True
+        }
+        PseudoBooleanRelation::Equal if threshold < minimum || threshold > maximum => {
+            TruthValue::False
+        }
+        _ => TruthValue::Unknown,
+    }
+}
+
+fn parse_i128_field(field: &str, text: &str) -> Result<i128, DecisionTraceError> {
+    if text.is_empty() || text.len() > 40 {
+        return Err(invalid_persisted(format!(
+            "{field} must be a bounded base-10 i128 string"
+        )));
+    }
+    text.parse::<i128>()
+        .map_err(|error| invalid_persisted(format!("invalid {field}: {error}")))
+}
+
+fn decode_constrained_wire_trace(
+    wire: ConstrainedDecisionTraceWireV1,
+) -> Result<ConstrainedDecisionTrace, DecisionTraceError> {
+    if wire.schema != CONSTRAINED_DECISION_TRACE_SCHEMA_V1 {
+        return Err(DecisionTraceError::UnsupportedSchema(wire.schema));
+    }
+    if wire.constraints.len() > MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS {
+        return Err(invalid_persisted(format!(
+            "constraint trace count {} exceeds maximum {}",
+            wire.constraints.len(),
+            MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS
+        )));
+    }
+    let constrained_resource_fingerprint = Fingerprint::from_bits(parse_hex_fingerprint(
+        "constrained_resource_fingerprint",
+        &wire.constrained_resource_fingerprint,
+    )?);
+    let decision_trace = decode_wire_trace(wire.decision_trace)?;
+    let constraints = wire
+        .constraints
+        .into_iter()
+        .map(decode_constraint_trace)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut expected_resource_fingerprint = Fingerprint::EMPTY
+        .text("eir-constrained-resource")
+        .number(u64::from(EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION))
+        .number(decision_trace.guarded_resource_fingerprint.bits())
+        .number(constraints.len() as u64);
+    for constraint in &constraints {
+        expected_resource_fingerprint =
+            expected_resource_fingerprint.number(constraint.fingerprint.bits());
+    }
+    if constrained_resource_fingerprint != expected_resource_fingerprint {
+        return Err(invalid_persisted(format!(
+            "constrained resource fingerprint {constrained_resource_fingerprint} does not match decoded policy {expected_resource_fingerprint}"
+        )));
+    }
+    Ok(ConstrainedDecisionTrace {
+        constrained_resource_fingerprint,
+        decision_trace,
+        constraints,
+    })
+}
+
+fn decode_constraint_trace(
+    wire: PseudoBooleanConstraintTraceWireV1,
+) -> Result<PseudoBooleanConstraintTrace, DecisionTraceError> {
+    let fingerprint = Fingerprint::from_bits(parse_hex_fingerprint(
+        "constraint fingerprint",
+        &wire.fingerprint,
+    )?);
+    if wire.terms.len() > elastic_core::MAX_PSEUDO_BOOLEAN_TERMS {
+        return Err(invalid_persisted(format!(
+            "constraint term count {} exceeds maximum {}",
+            wire.terms.len(),
+            elastic_core::MAX_PSEUDO_BOOLEAN_TERMS
+        )));
+    }
+    let mut terms = Vec::with_capacity(wire.terms.len());
+    for term in wire.terms {
+        let key = PredicateKey::new(term.namespace, term.name)
+            .map_err(DecisionTraceError::ConstraintRegistry)?;
+        let weight = parse_i128_field("constraint term weight", &term.weight)?;
+        if weight == 0 {
+            return Err(invalid_persisted(format!(
+                "constraint term {key} has zero weight"
+            )));
+        }
+        let truth = wire_truth(term.truth);
+        if !term.materialized && truth != TruthValue::Unknown {
+            return Err(invalid_persisted(format!(
+                "non-materialized constraint predicate {key} must be unknown"
+            )));
+        }
+        if terms
+            .last()
+            .is_some_and(|previous: &PseudoBooleanConstraintTermTrace| previous.key >= key)
+        {
+            return Err(invalid_persisted(
+                "constraint terms must be strictly ordered by stable key".to_owned(),
+            ));
+        }
+        terms.push(PseudoBooleanConstraintTermTrace {
+            key,
+            weight,
+            truth,
+            materialized: term.materialized,
+        });
+    }
+    let minimum = parse_i128_field("constraint minimum", &wire.minimum)?;
+    let maximum = parse_i128_field("constraint maximum", &wire.maximum)?;
+    let threshold = parse_i128_field("constraint threshold", &wire.threshold)?;
+    if minimum > maximum {
+        return Err(invalid_persisted(
+            "constraint minimum exceeds maximum".to_owned(),
+        ));
+    }
+    let relation = match wire.relation {
+        PseudoBooleanRelationWireV1::Le => PseudoBooleanRelation::LessOrEqual,
+        PseudoBooleanRelationWireV1::Ge => PseudoBooleanRelation::GreaterOrEqual,
+        PseudoBooleanRelationWireV1::Eq => PseudoBooleanRelation::Equal,
+    };
+    let truth = wire_truth(wire.truth);
+    let scale = PseudoBooleanScale::new(wire.unit, wire.quantum)
+        .map_err(DecisionTraceError::PseudoBooleanConstraint)?;
+    let (derived_minimum, derived_maximum) = trace_term_bounds(&terms)?;
+    if (minimum, maximum) != (derived_minimum, derived_maximum) {
+        return Err(invalid_persisted(format!(
+            "constraint bounds ({minimum},{maximum}) do not match term evidence ({derived_minimum},{derived_maximum})"
+        )));
+    }
+    if truth != truth_from_constraint_bounds(relation, threshold, minimum, maximum) {
+        return Err(invalid_persisted(
+            "constraint truth is inconsistent with persisted bounds".to_owned(),
+        ));
+    }
+    let expected_fingerprint = constraint_trace_fingerprint(&terms, relation, threshold, &scale);
+    if fingerprint != expected_fingerprint {
+        return Err(invalid_persisted(format!(
+            "constraint fingerprint {fingerprint} does not match decoded policy {expected_fingerprint}"
+        )));
+    }
+    let unknown_predicates = terms
+        .iter()
+        .filter(|term| term.truth == TruthValue::Unknown)
+        .map(|term| UnknownConstraintPredicateTrace {
+            key: term.key.clone(),
+            materialized: term.materialized,
+        })
+        .collect::<Vec<_>>();
+    if truth == TruthValue::Unknown && unknown_predicates.is_empty() {
+        return Err(invalid_persisted(
+            "unknown constraint result requires at least one unknown predicate".to_owned(),
+        ));
+    }
+    Ok(PseudoBooleanConstraintTrace {
+        fingerprint,
+        terms,
+        truth,
+        minimum,
+        maximum,
+        relation,
+        threshold,
+        scale,
+        unknown_predicates,
+    })
+}
+
+fn wire_truth(truth: TruthValueWireV1) -> TruthValue {
+    match truth {
+        TruthValueWireV1::True => TruthValue::True,
+        TruthValueWireV1::False => TruthValue::False,
+        TruthValueWireV1::Unknown => TruthValue::Unknown,
+    }
+}
+
+fn trace_term_bounds(
+    terms: &[PseudoBooleanConstraintTermTrace],
+) -> Result<(i128, i128), DecisionTraceError> {
+    let mut minimum = 0_i128;
+    let mut maximum = 0_i128;
+    for term in terms {
+        let (lower, upper) = match term.truth {
+            TruthValue::True => (term.weight, term.weight),
+            TruthValue::False => (0, 0),
+            TruthValue::Unknown => (term.weight.min(0), term.weight.max(0)),
+        };
+        minimum = minimum
+            .checked_add(lower)
+            .ok_or(DecisionTraceError::PseudoBooleanConstraint(
+                PseudoBooleanError::ArithmeticOverflow,
+            ))?;
+        maximum = maximum
+            .checked_add(upper)
+            .ok_or(DecisionTraceError::PseudoBooleanConstraint(
+                PseudoBooleanError::ArithmeticOverflow,
+            ))?;
+    }
+    Ok((minimum, maximum))
+}
+
+fn constraint_trace_fingerprint(
+    terms: &[PseudoBooleanConstraintTermTrace],
+    relation: PseudoBooleanRelation,
+    threshold: i128,
+    scale: &PseudoBooleanScale,
+) -> Fingerprint {
+    let mut fingerprint = Fingerprint::EMPTY
+        .text("eir-pseudo-boolean-constraint")
+        .number(u64::from(EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION))
+        .number(u64::from(BOOLEAN_PREDICATE_SCHEMA_V1))
+        .text(pseudo_boolean_relation_text(relation))
+        .text(&threshold.to_string())
+        .text(scale.unit())
+        .number(scale.quantum())
+        .number(terms.len() as u64);
+    for term in terms {
+        fingerprint = fingerprint
+            .text(term.key.namespace())
+            .text(term.key.name())
+            .text(&term.weight.to_string());
+    }
+    fingerprint
+}
+
+fn evaluate_constraint_traces(
+    resource: &EirConstrainedResource,
+    facts: &FactSnapshot,
+) -> Result<Vec<PseudoBooleanConstraintTrace>, DecisionTraceError> {
+    resource
+        .constraints()
+        .iter()
+        .map(|constraint| evaluate_constraint_trace(constraint, facts))
+        .collect()
+}
+
+fn evaluate_constraint_trace(
+    constraint: &EirPseudoBooleanConstraint,
+    facts: &FactSnapshot,
+) -> Result<PseudoBooleanConstraintTrace, DecisionTraceError> {
+    let registry = PredicateRegistry::from_keys(
+        constraint
+            .terms()
+            .iter()
+            .map(|term| term.predicate().clone()),
+    )
+    .map_err(DecisionTraceError::ConstraintRegistry)?;
+    let terms = constraint
+        .terms()
+        .iter()
+        .map(|term| {
+            let predicate = registry.id(term.predicate()).ok_or_else(|| {
+                DecisionTraceError::InvalidPersistedTrace(
+                    "constraint predicate disappeared during canonical binding".to_owned(),
+                )
+            })?;
+            WeightedPredicate::new(predicate, term.weight())
+                .map_err(DecisionTraceError::PseudoBooleanConstraint)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let compiled = elastic_core::PseudoBooleanConstraint::new(
+        terms,
+        constraint.relation(),
+        constraint.threshold(),
+        constraint.scale().clone(),
+    )
+    .map_err(DecisionTraceError::PseudoBooleanConstraint)?;
+    let materialized = facts
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect::<BTreeSet<_>>();
+    let trace_terms = constraint
+        .terms()
+        .iter()
+        .map(|term| PseudoBooleanConstraintTermTrace {
+            key: term.predicate().clone(),
+            weight: term.weight(),
+            truth: facts.truth(term.predicate()),
+            materialized: materialized.contains(term.predicate()),
+        })
+        .collect::<Vec<_>>();
+    let mut fact_set = FactSet::new();
+    for (id, key) in registry.iter() {
+        fact_set.set(id, facts.truth(key))?;
+    }
+    let (minimum, maximum) = compiled
+        .bounds(&fact_set)
+        .map_err(DecisionTraceError::PseudoBooleanConstraint)?;
+    let truth = compiled
+        .evaluate(&fact_set)
+        .map_err(DecisionTraceError::PseudoBooleanConstraint)?;
+    let unknown_predicates = constraint
+        .terms()
+        .iter()
+        .filter(|term| facts.truth(term.predicate()) == TruthValue::Unknown)
+        .map(|term| UnknownConstraintPredicateTrace {
+            key: term.predicate().clone(),
+            materialized: materialized.contains(term.predicate()),
+        })
+        .collect::<Vec<_>>();
+    Ok(PseudoBooleanConstraintTrace {
+        fingerprint: constraint.fingerprint(),
+        terms: trace_terms,
+        truth,
+        minimum,
+        maximum,
+        relation: constraint.relation(),
+        threshold: constraint.threshold(),
+        scale: constraint.scale().clone(),
+        unknown_predicates,
+    })
+}
+
 fn decode_candidate(
     wire: CandidateTraceWireV1,
 ) -> Result<CandidateDecisionTrace, DecisionTraceError> {
@@ -1795,6 +2377,27 @@ fn insert_candidate_identity(
 
 fn invalid_persisted(detail: String) -> DecisionTraceError {
     DecisionTraceError::InvalidPersistedTrace(detail)
+}
+
+/// Capture durable pseudo-Boolean constraint reasons beside the BE8 decision trace.
+///
+/// Constraints are evaluated over the same fresh fact snapshot using the
+/// dependency-free bounded core evaluator. The result is explanatory/filtering
+/// evidence only; this function does not invoke validation or any physical effect.
+pub fn capture_constrained_decision_trace(
+    resource: &EirConstrainedResource,
+    facts: &FactSnapshot,
+    freshness: &FreshnessSnapshot,
+    selected: Option<&TransitionCandidate>,
+) -> Result<ConstrainedDecisionTrace, DecisionTraceError> {
+    let decision_trace =
+        capture_decision_trace(resource.guarded_resource(), facts, freshness, selected)?;
+    let constraints = evaluate_constraint_traces(resource, facts)?;
+    Ok(ConstrainedDecisionTrace {
+        constrained_resource_fingerprint: resource.fingerprint(),
+        decision_trace,
+        constraints,
+    })
 }
 
 /// Capture deterministic Boolean decision evidence for one fresh fact snapshot.
@@ -2089,6 +2692,10 @@ pub enum DecisionTraceError {
     },
     /// Pure Boolean guard evaluation failed.
     Logic(LogicError),
+    /// Pseudo-Boolean constraint predicate registry construction failed.
+    ConstraintRegistry(PredicateRegistryError),
+    /// Pseudo-Boolean constraint construction or evaluation failed.
+    PseudoBooleanConstraint(PseudoBooleanError),
     /// Guard pruning did not classify exactly the declared transition set.
     IncompletePruningReport { classified: usize, declared: usize },
     /// Numeric planning selected a transition outside the Boolean-eligible set.
@@ -2160,6 +2767,8 @@ impl fmt::Display for DecisionTraceError {
                 requested.as_str()
             ),
             Self::Logic(error) => write!(f, "Boolean decision trace evaluation failed: {error}"),
+            Self::ConstraintRegistry(error) => write!(f, "pseudo-Boolean constraint registry failed: {error}"),
+            Self::PseudoBooleanConstraint(error) => write!(f, "pseudo-Boolean constraint evaluation failed: {error}"),
             Self::IncompletePruningReport {
                 classified,
                 declared,
@@ -2285,6 +2894,12 @@ pub enum DecisionReplayError {
         trace: PlanningContextFingerprint,
         current: PlanningContextFingerprint,
     },
+    ConstraintFingerprintMismatch {
+        trace: Fingerprint,
+        current: Fingerprint,
+    },
+    ConstraintEvaluation(DecisionTraceError),
+    ConstraintEvidenceMismatch,
     Logic(LogicError),
     UnboundPruningReport,
     PruningReportFingerprintMismatch {
@@ -2331,6 +2946,17 @@ impl fmt::Display for DecisionReplayError {
                 f,
                 "trace planning context {trace} does not match current {current}"
             ),
+            Self::ConstraintFingerprintMismatch { trace, current } => write!(
+                f,
+                "trace constrained-resource identity {trace} does not match current {current}"
+            ),
+            Self::ConstraintEvaluation(error) => write!(
+                f,
+                "replay pseudo-Boolean constraint evaluation failed: {error}"
+            ),
+            Self::ConstraintEvidenceMismatch => {
+                f.write_str("trace pseudo-Boolean constraint evidence does not match current facts")
+            }
             Self::Logic(error) => write!(f, "replay Boolean evaluation failed: {error}"),
             Self::UnboundPruningReport => {
                 f.write_str("replay Boolean pruning report has no source binding")
@@ -2439,8 +3065,10 @@ mod tests {
     };
     use elastic_core::{
         BoolExpr, BooleanGuard, GuardedResourceSpec, PlannerEpoch, PredicateRegistry,
+        PseudoBooleanConstraintDeclaration, PseudoBooleanRelation, PseudoBooleanScale,
+        WeightedPredicateKey,
     };
-    use elastic_eir::{lower_guarded, PlanningContext, TransitionPlanner};
+    use elastic_eir::{lower_constrained, lower_guarded, PlanningContext, TransitionPlanner};
     use std::cell::Cell;
     use std::time::{Duration, Instant};
 
@@ -2481,6 +3109,62 @@ mod tests {
         .unwrap();
         let guarded = lower_guarded(&GuardedResourceSpec::new(spec, vec![guard]).unwrap()).unwrap();
         (guarded, key, resource_id)
+    }
+
+    fn constrained_fixture() -> (
+        EirConstrainedResource,
+        PredicateKey,
+        PredicateKey,
+        LogicalResourceId,
+    ) {
+        let resource_id = LogicalResourceId::new("constrained-decision-trace").unwrap();
+        let spec = ResourceSpec::builder(ResourceClassId::CAPACITY_RESOURCE, resource_id.clone())
+            .allow(DimensionId::CAPACITY)
+            .admit(AdmissibleTransition::new(
+                TransitionMechanism::Reinterpret,
+                DimensionId::CAPACITY,
+            ))
+            .require_capability(CapabilityRequirement::new(
+                TransitionMechanism::Reinterpret,
+                DimensionId::CAPACITY,
+            ))
+            .build()
+            .unwrap();
+        let guard_key = PredicateKey::new("elastic.trace", "capacity-ok").unwrap();
+        let unknown_key = PredicateKey::new("elastic.trace", "budget-unknown").unwrap();
+        let registry = PredicateRegistry::from_keys([guard_key.clone()]).unwrap();
+        let guard_id = registry.id(&guard_key).unwrap();
+        let guard =
+            BooleanGuard::new(GuardScope::Resource, registry, BoolExpr::atom(guard_id)).unwrap();
+        let guarded = GuardedResourceSpec::new(spec, vec![guard]).unwrap();
+        let scale = PseudoBooleanScale::count();
+        let satisfied = PseudoBooleanConstraintDeclaration::new(
+            vec![WeightedPredicateKey::new(guard_key.clone(), 1).unwrap()],
+            PseudoBooleanRelation::GreaterOrEqual,
+            1,
+            scale.clone(),
+        )
+        .unwrap();
+        let violated = PseudoBooleanConstraintDeclaration::new(
+            vec![WeightedPredicateKey::new(guard_key.clone(), 1).unwrap()],
+            PseudoBooleanRelation::LessOrEqual,
+            0,
+            scale.clone(),
+        )
+        .unwrap();
+        let inconclusive = PseudoBooleanConstraintDeclaration::new(
+            vec![WeightedPredicateKey::new(unknown_key.clone(), 1).unwrap()],
+            PseudoBooleanRelation::GreaterOrEqual,
+            1,
+            scale,
+        )
+        .unwrap();
+        (
+            lower_constrained(&guarded, &[satisfied, violated, inconclusive]).unwrap(),
+            guard_key,
+            unknown_key,
+            resource_id,
+        )
     }
 
     fn fact_snapshot(
@@ -3185,6 +3869,127 @@ mod tests {
         assert_eq!(decoded, trace);
     }
 
+    #[test]
+    fn constrained_trace_preserves_true_false_and_unknown_reasons() {
+        let (resource, guard_key, unknown_key, resource_id) = constrained_fixture();
+        let facts = fact_snapshot(&resource_id, &guard_key, Some(true), Instant::now(), false);
+        let trace =
+            capture_constrained_decision_trace(&resource, &facts, &freshness(&resource_id), None)
+                .unwrap();
+
+        assert!(!trace.all_constraints_satisfied());
+        assert_eq!(trace.constraints().len(), 3);
+        assert!(trace.constraints().iter().any(|entry| {
+            entry.truth() == TruthValue::True
+                && entry.relation() == PseudoBooleanRelation::GreaterOrEqual
+                && entry.minimum() == 1
+                && entry.maximum() == 1
+        }));
+        assert!(trace.constraints().iter().any(|entry| {
+            entry.truth() == TruthValue::False
+                && entry.relation() == PseudoBooleanRelation::LessOrEqual
+                && entry.threshold() == 0
+        }));
+        let unknown = trace
+            .constraints()
+            .iter()
+            .find(|entry| entry.truth() == TruthValue::Unknown)
+            .unwrap();
+        assert_eq!(unknown.minimum(), 0);
+        assert_eq!(unknown.maximum(), 1);
+        assert_eq!(unknown.unknown_predicates().len(), 1);
+        assert_eq!(unknown.unknown_predicates()[0].key(), &unknown_key);
+        assert!(!unknown.unknown_predicates()[0].materialized());
+    }
+
+    #[test]
+    fn constrained_trace_distinguishes_missing_from_materialized_unknown() {
+        let (resource, guard_key, unknown_key, resource_id) = constrained_fixture();
+        let now = Instant::now();
+        let observations = ObservationSnapshot::new(now, Vec::new());
+        let context = PlanningContext::new();
+        let input = PredicateEvaluationInput::new(&context, &observations, now);
+        let guard = CapabilityPredicate::new(guard_key, Some(true));
+        let unknown = CapabilityPredicate::new(unknown_key.clone(), None);
+        let evaluators: Vec<&dyn PredicateEvaluator> = vec![&guard, &unknown];
+        let facts = FactSnapshot::derive(
+            FactSourceId::new("runtime:constraint-trace-test").unwrap(),
+            ObservationEpoch::new(14),
+            Some(FactResourceBinding::new(
+                resource_id.clone(),
+                ResourceGeneration::new(7),
+            )),
+            &input,
+            &evaluators,
+        )
+        .unwrap();
+        let trace =
+            capture_constrained_decision_trace(&resource, &facts, &freshness(&resource_id), None)
+                .unwrap();
+        let entry = trace
+            .constraints()
+            .iter()
+            .find(|entry| entry.truth() == TruthValue::Unknown)
+            .unwrap();
+        assert_eq!(entry.unknown_predicates()[0].key(), &unknown_key);
+        assert!(entry.unknown_predicates()[0].materialized());
+    }
+
+    #[test]
+    fn constrained_trace_roundtrip_is_strict_and_replay_is_pure() {
+        let (resource, guard_key, _, resource_id) = constrained_fixture();
+        let facts = fact_snapshot(&resource_id, &guard_key, Some(true), Instant::now(), false);
+        let current = freshness(&resource_id);
+        let trace = capture_constrained_decision_trace(&resource, &facts, &current, None).unwrap();
+        let encoded = trace.to_bounded_json().unwrap();
+        let decoded = ConstrainedDecisionTrace::from_bounded_json(encoded.as_bytes()).unwrap();
+
+        assert_eq!(decoded, trace);
+        assert_eq!(decoded.to_bounded_json().unwrap(), encoded);
+        decoded
+            .validate_replay_identity(&resource, &facts, &current)
+            .unwrap();
+    }
+    #[test]
+    fn constrained_trace_decoder_rejects_future_schema_and_tampered_truth() {
+        let (resource, guard_key, _, resource_id) = constrained_fixture();
+        let facts = fact_snapshot(&resource_id, &guard_key, Some(true), Instant::now(), false);
+        let trace =
+            capture_constrained_decision_trace(&resource, &facts, &freshness(&resource_id), None)
+                .unwrap();
+        let encoded = trace.to_bounded_json().unwrap();
+        let mut future: Value = serde_json::from_str(&encoded).unwrap();
+        future["schema"] = Value::String("elastic-pseudo-boolean-decision-trace-v2".to_owned());
+        assert!(matches!(
+            ConstrainedDecisionTrace::from_bounded_json(&serde_json::to_vec(&future).unwrap()),
+            Err(DecisionTraceError::UnsupportedSchema(_))
+        ));
+
+        let mut tampered: Value = serde_json::from_str(&encoded).unwrap();
+        tampered["constraints"][0]["truth"] = Value::String("false".to_owned());
+        assert!(matches!(
+            ConstrainedDecisionTrace::from_bounded_json(&serde_json::to_vec(&tampered).unwrap()),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+
+        let mut altered_term: Value = serde_json::from_str(&encoded).unwrap();
+        altered_term["constraints"][0]["terms"][0]["weight"] = Value::String("2".to_owned());
+        assert!(matches!(
+            ConstrainedDecisionTrace::from_bounded_json(
+                &serde_json::to_vec(&altered_term).unwrap()
+            ),
+            Err(DecisionTraceError::InvalidPersistedTrace(_))
+        ));
+
+        let mut unknown_field: Value = serde_json::from_str(&encoded).unwrap();
+        unknown_field["unexpected"] = Value::Bool(true);
+        assert!(matches!(
+            ConstrainedDecisionTrace::from_bounded_json(
+                &serde_json::to_vec(&unknown_field).unwrap()
+            ),
+            Err(DecisionTraceError::Decoding(_))
+        ));
+    }
     #[test]
     fn decision_trace_diff_is_empty_for_identical_traces() {
         let (trace, _) = persisted_fixture();
