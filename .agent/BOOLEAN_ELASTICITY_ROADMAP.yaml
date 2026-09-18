@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: f5af4f3129100f4bb52d47d1adfc202347d0b098
+  main_sha: b05c1906ee39bf3373fc541feedfa25520fbe433
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1227,6 +1227,23 @@ phases:
           - backend_atomic_source_compare_and_feasibility_check_required_at_physical_mutation_boundary
           - test_provider_covers_Boolean_True_to_verified_commit_semantic_verify_failure_rollback_concurrent_drift_and_forged_plan_rejection
           - BE14d_still_active_test_provider_only_no_real_consumer_physical_backend_or_performance_claim
+          - ElasticXxx_PR_140_facade_only_downstream_host_KV_backend_slice
+          - PR140_exact_head_edae57a3518dc6bb967615fb055093c88bc40236
+          - PR140_ci_35351024470_completed_success_on_exact_head
+          - PR140_packageability_35351024467_completed_success_on_exact_head
+          - PR140_merged_to_main_as_baf9e8bfb333a1dcdb0967f40700d2704ffe4a1f
+          - facade_only_consumer_physically_reencodes_a_bounded_host_memory_page_and_verifies_semantic_commit_and_exact_rollback
+          - Boolean_True_remains_planning_evidence_and_TransactionalKvPageV1_plus_downstream_backend_remain_authoritative_for_actuation
+          - no_latency_bandwidth_memory_saving_hardware_energy_or_model_quality_claim
+          - ElasticXxx_PR_141_explicit_KV_forecast_boundary_slice
+          - PR141_exact_head_26cdb97113a85433338a89b6ceb3f3170be41951
+          - PR141_ci_35352501238_completed_success_on_exact_head
+          - PR141_packageability_35352501287_completed_success_on_exact_head
+          - PR141_continuous_hardening_35352501327_completed_success_on_exact_head
+          - PR141_merged_to_main_as_b05c1906ee39bf3373fc541feedfa25520fbe433
+          - CurrentStateForecaster_is_explicitly_between_observation_and_Boolean_planning_with_zero_horizon_and_no_confidence_claim
+          - frozen_V1_wire_is_preserved_while_V2_records_forecast_method_horizon_and_confidence_boundary
+          - BE14d_remains_active_pending_durable_trace_consumption_and_explicit_differential_unguarded_physical_baseline_qualification
       - id: BE14e
         domain: representation_precision
       - id: BE14f
