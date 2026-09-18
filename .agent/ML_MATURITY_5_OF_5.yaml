@@ -152,13 +152,19 @@ priority_program:
           - this_is_not_real_model_quality_latency_or_allocator_authorization
       - id: EXML2c
         name: ElasticBitAllocation Stage B execution-readiness dry-run harness
-        status: open_pr_pending_required_CI_and_merge
+        status: complete_execution_readiness_no_real_model_evidence
         completion_evidence:
           - PR_79_exact_head_754a492516f2b7636f5bebe83ce8ff443cfb7826
+          - PR_79_merged_to_main_as_683b0d7303a272f29aa89c6aea915f00cf7ffd1e
+          - PR_154_exact_head_9a722ca5cf29fa282ac0173ed459ea2c74269bf3
+          - PR_154_CI_packageability_and_continuous_hardening_completed_success_on_exact_head
+          - PR_154_merged_to_main_as_d6aa63dc168b947f249c89ae4f4491ff3bdce7f9
+          - exact_frozen_manifest_byte_binding_prevents_unchecked_protocol_drift
+          - public_StageBPreregistration_values_are_revalidated_before_authorization
           - elastic_kv_stage_b_fail_closed_manifest_loader_and_dry_run_measurement_schema_v1
           - dense_reference_planned_low_bit_and_structural_candidates_blocked_missing_backend_capability
           - metric_values_remain_null_with_explicit_not_executed_or_blocked_statuses
-          - operator_run_NNIS_evidence_collection_and_allocator_GO_remain_out_of_scope
+          - operator_run_NNIS_evidence_collection_threshold_freeze_final_test_and_allocator_GO_remain_out_of_scope
       - id: EXML2d
         name: BE14e fixed-width representation precision preplanning
         status: complete_planning_only_no_actuation_qualification
