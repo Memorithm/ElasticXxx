@@ -104,6 +104,14 @@ pub use elastic_runtime::{
     CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
 };
 pub use elastic_runtime::{
+    model_execution_rule_free_capacity_predicate_key,
+    model_execution_rule_utilization_predicate_key, BooleanModelExecutionPreplannerV1,
+    BooleanModelExecutionRuleEvidenceV1, BooleanModelExecutionScreenOutcomeV1,
+    BooleanModelExecutionScreenReportV1, MODEL_EXECUTION_BOOLEAN_MAX_AGE,
+    MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT, MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
+    MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT, MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT,
+};
+pub use elastic_runtime::{
     ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
     BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityAdmissionReportV2,
     BooleanRamCapacityEvidenceV1, BooleanRamCapacityEvidenceV2, CapacityAdmissionControllerV1,

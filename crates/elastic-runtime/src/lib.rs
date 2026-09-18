@@ -47,6 +47,7 @@ pub mod guard_config;
 pub mod guard_planner;
 pub mod guard_preplanner;
 pub mod invariant_precheck;
+pub mod model_execution_boolean_admission;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
 pub mod model_execution_evidence;
@@ -131,6 +132,14 @@ pub use guard_preplanner::{BooleanGuardPreplanner, GuardPreplannerError};
 pub use invariant_precheck::{
     precheck_plan_invariants, InvariantPrecheckEntry, InvariantPrecheckError,
     InvariantPrecheckReport, InvariantPrecheckStatus,
+};
+pub use model_execution_boolean_admission::{
+    model_execution_rule_free_capacity_predicate_key,
+    model_execution_rule_utilization_predicate_key, BooleanModelExecutionPreplannerV1,
+    BooleanModelExecutionRuleEvidenceV1, BooleanModelExecutionScreenOutcomeV1,
+    BooleanModelExecutionScreenReportV1, MODEL_EXECUTION_BOOLEAN_MAX_AGE,
+    MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT, MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
+    MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT, MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT,
 };
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
