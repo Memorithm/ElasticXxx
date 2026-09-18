@@ -22,17 +22,17 @@ use elastic_core::{
     TransitionMechanism, TruthValue,
 };
 use elastic_eir::{
-    lower_guarded, EirGuardedResource, EirResource, PlanOutcome, TransitionCandidate,
-    TransitionPlanner,
+    lower_guarded, EirGuardedResource, EirResource, PlanOutcome, PlanningContext,
+    TransitionCandidate, TransitionPlanner,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{
     active_permits_signal, capture_decision_trace, BooleanGuardPreplanner, CurrentStateForecaster,
-    CycleAttempt, FactResourceBinding, FactSnapshot, FactSourceId, Forecaster, ObservationSnapshot,
-    ObservationThresholdPredicate, Observer, PlannerConfig, PredicateEvaluationInput,
-    PredicateEvaluator, Runtime, RuntimeConfig, RuntimeMode, ThresholdComparison,
-    TransactionalConcurrency,
+    CycleAttempt, FactResourceBinding, FactSnapshot, FactSourceId, Forecaster, Observation,
+    ObservationSnapshot, ObservationThresholdPredicate, Observer, PlannerConfig,
+    PredicateEvaluationInput, PredicateEvaluator, Runtime, RuntimeConfig, RuntimeMode,
+    ThresholdComparison, TransactionalConcurrency,
 };
 
 /// Namespace of the stable BE14b concurrency predicate.
@@ -195,10 +195,21 @@ impl BooleanConcurrencyResizeControllerV1 {
         }
         let previous_width = u32::try_from(self.permits.width().map_err(|e| e.to_string())?)
             .map_err(|_| "current concurrency width does not fit u32".to_owned())?;
-        let epoch = self.next_epoch()?;
-        let generation = ResourceGeneration::new(self.resource_generation);
         let (context, observed) = self.permits.observe();
         let now = Instant::now();
+        self.resize_from_observation(target_width, previous_width, context, observed, now)
+    }
+
+    fn resize_from_observation(
+        &mut self,
+        target_width: u32,
+        previous_width: u32,
+        context: PlanningContext,
+        observed: Vec<Observation>,
+        now: Instant,
+    ) -> Result<BooleanConcurrencyResizeReportV1, String> {
+        let epoch = self.next_epoch()?;
+        let generation = ResourceGeneration::new(self.resource_generation);
         let observations = ObservationSnapshot::new(now, observed);
         let forecast = CurrentStateForecaster
             .forecast(&observations, &context)
@@ -528,6 +539,32 @@ mod tests {
             derive_test_truth(2, &stale_context, &stale, now),
             TruthValue::Unknown
         );
+    }
+
+    #[test]
+    fn unknown_guard_blocks_controller_before_runtime_mutation() {
+        let mut guarded = BooleanConcurrencyResizeControllerV1::new("workers", 8, 4).unwrap();
+        let now = Instant::now();
+        let observed = vec![Observation::unsupported_from_source(
+            ObservationSource::runtime("test-provider"),
+            active_permits_signal(),
+            now,
+            "counter unavailable",
+        )];
+        let report = guarded
+            .resize_from_observation(6, 4, PlanningContext::new(), observed, now)
+            .unwrap();
+
+        assert_eq!(report.guard.truth, "unknown");
+        assert_eq!(report.resize.reason, "boolean-concurrency-headroom-unknown");
+        assert_eq!(report.resize.committed, Some(false));
+        assert_eq!(report.resize.final_width, 4);
+        assert!(report.resize.events.is_empty());
+        assert_eq!(guarded.permits().width().unwrap(), 4);
+        let decoded =
+            crate::DecisionTrace::from_bounded_json(report.guard.decision_trace_json.as_bytes())
+                .unwrap();
+        assert!(decoded.selected().is_none());
     }
 
     #[test]
