@@ -1,0 +1,82 @@
+{
+  "block_size": 5,
+  "maximum_block_median_spread_ratio": 0.1,
+  "method": "contiguous_nonoverlapping_block_medians_no_posthoc_row_deletion",
+  "minimum_repetitions": 30,
+  "paths": {
+    "batch_filter": {
+      "block_median_spread_ratio": 0.004119968083306604,
+      "block_medians_ns_per_guard": [
+        9.521602,
+        9.524293,
+        9.556169,
+        9.532987,
+        9.516891,
+        9.540284
+      ],
+      "median_ns_per_guard": 9.533569,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "generic_bool_expr": {
+      "block_median_spread_ratio": 0.006073163245098907,
+      "block_medians_ns_per_guard": [
+        15.087108,
+        15.117956,
+        15.067142,
+        15.029846,
+        15.121512,
+        15.05094
+      ],
+      "median_ns_per_guard": 15.093617,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "multiword_guard": {
+      "block_median_spread_ratio": 0.030645335367932666,
+      "block_medians_ns_per_guard": [
+        9.089538,
+        8.867704,
+        9.14161,
+        8.920834,
+        9.048372,
+        8.867038
+      ],
+      "median_ns_per_guard": 8.959667,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "scalar_if_chain": {
+      "block_median_spread_ratio": 0.0009117780444561019,
+      "block_medians_ns_per_guard": [
+        1.682382,
+        1.682124,
+        1.683658,
+        1.682864,
+        1.682308,
+        1.683142
+      ],
+      "median_ns_per_guard": 1.6824270000000001,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "u64_compiled_guard": {
+      "block_median_spread_ratio": 0.06921817982937038,
+      "block_medians_ns_per_guard": [
+        1.930972,
+        1.823714,
+        1.932382,
+        1.798862,
+        1.929122,
+        1.929196
+      ],
+      "median_ns_per_guard": 1.928973,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    }
+  },
+  "repetitions": 30,
+  "schema": "elasticxxx-be13-timing-stability/v1",
+  "stable": true,
+  "worst_block_median_spread_ratio": 0.06921817982937038
+}

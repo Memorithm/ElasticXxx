@@ -1,6 +1,6 @@
 # BE13 portable Boolean screening benchmark protocol
 
-Status: **portable harness qualified; v1 retained timing is DVFS-confounded; v2 controlled evidence path implemented; no performance claim**.
+Status: **portable harness qualified; v1 timing retained as DVFS-confounded negative evidence; v2 controlled measurement evidence retained and stability-qualified; no performance claim**.
 
 The dependency-free `be13_portable` benchmark compares five declared execution
 paths on the same three-valued conjunction and stable fact assignment:
@@ -111,3 +111,24 @@ This benchmark performs no actuation and grants no validation authority. No
 speedup, hardware, energy, or scientific-novelty claim is valid merely because a
 v2 set is comparison-qualified; any such claim still requires review of the raw
 data, measurement scope, semantic parity, and exact source SHA.
+
+## Retained controlled evidence (2026-09-18)
+
+The retained set
+`benchmarks/be13/evidence/2026-09-18-jetson-agx-thor-aarch64-468eb52`
+was collected from exact source
+`468eb52f646cae0e70a7342cd9b7374ddb01ef15` with 30 timing repetitions and
+10 process-metric repetitions per path. Its validator-derived facts are:
+
+- `comparison_qualified=true`;
+- 3,682 continuous CPUFreq samples, all reporting 2,601,000 kHz;
+- CPUFreq policy restored to the recorded pre-collection values;
+- all five paths pass the preregistered timing-drift gate;
+- worst block-median spread ratio is approximately 0.069218 (6.92%), below the
+  0.10 engineering limit;
+- all 50 direct generalized branch-miss counter rows are measured;
+- whole-process peak RSS is measured;
+- allocation count remains explicit `unmeasured`.
+
+These facts qualify the **measurement protocol** for controlled portable
+comparison. They do not establish a speedup or an architecture-specific benefit.
