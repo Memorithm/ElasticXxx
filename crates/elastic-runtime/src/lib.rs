@@ -45,6 +45,7 @@ pub mod evidence;
 pub mod fact_derivation;
 pub mod forecast;
 pub mod forecast_runtime;
+pub mod forge_search_bridge;
 pub mod guard_config;
 pub mod guard_planner;
 pub mod guard_preplanner;
@@ -135,6 +136,13 @@ pub use forecast::{CurrentStateForecaster, EwmaForecaster, Forecast, ForecastSta
 pub use forecast_runtime::{
     ForecastController, ForecastCycleAttempt, ForecastCycleFailure, ForecastCycleResult,
     ForecastRunAttempt, ForecastRunFailure, ForecastRunResult, ForecastRuntime,
+};
+pub use forge_search_bridge::{
+    ForgeCandidateSourceV1, ForgePseudoBooleanConstraintV1, ForgePseudoBooleanRelationV1,
+    ForgeRevalidatedPolicyV1, ForgeSearchCandidateError, ForgeSearchCandidateV1,
+    ForgeWeightedPredicateV1, FORGE_SEARCH_CANDIDATE_SCHEMA_V1,
+    FORGE_SEARCH_PRODUCER_REPOSITORY_V1, MAX_FORGE_SEARCH_CANDIDATE_BYTES,
+    MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH,
 };
 pub use guard_config::{
     BuiltinDimensionConfigV1, BuiltinObservationSignalConfigV1, ConfiguredThresholdPredicateV1,
