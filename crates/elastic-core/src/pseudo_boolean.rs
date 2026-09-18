@@ -199,6 +199,101 @@ impl PseudoBooleanConstraintDeclaration {
         Self::new(terms, relation, threshold, scale)
     }
 
+    /// Cardinality `sum(keys) <= maximum` over stable predicate identities.
+    pub fn at_most_keys(
+        predicates: impl IntoIterator<Item = PredicateKey>,
+        maximum: usize,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::stable_cardinality(predicates, PseudoBooleanRelation::LessOrEqual, maximum)
+    }
+
+    /// Cardinality `sum(keys) >= minimum` over stable predicate identities.
+    pub fn at_least_keys(
+        predicates: impl IntoIterator<Item = PredicateKey>,
+        minimum: usize,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::stable_cardinality(predicates, PseudoBooleanRelation::GreaterOrEqual, minimum)
+    }
+
+    /// Cardinality `sum(keys) == exact` over stable predicate identities.
+    pub fn exactly_keys(
+        predicates: impl IntoIterator<Item = PredicateKey>,
+        exact: usize,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::stable_cardinality(predicates, PseudoBooleanRelation::Equal, exact)
+    }
+
+    /// Declare that at most one stable-key feature may be active.
+    pub fn mutually_exclusive_keys(
+        predicates: impl IntoIterator<Item = PredicateKey>,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::at_most_keys(predicates, 1)
+    }
+
+    /// Declare a monotone non-negative capacity budget.
+    ///
+    /// This is the common pattern for memory bytes, device slots, worker costs
+    /// and other resources where negative consumption is invalid by contract.
+    pub fn capacity_budget(
+        terms: Vec<WeightedPredicateKey>,
+        maximum: i128,
+        scale: PseudoBooleanScale,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::new_non_negative(terms, PseudoBooleanRelation::LessOrEqual, maximum, scale)
+    }
+
+    /// Declare `feature -> required` as `feature - required <= 0`.
+    ///
+    /// Signed weights are intentional here: this encodes a logical dependency,
+    /// not physical resource consumption.
+    pub fn requires_key(
+        feature: PredicateKey,
+        required: PredicateKey,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::new(
+            vec![
+                WeightedPredicateKey::new(feature, 1)?,
+                WeightedPredicateKey::new(required, -1)?,
+            ],
+            PseudoBooleanRelation::LessOrEqual,
+            0,
+            PseudoBooleanScale::count(),
+        )
+    }
+
+    /// Declare two feature predicates as an all-or-none pair.
+    pub fn equivalent_keys(
+        left: PredicateKey,
+        right: PredicateKey,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        Self::new(
+            vec![
+                WeightedPredicateKey::new(left, 1)?,
+                WeightedPredicateKey::new(right, -1)?,
+            ],
+            PseudoBooleanRelation::Equal,
+            0,
+            PseudoBooleanScale::count(),
+        )
+    }
+
+    fn stable_cardinality(
+        predicates: impl IntoIterator<Item = PredicateKey>,
+        relation: PseudoBooleanRelation,
+        threshold: usize,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        let threshold = i128::try_from(threshold).map_err(|_| {
+            PseudoBooleanBindingError::Compiled(PseudoBooleanError::ThresholdOutOfRange {
+                threshold,
+            })
+        })?;
+        let terms = predicates
+            .into_iter()
+            .map(|predicate| WeightedPredicateKey::new(predicate, 1))
+            .collect::<Result<Vec<_>, _>>()?;
+        Self::new_non_negative(terms, relation, threshold, PseudoBooleanScale::count())
+    }
+
     /// Canonically ordered durable terms.
     #[must_use]
     pub fn terms(&self) -> &[WeightedPredicateKey] {
@@ -768,6 +863,91 @@ mod tests {
                 weight: -8,
             })
         );
+    }
+
+    #[test]
+    fn stable_resource_cardinality_and_mutual_exclusion_patterns_bind_exactly() {
+        let a = PredicateKey::new("elastic.worker", "a").unwrap();
+        let b = PredicateKey::new("elastic.worker", "b").unwrap();
+        let c = PredicateKey::new("elastic.worker", "c").unwrap();
+        let registry = PredicateRegistry::from_keys([a.clone(), b.clone(), c.clone()]).unwrap();
+
+        let workers =
+            PseudoBooleanConstraintDeclaration::at_most_keys([a.clone(), b.clone(), c.clone()], 2)
+                .unwrap()
+                .bind(&registry)
+                .unwrap();
+        let mutual =
+            PseudoBooleanConstraintDeclaration::mutually_exclusive_keys([a.clone(), b.clone()])
+                .unwrap()
+                .bind(&registry)
+                .unwrap();
+
+        let facts = FactSet::new()
+            .with(registry.id(&a).unwrap(), TruthValue::True)
+            .unwrap()
+            .with(registry.id(&b).unwrap(), TruthValue::True)
+            .unwrap()
+            .with(registry.id(&c).unwrap(), TruthValue::False)
+            .unwrap();
+        assert_eq!(workers.evaluate(&facts).unwrap(), TruthValue::True);
+        assert_eq!(mutual.evaluate(&facts).unwrap(), TruthValue::False);
+    }
+
+    #[test]
+    fn capacity_budget_is_non_negative_and_preserves_unknown() {
+        let ram = PredicateKey::new("elastic.ram", "candidate").unwrap();
+        let registry = PredicateRegistry::from_keys([ram.clone()]).unwrap();
+        let budget = PseudoBooleanConstraintDeclaration::capacity_budget(
+            vec![WeightedPredicateKey::new(ram.clone(), 8).unwrap()],
+            4,
+            PseudoBooleanScale::new("gib", 1).unwrap(),
+        )
+        .unwrap()
+        .bind(&registry)
+        .unwrap();
+        assert_eq!(
+            budget.evaluate(&FactSet::new()).unwrap(),
+            TruthValue::Unknown
+        );
+
+        assert!(matches!(
+            PseudoBooleanConstraintDeclaration::capacity_budget(
+                vec![WeightedPredicateKey::new(ram, -1).unwrap()],
+                4,
+                PseudoBooleanScale::new("gib", 1).unwrap(),
+            ),
+            Err(PseudoBooleanBindingError::NegativeWeightForbidden { weight: -1, .. })
+        ));
+    }
+
+    #[test]
+    fn feature_dependency_and_bundle_patterns_are_fail_closed() {
+        let feature = PredicateKey::new("elastic.feature", "gpu").unwrap();
+        let required = PredicateKey::new("elastic.feature", "driver").unwrap();
+        let registry = PredicateRegistry::from_keys([feature.clone(), required.clone()]).unwrap();
+        let requires =
+            PseudoBooleanConstraintDeclaration::requires_key(feature.clone(), required.clone())
+                .unwrap()
+                .bind(&registry)
+                .unwrap();
+        let bundle =
+            PseudoBooleanConstraintDeclaration::equivalent_keys(feature.clone(), required.clone())
+                .unwrap()
+                .bind(&registry)
+                .unwrap();
+
+        let missing = FactSet::new()
+            .with(registry.id(&feature).unwrap(), TruthValue::True)
+            .unwrap();
+        assert_eq!(requires.evaluate(&missing).unwrap(), TruthValue::Unknown);
+        assert_eq!(bundle.evaluate(&missing).unwrap(), TruthValue::Unknown);
+
+        let invalid = missing
+            .with(registry.id(&required).unwrap(), TruthValue::False)
+            .unwrap();
+        assert_eq!(requires.evaluate(&invalid).unwrap(), TruthValue::False);
+        assert_eq!(bundle.evaluate(&invalid).unwrap(), TruthValue::False);
     }
 
     #[test]
