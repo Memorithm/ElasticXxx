@@ -20,7 +20,8 @@ use elastic_core::{
 use elastic_eir::{lower_guarded, EirGuardedResource, TransitionCandidate};
 use elastic_runtime::{
     capture_decision_trace, BooleanGuardPreplanner, FactResourceBinding, FactSnapshot,
-    FactSourceId, ObservationSnapshot, PredicateEvaluationInput, PredicateEvaluator,
+    FactSourceId, ObservationSnapshot, ObservationSource, PredicateEvaluationInput,
+    PredicateEvaluator,
 };
 use serde::{Deserialize, Serialize};
 
@@ -102,6 +103,7 @@ struct TargetMaterializationFitsPredicate {
     key: PredicateKey,
     target_materialized_bytes: u64,
     max_age: Duration,
+    expected_source: ObservationSource,
 }
 
 impl PredicateEvaluator for TargetMaterializationFitsPredicate {
@@ -116,7 +118,10 @@ impl PredicateEvaluator for TargetMaterializationFitsPredicate {
         let Some(observation) = input.observations().get(ObservationSignalId::FREE_CAPACITY) else {
             return TruthValue::Unknown;
         };
-        if !observation.is_valid() || !observation.value().is_finite() {
+        if observation.source() != &self.expected_source
+            || !observation.is_valid()
+            || !observation.value().is_finite()
+        {
             return TruthValue::Unknown;
         }
         let Some(age) = input.now().checked_duration_since(*observation.timestamp()) else {
@@ -227,6 +232,9 @@ impl BooleanKvCapacityPreflightControllerV1 {
             key: key.clone(),
             target_materialized_bytes,
             max_age: self.max_age,
+            expected_source: ObservationSource::Resource(
+                self.guarded_resource.resource().identity().clone(),
+            ),
         };
         let input = PredicateEvaluationInput::new(planning_context, observations, now);
         let facts = FactSnapshot::derive(
@@ -365,7 +373,7 @@ mod tests {
         EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
     };
     use elastic_eir::PlanningContext;
-    use elastic_runtime::{Observation, ObservationSource};
+    use elastic_runtime::Observation;
 
     use crate::{
         KeyEncodingPipeline, KeyTransformScope, KvPrecision, KvRecoverySource, KvResidency,
@@ -429,7 +437,11 @@ mod tests {
         (target, capabilities, token)
     }
 
-    fn evidence(now: Instant, bytes: Option<f64>) -> (PlanningContext, ObservationSnapshot) {
+    fn evidence(
+        now: Instant,
+        resource_id: &str,
+        bytes: Option<f64>,
+    ) -> (PlanningContext, ObservationSnapshot) {
         match bytes {
             Some(bytes) => {
                 let context =
@@ -437,7 +449,7 @@ mod tests {
                 let observations = ObservationSnapshot::new(
                     now,
                     vec![Observation::from_source(
-                        ObservationSource::host("be14d-test-capacity"),
+                        ObservationSource::Resource(LogicalResourceId::new(resource_id).unwrap()),
                         ObservationSignalId::FREE_CAPACITY,
                         bytes,
                         now,
@@ -471,7 +483,7 @@ mod tests {
         };
         let attestations = TransitionAttestations::from_evidence([&token], &transition);
         let now = Instant::now();
-        let (context, observations) = evidence(now, Some(4096.0));
+        let (context, observations) = evidence(now, "kv-be14d", Some(4096.0));
         let mut controller = BooleanKvCapacityPreflightControllerV1::new(
             spec("kv-be14d"),
             TransitionMechanism::Reencode,
@@ -513,7 +525,7 @@ mod tests {
         };
         let attestations = TransitionAttestations::from_evidence([&token], &transition);
         let now = Instant::now();
-        let (context, observations) = evidence(now, Some(1024.0));
+        let (context, observations) = evidence(now, "kv-be14d-false", Some(1024.0));
         let mut controller = BooleanKvCapacityPreflightControllerV1::new(
             spec("kv-be14d-false"),
             TransitionMechanism::Reencode,
@@ -556,7 +568,7 @@ mod tests {
         )
         .unwrap();
 
-        let (missing_context, missing_observations) = evidence(now, None);
+        let (missing_context, missing_observations) = evidence(now, "kv-be14d-unknown", None);
         let missing = controller
             .evaluate(&missing_context, &missing_observations, 1, now)
             .unwrap();
@@ -570,7 +582,7 @@ mod tests {
         let stale_observations = ObservationSnapshot::new(
             old,
             vec![Observation::from_source(
-                ObservationSource::host("be14d-test-capacity"),
+                ObservationSource::Resource(LogicalResourceId::new("kv-be14d-unknown").unwrap()),
                 ObservationSignalId::FREE_CAPACITY,
                 4.0,
                 old,
@@ -586,7 +598,7 @@ mod tests {
         let mismatched_observations = ObservationSnapshot::new(
             now,
             vec![Observation::from_source(
-                ObservationSource::host("be14d-test-capacity"),
+                ObservationSource::Resource(LogicalResourceId::new("kv-be14d-unknown").unwrap()),
                 ObservationSignalId::FREE_CAPACITY,
                 4.0,
                 now,
@@ -597,11 +609,44 @@ mod tests {
             .unwrap();
         assert_eq!(mismatched.evidence.truth, "unknown");
 
-        let (context, observations) = evidence(now, Some((1_u64 << 53) as f64));
+        let (context, observations) = evidence(now, "kv-be14d-unknown", Some((1_u64 << 53) as f64));
         let inexact = controller
             .evaluate(&context, &observations, (1_u64 << 53) + 1, now)
             .unwrap();
         assert_eq!(inexact.evidence.truth, "unknown");
+    }
+
+    #[test]
+    fn capacity_from_a_different_resource_is_unknown_and_fail_closed() {
+        let now = Instant::now();
+        let resource_id = "kv-be14d-bound";
+        let mut controller = BooleanKvCapacityPreflightControllerV1::new(
+            spec(resource_id),
+            TransitionMechanism::Reencode,
+            KV_CAPACITY_DEFAULT_MAX_AGE,
+        )
+        .unwrap();
+        let context = PlanningContext::new().observe(ObservationSignalId::FREE_CAPACITY, 4096.0);
+        let observations = ObservationSnapshot::new(
+            now,
+            vec![Observation::from_source(
+                ObservationSource::Resource(LogicalResourceId::new("kv-be14d-other").unwrap()),
+                ObservationSignalId::FREE_CAPACITY,
+                4096.0,
+                now,
+            )],
+        );
+
+        let report = controller
+            .evaluate(&context, &observations, 2048, now)
+            .unwrap();
+
+        assert_eq!(
+            report.status,
+            BooleanKvCapacityStatusV1::InsufficientEvidence
+        );
+        assert_eq!(report.evidence.truth, "unknown");
+        assert_eq!(report.reason, "capacity-evidence-unknown");
     }
 
     #[test]
@@ -615,7 +660,7 @@ mod tests {
         };
         let attestations = TransitionAttestations::from_evidence([&token], &transition);
         let now = Instant::now();
-        let (context, observations) = evidence(now, Some(4096.0));
+        let (context, observations) = evidence(now, "kv-be14d-structural", Some(4096.0));
         let mut controller = BooleanKvCapacityPreflightControllerV1::new(
             spec("kv-be14d-structural"),
             TransitionMechanism::Reencode,
