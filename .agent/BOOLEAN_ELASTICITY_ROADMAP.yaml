@@ -1739,7 +1739,7 @@ current_execution:
   latest_merged_progress_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
   latest_merged_progress_pr: 161
   latest_merged_progress_head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
-  latest_merged_progress_merge: 7e522ff8e43aec29b94446aae2d33d9c43ca69b9
+  latest_merged_progress_merge: 7cb03916bf911fd690ae2b9de95565e00addd647
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
