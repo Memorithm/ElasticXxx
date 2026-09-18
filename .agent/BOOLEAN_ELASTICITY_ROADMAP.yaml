@@ -1512,7 +1512,16 @@ phases:
               - planning_only_no_physical_actuation_or_performance_energy_saving_model_quality_claim
         planned_slices:
           - id: BE14h_trusted_transaction_and_differential_baseline
-            status: planned
+            status: candidate_exact_head_CI_and_review_pending
+            candidate_evidence:
+              - ElasticXxx_PR_159
+              - PR159_exact_head_d02be6c3e51110a5766d1fd2f820c57704ddd92d
+              - local_thermal_energy_targeted_tests_12_passed
+              - local_public_policy_test_1_passed
+              - local_public_transaction_test_1_passed
+              - local_elastic_downstream_suite_passed
+              - local_clippy_runtime_facade_downstream_all_targets_all_features_D_warnings_passed
+              - no_concrete_physical_thermal_power_actuator_and_no_performance_or_energy_claim
             requirements:
               - preserve_boolean_pruning_as_precheck_only_and_revalidate_trusted_numeric_source_immediately_before_any_actuation
               - use_an_explicit_test_provider_when_no_safe_real_thermal_or_power_actuator_with_verifiable_rollback_exists
@@ -1672,10 +1681,10 @@ automation_contract:
 current_execution:
   earliest_incomplete_phase: BE14
   immediate_next_slice: BE14h_trusted_transaction_and_differential_baseline
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none_after_PR158_merge
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 159
+  current_candidate_head: d02be6c3e51110a5766d1fd2f820c57704ddd92d
+  current_candidate_status: BE14h_trusted_transaction_differential_reference_exact_head_CI_and_review_pending
   verified_main: 4f0273f604a9ff6a47d55aad171c3f0996074e63
   latest_qualified_slice: BE14h_source_bound_boolean_preplanning
   latest_qualified_pr: 158
