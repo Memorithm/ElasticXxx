@@ -1215,6 +1215,18 @@ phases:
           - source_bound_KvCapacityObservationV1_pairs_numeric_context_with_exact_resource_provenance
           - inexact_capacity_transport_and_explicit_unavailable_telemetry_fail_closed_to_Unknown
           - BE14d_still_not_closed_no_physical_KV_actuation_VERIFY_or_rollback_qualified
+          - ElasticXxx_PR_139_trusted_KV_transaction_backend_slice
+          - PR139_exact_head_3167c9ae9600f0aae0e868a2f868c50c7a8914ba
+          - PR139_ci_35348470376_completed_success_on_exact_head
+          - PR139_packageability_35348470313_completed_success_on_exact_head
+          - PR139_continuous_hardening_35348470303_completed_success_on_exact_head
+          - PR139_three_material_P1_authority_binding_findings_corrected_and_threads_resolved
+          - PR139_merged_to_main_as_70aff3e993239037466a784b2a643c630f151e49
+          - public_KvTransitionPlan_revalidated_with_exact_capabilities_and_attestations_before_binding
+          - exact_normalized_EIR_fingerprint_bound_to_transaction_adapter
+          - backend_atomic_source_compare_and_feasibility_check_required_at_physical_mutation_boundary
+          - test_provider_covers_Boolean_True_to_verified_commit_semantic_verify_failure_rollback_concurrent_drift_and_forged_plan_rejection
+          - BE14d_still_active_test_provider_only_no_real_consumer_physical_backend_or_performance_claim
       - id: BE14e
         domain: representation_precision
       - id: BE14f
@@ -1361,16 +1373,16 @@ current_execution:
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_candidate_open_after_BE14d_first_slice_merge
-  verified_main: 107123123fd4e3430e1ee7ed2f74fdd91268f3a2
+  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14d_transaction_slice_merge
+  verified_main: 70aff3e993239037466a784b2a643c630f151e49
   latest_qualified_slice: BE14c_model_execution_profiles
   latest_qualified_pr: 135
   latest_qualified_head: 83669fd0b1570dd2cd0160fa1be01d6164d41d4b
   latest_merge: f5af4f3129100f4bb52d47d1adfc202347d0b098
-  latest_merged_progress_slice: BE14d_KV_source_bound_provider
-  latest_merged_progress_pr: 138
-  latest_merged_progress_head: 8d8a47d8687c4a23c0b19405e3a9a5d2b5150e30
-  latest_merged_progress_merge: 107123123fd4e3430e1ee7ed2f74fdd91268f3a2
+  latest_merged_progress_slice: BE14d_KV_trusted_transaction_backend_test_provider
+  latest_merged_progress_pr: 139
+  latest_merged_progress_head: 3167c9ae9600f0aae0e868a2f868c50c7a8914ba
+  latest_merged_progress_merge: 70aff3e993239037466a784b2a643c630f151e49
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
