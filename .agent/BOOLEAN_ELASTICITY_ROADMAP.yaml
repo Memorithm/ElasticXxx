@@ -1482,7 +1482,7 @@ phases:
             remaining: []
       - id: BE14h
         domain: thermal_and_energy_when_real_observers_exist
-        status: active_observer_and_boolean_preplanning_qualified_transaction_and_benchmark_pending
+        status: active_transaction_qualified_benchmark_pending
         completed_slices:
           - id: BE14h_real_linux_observers
             status: completed
@@ -1512,15 +1512,22 @@ phases:
               - planning_only_no_physical_actuation_or_performance_energy_saving_model_quality_claim
         planned_slices:
           - id: BE14h_trusted_transaction_and_differential_baseline
-            status: candidate_exact_head_CI_and_review_pending
-            candidate_evidence:
+            status: completed
+            completion_evidence:
               - ElasticXxx_PR_159
-              - PR159_exact_head_d02be6c3e51110a5766d1fd2f820c57704ddd92d
-              - local_thermal_energy_targeted_tests_12_passed
+              - PR159_exact_head_ddf12b69cdeb43f6b55fd7d690db453aa189407f
+              - PR159_ci_35396050647_completed_success_on_exact_head
+              - PR159_continuous_hardening_35396050712_completed_success_on_exact_head
+              - PR159_packageability_35396051277_completed_success_on_exact_head
+              - PR159_BE14h_real_thermal_power_observer_35396050602_completed_success_on_exact_head
+              - PR159_merged_as_b27e8a9b21ccd21717a721d8fe4ce919468bf32f
+              - material_P1_action_time_freshness_gap_fixed_before_merge
+              - source_bound_numeric_policy_is_rechecked_after_backend_validation_against_action_time_before_any_possible_mutation
+              - local_thermal_energy_targeted_tests_13_passed_after_P1_fix
               - local_public_policy_test_1_passed
               - local_public_transaction_test_1_passed
-              - local_elastic_downstream_suite_passed
               - local_clippy_runtime_facade_downstream_all_targets_all_features_D_warnings_passed
+              - guarded_and_non_boolean_reference_paths_use_the_same_declared_policy_and_backend_lifecycle
               - no_concrete_physical_thermal_power_actuator_and_no_performance_or_energy_claim
             requirements:
               - preserve_boolean_pruning_as_precheck_only_and_revalidate_trusted_numeric_source_immediately_before_any_actuation
@@ -1534,10 +1541,9 @@ phases:
               - retain_raw_host_side_measurements_as_bounded_regression_evidence_only
         blocking_evidence:
           - no_safe_real_thermal_or_power_actuator_with_verified_rollback_is_currently_qualified
-          - no_BE14h_guarded_vs_non_boolean_transaction_baseline_or_portable_benchmark_is_currently_qualified
+          - no_BE14h_portable_benchmark_is_currently_qualified
           - model_execution_docs_explicitly_leave_thermal_and_power_mapping_backend_specific
         unblock_condition:
-          - qualify_the_trusted_transaction_and_differential_baseline_using_a_safe_real_backend_or_explicit_test_provider
           - qualify_the_portable_benchmark_before_any_performance_or_energy_claim
     each_slice_requires:
       - real_observer_or_explicit_test_provider
@@ -1680,20 +1686,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14h_trusted_transaction_and_differential_baseline
-  open_pull_requests_at_checkpoint: 1
-  current_candidate_pr: 159
-  current_candidate_head: d02be6c3e51110a5766d1fd2f820c57704ddd92d
-  current_candidate_status: BE14h_trusted_transaction_differential_reference_exact_head_CI_and_review_pending
-  verified_main: 4f0273f604a9ff6a47d55aad171c3f0996074e63
-  latest_qualified_slice: BE14h_source_bound_boolean_preplanning
-  latest_qualified_pr: 158
-  latest_qualified_head: 3e88cd50457b8bf0792bdcdf4a9c85780c4e1a85
-  latest_merge: 4f0273f604a9ff6a47d55aad171c3f0996074e63
-  latest_merged_progress_slice: BE14h_source_bound_boolean_preplanning
-  latest_merged_progress_pr: 158
-  latest_merged_progress_head: 3e88cd50457b8bf0792bdcdf4a9c85780c4e1a85
-  latest_merged_progress_merge: 4f0273f604a9ff6a47d55aad171c3f0996074e63
+  immediate_next_slice: BE14h_portable_benchmark
+  open_pull_requests_at_checkpoint: 0
+  current_candidate_pr: null
+  current_candidate_head: null
+  current_candidate_status: none_transaction_slice_merged
+  verified_main: b27e8a9b21ccd21717a721d8fe4ce919468bf32f
+  latest_qualified_slice: BE14h_trusted_transaction_and_differential_baseline
+  latest_qualified_pr: 159
+  latest_qualified_head: ddf12b69cdeb43f6b55fd7d690db453aa189407f
+  latest_merge: b27e8a9b21ccd21717a721d8fe4ce919468bf32f
+  latest_merged_progress_slice: BE14h_trusted_transaction_and_differential_baseline
+  latest_merged_progress_pr: 159
+  latest_merged_progress_head: ddf12b69cdeb43f6b55fd7d690db453aa189407f
+  latest_merged_progress_merge: b27e8a9b21ccd21717a721d8fe4ce919468bf32f
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
