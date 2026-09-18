@@ -41,12 +41,12 @@ jobs:
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
-            --warmup 10 --iterations 1000 | tee /tmp/be13.csv
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be13.csv"
           python3 - <<'PY'
           import csv
           from pathlib import Path
 
-          rows = list(csv.DictReader(Path('/tmp/be13.csv').read_text().splitlines()))
+          rows = list(csv.DictReader(Path(__import__('os').environ['RUNNER_TEMP']) / 'be13.csv'.read_text().splitlines()))
           expected = [
               'scalar_if_chain',
               'generic_bool_expr',
