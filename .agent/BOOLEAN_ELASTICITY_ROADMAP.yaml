@@ -1428,13 +1428,26 @@ phases:
               - selection_is_explanatory_only_and_cannot_reserve_dispatch_lease_or_actuate_a_device_or_worker
               - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
             remaining:
-              - durable_trace_binding
               - trusted_validation_actuation_verification_and_rollback_boundary_when_actuation_exists
               - explicit_non_boolean_differential_baseline
               - portable_benchmark_before_any_performance_claim
         planned_slices:
           - id: BE14g_durable_trace_binding
-            status: planned
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_152
+              - PR152_exact_head_43987d511e16f4d2b5cb916d0ad85f319f693fab
+              - PR152_ci_35383705791_completed_success_on_exact_head
+              - PR152_continuous_hardening_35383705782_completed_success_on_exact_head
+              - PR152_packageability_35383705919_completed_success_on_exact_head
+              - PR152_merged_as_9a7f9f8d82f973d5213e162cf16089db9ac608af
+              - strict_bounded_BooleanBatchDeviceDecisionTraceV1_roundtrip_and_decoder
+              - source_generation_and_exact_declared_candidate_policy_are_bound_into_explanatory_evidence
+              - unknown_duplicate_future_schema_oversized_policy_tampering_reason_tampering_and_context_drift_fail_closed
+              - explanatory_context_validation_recomputes_the_decision_without_calling_any_actuation_backend
+              - decoded_or_matching_trace_cannot_reserve_dispatch_lease_fence_or_authorize_a_device_or_worker
+              - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
+            remaining: []
           - id: BE14g_trusted_transaction_and_differential_baseline
             status: planned
           - id: BE14g_portable_benchmark
@@ -1575,20 +1588,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14g_durable_trace_binding
+  immediate_next_slice: BE14g_trusted_transaction_and_differential_baseline
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_PR151_merge
-  verified_main: e935454c520f0d381f0916f9dfe386ae792615f7
-  latest_qualified_slice: BE14g_fail_closed_batch_placement_preplanning
-  latest_qualified_pr: 151
-  latest_qualified_head: 827a8f81867850f8243ca457f73321827e13d5ca
-  latest_merge: e935454c520f0d381f0916f9dfe386ae792615f7
-  latest_merged_progress_slice: BE14g_fail_closed_batch_placement_preplanning
-  latest_merged_progress_pr: 151
-  latest_merged_progress_head: 827a8f81867850f8243ca457f73321827e13d5ca
-  latest_merged_progress_merge: e935454c520f0d381f0916f9dfe386ae792615f7
+  current_candidate_status: no_ElasticXxx_candidate_open_after_PR152_merge
+  verified_main: 9a7f9f8d82f973d5213e162cf16089db9ac608af
+  latest_qualified_slice: BE14g_durable_trace_binding
+  latest_qualified_pr: 152
+  latest_qualified_head: 43987d511e16f4d2b5cb916d0ad85f319f693fab
+  latest_merge: 9a7f9f8d82f973d5213e162cf16089db9ac608af
+  latest_merged_progress_slice: BE14g_durable_trace_binding
+  latest_merged_progress_pr: 152
+  latest_merged_progress_head: 43987d511e16f4d2b5cb916d0ad85f319f693fab
+  latest_merged_progress_merge: 9a7f9f8d82f973d5213e162cf16089db9ac608af
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
