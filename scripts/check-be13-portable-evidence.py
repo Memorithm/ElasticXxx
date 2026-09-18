@@ -255,6 +255,21 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
     if meta.get("allocations") != "unmeasured":
         raise AssertionError("v2 allocations must remain explicit unmeasured")
 
+    codegen_profile = meta.get("codegen_profile")
+    if codegen_profile is not None:
+        if codegen_profile not in {"portable", "native"}:
+            raise AssertionError(f"unsupported codegen_profile {codegen_profile!r}")
+        rustflags = meta.get("rustflags")
+        if codegen_profile == "portable" and rustflags != "none":
+            raise AssertionError("portable codegen evidence must declare rustflags=none")
+        if codegen_profile == "native" and rustflags != "-C target-cpu=native":
+            raise AssertionError("native codegen evidence must declare the exact target-cpu=native flag")
+        if meta.get("feature_probe_method") != "rust_1_89_std_arch_runtime_detection":
+            raise AssertionError("codegen-comparison evidence requires the qualified Rust feature probe")
+        for field in ("runtime_neon", "runtime_sve", "runtime_sve2", "compile_time_neon"):
+            if meta.get(field) not in {"true", "false"}:
+                raise AssertionError(f"{field} must be an explicit Boolean in codegen evidence")
+
     raw_path = directory / "raw.csv"
     raw_rows = read_raw_rows(raw_path, repetitions)
     actual_sequence = [(int(row["repetition"]), row["path"]) for row in raw_rows]

@@ -1,0 +1,82 @@
+{
+  "block_size": 5,
+  "maximum_block_median_spread_ratio": 0.1,
+  "method": "contiguous_nonoverlapping_block_medians_no_posthoc_row_deletion",
+  "minimum_repetitions": 30,
+  "paths": {
+    "batch_filter": {
+      "block_median_spread_ratio": 0.004363995896982938,
+      "block_medians_ns_per_guard": [
+        6.976003,
+        6.980262,
+        6.993962,
+        7.00652,
+        7.000933,
+        6.9857
+      ],
+      "median_ns_per_guard": 6.992903,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "generic_bool_expr": {
+      "block_median_spread_ratio": 0.008418952690467158,
+      "block_medians_ns_per_guard": [
+        14.91857,
+        14.958846,
+        14.963438,
+        14.906584,
+        15.03253,
+        14.990604
+      ],
+      "median_ns_per_guard": 14.959817999999999,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "multiword_guard": {
+      "block_median_spread_ratio": 0.018448461768573246,
+      "block_medians_ns_per_guard": [
+        8.35904,
+        8.217708,
+        8.34256,
+        8.232466,
+        8.207022,
+        8.324838
+      ],
+      "median_ns_per_guard": 8.240145,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "scalar_if_chain": {
+      "block_median_spread_ratio": 0.0013194807664876319,
+      "block_medians_ns_per_guard": [
+        1.68335,
+        1.681498,
+        1.683312,
+        1.68174,
+        1.683718,
+        1.682386
+      ],
+      "median_ns_per_guard": 1.68248,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    },
+    "u64_compiled_guard": {
+      "block_median_spread_ratio": 0.07959060885631015,
+      "block_medians_ns_per_guard": [
+        1.831514,
+        1.83098,
+        1.9767,
+        1.830922,
+        1.831848,
+        1.861198
+      ],
+      "median_ns_per_guard": 1.831598,
+      "outliers_outside_1_5x_median": 0,
+      "stable": true
+    }
+  },
+  "repetitions": 30,
+  "schema": "elasticxxx-be13-timing-stability/v1",
+  "stable": true,
+  "worst_block_median_spread_ratio": 0.07959060885631015
+}

@@ -33,3 +33,15 @@ qualified.
 Retained evidence is descriptive. It is not, by itself, a speedup, hardware,
 energy, scientific-novelty or actuation claim. Unmeasured fields remain the
 literal string `unmeasured` and must never be interpreted as zero.
+
+## BE13e acceleration-gate evidence
+
+The `2026-09-18-be13e-*` directories retain the architecture-acceleration gate
+comparison. Optional v2 metadata fields `codegen_profile` and `rustflags`
+distinguish the normal portable build from the `target-cpu=native` probe. The
+feature-probe fields record Rust `std::arch` runtime detection only; they do not
+authorize a specialized execution path.
+
+See `docs/boolean-be13-acceleration-gate.md` for the bounded interpretation and
+gate decision. The conclusion is intentionally conservative: no specialized
+SIMD/SVE/native dispatch is enabled by these measurements.
