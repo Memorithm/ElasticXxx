@@ -46,7 +46,8 @@ jobs:
           import csv
           from pathlib import Path
 
-          rows = list(csv.DictReader(Path(__import__('os').environ['RUNNER_TEMP']) / 'be13.csv'.read_text().splitlines()))
+          csv_path = Path(__import__('os').environ['RUNNER_TEMP']) / 'be13.csv'
+          rows = list(csv.DictReader(csv_path.read_text().splitlines()))
           expected = [
               'scalar_if_chain',
               'generic_bool_expr',
