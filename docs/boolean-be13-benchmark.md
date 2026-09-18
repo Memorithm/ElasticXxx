@@ -182,7 +182,7 @@ The source is now retained by a permanent tag, and the corrected collector
 captures effective Cargo/rustc configuration during collection. A later
 hardening pass closes additional build-context channels identified by automated
 review: `CARGO_BUILD_RUSTFLAGS`, ancestor `.cargo/config*`,
-`CARGO_PROFILE_BENCH_*`, and untagged attestation are now fail-closed inputs for
+`CARGO_PROFILE_*` (including release overrides inherited by bench), explicit encoded-flags presence, and untagged attestation are now fail-closed inputs for
 portable/native qualification. The attested replacement datasets and
 conservative gate decision are documented in
 `docs/boolean-be13-acceleration-gate.md`.
