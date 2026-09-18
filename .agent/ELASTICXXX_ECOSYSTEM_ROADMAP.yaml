@@ -89,8 +89,10 @@ verified_current_facts:
   - BE15c_result_no_promotion_because_multiple_independent_real_consumers_of_an_Elastic_free_mathematical_contract_were_not_established
   - BE15c_preserves_SciRust_exact_boolean_math_ownership_and_adds_no_cross_repo_runtime_dependency
   - BE15d_Forge_optional_search_bridge_merged_through_PR_164_exact_head_17e3551639ff792a1011ef6390a002437d469176_merge_3cb8701e517919033366c2f0cf0a58cc21022f52_with_exact_head_CI_green
-  - BE15d_is_not_yet_fully_qualified_because_PR_164_merged_with_a_material_P2_JSON_array_nesting_depth_finding_still_applicable
-  - BE15d_depth_hardening_follow_up_is_PR_165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_and_must_pass_its_own_exact_head_gates_before_BE15e
+  - BE15d_PR164_material_P2_JSON_array_nesting_depth_finding_was_corrected_by_PR_165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_merge_8441991feea3a2aae19f62a8e51c89e7f0d6f969
+  - BE15d_follow_up_exact_head_ci_packageability_and_continuous_hardening_completed_success_and_review_had_no_material_findings
+  - BE15d_completed_without_Forge_actuation_authority_runtime_dependency_performance_novelty_or_scientific_claim
+  - BE15e_ExtremEngine_and_other_real_consumers_is_the_next_unblocked_Boolean_productization_slice
   - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   - BE8c_integrated_guarded_planning_capture_completed_through_PR_100_merge_d2ae9d0cec83e33ce950a194b13023449e4b1005
   - BE8d_pure_guarded_replay_qualification_completed_through_PR_101_merge_203c2b10fa552e0940c2c043f779a0b04a378639
@@ -549,14 +551,16 @@ roadmap:
           - public_elastic_facade_exposes_wire_types_and_media_type
       - id: EX7_Forge_candidate_search_bridge
         name: Forge proposal intake with Elastic-owned revalidation
-        status: merged_candidate_pending_depth_hardening
+        status: complete
         evidence:
           - PR_164_exact_head_17e3551639ff792a1011ef6390a002437d469176
           - PR_164_merge_3cb8701e517919033366c2f0cf0a58cc21022f52
           - PR_164_exact_head_ci_packageability_and_continuous_hardening_completed_success
           - no_Forge_runtime_dependency_or_actuation_authority
-          - material_P2_JSON_array_nesting_depth_finding_requires_follow_up_PR_165
-          - PR_165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_is_candidate_only_until_exact_head_gates_and_review_complete
+          - material_P2_JSON_array_nesting_depth_finding_corrected_by_follow_up_PR_165
+          - PR_165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_merge_8441991feea3a2aae19f62a8e51c89e7f0d6f969
+          - PR_165_exact_head_ci_packageability_and_continuous_hardening_completed_success
+          - no_material_review_findings_remained_on_PR_165
     sequence:
       - SOUP_resource_plan_and_Hub_handoff
       - SLHAv2_KV_reference_adapter
