@@ -40,7 +40,7 @@ claim cross-resource atomicity.
 }
 ```
 
-Unknown fields are rejected. `version` must currently be the integer `1`.
+Unknown fields are rejected. `version` must currently be the integer `1`. File-backed operator documents are decoded through `OperatorConfig::from_bounded_json`: the encoded document is capped at 256 KiB and structurally depth-bounded before Serde materializes nested collections. The aggregate cap is intentionally no larger than the embedded `GuardConfigV1` byte budget, so an embedded guard cannot bypass its documented allocation bound during normal `elastic run --config` loading.
 
 ## Resources
 

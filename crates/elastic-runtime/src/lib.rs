@@ -163,7 +163,8 @@ pub use observers::{
 };
 pub use operator_config::{
     CadenceConfig, ControllerConfig, ExecutionModeConfig, ForecasterSelection, OperatorConfig,
-    PlannerSelection, ResourceConfig, OPERATOR_CONFIG_VERSION,
+    PlannerSelection, ResourceConfig, MAX_OPERATOR_CONFIG_BYTES, MAX_OPERATOR_CONFIG_JSON_DEPTH,
+    OPERATOR_CONFIG_VERSION,
 };
 pub use plan::{InvariantCheck, Plan, ValidatedPlan};
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};

@@ -10,7 +10,7 @@ Loading is fail-closed. The decoder bounds encoded bytes and JSON nesting before
 
 The BE10 operator surface now provides `guard-check`, `guard-list`, `guard-eval`, `guard-explain`, `guard-fingerprint`, and `guard-plan-dry-run`. The first five commands are read-only inspection/evaluation frontends. `guard-plan-dry-run` performs Boolean pruning followed by numeric planning against the selected resource's **declared initial observation state**. It does not construct a physical adapter, run trusted validation, enter a runtime cycle, or authorize actuation.
 
-A controller in `OperatorConfig` v1 may attach one optional `guard_config` object using this exact schema. The operator document validates that policy at load time, and the declaration-only planning view lowers it again at the planning boundary. The CLI may then use it directly:
+A controller in `OperatorConfig` v1 may attach one optional `guard_config` object using this exact schema. File-backed operator documents pass through a 256 KiB aggregate/depth preflight before nested deserialization, so embedding policy does not bypass the standalone guard decoder's allocation budget. Programmatically constructed policies are re-encoded through the bounded guard validator during `OperatorConfig::validate`. The declaration-only planning view lowers the policy again at the planning boundary. The CLI may then use it directly:
 
 ```text
 elastic guard-plan-dry-run --operator-config operator.json --resource ram-budget

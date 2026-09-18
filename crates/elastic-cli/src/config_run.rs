@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::evidence::{print_json, write_json};
 use elastic::{
     CancellationToken, ConfiguredController, ConfiguredResourceState, Forecast, OperatorConfig,
-    RuntimeEvent,
+    RuntimeEvent, MAX_OPERATOR_CONFIG_BYTES,
 };
 use serde_json::{json, Value};
 
@@ -33,8 +33,17 @@ pub fn run_config_to_file(
 }
 
 fn load_and_execute(path: &Path, resource: Option<&str>) -> Result<Value, Box<dyn Error>> {
-    let contents = fs::read_to_string(path)?;
-    let config: OperatorConfig = serde_json::from_str(&contents)?;
+    let metadata = fs::metadata(path)?;
+    if metadata.len() > MAX_OPERATOR_CONFIG_BYTES as u64 {
+        return Err(format!(
+            "operator config is {} bytes; maximum is {}",
+            metadata.len(),
+            MAX_OPERATOR_CONFIG_BYTES
+        )
+        .into());
+    }
+    let contents = fs::read(path)?;
+    let config = OperatorConfig::from_bounded_json(&contents)?;
     execute_operator_config(&config, resource)
 }
 
@@ -197,6 +206,18 @@ mod tests {
             output["controllers"][0]["cycles"][0]["forecast"]["method"],
             "ewma"
         );
+    }
+
+    #[test]
+    fn config_file_loader_rejects_oversized_input_before_json_decode() {
+        let path = std::env::temp_dir().join(format!(
+            "elastic-oversized-operator-{}.json",
+            std::process::id()
+        ));
+        fs::write(&path, vec![b' '; MAX_OPERATOR_CONFIG_BYTES + 1]).unwrap();
+        let error = load_and_execute(&path, None).unwrap_err();
+        fs::remove_file(&path).unwrap();
+        assert!(error.to_string().contains("operator config is"));
     }
 
     #[test]

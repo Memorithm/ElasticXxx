@@ -9,12 +9,23 @@ use std::time::Duration;
 
 use elastic_adapters::{HeadroomPlanner, ThresholdPlanner};
 use elastic_core::resource::LogicalResourceId;
+use elastic_core::MAX_BOOLEAN_EXPR_DEPTH;
 use serde::{Deserialize, Serialize};
 
-use crate::{Cadence, EwmaForecaster, GuardConfigV1, RuntimeError, RuntimeMode};
+use crate::{
+    Cadence, EwmaForecaster, GuardConfigV1, RuntimeError, RuntimeMode, MAX_GUARD_CONFIG_BYTES,
+};
 
 /// Current supported configuration schema version.
 pub const OPERATOR_CONFIG_VERSION: u32 = 1;
+/// Maximum encoded operator configuration accepted by bounded decoders.
+///
+/// Keeping this no larger than the embedded guard limit guarantees that a
+/// nested `GuardConfigV1` cannot bypass its aggregate byte budget before Serde
+/// materializes its collections.
+pub const MAX_OPERATOR_CONFIG_BYTES: usize = MAX_GUARD_CONFIG_BYTES;
+/// Maximum JSON structural depth accepted before operator deserialization.
+pub const MAX_OPERATOR_CONFIG_JSON_DEPTH: usize = MAX_BOOLEAN_EXPR_DEPTH + 12;
 
 /// Complete operator configuration for resources and controllers.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -26,6 +37,20 @@ pub struct OperatorConfig {
 }
 
 impl OperatorConfig {
+    /// Decode one operator document through a bounded JSON preflight.
+    ///
+    /// The aggregate cap is intentionally no larger than the nested guard
+    /// budget, so embedded policies cannot allocate past `GuardConfigV1`'s
+    /// documented encoded-size bound before semantic validation runs.
+    pub fn from_bounded_json(bytes: &[u8]) -> Result<Self, RuntimeError> {
+        validate_operator_json_preallocation_bounds(bytes)?;
+        let config: Self = serde_json::from_slice(bytes).map_err(|error| {
+            RuntimeError::configuration(format!("failed to decode operator config: {error}"))
+        })?;
+        config.validate()?;
+        Ok(config)
+    }
+
     /// Validate the complete configuration without performing physical effects.
     ///
     /// # Errors
@@ -180,7 +205,7 @@ impl ControllerConfig {
         self.forecaster.validate()?;
         self.cadence.validate()?;
         if let Some(guard_config) = &self.guard_config {
-            guard_config.validate().map_err(|error| {
+            guard_config.to_bounded_json().map_err(|error| {
                 RuntimeError::configuration(format!(
                     "invalid guard configuration for resource '{}': {error}",
                     self.resource
@@ -349,6 +374,47 @@ impl ExecutionModeConfig {
     }
 }
 
+fn validate_operator_json_preallocation_bounds(bytes: &[u8]) -> Result<(), RuntimeError> {
+    if bytes.len() > MAX_OPERATOR_CONFIG_BYTES {
+        return Err(RuntimeError::configuration(format!(
+            "operator config is {} bytes; maximum is {}",
+            bytes.len(),
+            MAX_OPERATOR_CONFIG_BYTES
+        )));
+    }
+
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for byte in bytes.iter().copied() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => {
+                depth = depth.saturating_add(1);
+                if depth > MAX_OPERATOR_CONFIG_JSON_DEPTH {
+                    return Err(RuntimeError::configuration(format!(
+                        "operator config JSON nesting exceeds maximum depth {}",
+                        MAX_OPERATOR_CONFIG_JSON_DEPTH
+                    )));
+                }
+            }
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -404,6 +470,28 @@ mod tests {
                 guard_config: None,
             }],
         }
+    }
+
+    #[test]
+    fn bounded_decoder_accepts_valid_operator_document() {
+        let encoded = serde_json::to_vec(&valid_config()).unwrap();
+        let decoded = OperatorConfig::from_bounded_json(&encoded).unwrap();
+        assert_eq!(decoded, valid_config());
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_oversized_and_deep_input_before_materialization() {
+        let oversized = vec![b' '; MAX_OPERATOR_CONFIG_BYTES + 1];
+        let error = OperatorConfig::from_bounded_json(&oversized).unwrap_err();
+        assert!(error.to_string().contains("operator config is"));
+
+        let deep = format!(
+            "{}0{}",
+            "[".repeat(MAX_OPERATOR_CONFIG_JSON_DEPTH + 1),
+            "]".repeat(MAX_OPERATOR_CONFIG_JSON_DEPTH + 1)
+        );
+        let error = OperatorConfig::from_bounded_json(deep.as_bytes()).unwrap_err();
+        assert!(error.to_string().contains("nesting exceeds"));
     }
 
     #[test]

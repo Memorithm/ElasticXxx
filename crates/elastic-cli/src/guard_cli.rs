@@ -20,7 +20,7 @@ use elastic::{
     GuardedPlanningOutcomeTrace, GuardedResourceSpec, InvariantPrecheckStatus, ObservationEpoch,
     ObservationSnapshot, OperatorConfig, PlannerEpoch, PredicateEvaluationInput,
     PredicateEvaluator, PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
-    GUARD_CONFIG_SCHEMA_V1, MAX_GUARD_CONFIG_BYTES,
+    GUARD_CONFIG_SCHEMA_V1, MAX_GUARD_CONFIG_BYTES, MAX_OPERATOR_CONFIG_BYTES,
 };
 use serde_json::{json, Value};
 
@@ -270,8 +270,8 @@ pub(crate) fn plan_dry_run(
 }
 
 fn read_operator_config(path: &Path) -> Result<OperatorConfig, Box<dyn Error>> {
-    let bytes = read_bounded_file(path, "operator config", MAX_GUARD_CONFIG_BYTES)?;
-    Ok(serde_json::from_slice(&bytes)?)
+    let bytes = read_bounded_file(path, "operator config", MAX_OPERATOR_CONFIG_BYTES)?;
+    Ok(OperatorConfig::from_bounded_json(&bytes)?)
 }
 
 fn read_bounded_file(
