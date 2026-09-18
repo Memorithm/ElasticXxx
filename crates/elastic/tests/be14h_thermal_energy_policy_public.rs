@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use elastic::prelude::*;
+use elastic::{ObservationEpoch, ResourceGeneration};
 
 fn temp_fixture(name: &str) -> std::path::PathBuf {
     static NEXT: AtomicU64 = AtomicU64::new(0);
@@ -64,7 +65,7 @@ fn public_observers_feed_source_bound_thermal_energy_policy_without_actuation() 
     let now = Instant::now();
     let snapshot = ObservationSnapshot::new(now, observed);
 
-    let mut policy = BooleanThermalEnergyPreplannerV1::new(
+    let policy = BooleanThermalEnergyPreplannerV1::new(
         policy_spec(),
         TransitionMechanism::Reinterpret,
         DimensionId::ENERGY,
@@ -75,7 +76,15 @@ fn public_observers_feed_source_bound_thermal_energy_policy_without_actuation() 
         Duration::from_secs(1),
     )
     .unwrap();
-    let report = policy.evaluate(&context, &snapshot, now).unwrap();
+    let report = policy
+        .evaluate(
+            &context,
+            &snapshot,
+            now,
+            ObservationEpoch::new(11),
+            ResourceGeneration::new(4),
+        )
+        .unwrap();
 
     assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
     assert_eq!(report.evidence.thermal_truth, "true");
@@ -84,6 +93,8 @@ fn public_observers_feed_source_bound_thermal_energy_policy_without_actuation() 
     let trace = DecisionTrace::from_bounded_json(report.evidence.decision_trace_json.as_bytes())
         .expect("public BE14h trace decodes strictly");
     assert!(trace.selected().is_some());
+    assert_eq!(trace.observation_epoch(), ObservationEpoch::new(11));
+    assert_eq!(trace.resource_generation(), ResourceGeneration::new(4));
 
     std::fs::remove_dir_all(root).unwrap();
 }

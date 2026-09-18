@@ -88,4 +88,8 @@ The types are exported through `elastic` and `elastic::prelude::*`. A typical
 consumer can combine `LinuxThermalMarginObserver` and
 `LinuxHwmonPowerObserver` in an `ObserverSet`, retain each observer's stable
 `source()`, build an `ObservationSnapshot`, and evaluate the policy using only
-the public `elastic` dependency.
+the public `elastic` dependency. The embedding controller must also pass its
+trusted `ObservationEpoch` and current `ResourceGeneration`; the BE14h
+preplanner does not invent either value from local call order. Those exact
+caller-supplied values are bound into `FactSnapshot`, freshness validation, and
+the durable `DecisionTrace`.

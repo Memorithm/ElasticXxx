@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 use elastic::prelude::*;
+use elastic::{ObservationEpoch, ResourceGeneration};
 
 #[derive(ElasticResource)]
 #[elastic(
@@ -170,7 +171,7 @@ pub fn public_thermal_energy_policy_surface_smoke() {
             ),
         ],
     );
-    let mut policy = BooleanThermalEnergyPreplannerV1::new(
+    let policy = BooleanThermalEnergyPreplannerV1::new(
         resource,
         TransitionMechanism::Reinterpret,
         DimensionId::ENERGY,
@@ -181,7 +182,15 @@ pub fn public_thermal_energy_policy_surface_smoke() {
         Duration::from_secs(1),
     )
     .unwrap();
-    let report = policy.evaluate(&context, &observations, now).unwrap();
+    let report = policy
+        .evaluate(
+            &context,
+            &observations,
+            now,
+            ObservationEpoch::new(11),
+            ResourceGeneration::new(4),
+        )
+        .unwrap();
     assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
     assert_eq!(report.evidence.combined_truth, "true");
 }

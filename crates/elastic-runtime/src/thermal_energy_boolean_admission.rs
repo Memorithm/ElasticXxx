@@ -167,8 +167,6 @@ pub struct BooleanThermalEnergyPreplannerV1 {
     thermal_source: ObservationSource,
     energy_source: ObservationSource,
     max_age: Duration,
-    next_observation_epoch: u64,
-    resource_generation: u64,
 }
 
 impl BooleanThermalEnergyPreplannerV1 {
@@ -250,22 +248,24 @@ impl BooleanThermalEnergyPreplannerV1 {
             thermal_source,
             energy_source,
             max_age,
-            next_observation_epoch: 1,
-            resource_generation: 1,
         })
     }
 
     /// Evaluate source-bound current observations and capture a durable decision trace.
     ///
+    /// `observation_epoch` and `resource_generation` are trusted provenance inputs
+    /// supplied by the caller that owns the observation/resource lifecycle. This
+    /// preplanner never synthesizes either identity from local call order.
+    ///
     /// This method performs no actuation and grants no validation authority.
     pub fn evaluate(
-        &mut self,
+        &self,
         planning_context: &PlanningContext,
         observations: &ObservationSnapshot,
         now: Instant,
+        observation_epoch: ObservationEpoch,
+        resource_generation: ResourceGeneration,
     ) -> Result<BooleanThermalEnergyReportV1, String> {
-        let epoch = self.next_epoch()?;
-        let generation = ResourceGeneration::new(self.resource_generation);
         let forecast = CurrentStateForecaster
             .forecast(observations, planning_context)
             .map_err(|error| error.to_string())?;
@@ -294,10 +294,10 @@ impl BooleanThermalEnergyPreplannerV1 {
         let facts = FactSnapshot::derive(
             FactSourceId::new("elastic-runtime:be14h-thermal-energy")
                 .map_err(|error| error.to_string())?,
-            epoch,
+            observation_epoch,
             Some(FactResourceBinding::new(
                 self.guarded_resource.resource().identity().clone(),
-                generation,
+                resource_generation,
             )),
             &input,
             &[
@@ -306,11 +306,14 @@ impl BooleanThermalEnergyPreplannerV1 {
             ],
         )
         .map_err(|error| error.to_string())?;
-        let freshness = FreshnessSnapshot::new(PlannerEpoch::new(epoch.get()), epoch)
-            .with_resource_generation(
-                self.guarded_resource.resource().identity().clone(),
-                generation,
-            );
+        let freshness = FreshnessSnapshot::new(
+            PlannerEpoch::new(observation_epoch.get()),
+            observation_epoch,
+        )
+        .with_resource_generation(
+            self.guarded_resource.resource().identity().clone(),
+            resource_generation,
+        );
         let thermal_truth = facts.truth(&thermal_key);
         let energy_truth = facts.truth(&energy_key);
         let combined_truth = thermal_truth.kleene_and(energy_truth);
@@ -386,15 +389,6 @@ impl BooleanThermalEnergyPreplannerV1 {
                 decision_trace_json,
             },
         })
-    }
-
-    fn next_epoch(&mut self) -> Result<ObservationEpoch, String> {
-        let epoch = ObservationEpoch::new(self.next_observation_epoch);
-        self.next_observation_epoch = self
-            .next_observation_epoch
-            .checked_add(1)
-            .ok_or_else(|| "BE14h observation epoch exhausted".to_owned())?;
-        Ok(epoch)
     }
 }
 
@@ -509,7 +503,15 @@ mod tests {
             Some((energy_source, 40.0)),
             now,
         );
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
         assert_eq!(report.evidence.thermal_truth, "true");
         assert_eq!(report.evidence.energy_truth, "true");
@@ -521,6 +523,8 @@ mod tests {
             DecisionTrace::from_bounded_json(report.evidence.decision_trace_json.as_bytes())
                 .unwrap();
         assert!(trace.selected().is_some());
+        assert_eq!(trace.observation_epoch(), ObservationEpoch::new(7));
+        assert_eq!(trace.resource_generation(), ResourceGeneration::new(3));
     }
 
     #[test]
@@ -532,7 +536,15 @@ mod tests {
             Some((energy_source, 40.0)),
             now,
         );
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(report.status, BooleanThermalEnergyStatusV1::Rejected);
         assert_eq!(report.evidence.thermal_truth, "false");
         assert_eq!(report.evidence.combined_truth, "false");
@@ -551,7 +563,15 @@ mod tests {
             Some((ObservationSource::host("foreign:power"), 40.0)),
             now,
         );
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(
             report.status,
             BooleanThermalEnergyStatusV1::InsufficientEvidence
@@ -591,7 +611,15 @@ mod tests {
             ],
         );
 
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
         assert_eq!(report.evidence.energy_truth, "true");
     }
@@ -636,7 +664,15 @@ mod tests {
             Some((energy_source, 40.0)),
             old,
         );
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(
             report.status,
             BooleanThermalEnergyStatusV1::InsufficientEvidence
@@ -656,7 +692,15 @@ mod tests {
         let context = PlanningContext::new()
             .observe(ObservationSignalId::THERMAL_MARGIN, 20.0)
             .observe(ObservationSignalId::ENERGY_RATE, 39.0);
-        let report = planner().evaluate(&context, &observations, now).unwrap();
+        let report = planner()
+            .evaluate(
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(7),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
         assert_eq!(
             report.status,
             BooleanThermalEnergyStatusV1::InsufficientEvidence
