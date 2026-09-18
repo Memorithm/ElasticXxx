@@ -19,9 +19,9 @@ use elastic_core::{
 };
 use elastic_eir::{lower_guarded, EirGuardedResource, PlanningContext, TransitionCandidate};
 use elastic_runtime::{
-    capture_decision_trace, BooleanGuardPreplanner, FactResourceBinding, FactSnapshot,
-    FactSourceId, Observation, ObservationSnapshot, ObservationSource, PredicateEvaluationInput,
-    PredicateEvaluator,
+    capture_decision_trace, BooleanGuardPreplanner, CurrentStateForecaster, FactResourceBinding,
+    FactSnapshot, FactSourceId, Forecaster, Observation, ObservationSnapshot, ObservationSource,
+    PredicateEvaluationInput, PredicateEvaluator,
 };
 use serde::{Deserialize, Serialize};
 
@@ -173,6 +173,82 @@ pub enum BooleanKvTransitionPreflightV1 {
     Blocked(BooleanKvCapacityReportV1),
 }
 
+/// Version-2 durable BE14d evidence with an explicit forecast boundary.
+///
+/// V1 remains frozen for backward compatibility. The additional fields are
+/// explanatory only and do not grant planning, validation, or actuation authority.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanKvCapacityEvidenceV2 {
+    pub schema_version: u16,
+    pub predicate_key: String,
+    pub source_signal: String,
+    pub source_unit: String,
+    pub target_materialized_bytes: u64,
+    pub forecast_method: String,
+    pub forecast_horizon_milliseconds: u64,
+    pub forecast_confidence_claimed: bool,
+    pub truth: String,
+    pub decision_trace_json: String,
+}
+
+/// Version-2 BE14d report retaining zero-horizon forecast metadata.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanKvCapacityReportV2 {
+    pub schema_version: u16,
+    pub status: BooleanKvCapacityStatusV1,
+    pub reason: String,
+    pub evidence: BooleanKvCapacityEvidenceV2,
+}
+
+/// Version-2 preflight result. The transition plan is unchanged from V1.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BooleanKvTransitionPreflightV2 {
+    Candidate {
+        report: BooleanKvCapacityReportV2,
+        plan: KvTransitionPlan,
+    },
+    Blocked(BooleanKvCapacityReportV2),
+}
+
+impl From<BooleanKvCapacityEvidenceV2> for BooleanKvCapacityEvidenceV1 {
+    fn from(value: BooleanKvCapacityEvidenceV2) -> Self {
+        Self {
+            schema_version: 1,
+            predicate_key: value.predicate_key,
+            source_signal: value.source_signal,
+            source_unit: value.source_unit,
+            target_materialized_bytes: value.target_materialized_bytes,
+            truth: value.truth,
+            decision_trace_json: value.decision_trace_json,
+        }
+    }
+}
+
+impl From<BooleanKvCapacityReportV2> for BooleanKvCapacityReportV1 {
+    fn from(value: BooleanKvCapacityReportV2) -> Self {
+        Self {
+            schema_version: 1,
+            status: value.status,
+            reason: value.reason,
+            evidence: value.evidence.into(),
+        }
+    }
+}
+
+impl From<BooleanKvTransitionPreflightV2> for BooleanKvTransitionPreflightV1 {
+    fn from(value: BooleanKvTransitionPreflightV2) -> Self {
+        match value {
+            BooleanKvTransitionPreflightV2::Candidate { report, plan } => Self::Candidate {
+                report: report.into(),
+                plan,
+            },
+            BooleanKvTransitionPreflightV2::Blocked(report) => Self::Blocked(report.into()),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BooleanKvCapacityError {
     Contract(String),
@@ -317,13 +393,27 @@ impl BooleanKvCapacityPreflightControllerV1 {
 
     /// Evaluate one source-bound provider value without allowing the numeric
     /// planning context to drift from its observation provenance.
+    ///
+    /// V1 remains the frozen historical wire shape and is projected from the
+    /// same V2 execution path that records the explicit forecast boundary.
     pub fn evaluate_observation(
         &mut self,
         observation: &KvCapacityObservationV1,
         target_materialized_bytes: u64,
         now: Instant,
     ) -> Result<BooleanKvCapacityReportV1, BooleanKvCapacityError> {
-        self.evaluate(
+        self.evaluate_observation_v2(observation, target_materialized_bytes, now)
+            .map(Into::into)
+    }
+
+    /// Evaluate one source-bound provider value and retain forecast metadata.
+    pub fn evaluate_observation_v2(
+        &mut self,
+        observation: &KvCapacityObservationV1,
+        target_materialized_bytes: u64,
+        now: Instant,
+    ) -> Result<BooleanKvCapacityReportV2, BooleanKvCapacityError> {
+        self.evaluate_v2(
             observation.planning_context(),
             observation.observations(),
             target_materialized_bytes,
@@ -331,6 +421,7 @@ impl BooleanKvCapacityPreflightControllerV1 {
         )
     }
 
+    /// Historical V1 evaluation surface projected from [`Self::evaluate_v2`].
     pub fn evaluate(
         &mut self,
         planning_context: &PlanningContext,
@@ -338,6 +429,37 @@ impl BooleanKvCapacityPreflightControllerV1 {
         target_materialized_bytes: u64,
         now: Instant,
     ) -> Result<BooleanKvCapacityReportV1, BooleanKvCapacityError> {
+        self.evaluate_v2(
+            planning_context,
+            observations,
+            target_materialized_bytes,
+            now,
+        )
+        .map(Into::into)
+    }
+
+    /// Execute `OBSERVE -> FORECAST -> Boolean PLAN` for the KV capacity gate.
+    ///
+    /// The current-state forecaster is a zero-horizon compatibility boundary:
+    /// it copies the current planning context and claims no calibrated
+    /// confidence. `False` and `Unknown` remain fail-closed; `True` still grants
+    /// only permission to continue to structural KV validation.
+    pub fn evaluate_v2(
+        &mut self,
+        planning_context: &PlanningContext,
+        observations: &ObservationSnapshot,
+        target_materialized_bytes: u64,
+        now: Instant,
+    ) -> Result<BooleanKvCapacityReportV2, BooleanKvCapacityError> {
+        let forecast = CurrentStateForecaster
+            .forecast(observations, planning_context)
+            .map_err(|error| BooleanKvCapacityError::Contract(error.to_string()))?;
+        let forecast_context = forecast.planning_context().ok_or_else(|| {
+            BooleanKvCapacityError::Contract(
+                "BE14d current-state forecast produced no planning context".to_owned(),
+            )
+        })?;
+
         let epoch = self.next_epoch()?;
         let generation = ResourceGeneration::new(self.resource_generation);
         let key = kv_capacity_predicate_key();
@@ -349,7 +471,7 @@ impl BooleanKvCapacityPreflightControllerV1 {
                 self.guarded_resource.resource().identity().clone(),
             ),
         };
-        let input = PredicateEvaluationInput::new(planning_context, observations, now);
+        let input = PredicateEvaluationInput::new(forecast_context, observations, now);
         let facts = FactSnapshot::derive(
             FactSourceId::new("elastic-kv:be14d-capacity")
                 .map_err(|error| BooleanKvCapacityError::Contract(error.to_string()))?,
@@ -410,22 +532,31 @@ impl BooleanKvCapacityPreflightControllerV1 {
                 "capacity-evidence-unknown",
             ),
         };
-        Ok(BooleanKvCapacityReportV1 {
-            schema_version: 1,
+        Ok(BooleanKvCapacityReportV2 {
+            schema_version: 2,
             status,
             reason: reason.to_owned(),
-            evidence: BooleanKvCapacityEvidenceV1 {
-                schema_version: 1,
+            evidence: BooleanKvCapacityEvidenceV2 {
+                schema_version: 2,
                 predicate_key: key.to_string(),
                 source_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
                 source_unit: KV_CAPACITY_SOURCE_UNIT.to_owned(),
                 target_materialized_bytes,
+                forecast_method: forecast.method.clone(),
+                forecast_horizon_milliseconds: u64::try_from(forecast.horizon.as_millis())
+                    .map_err(|_| {
+                        BooleanKvCapacityError::Contract(
+                            "BE14d forecast horizon exceeds u64 milliseconds".to_owned(),
+                        )
+                    })?,
+                forecast_confidence_claimed: forecast.confidence.is_some(),
                 truth: truth_text(truth).to_owned(),
                 decision_trace_json,
             },
         })
     }
 
+    /// Historical V1 transition preflight projected from [`Self::validate_candidate_v2`].
     #[allow(clippy::too_many_arguments)]
     pub fn validate_candidate(
         &mut self,
@@ -439,14 +570,42 @@ impl BooleanKvCapacityPreflightControllerV1 {
         target_materialized_bytes: u64,
         now: Instant,
     ) -> Result<BooleanKvTransitionPreflightV1, BooleanKvCapacityError> {
-        let report = self.evaluate(
+        self.validate_candidate_v2(
+            descriptor,
+            target,
+            capabilities,
+            attestations,
+            target_materialization,
+            planning_context,
+            observations,
+            target_materialized_bytes,
+            now,
+        )
+        .map(Into::into)
+    }
+
+    /// Forecast-aware V2 transition preflight.
+    #[allow(clippy::too_many_arguments)]
+    pub fn validate_candidate_v2(
+        &mut self,
+        descriptor: &KvPageDescriptor,
+        target: RepresentationState,
+        capabilities: &CapabilitySet,
+        attestations: TransitionAttestations,
+        target_materialization: KvTargetMaterialization,
+        planning_context: &PlanningContext,
+        observations: &ObservationSnapshot,
+        target_materialized_bytes: u64,
+        now: Instant,
+    ) -> Result<BooleanKvTransitionPreflightV2, BooleanKvCapacityError> {
+        let report = self.evaluate_v2(
             planning_context,
             observations,
             target_materialized_bytes,
             now,
         )?;
         if report.status != BooleanKvCapacityStatusV1::Eligible {
-            return Ok(BooleanKvTransitionPreflightV1::Blocked(report));
+            return Ok(BooleanKvTransitionPreflightV2::Blocked(report));
         }
         let plan = descriptor.validate_reusable_representation_change(
             target,
@@ -455,7 +614,7 @@ impl BooleanKvCapacityPreflightControllerV1 {
             attestations,
             target_materialization,
         )?;
-        Ok(BooleanKvTransitionPreflightV1::Candidate { report, plan })
+        Ok(BooleanKvTransitionPreflightV2::Candidate { report, plan })
     }
 
     fn next_epoch(&mut self) -> Result<ObservationEpoch, BooleanKvCapacityError> {
@@ -621,6 +780,110 @@ mod tests {
 
         assert_eq!(report.status, BooleanKvCapacityStatusV1::Eligible);
         assert_eq!(report.evidence.truth, "true");
+    }
+
+    #[test]
+    fn v2_records_explicit_zero_horizon_forecast_without_confidence_claim() {
+        let now = Instant::now();
+        let resource_id = "kv-provider-forecast";
+        let input = KvCapacityObservationV1::measured(
+            LogicalResourceId::new(resource_id).unwrap(),
+            4096,
+            now,
+        );
+        let mut controller = BooleanKvCapacityPreflightControllerV1::new(
+            spec(resource_id),
+            TransitionMechanism::Reencode,
+            KV_CAPACITY_DEFAULT_MAX_AGE,
+        )
+        .unwrap();
+
+        let report = controller
+            .evaluate_observation_v2(&input, 2048, now)
+            .unwrap();
+
+        assert_eq!(report.schema_version, 2);
+        assert_eq!(report.status, BooleanKvCapacityStatusV1::Eligible);
+        assert_eq!(report.evidence.schema_version, 2);
+        assert_eq!(report.evidence.forecast_method, "current-state");
+        assert_eq!(report.evidence.forecast_horizon_milliseconds, 0);
+        assert!(!report.evidence.forecast_confidence_claimed);
+        assert_eq!(report.evidence.truth, "true");
+        assert!(!report.evidence.decision_trace_json.is_empty());
+    }
+
+    #[test]
+    fn v1_wire_shape_stays_frozen_while_v2_adds_forecast_metadata() {
+        let now = Instant::now();
+        let resource_id = "kv-provider-wire";
+        let input = KvCapacityObservationV1::measured(
+            LogicalResourceId::new(resource_id).unwrap(),
+            4096,
+            now,
+        );
+        let mut v1_controller = BooleanKvCapacityPreflightControllerV1::new(
+            spec(resource_id),
+            TransitionMechanism::Reencode,
+            KV_CAPACITY_DEFAULT_MAX_AGE,
+        )
+        .unwrap();
+        let mut v2_controller = BooleanKvCapacityPreflightControllerV1::new(
+            spec(resource_id),
+            TransitionMechanism::Reencode,
+            KV_CAPACITY_DEFAULT_MAX_AGE,
+        )
+        .unwrap();
+
+        let v1 = v1_controller
+            .evaluate_observation(&input, 2048, now)
+            .unwrap();
+        let v2 = v2_controller
+            .evaluate_observation_v2(&input, 2048, now)
+            .unwrap();
+        let v1_json = serde_json::to_value(&v1).unwrap();
+        let v2_json = serde_json::to_value(&v2).unwrap();
+        let v1_evidence = v1_json["evidence"].as_object().unwrap();
+        assert_eq!(v1_json["schema_version"], 1);
+        assert_eq!(v1_json["evidence"]["schema_version"], 1);
+        assert!(!v1_evidence.contains_key("forecast_method"));
+        assert!(!v1_evidence.contains_key("forecast_horizon_milliseconds"));
+        assert!(!v1_evidence.contains_key("forecast_confidence_claimed"));
+        assert_eq!(v2_json["schema_version"], 2);
+        assert_eq!(v2_json["evidence"]["forecast_method"], "current-state");
+        assert_eq!(v2_json["evidence"]["forecast_horizon_milliseconds"], 0);
+        assert_eq!(v2_json["evidence"]["forecast_confidence_claimed"], false);
+
+        let decoded: BooleanKvCapacityReportV1 = serde_json::from_value(v1_json.clone()).unwrap();
+        assert_eq!(decoded, v1);
+        assert!(serde_json::from_value::<BooleanKvCapacityReportV1>(v2_json).is_err());
+    }
+
+    #[test]
+    fn v2_preserves_true_false_unknown_capacity_semantics() {
+        let now = Instant::now();
+        for (suffix, bytes, expected) in [
+            ("true", Some(4096.0), "true"),
+            ("false", Some(1024.0), "false"),
+            ("unknown", None, "unknown"),
+        ] {
+            let resource_id = format!("kv-v2-{suffix}");
+            let (context, observations) = evidence(now, &resource_id, bytes);
+            let mut controller = BooleanKvCapacityPreflightControllerV1::new(
+                spec(&resource_id),
+                TransitionMechanism::Reencode,
+                KV_CAPACITY_DEFAULT_MAX_AGE,
+            )
+            .unwrap();
+            let v2 = controller
+                .evaluate_v2(&context, &observations, 2048, now)
+                .unwrap();
+            assert_eq!(v2.evidence.truth, expected);
+            assert_eq!(v2.evidence.forecast_method, "current-state");
+            assert_eq!(v2.evidence.forecast_horizon_milliseconds, 0);
+            assert!(!v2.evidence.forecast_confidence_claimed);
+            let v1: BooleanKvCapacityReportV1 = v2.into();
+            assert_eq!(v1.evidence.truth, expected);
+        }
     }
 
     #[test]

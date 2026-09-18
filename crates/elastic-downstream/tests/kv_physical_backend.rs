@@ -7,7 +7,7 @@
 //! memory-saving, hardware, or model-quality claim.
 
 use elastic::kv::boolean_admission::{
-    BooleanKvCapacityPreflightControllerV1, BooleanKvTransitionPreflightV1, KvCapacityObservationV1,
+    BooleanKvCapacityPreflightControllerV1, BooleanKvTransitionPreflightV2, KvCapacityObservationV1,
 };
 use elastic::kv::{
     CapabilitySet, KeyEncodingPipeline, KeyTransformScope, KvPageDescriptor, KvPageId, KvPrecision,
@@ -296,7 +296,7 @@ fn admit_with_boolean_capacity(
     )
     .unwrap();
     match gate
-        .validate_candidate(
+        .validate_candidate_v2(
             source,
             transition.representation.to.clone(),
             capabilities,
@@ -313,11 +313,14 @@ fn admit_with_boolean_capacity(
         )
         .unwrap()
     {
-        BooleanKvTransitionPreflightV1::Candidate { report, plan } => {
+        BooleanKvTransitionPreflightV2::Candidate { report, plan } => {
             assert_eq!(report.evidence.truth, "true");
+            assert_eq!(report.evidence.forecast_method, "current-state");
+            assert_eq!(report.evidence.forecast_horizon_milliseconds, 0);
+            assert!(!report.evidence.forecast_confidence_claimed);
             plan
         }
-        BooleanKvTransitionPreflightV1::Blocked(report) => {
+        BooleanKvTransitionPreflightV2::Blocked(report) => {
             panic!("sufficient measured capacity unexpectedly blocked: {report:?}")
         }
     }
