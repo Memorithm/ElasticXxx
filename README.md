@@ -63,6 +63,8 @@ The model is intentionally provisional and will evolve as the literature review 
 - [Rust Surface Model v0.1](docs/surface/rust-surface-model-v0.1.md)
 - [EIR v0.1](docs/eir/eir-v0.1.md)
 - [Macro guide](docs/surface/macro-guide.md)
+- [Compatibility / MSRV policy](docs/release/COMPATIBILITY.md)
+- [Pre-release packageability gate](docs/release/PACKAGEABILITY.md)
 
 ## Implementation
 

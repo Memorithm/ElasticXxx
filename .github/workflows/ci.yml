@@ -58,3 +58,8 @@ jobs:
 
       - name: Tests
         run: cargo +1.89.0 test --workspace
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo +1.89.0 doc --workspace --no-deps

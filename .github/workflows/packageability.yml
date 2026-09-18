@@ -28,6 +28,9 @@ jobs:
           import pathlib
           import tomllib
 
+          import json
+          import subprocess
+
           root = tomllib.loads(pathlib.Path("Cargo.toml").read_text())
           deps = root["workspace"]["dependencies"]
           expected = {
@@ -43,6 +46,83 @@ jobs:
               assert isinstance(spec, dict), f"{name} must be a table dependency"
               assert spec.get("version") == "0.1.0", f"{name} must pin version 0.1.0"
               assert spec.get("path") == path, f"{name} must retain local path {path}"
+
+          declared_msrv = root["workspace"]["package"]["rust-version"]
+          assert declared_msrv == "1.89", f"workspace MSRV drifted: {declared_msrv}"
+
+          metadata = json.loads(
+              subprocess.check_output(
+                  ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                  text=True,
+              )
+          )
+          workspace_ids = set(metadata["workspace_members"])
+          packages = {
+              package["name"]: package
+              for package in metadata["packages"]
+              if package["id"] in workspace_ids
+          }
+          for package in packages.values():
+              assert package["rust_version"] == declared_msrv, (
+                  f"{package['name']} must resolve rust-version {declared_msrv}, "
+                  f"got {package['rust_version']}"
+              )
+
+          documented_publish_chain = {
+              "elastic-core",
+              "elastic-macros",
+              "elastic-eir",
+              "elastic-adapters",
+              "elastic-runtime",
+              "elastic-kv",
+              "elastic",
+          }
+
+          # Fail closed when the public facade acquires a new non-dev workspace
+          # dependency that the release/packageability policy has not reviewed.
+          publish_chain = set()
+          pending = ["elastic"]
+          while pending:
+              package_name = pending.pop()
+              if package_name in publish_chain:
+                  continue
+              publish_chain.add(package_name)
+              for dependency in packages[package_name]["dependencies"]:
+                  dependency_name = dependency["name"]
+                  if (
+                      dependency["kind"] != "dev"
+                      and dependency_name in packages
+                      and dependency_name not in publish_chain
+                  ):
+                      pending.append(dependency_name)
+
+          assert publish_chain == documented_publish_chain, (
+              "documented public facade package chain drifted from Cargo metadata; "
+              f"reachable={sorted(publish_chain)!r}, "
+              f"documented={sorted(documented_publish_chain)!r}"
+          )
+
+          for package_name in publish_chain:
+              package = packages[package_name]
+              assert package["version"] == "0.1.0", (
+                  f"{package_name} version drifted from pre-release line: "
+                  f"{package['version']}"
+              )
+              license_file = package.get("license_file")
+              assert license_file and license_file.endswith("/LICENSE.md"), (
+                  f"{package_name} must package the workspace LICENSE.md; "
+                  f"resolved {license_file!r}"
+              )
+              for dependency in package["dependencies"]:
+                  if (
+                      dependency["name"] in publish_chain
+                      and dependency["kind"] != "dev"
+                  ):
+                      assert dependency["req"] == "^0.1.0", (
+                          f"{package_name} -> {dependency['name']} needs an explicit "
+                          f"0.1.0 registry-compatible version requirement; "
+                          f"resolved {dependency['req']}"
+                      )
           PY
       - name: Validate package file sets for full facade chain
         shell: bash
