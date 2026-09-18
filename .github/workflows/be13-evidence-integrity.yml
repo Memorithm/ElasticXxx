@@ -6,6 +6,8 @@ on:
       - 'benchmarks/be13/evidence/**'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/check-be13-portable-evidence.py'
+      - 'tools/be13/process_metrics.c'
+      - 'crates/elastic-core/benches/be13_portable.rs'
       - 'docs/boolean-be13-benchmark.md'
       - '.github/workflows/be13-evidence-integrity.yml'
   push:
@@ -14,6 +16,8 @@ on:
       - 'benchmarks/be13/evidence/**'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/check-be13-portable-evidence.py'
+      - 'tools/be13/process_metrics.c'
+      - 'crates/elastic-core/benches/be13_portable.rs'
       - 'docs/boolean-be13-benchmark.md'
       - '.github/workflows/be13-evidence-integrity.yml'
 
@@ -34,7 +38,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-          fetch-depth: 1
+          fetch-depth: 0
       - name: Require trusted persistent runner
         shell: bash
         run: |
@@ -50,3 +54,5 @@ jobs:
         run: python3 scripts/check-be13-portable-evidence.py
       - name: Validate collector shell syntax
         run: bash -n scripts/collect-be13-portable-evidence.sh
+      - name: Compile direct process-metrics helper
+        run: cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c -o "$RUNNER_TEMP/be13-process-metrics"

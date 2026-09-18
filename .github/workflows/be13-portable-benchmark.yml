@@ -5,12 +5,16 @@ on:
     paths:
       - 'crates/elastic-core/**'
       - 'docs/boolean-be13-benchmark.md'
+      - 'scripts/collect-be13-portable-evidence.sh'
+      - 'tools/be13/process_metrics.c'
       - '.github/workflows/be13-portable-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'crates/elastic-core/**'
       - 'docs/boolean-be13-benchmark.md'
+      - 'scripts/collect-be13-portable-evidence.sh'
+      - 'tools/be13/process_metrics.c'
       - '.github/workflows/be13-portable-benchmark.yml'
 
 permissions:
@@ -74,3 +78,22 @@ jobs:
           assert all(row['memory_peak_bytes'] == 'unmeasured' for row in rows)
           assert all(row['branch_misses'] == 'unmeasured' for row in rows)
           PY
+      - name: Smoke one selected path and compile metrics helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+            --warmup 10 --iterations 1000 --path u64_compiled_guard \
+            >"$RUNNER_TEMP/be13-single.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'be13-single.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert len(rows) == 1
+          assert rows[0]['path'] == 'u64_compiled_guard'
+          assert rows[0]['result'] == 'True'
+          PY
+          cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c \
+            -o "$RUNNER_TEMP/be13-process-metrics"
