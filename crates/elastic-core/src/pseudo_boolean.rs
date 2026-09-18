@@ -9,7 +9,10 @@
 use std::fmt;
 use std::num::NonZeroU64;
 
-use crate::{FactSet, LogicError, PredicateId, TruthValue, FAST_PREDICATE_CAPACITY};
+use crate::{
+    FactSet, LogicError, PredicateId, PredicateKey, PredicateRegistry, TruthValue,
+    FAST_PREDICATE_CAPACITY,
+};
 
 /// Maximum number of weighted terms in one dependency-free constraint.
 pub const MAX_PSEUDO_BOOLEAN_TERMS: usize = FAST_PREDICATE_CAPACITY as usize;
@@ -77,6 +80,40 @@ pub struct WeightedPredicate {
     weight: i128,
 }
 
+/// One durable integer-weighted Boolean predicate declaration.
+///
+/// Unlike [`WeightedPredicate`], this form stores the stable [`PredicateKey`]
+/// rather than a compact [`PredicateId`]. It is therefore suitable for durable
+/// configuration/EIR declaration surfaces. Binding to a runtime registry is an
+/// explicit, fail-closed step.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WeightedPredicateKey {
+    predicate: PredicateKey,
+    weight: i128,
+}
+
+impl WeightedPredicateKey {
+    /// Construct one non-zero durable weighted term.
+    pub fn new(predicate: PredicateKey, weight: i128) -> Result<Self, PseudoBooleanBindingError> {
+        if weight == 0 {
+            return Err(PseudoBooleanBindingError::ZeroWeight { predicate });
+        }
+        Ok(Self { predicate, weight })
+    }
+
+    /// Stable predicate identity.
+    #[must_use]
+    pub const fn predicate(&self) -> &PredicateKey {
+        &self.predicate
+    }
+
+    /// Signed integer weight in the declaration scale's ticks.
+    #[must_use]
+    pub const fn weight(&self) -> i128 {
+        self.weight
+    }
+}
+
 impl WeightedPredicate {
     /// Construct one non-zero weighted term.
     pub fn new(predicate: PredicateId, weight: i128) -> Result<Self, PseudoBooleanError> {
@@ -101,6 +138,135 @@ impl WeightedPredicate {
         self.weight
     }
 }
+
+/// Durable stable-key declaration for one pseudo-Boolean constraint.
+///
+/// Compact [`PredicateId`] values are intentionally absent from this type. A
+/// declaration may be persisted or moved between processes without depending
+/// on one registry's local ID assignment. [`Self::bind`] resolves every key
+/// against an explicit canonical registry and rejects missing keys.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PseudoBooleanConstraintDeclaration {
+    terms: Vec<WeightedPredicateKey>,
+    relation: PseudoBooleanRelation,
+    threshold: i128,
+    scale: PseudoBooleanScale,
+}
+
+impl PseudoBooleanConstraintDeclaration {
+    /// Construct a bounded canonical stable-key declaration.
+    pub fn new(
+        mut terms: Vec<WeightedPredicateKey>,
+        relation: PseudoBooleanRelation,
+        threshold: i128,
+        scale: PseudoBooleanScale,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        if terms.len() > MAX_PSEUDO_BOOLEAN_TERMS {
+            return Err(PseudoBooleanBindingError::TooManyTerms {
+                terms: terms.len(),
+                maximum: MAX_PSEUDO_BOOLEAN_TERMS,
+            });
+        }
+        terms.sort_by(|left, right| left.predicate.cmp(&right.predicate));
+        for window in terms.windows(2) {
+            if window[0].predicate == window[1].predicate {
+                return Err(PseudoBooleanBindingError::DuplicatePredicate {
+                    predicate: window[0].predicate.clone(),
+                });
+            }
+        }
+        Ok(Self {
+            terms,
+            relation,
+            threshold,
+            scale,
+        })
+    }
+
+    /// Canonically ordered durable terms.
+    #[must_use]
+    pub fn terms(&self) -> &[WeightedPredicateKey] {
+        &self.terms
+    }
+
+    /// Declared relation.
+    #[must_use]
+    pub const fn relation(&self) -> PseudoBooleanRelation {
+        self.relation
+    }
+
+    /// Integer threshold in scale ticks.
+    #[must_use]
+    pub const fn threshold(&self) -> i128 {
+        self.threshold
+    }
+
+    /// Explicit common scale.
+    #[must_use]
+    pub const fn scale(&self) -> &PseudoBooleanScale {
+        &self.scale
+    }
+
+    /// Bind stable keys to compact IDs in one explicit canonical registry.
+    ///
+    /// Missing keys fail closed. The declaration itself is not mutated and
+    /// never acquires registry-local IDs.
+    pub fn bind(
+        &self,
+        registry: &PredicateRegistry,
+    ) -> Result<PseudoBooleanConstraint, PseudoBooleanBindingError> {
+        let terms = self
+            .terms
+            .iter()
+            .map(|term| {
+                let predicate = registry.id(&term.predicate).ok_or_else(|| {
+                    PseudoBooleanBindingError::UnregisteredPredicate {
+                        predicate: term.predicate.clone(),
+                    }
+                })?;
+                WeightedPredicate::new(predicate, term.weight)
+                    .map_err(PseudoBooleanBindingError::Compiled)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        PseudoBooleanConstraint::new(terms, self.relation, self.threshold, self.scale.clone())
+            .map_err(PseudoBooleanBindingError::Compiled)
+    }
+}
+
+/// Stable-key declaration or binding failure.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PseudoBooleanBindingError {
+    ZeroWeight { predicate: PredicateKey },
+    DuplicatePredicate { predicate: PredicateKey },
+    TooManyTerms { terms: usize, maximum: usize },
+    UnregisteredPredicate { predicate: PredicateKey },
+    Compiled(PseudoBooleanError),
+}
+
+impl fmt::Display for PseudoBooleanBindingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroWeight { predicate } => {
+                write!(f, "pseudo-Boolean predicate {predicate} has a zero weight")
+            }
+            Self::DuplicatePredicate { predicate } => write!(
+                f,
+                "pseudo-Boolean predicate {predicate} is declared more than once"
+            ),
+            Self::TooManyTerms { terms, maximum } => write!(
+                f,
+                "pseudo-Boolean term count {terms} exceeds maximum {maximum}"
+            ),
+            Self::UnregisteredPredicate { predicate } => write!(
+                f,
+                "pseudo-Boolean predicate {predicate} is absent from the binding registry"
+            ),
+            Self::Compiled(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for PseudoBooleanBindingError {}
 
 /// Supported linear relation to the integer threshold.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -489,6 +655,85 @@ mod tests {
         assert_eq!(
             constraint.evaluate(&facts),
             Err(PseudoBooleanError::ArithmeticOverflow)
+        );
+    }
+
+    #[test]
+    fn stable_key_declaration_binds_independently_of_registry_id_layout() {
+        let a = PredicateKey::new("elastic.memory", "a").unwrap();
+        let b = PredicateKey::new("elastic.memory", "b").unwrap();
+        let extra = PredicateKey::new("elastic.aaa", "extra").unwrap();
+        let declaration = PseudoBooleanConstraintDeclaration::new(
+            vec![
+                WeightedPredicateKey::new(b.clone(), 3).unwrap(),
+                WeightedPredicateKey::new(a.clone(), 2).unwrap(),
+            ],
+            PseudoBooleanRelation::LessOrEqual,
+            3,
+            PseudoBooleanScale::count(),
+        )
+        .unwrap();
+
+        assert_eq!(declaration.terms()[0].predicate(), &a);
+        assert_eq!(declaration.terms()[1].predicate(), &b);
+
+        let compact = PredicateRegistry::from_keys([a.clone(), b.clone()]).unwrap();
+        let shifted = PredicateRegistry::from_keys([extra, a.clone(), b.clone()]).unwrap();
+        let compact_constraint = declaration.bind(&compact).unwrap();
+        let shifted_constraint = declaration.bind(&shifted).unwrap();
+
+        assert_ne!(
+            compact_constraint.terms()[0].predicate(),
+            shifted_constraint.terms()[0].predicate()
+        );
+
+        let compact_facts = FactSet::new()
+            .with(compact.id(&a).unwrap(), TruthValue::True)
+            .unwrap()
+            .with(compact.id(&b).unwrap(), TruthValue::False)
+            .unwrap();
+        let shifted_facts = FactSet::new()
+            .with(shifted.id(&a).unwrap(), TruthValue::True)
+            .unwrap()
+            .with(shifted.id(&b).unwrap(), TruthValue::False)
+            .unwrap();
+        assert_eq!(
+            compact_constraint.evaluate(&compact_facts).unwrap(),
+            shifted_constraint.evaluate(&shifted_facts).unwrap()
+        );
+    }
+
+    #[test]
+    fn stable_key_binding_rejects_missing_and_duplicate_declarations() {
+        let a = PredicateKey::new("elastic.memory", "a").unwrap();
+        let missing = PredicateKey::new("elastic.memory", "missing").unwrap();
+        let duplicate = PseudoBooleanConstraintDeclaration::new(
+            vec![
+                WeightedPredicateKey::new(a.clone(), 1).unwrap(),
+                WeightedPredicateKey::new(a.clone(), 2).unwrap(),
+            ],
+            PseudoBooleanRelation::LessOrEqual,
+            1,
+            PseudoBooleanScale::count(),
+        );
+        assert_eq!(
+            duplicate,
+            Err(PseudoBooleanBindingError::DuplicatePredicate {
+                predicate: a.clone()
+            })
+        );
+
+        let declaration = PseudoBooleanConstraintDeclaration::new(
+            vec![WeightedPredicateKey::new(missing.clone(), 1).unwrap()],
+            PseudoBooleanRelation::GreaterOrEqual,
+            1,
+            PseudoBooleanScale::count(),
+        )
+        .unwrap();
+        let registry = PredicateRegistry::from_keys([a]).unwrap();
+        assert_eq!(
+            declaration.bind(&registry),
+            Err(PseudoBooleanBindingError::UnregisteredPredicate { predicate: missing })
         );
     }
 
