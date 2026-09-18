@@ -10,6 +10,7 @@
 pub mod benchmark;
 pub mod boolean_admission;
 pub mod stage_b;
+pub mod transaction;
 
 pub use benchmark::{
     run_fixed_baseline, BenchmarkError, BenchmarkResult, BlockBenchmarkResult, CandidateId,
@@ -24,6 +25,9 @@ pub use stage_b::{
     StageBPreregistration, PINNED_DATASET_REVISION, PINNED_MODEL_REVISION, PINNED_MODEL_SHA256,
     PINNED_NNIS_REVISION, PINNED_TOKENIZER_SHA256, STAGE_B_FIXED_CANDIDATE_SLATE,
     STAGE_B_MEASUREMENT_SCHEMA, STAGE_B_PREREGISTRATION_SCHEMA,
+};
+pub use transaction::{
+    kv_transition_target_descriptor, KvTransitionBackendV1, TransactionalKvPageV1,
 };
 
 use elastic_core::{
