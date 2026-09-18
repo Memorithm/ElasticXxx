@@ -66,6 +66,7 @@ pub mod reference_adapters;
 pub mod registry;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
+pub mod thermal_energy_boolean_admission;
 pub mod transaction;
 pub mod verification;
 
@@ -229,5 +230,11 @@ pub use representation_precision_boolean_admission::{
     REPRESENTATION_PRECISION_PREDICATE_NAMESPACE, REPRESENTATION_PRECISION_SOURCE_UNIT,
 };
 pub use runtime::{CycleResult, LoopStopReason, RunResult, Runtime};
+pub use thermal_energy_boolean_admission::{
+    energy_rate_within_budget_predicate_key, thermal_margin_sufficient_predicate_key,
+    BooleanThermalEnergyEvidenceV1, BooleanThermalEnergyPreplannerV1, BooleanThermalEnergyReportV1,
+    BooleanThermalEnergyStatusV1, ENERGY_RATE_WITHIN_BUDGET_PREDICATE_NAME, THERMAL_ENERGY_MAX_AGE,
+    THERMAL_ENERGY_PREDICATE_NAMESPACE, THERMAL_MARGIN_SUFFICIENT_PREDICATE_NAME,
+};
 pub use transaction::TransactionalActuator;
 pub use verification::VerificationResult;
