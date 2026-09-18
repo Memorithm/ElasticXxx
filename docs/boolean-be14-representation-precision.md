@@ -1,6 +1,6 @@
 # BE14e representation / precision Boolean admission
 
-Status: **active first slice; not domain-qualified**.
+Status: **active; planning and durable Boolean-trace slices present, not domain-qualified**.
 
 This slice adds a versioned, planning-only Boolean front end for fixed-width representation candidates. It is deliberately narrower than “precision” in the scientific sense: the numeric quantity is a declared scalar storage width, not an accuracy, information-content, model-quality, entropy, or error guarantee.
 
@@ -23,6 +23,8 @@ The candidate's `declared_precision_bits` is policy metadata only. Variable-widt
 
 `BooleanRepresentationPrecisionPreplannerV1` never mutates a `VersionFrontier` and never actuates. Its `selected_transition` method returns an **unvalidated** structural `RepresentationTransition`. The existing trusted boundary must still revalidate current capabilities and exact mechanism attestations immediately before any actuation. Tests explicitly verify that Boolean `True` cannot bypass the required re-encoder attestation.
 
-This slice therefore does not close BE14e. Remaining qualification work includes durable decision-trace binding, a real representation/precision consumer with authoritative validation/VERIFY/rollback where actuation exists, an unguarded differential baseline, and benchmark evidence before any performance claim.
+`screen_with_trace` adds a versioned v2 evidence envelope while preserving the original v1 planning report unchanged. Candidates that reach the numeric Boolean guard retain strict bounded `DecisionTrace/v1` JSON bound to the exact observation epoch and resource generation. Structural or trusted-capability rejection records an explicit null trace rather than fabricating a precision fact for a guard that was never evaluated. Decoding/replaying this evidence remains purely explanatory and cannot validate or actuate a representation transition.
+
+This slice therefore does not close BE14e. Remaining qualification work includes a real representation/precision consumer with authoritative validation/VERIFY/rollback where actuation exists, an unguarded differential baseline, and benchmark evidence before any performance claim.
 
 No latency, throughput, memory saving, hardware acceleration, energy, numerical-quality, or model-quality claim is made by this contract.
