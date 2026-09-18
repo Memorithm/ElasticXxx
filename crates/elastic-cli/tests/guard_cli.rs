@@ -2,7 +2,7 @@
 
 use std::fs;
 use std::process::Command;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 fn fixture_path() -> std::path::PathBuf {
     let stamp = SystemTime::now()
@@ -319,4 +319,254 @@ fn guarded_plan_dry_run_consumes_embedded_operator_policy_and_rejects_ambiguity(
 
     fs::remove_file(operator).unwrap();
     fs::remove_file(external).unwrap();
+}
+
+fn operator_fixture_bytes() -> &'static [u8] {
+    br#"{
+      "version":1,
+      "resources":[{"adapter":"ram","id":"ram","host_total":4096,"min":512,"max":4096,"initial":1024,"max_step":2048}],
+      "controllers":[{"resource":"ram","planner":{"kind":"first-grounded"},"forecaster":{"kind":"current-state"},"cadence":{"kind":"one-shot"},"mode":"plan-only"}]
+    }"#
+}
+
+fn free_capacity_guard_bytes() -> &'static [u8] {
+    br#"{
+      "schema_version":1,
+      "predicates":[{
+        "kind":"observation-threshold",
+        "key":{"namespace":"elastic.test","name":"gate"},
+        "signal":{"kind":"builtin","name":"free-capacity"},
+        "comparison":"greater-than",
+        "threshold":0.0,
+        "unit":"bytes",
+        "max_age_ms":5000
+      }],
+      "guards":[{
+        "scope":{"kind":"resource"},
+        "expression":{"op":"atom","predicate":{"namespace":"elastic.test","name":"gate"}}
+      }]
+    }"#
+}
+
+fn library_plan_summary(
+    operator_bytes: &[u8],
+    guard_bytes: &[u8],
+    resource_id: &str,
+) -> (usize, usize, usize, &'static str, String) {
+    let operator = elastic::OperatorConfig::from_bounded_json(operator_bytes).unwrap();
+    operator.validate().unwrap();
+    let view = operator.build_planning_view(resource_id).unwrap();
+    let guard_config = elastic::GuardConfigV1::from_bounded_json(guard_bytes).unwrap();
+    let lowered = guard_config.lower().unwrap();
+    let guarded_spec =
+        elastic::GuardedResourceSpec::new(view.resource_spec().clone(), lowered.guards().to_vec())
+            .unwrap();
+    let guarded = elastic::lower_guarded(&guarded_spec).unwrap();
+
+    let context = view.context().clone();
+    let now = Instant::now();
+    let observations = elastic::ObservationSnapshot::new(now, view.observations().to_vec());
+    let input = elastic::PredicateEvaluationInput::new(&context, &observations, now);
+    let evaluators = lowered
+        .predicates()
+        .iter()
+        .map(|predicate| predicate.evaluator() as &dyn elastic::PredicateEvaluator)
+        .collect::<Vec<_>>();
+    let observation_epoch = elastic::ObservationEpoch::new(1);
+    let planner_epoch = elastic::PlannerEpoch::new(1);
+    let generation = elastic::ResourceGeneration::new(0);
+    let resource = guarded.resource().identity().clone();
+    let facts = elastic::FactSnapshot::derive(
+        elastic::FactSourceId::new("elastic-cli:guard-plan-dry-run").unwrap(),
+        observation_epoch,
+        Some(elastic::FactResourceBinding::new(
+            resource.clone(),
+            generation,
+        )),
+        &input,
+        &evaluators,
+    )
+    .unwrap();
+    let freshness = elastic::FreshnessSnapshot::new(planner_epoch, observation_epoch)
+        .with_resource_generation(resource, generation);
+    let planner = elastic::BooleanGuardPlanner::new(view.planner());
+    let decision = planner
+        .propose_transition_detailed_with_context(&guarded, &context, &facts, &freshness)
+        .unwrap();
+    let trace = elastic::capture_guarded_planning_trace(
+        &guarded,
+        &context,
+        &facts,
+        &freshness,
+        &decision,
+        &[],
+    )
+    .unwrap();
+    let outcome = match trace.planning_outcome() {
+        elastic::GuardedPlanningOutcomeTrace::Candidate(_) => "candidate",
+        elastic::GuardedPlanningOutcomeTrace::NoCandidate => "no-candidate",
+        elastic::GuardedPlanningOutcomeTrace::Unsupported => "unsupported",
+        elastic::GuardedPlanningOutcomeTrace::InsufficientEvidence { .. } => {
+            "insufficient-evidence"
+        }
+    };
+    (
+        trace.decision_trace().eligible().len(),
+        trace.decision_trace().rejected().len(),
+        trace.decision_trace().unknown().len(),
+        outcome,
+        trace.planning_context_fingerprint().to_string(),
+    )
+}
+
+#[test]
+fn guarded_plan_process_exit_codes_are_explicit() {
+    let operator = temp_file("exit-operator", operator_fixture_bytes());
+    let guard = temp_file("exit-guard", free_capacity_guard_bytes());
+
+    let success = Command::new(env!("CARGO_BIN_EXE_elastic-cli"))
+        .args([
+            "guard-plan-dry-run",
+            "--operator-config",
+            operator.to_str().unwrap(),
+            "--guard-config",
+            guard.to_str().unwrap(),
+            "--resource",
+            "ram",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(success.status.code(), Some(0));
+
+    let failure = Command::new(env!("CARGO_BIN_EXE_elastic-cli"))
+        .args([
+            "guard-plan-dry-run",
+            "--operator-config",
+            operator.to_str().unwrap(),
+            "--guard-config",
+            guard.to_str().unwrap(),
+            "--resource",
+            "missing",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(failure.status.code(), Some(2));
+    assert!(!failure.status.success());
+
+    fs::remove_file(operator).unwrap();
+    fs::remove_file(guard).unwrap();
+}
+
+#[test]
+fn malformed_unknown_nonfinite_and_oversized_inputs_fail_closed_in_process() {
+    let malformed = temp_file("malformed-guard", b"{");
+    let unknown = temp_file(
+        "unknown-guard",
+        br#"{
+          "schema_version":1,
+          "predicates":[],
+          "guards":[],
+          "unexpected":true
+        }"#,
+    );
+    let nonfinite = temp_file(
+        "nonfinite-guard",
+        br#"{
+          "schema_version":1,
+          "predicates":[{
+            "kind":"observation-threshold",
+            "key":{"namespace":"elastic.test","name":"gate"},
+            "signal":{"kind":"builtin","name":"free-capacity"},
+            "comparison":"greater-than",
+            "threshold":1e999,
+            "unit":"bytes",
+            "max_age_ms":5000
+          }],
+          "guards":[]
+        }"#,
+    );
+    let oversized_guard = temp_file(
+        "oversized-guard",
+        &vec![b' '; elastic::MAX_GUARD_CONFIG_BYTES + 1],
+    );
+
+    for path in [&malformed, &unknown, &nonfinite, &oversized_guard] {
+        let output = Command::new(env!("CARGO_BIN_EXE_elastic-cli"))
+            .args(["guard-check", path.to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "path: {}", path.display());
+    }
+
+    let guard = temp_file("valid-guard", free_capacity_guard_bytes());
+    let unknown_operator = temp_file(
+        "unknown-operator",
+        br#"{
+          "version":1,
+          "resources":[],
+          "controllers":[],
+          "unexpected":true
+        }"#,
+    );
+    let oversized_operator = temp_file(
+        "oversized-operator",
+        &vec![b' '; elastic::MAX_OPERATOR_CONFIG_BYTES + 1],
+    );
+    for path in [&unknown_operator, &oversized_operator] {
+        let output = Command::new(env!("CARGO_BIN_EXE_elastic-cli"))
+            .args([
+                "guard-plan-dry-run",
+                "--operator-config",
+                path.to_str().unwrap(),
+                "--guard-config",
+                guard.to_str().unwrap(),
+                "--resource",
+                "ram",
+            ])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "path: {}", path.display());
+    }
+
+    for path in [
+        malformed,
+        unknown,
+        nonfinite,
+        oversized_guard,
+        guard,
+        unknown_operator,
+        oversized_operator,
+    ] {
+        fs::remove_file(path).unwrap();
+    }
+}
+
+#[test]
+fn guarded_plan_cli_matches_public_library_semantics() {
+    let operator_bytes = operator_fixture_bytes();
+    let guard_bytes = free_capacity_guard_bytes();
+    let expected = library_plan_summary(operator_bytes, guard_bytes, "ram");
+    let operator = temp_file("equivalence-operator", operator_bytes);
+    let guard = temp_file("equivalence-guard", guard_bytes);
+
+    let output = run(&[
+        "guard-plan-dry-run",
+        "--operator-config",
+        operator.to_str().unwrap(),
+        "--guard-config",
+        guard.to_str().unwrap(),
+        "--resource",
+        "ram",
+    ]);
+    let output = payload(&output);
+    assert_eq!(output["pruning"]["eligible"], expected.0);
+    assert_eq!(output["pruning"]["rejected"], expected.1);
+    assert_eq!(output["pruning"]["unknown"], expected.2);
+    assert_eq!(output["numeric_outcome"]["kind"], expected.3);
+    assert_eq!(output["planning_context_fingerprint"], expected.4);
+    assert_eq!(output["read_only"], true);
+    assert_eq!(output["actuation_authorized"], false);
+
+    fs::remove_file(operator).unwrap();
+    fs::remove_file(guard).unwrap();
 }
