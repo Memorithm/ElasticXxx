@@ -170,6 +170,8 @@ dependencies = [
  "elastic",
  "elastic-core",
  "elastic-eir",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
