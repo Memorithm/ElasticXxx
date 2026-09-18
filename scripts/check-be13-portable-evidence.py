@@ -347,6 +347,10 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         build_rustflags = decoded("cargo_build_rustflags_base64")
         build_target = decoded("cargo_build_target_base64")
         cargo_incremental = decoded("cargo_incremental_base64")
+        rustc_override = decoded("rustc_override_base64")
+        rustc_wrapper = decoded("rustc_wrapper_base64")
+        rustc_workspace_wrapper = decoded("rustc_workspace_wrapper_base64")
+        target_linker = decoded("target_linker_base64")
 
         compiler_cfg = directory / "compiler_cfg.txt"
         cargo_inventory = directory / "cargo_config_inventory.txt"
@@ -371,7 +375,17 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
             raise AssertionError("bench_profile_overrides_present disagrees with build_env_inventory.txt")
 
         clean_context = not any(
-            (encoded, target_flags, build_rustflags, build_target, cargo_incremental)
+            (
+                encoded,
+                target_flags,
+                build_rustflags,
+                build_target,
+                cargo_incremental,
+                rustc_override,
+                rustc_wrapper,
+                rustc_workspace_wrapper,
+                target_linker,
+            )
         ) and not configs_present and not bench_overrides_present
         expected_profile = (
             "portable"
@@ -388,6 +402,9 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         cfg_lines = set(compiler_cfg.read_text(encoding="utf-8").splitlines())
         if not any(line.startswith('target_arch=') for line in cfg_lines):
             raise AssertionError("compiler_cfg.txt lacks target_arch")
+        if codegen_profile == "native" and meta.get("rustc_host", "").startswith("aarch64-"):
+            if 'target_feature="sve"' not in cfg_lines or 'target_feature="sve2"' not in cfg_lines:
+                raise AssertionError("AArch64 native attestation lacks effective SVE/SVE2 target features")
     else:
         raise AssertionError(f"unsupported codegen_attestation {codegen_attestation!r}")
 

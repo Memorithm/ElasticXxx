@@ -53,6 +53,28 @@ expect_reject_in_root "$ROOT" cargo-build-rustflags \
   env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
   BE13_CODEGEN_PROFILE_EXPECTED=portable CARGO_BUILD_RUSTFLAGS='-C target-cpu=native'
 
+
+expect_reject_in_root "$ROOT" rustc-override \
+  'effective codegen profile custom does not match expected portable' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=portable RUSTC='/tmp/be13-unreviewed-rustc'
+
+expect_reject_in_root "$ROOT" rustc-wrapper \
+  'effective codegen profile custom does not match expected portable' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=portable RUSTC_WRAPPER='/tmp/be13-unreviewed-wrapper'
+
+expect_reject_in_root "$ROOT" rustc-workspace-wrapper \
+  'effective codegen profile custom does not match expected portable' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=portable RUSTC_WORKSPACE_WRAPPER='/tmp/be13-unreviewed-workspace-wrapper'
+
+HOST_TRIPLE=$(rustc +1.89.0 -Vv | awk -F': ' '$1 == "host" {print $2}')
+HOST_LINKER_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_LINKER"
+expect_reject_in_root "$ROOT" target-linker-override \
+  'effective codegen profile custom does not match expected portable' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=portable "$HOST_LINKER_VAR"='/tmp/be13-unreviewed-linker'
 expect_reject_in_root "$ROOT" bench-profile-override \
   'effective codegen profile custom does not match expected portable' \
   env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
