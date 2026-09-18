@@ -535,8 +535,8 @@ phases:
     required_slices:
       - id: BE11a
         name: dependency_free_exact_small_domain_oracle
-        status: completed
-        completion_evidence:
+        status: active
+        qualification_evidence:
           - ElasticXxx_PR_109
           - PR109_exact_head_6ff4ef77e970a28a9a79e64c279cd4195c2681d0
           - PR109_CI_35291995555_completed_success_on_exact_head
@@ -547,6 +547,14 @@ phases:
           - dead_guard_and_conjunction_clause_redundancy_checks
           - deterministic_witnesses_counterexamples_and_explicit_variable_assignment_caps
           - analysis_is_dependency_free_non_actuating_and_fail_closed_on_limits_or_unexpected_Unknown
+        remaining:
+          - exact_strong_Kleene_three_valued_enumeration_for_runtime_semantic_equivalence_and_redundancy
+          - differential_case_where_classical_equivalence_diverges_from_Unknown_preserving_semantics
+        correction_note: >-
+          PR109 qualified the fully-grounded Boolean oracle but does not by itself
+          close BE11a because runtime BoolExpr semantics are strong Kleene and
+          Unknown-sensitive equivalence/redundancy must be checked over explicit
+          three-valued assignments. Classical-only equivalence is insufficient.
         tasks:
           - enumerate_all_three_valued_or_boolean_assignments_under_declared_semantics_where_applicable
           - bounded_satisfiable_unsatisfiable_tautology_contradiction_queries
@@ -555,7 +563,8 @@ phases:
           - explicit_variable_and_assignment_caps
       - id: BE11b
         name: resource_policy_queries
-        status: active
+        status: planned
+        precondition: BE11a_qualified
         tasks:
           - unreachable_transition_detection
           - mutually_exclusive_transition_detection
@@ -859,10 +868,10 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE11
-  immediate_next_slice: BE11b_resource_policy_queries
+  immediate_next_slice: BE11a_strong_Kleene_three_valued_oracle
   open_pull_requests_at_checkpoint: 0
   verified_main: 4f9a35c8bccede27c1abec98c76c9e075a771f96
-  latest_qualified_slice: BE11a
+  latest_qualified_slice: BE11a_boolean_foundation
   latest_qualified_pr: 109
   latest_qualified_head: 6ff4ef77e970a28a9a79e64c279cd4195c2681d0
   performance_claims: none
