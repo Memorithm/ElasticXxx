@@ -3,7 +3,7 @@ use std::{hint::black_box, time::Instant};
 use elastic_runtime::{
     execute_guarded_batch_device_transaction, execute_unguarded_batch_device_transaction,
     BatchDeviceCandidateV1, BatchDeviceCapacitySampleV1, BatchDeviceCapacitySnapshotV1,
-    BatchDevicePlacementBackendV1, BooleanBatchDevicePreplannerV1,
+    BatchDevicePlacementBackendV1, BooleanBatchDevicePreplannerV1, CommittedBatchDeviceSelectionV1,
     GuardedBatchDeviceTransactionOutcomeV1, BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
 };
 
@@ -192,24 +192,21 @@ fn fixture() -> Fixture {
     }
 }
 
-fn outcome_sanity(
-    candidate_id: &str,
-    placement_id: &str,
-    batch_size: u32,
-    source_generation: u64,
-    backend: &BenchBackend,
-) -> usize {
-    candidate_id.len()
-        + placement_id.len()
-        + batch_size as usize
-        + source_generation as usize
+fn outcome_sanity(committed: &CommittedBatchDeviceSelectionV1, backend: &BenchBackend) -> usize {
+    committed.candidate_id().len()
+        + committed.placement_id().len()
+        + committed.batch_size() as usize
+        + committed.preference_score() as usize
+        + committed.source_generation() as usize
         + backend.validate_count
         + backend.act_count
         + backend.verify_count
         + backend.commit_count
 }
 
-fn unguarded_exact_transaction(fixture: &Fixture) -> usize {
+fn unguarded_exact_transaction(
+    fixture: &Fixture,
+) -> (CommittedBatchDeviceSelectionV1, BenchBackend) {
     let mut backend = BenchBackend::default();
     let committed = execute_unguarded_batch_device_transaction(
         black_box(&fixture.planner),
@@ -219,16 +216,12 @@ fn unguarded_exact_transaction(fixture: &Fixture) -> usize {
         black_box(&mut backend),
     )
     .expect("fixed unguarded reference transaction commits");
-    black_box(outcome_sanity(
-        committed.candidate_id(),
-        committed.placement_id(),
-        committed.batch_size(),
-        committed.source_generation(),
-        &backend,
-    ))
+    (committed, backend)
 }
 
-fn guarded_preplan_trace_transaction(fixture: &Fixture) -> usize {
+fn guarded_preplan_trace_transaction(
+    fixture: &Fixture,
+) -> (CommittedBatchDeviceSelectionV1, BenchBackend) {
     let trace = fixture
         .planner
         .decision_trace(black_box(&fixture.capacity), fixture.now)
@@ -245,13 +238,17 @@ fn guarded_preplan_trace_transaction(fixture: &Fixture) -> usize {
     let GuardedBatchDeviceTransactionOutcomeV1::Committed(committed) = outcome else {
         panic!("fixed guarded transaction must commit");
     };
-    black_box(outcome_sanity(
-        committed.candidate_id(),
-        committed.placement_id(),
-        committed.batch_size(),
-        committed.source_generation(),
-        &backend,
-    ))
+    (committed, backend)
+}
+
+fn unguarded_sanity(fixture: &Fixture) -> usize {
+    let (committed, backend) = unguarded_exact_transaction(fixture);
+    black_box(outcome_sanity(&committed, &backend))
+}
+
+fn guarded_sanity(fixture: &Fixture) -> usize {
+    let (committed, backend) = guarded_preplan_trace_transaction(fixture);
+    black_box(outcome_sanity(&committed, &backend))
 }
 
 fn timed(iterations: u64, mut f: impl FnMut() -> usize) -> (u128, usize) {
@@ -275,26 +272,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = parse_config().map_err(std::io::Error::other)?;
     let fixture = fixture();
 
-    let reference = unguarded_exact_transaction(&fixture);
-    let guarded = guarded_preplan_trace_transaction(&fixture);
+    let (reference_commit, reference_backend) = unguarded_exact_transaction(&fixture);
+    let (guarded_commit, guarded_backend) = guarded_preplan_trace_transaction(&fixture);
+    if reference_commit != guarded_commit {
+        return Err(std::io::Error::other(
+            "guarded and unguarded benchmark committed selections diverged",
+        )
+        .into());
+    }
+    let reference = outcome_sanity(&reference_commit, &reference_backend);
+    let guarded = outcome_sanity(&guarded_commit, &guarded_backend);
     if reference != guarded {
-        return Err(
-            std::io::Error::other("guarded and unguarded benchmark outcomes diverged").into(),
-        );
+        return Err(std::io::Error::other(
+            "guarded and unguarded benchmark backend lifecycle evidence diverged",
+        )
+        .into());
     }
 
     for _ in 0..config.warmup {
         if selected(config, BenchPath::UnguardedExactTransaction) {
-            black_box(unguarded_exact_transaction(black_box(&fixture)));
+            black_box(unguarded_sanity(black_box(&fixture)));
         }
         if selected(config, BenchPath::GuardedPreplanTraceTransaction) {
-            black_box(guarded_preplan_trace_transaction(black_box(&fixture)));
+            black_box(guarded_sanity(black_box(&fixture)));
         }
     }
 
     println!("path,elapsed_ns,iterations,ns_per_iteration,outcome_sanity");
     if selected(config, BenchPath::UnguardedExactTransaction) {
-        let (elapsed, result) = timed(config.iterations, || unguarded_exact_transaction(&fixture));
+        let (elapsed, result) = timed(config.iterations, || unguarded_sanity(&fixture));
         emit(
             BenchPath::UnguardedExactTransaction,
             elapsed,
@@ -303,9 +309,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         );
     }
     if selected(config, BenchPath::GuardedPreplanTraceTransaction) {
-        let (elapsed, result) = timed(config.iterations, || {
-            guarded_preplan_trace_transaction(&fixture)
-        });
+        let (elapsed, result) = timed(config.iterations, || guarded_sanity(&fixture));
         emit(
             BenchPath::GuardedPreplanTraceTransaction,
             elapsed,
