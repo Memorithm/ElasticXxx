@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
+  main_sha: c01a6fecd55a403af0a834c86cb0906c18033a89
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1296,8 +1296,22 @@ phases:
               - replay_and_decoding_remain_explanatory_and_non_actuating
               - no_latency_throughput_memory_saving_hardware_energy_numerical_quality_or_model_quality_claim
             remaining:
-              - qualify_real_representation_precision_consumer_with_authoritative_VALIDATE_VERIFY_and_rollback_when_actuation_exists
-              - add_explicit_unguarded_differential_baseline
+              - benchmark_before_any_performance_claim
+          - id: BE14e_real_consumer_validation_verify_rollback
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_145
+              - PR145_exact_head_9dfbfb9fa4cb443b6959b20834aa2b6acb5ce1b5
+              - PR145_ci_35363184096_completed_success_on_exact_head
+              - PR145_packageability_35363184083_completed_success_on_exact_head
+              - PR145_merged_as_c01a6fecd55a403af0a834c86cb0906c18033a89
+              - facade_only_host_memory_consumer_executes_lossless_u16_little_endian_to_big_endian_reencode
+              - Boolean_selection_is_revalidated_by_authoritative_RepresentationTransition_validate_before_physical_transaction
+              - VERIFY_checks_semantic_values_before_commit
+              - injected_semantic_failure_rolls_back_exact_source_descriptor_and_bytes
+              - explicit_unguarded_differential_baseline_commits_identical_bytes_and_semantics
+              - same_width_fixture_is_not_compression_mixed_precision_quality_memory_hardware_or_performance_evidence
+            remaining:
               - benchmark_before_any_performance_claim
       - id: BE14f
         domain: kernel_realization
@@ -1439,20 +1453,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14e_real_consumer_validation_verify_rollback
+  immediate_next_slice: BE14e_portable_benchmark_before_performance_claim
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_durable_trace_merge
-  verified_main: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
-  latest_qualified_slice: BE14e_durable_decision_trace_binding
-  latest_qualified_pr: 144
-  latest_qualified_head: b925e7eb5f4450e8350c4129dcb5d34650c364dc
-  latest_merge: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
-  latest_merged_progress_slice: BE14e_durable_decision_trace_binding
-  latest_merged_progress_pr: 144
-  latest_merged_progress_head: b925e7eb5f4450e8350c4129dcb5d34650c364dc
-  latest_merged_progress_merge: c36f0723311078f4cc109c28d2b9e5d70da5c5f3
+  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14e_real_consumer_merge
+  verified_main: c01a6fecd55a403af0a834c86cb0906c18033a89
+  latest_qualified_slice: BE14e_real_consumer_validation_verify_rollback
+  latest_qualified_pr: 145
+  latest_qualified_head: 9dfbfb9fa4cb443b6959b20834aa2b6acb5ce1b5
+  latest_merge: c01a6fecd55a403af0a834c86cb0906c18033a89
+  latest_merged_progress_slice: BE14e_real_consumer_validation_verify_rollback
+  latest_merged_progress_pr: 145
+  latest_merged_progress_head: 9dfbfb9fa4cb443b6959b20834aa2b6acb5ce1b5
+  latest_merged_progress_merge: c01a6fecd55a403af0a834c86cb0906c18033a89
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
