@@ -62,6 +62,7 @@ pub mod plan;
 pub mod ram_boolean_admission;
 pub mod reference_adapters;
 pub mod registry;
+pub mod representation_precision_boolean_admission;
 pub mod runtime;
 pub mod transaction;
 pub mod verification;
@@ -200,6 +201,15 @@ pub use ram_boolean_admission::{
 };
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};
 pub use registry::{RegisteredResource, ResourceRegistry};
+pub use representation_precision_boolean_admission::{
+    representation_precision_floor_predicate_key, representation_precision_floor_signal,
+    BooleanRepresentationPrecisionCandidateEvidenceV1, BooleanRepresentationPrecisionOutcomeV1,
+    BooleanRepresentationPrecisionPreplannerV1, BooleanRepresentationPrecisionReportV1,
+    RepresentationPrecisionCandidateV1, MAX_REPRESENTATION_PRECISION_CANDIDATES,
+    REPRESENTATION_PRECISION_FLOOR_PREDICATE_NAME, REPRESENTATION_PRECISION_FLOOR_SIGNAL_NAME,
+    REPRESENTATION_PRECISION_MAX_AGE, REPRESENTATION_PRECISION_PREDICATE_NAMESPACE,
+    REPRESENTATION_PRECISION_SOURCE_UNIT,
+};
 pub use runtime::{CycleResult, LoopStopReason, RunResult, Runtime};
 pub use transaction::TransactionalActuator;
 pub use verification::VerificationResult;
