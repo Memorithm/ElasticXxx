@@ -9,7 +9,9 @@
 
 use std::time::{Duration, Instant};
 
-use elastic_core::resource::{DimensionId, ObservationSignalId, ResourceSpec};
+use elastic_core::resource::{
+    CapabilityRequirement, DimensionId, ObservationSignalId, ResourceSpec,
+};
 use elastic_core::{
     BoolExpr, BooleanGuard, FreshnessSnapshot, GuardFactSource, GuardScope, GuardedResourceSpec,
     ObservationEpoch, PlannerEpoch, PredicateKey, PredicateRegistry, ResourceGeneration,
@@ -128,12 +130,13 @@ impl PredicateEvaluator for SourceBoundThresholdPredicate {
     }
 
     fn evaluate(&self, input: &PredicateEvaluationInput<'_>) -> TruthValue {
-        let Some(observation) = input.observations().get(self.signal.clone()) else {
+        let mut matching = input.observations().iter().filter(|observation| {
+            observation.signal() == &self.signal && observation.source() == &self.expected_source
+        });
+        let Some(observation) = matching.next() else {
             return TruthValue::Unknown;
         };
-        if observation.source() != &self.expected_source
-            || !observation.is_valid()
-            || !observation.value().is_finite()
+        if matching.next().is_some() || !observation.is_valid() || !observation.value().is_finite()
         {
             return TruthValue::Unknown;
         }
@@ -143,7 +146,14 @@ impl PredicateEvaluator for SourceBoundThresholdPredicate {
         if !context_value.is_finite() || context_value.to_bits() != observation.value().to_bits() {
             return TruthValue::Unknown;
         }
-        self.inner.evaluate(input)
+        let filtered_observations =
+            ObservationSnapshot::new(input.observations().timestamp, vec![observation.clone()]);
+        let filtered_input = PredicateEvaluationInput::new(
+            input.planning_context(),
+            &filtered_observations,
+            input.now(),
+        );
+        self.inner.evaluate(&filtered_input)
     }
 }
 
@@ -190,6 +200,10 @@ impl BooleanThermalEnergyPreplannerV1 {
         }
         if !spec.admits(mechanism, &dimension) {
             return Err("BE14h resource does not admit the selected transition".into());
+        }
+        let capability = CapabilityRequirement::new(mechanism, dimension.clone());
+        if !spec.requires_capability(&capability) {
+            return Err("BE14h selected transition lacks a matching capability requirement".into());
         }
         for signal in [
             ObservationSignalId::THERMAL_MARGIN,
@@ -396,9 +410,7 @@ fn truth_text(value: TruthValue) -> &'static str {
 mod tests {
     use super::*;
     use crate::{DecisionTrace, Observation};
-    use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, LogicalResourceId, ResourceClassId,
-    };
+    use elastic_core::resource::{AdmissibleTransition, LogicalResourceId, ResourceClassId};
 
     fn spec() -> ResourceSpec {
         ResourceSpec::builder(
@@ -546,6 +558,72 @@ mod tests {
         );
         assert_eq!(report.evidence.energy_truth, "unknown");
         assert_eq!(report.evidence.combined_truth, "unknown");
+    }
+
+    #[test]
+    fn earlier_foreign_unsupported_observation_does_not_hide_bound_source() {
+        let now = Instant::now();
+        let (thermal_source, energy_source) = sources();
+        let context = PlanningContext::new()
+            .observe(ObservationSignalId::THERMAL_MARGIN, 20.0)
+            .observe(ObservationSignalId::ENERGY_RATE, 40.0);
+        let observations = ObservationSnapshot::new(
+            now,
+            vec![
+                Observation::unsupported_from_source(
+                    ObservationSource::host("foreign:power"),
+                    ObservationSignalId::ENERGY_RATE,
+                    now,
+                    "foreign provider unavailable",
+                ),
+                Observation::from_source(
+                    thermal_source,
+                    ObservationSignalId::THERMAL_MARGIN,
+                    20.0,
+                    now,
+                ),
+                Observation::from_source(
+                    energy_source,
+                    ObservationSignalId::ENERGY_RATE,
+                    40.0,
+                    now,
+                ),
+            ],
+        );
+
+        let report = planner().evaluate(&context, &observations, now).unwrap();
+        assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
+        assert_eq!(report.evidence.energy_truth, "true");
+    }
+
+    #[test]
+    fn ungrounded_declared_transition_is_rejected_at_construction() {
+        let ungrounded = ResourceSpec::builder(
+            ResourceClassId::CONFIGURATIONAL,
+            LogicalResourceId::new("be14h-ungrounded").unwrap(),
+        )
+        .allow(DimensionId::ENERGY)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::ENERGY,
+        ))
+        .observe(ObservationSignalId::THERMAL_MARGIN)
+        .observe(ObservationSignalId::ENERGY_RATE)
+        .build()
+        .unwrap();
+        let (thermal_source, energy_source) = sources();
+
+        assert!(BooleanThermalEnergyPreplannerV1::new(
+            ungrounded,
+            TransitionMechanism::Reinterpret,
+            DimensionId::ENERGY,
+            10.0,
+            50.0,
+            thermal_source,
+            energy_source,
+            THERMAL_ENERGY_MAX_AGE,
+        )
+        .is_err());
     }
 
     #[test]

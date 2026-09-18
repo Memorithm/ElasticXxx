@@ -18,8 +18,8 @@ energy-rate <= application maximum
 The threshold values are supplied by the embedding application/operator.
 ElasticXxx does **not** publish a universal safe thermal margin or power budget.
 The constructor rejects non-finite values, negative minimum thermal margins,
-negative power budgets, zero freshness windows, undeclared transitions, and
-resources that did not declare both source signals.
+negative power budgets, zero freshness windows, undeclared or capability-ungrounded
+transitions, and resources that did not declare both source signals.
 
 Stable predicate keys:
 
@@ -33,7 +33,10 @@ may provide a different non-zero bound when constructing the preplanner.
 
 A policy instance is bound to exact `ObservationSource` identities for thermal
 and direct-power telemetry. A numerically valid observation from a different
-source is `Unknown`, not interchangeable evidence.
+source is not interchangeable evidence. The evaluator searches for the exact
+configured `(signal, source)` pair, so an unrelated provider cannot shadow valid
+source-bound evidence; duplicate records from the configured source fail closed
+as ambiguous.
 
 The planner-facing numeric value must also be bit-identical to the corresponding
 source-bound `Observation` value. A separately altered `PlanningContext` cannot
