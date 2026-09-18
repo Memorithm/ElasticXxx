@@ -402,8 +402,9 @@ enum Commands {
     GuardPlanDryRun {
         #[arg(long, value_name = "FILE")]
         operator_config: PathBuf,
+        /// Optional external guard policy. Omit when the selected controller embeds `guard_config`.
         #[arg(long, value_name = "FILE")]
-        guard_config: PathBuf,
+        guard_config: Option<PathBuf>,
         #[arg(long, value_name = "ID")]
         resource: String,
     },
@@ -444,7 +445,7 @@ fn main() -> ExitCode {
             operator_config,
             guard_config,
             resource,
-        } => guard_plan_dry_run(&operator_config, &guard_config, &resource),
+        } => guard_plan_dry_run(&operator_config, guard_config.as_deref(), &resource),
     };
 
     match result {
@@ -733,8 +734,26 @@ mod tests {
         ));
     }
     #[test]
-    fn guard_plan_dry_run_syntax_requires_explicit_configs_and_resource() {
-        let cli = Cli::try_parse_from([
+    fn guard_plan_dry_run_syntax_accepts_embedded_or_external_guard_config() {
+        let embedded = Cli::try_parse_from([
+            "elastic",
+            "guard-plan-dry-run",
+            "--operator-config",
+            "operator.json",
+            "--resource",
+            "ram",
+        ])
+        .unwrap();
+        assert!(matches!(
+            embedded.command,
+            Commands::GuardPlanDryRun {
+                operator_config,
+                guard_config: None,
+                resource,
+            } if operator_config == PathBuf::from("operator.json") && resource == "ram"
+        ));
+
+        let external = Cli::try_parse_from([
             "elastic",
             "guard-plan-dry-run",
             "--operator-config",
@@ -746,10 +765,10 @@ mod tests {
         ])
         .unwrap();
         assert!(matches!(
-            cli.command,
+            external.command,
             Commands::GuardPlanDryRun {
                 operator_config,
-                guard_config,
+                guard_config: Some(guard_config),
                 resource,
             } if operator_config == PathBuf::from("operator.json")
                 && guard_config == PathBuf::from("guards.json")

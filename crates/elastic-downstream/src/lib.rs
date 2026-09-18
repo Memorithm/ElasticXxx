@@ -45,6 +45,7 @@ pub fn public_surface_smoke() {
             },
             cadence: CadenceConfig::OneShot,
             mode: ExecutionModeConfig::Apply,
+            guard_config: None,
         }],
     };
     let mut controller = config

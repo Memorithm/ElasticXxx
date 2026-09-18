@@ -254,3 +254,69 @@ fn guarded_plan_dry_run_does_not_materialize_huge_ram_commitment() {
     fs::remove_file(operator).unwrap();
     fs::remove_file(guard).unwrap();
 }
+
+#[test]
+fn guarded_plan_dry_run_consumes_embedded_operator_policy_and_rejects_ambiguity() {
+    let operator = temp_file(
+        "embedded-operator",
+        br#"{
+          "version":1,
+          "resources":[{"adapter":"ram","id":"ram","host_total":4096,"min":512,"max":4096,"initial":1024,"max_step":2048}],
+          "controllers":[{
+            "resource":"ram",
+            "planner":{"kind":"first-grounded"},
+            "forecaster":{"kind":"current-state"},
+            "cadence":{"kind":"one-shot"},
+            "mode":"plan-only",
+            "guard_config":{
+              "schema_version":1,
+              "predicates":[{
+                "kind":"observation-threshold",
+                "key":{"namespace":"elastic.test","name":"gate"},
+                "signal":{"kind":"builtin","name":"free-capacity"},
+                "comparison":"greater-than",
+                "threshold":0.0,
+                "unit":"bytes",
+                "max_age_ms":5000
+              }],
+              "guards":[{
+                "scope":{"kind":"resource"},
+                "expression":{"op":"atom","predicate":{"namespace":"elastic.test","name":"gate"}}
+              }]
+            }
+          }]
+        }"#,
+    );
+
+    let output = run(&[
+        "guard-plan-dry-run",
+        "--operator-config",
+        operator.to_str().unwrap(),
+        "--resource",
+        "ram",
+    ]);
+    let output = payload(&output);
+    assert_eq!(output["guard_config_source"], "operator-config");
+    assert_eq!(output["pruning"]["eligible"], 1);
+    assert_eq!(output["actuation_authorized"], false);
+    assert_eq!(output["runtime_cycle_executed"], false);
+
+    let external = fixture_path();
+    let ambiguous = Command::new(env!("CARGO_BIN_EXE_elastic-cli"))
+        .args([
+            "guard-plan-dry-run",
+            "--operator-config",
+            operator.to_str().unwrap(),
+            "--guard-config",
+            external.to_str().unwrap(),
+            "--resource",
+            "ram",
+        ])
+        .output()
+        .unwrap();
+    assert!(!ambiguous.status.success());
+    assert!(String::from_utf8_lossy(&ambiguous.stderr).contains("ambiguous"));
+
+    fs::remove_file(operator).unwrap();
+    fs::remove_file(external).unwrap();
+}

@@ -16,10 +16,10 @@ use crate::{
     active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
     ram_configured_max_bytes_signal, ram_configured_min_bytes_signal, ram_in_use_bytes_signal,
     Actuation, CommitRecord, ConfiguredForecaster, ControllerConfig, ForecastController,
-    ForecasterSelection, InvariantCheck, Observation, ObservationSource, Observer, OperatorConfig,
-    Plan, PlannerConfig, PlannerSelection, ResourceConfig, RollbackRecord, Runtime, RuntimeConfig,
-    RuntimeError, TransactionalActuator, TransactionalConcurrency, TransactionalRam, ValidatedPlan,
-    VerificationResult,
+    ForecasterSelection, InvariantCheck, LoweredGuardConfigV1, Observation, ObservationSource,
+    Observer, OperatorConfig, Plan, PlannerConfig, PlannerSelection, ResourceConfig,
+    RollbackRecord, Runtime, RuntimeConfig, RuntimeError, TransactionalActuator,
+    TransactionalConcurrency, TransactionalRam, ValidatedPlan, VerificationResult,
 };
 
 /// Planner implementation selected from the versioned operator schema.
@@ -41,6 +41,7 @@ pub struct ConfiguredPlanningView {
     resource_spec: ResourceSpec,
     ir: EirResource,
     planner: ConfiguredPlanner,
+    guard_config: Option<LoweredGuardConfigV1>,
     context: PlanningContext,
     observations: Vec<Observation>,
 }
@@ -59,6 +60,12 @@ impl ConfiguredPlanningView {
     #[must_use]
     pub const fn planner(&self) -> ConfiguredPlanner {
         self.planner
+    }
+
+    /// Lowered guard policy attached to this resource, when configured.
+    #[must_use]
+    pub const fn guard_config(&self) -> Option<&LoweredGuardConfigV1> {
+        self.guard_config.as_ref()
     }
 
     #[must_use]
@@ -274,12 +281,26 @@ impl OperatorConfig {
             .ok_or_else(|| RuntimeError::configuration("configured declaration lost its EIR node"))?
             .clone();
         let planner = materialize_planner(&controller.planner)?;
+        // Revalidate/lower at the runtime planning boundary rather than trusting
+        // the earlier document-level validation result.
+        let guard_config = controller
+            .guard_config
+            .as_ref()
+            .map(|config| {
+                config.lower().map_err(|error| {
+                    RuntimeError::configuration(format!(
+                        "guard configuration for resource '{resource_id}' cannot lower: {error}"
+                    ))
+                })
+            })
+            .transpose()?;
         let (context, observations) = declaration_observations(resource, &resource_spec);
 
         Ok(ConfiguredPlanningView {
             resource_spec,
             ir,
             planner,
+            guard_config,
             context,
             observations,
         })
@@ -319,6 +340,16 @@ impl OperatorConfig {
     /// constructed until the complete operator configuration has validated.
     pub fn build_controllers(&self) -> Result<Vec<ConfiguredController>, RuntimeError> {
         self.validate()?;
+        if let Some(controller) = self
+            .controllers
+            .iter()
+            .find(|controller| controller.guard_config.is_some())
+        {
+            return Err(RuntimeError::configuration(format!(
+                "resource '{}' has Boolean guards attached, but configured runtime execution is not guard-aware yet; use the non-actuating guarded planning view until BE14 runtime integration is qualified",
+                controller.resource
+            )));
+        }
         let mut controllers = self.controllers.iter().collect::<Vec<_>>();
         controllers.sort_by(|left, right| left.resource.cmp(&right.resource));
         controllers
@@ -344,6 +375,12 @@ fn build_controller(
     controller: &ControllerConfig,
     resource_config: &ResourceConfig,
 ) -> Result<ConfiguredController, RuntimeError> {
+    if controller.guard_config.is_some() {
+        return Err(RuntimeError::configuration(format!(
+            "resource '{}' has Boolean guards attached, but configured runtime execution is not guard-aware yet; use the non-actuating guarded planning view until BE14 runtime integration is qualified",
+            controller.resource
+        )));
+    }
     let resource = materialize_resource(resource_config)?;
     let ir = resource.ir()?;
     let spec = resource_spec_from_eir(&ir)?;
@@ -578,6 +615,7 @@ mod tests {
                 },
                 cadence: CadenceConfig::OneShot,
                 mode,
+                guard_config: None,
             }],
         }
     }
@@ -632,6 +670,7 @@ mod tests {
                 forecaster: ForecasterSelection::CurrentState,
                 cadence: CadenceConfig::OneShot,
                 mode: ExecutionModeConfig::PlanOnly,
+                guard_config: None,
             }],
         };
         let mut controller = config.build_controller("workers").unwrap();
@@ -718,6 +757,49 @@ mod tests {
             view.context().get(ObservationSignalId::FREE_CAPACITY),
             Some((1_u64 << 43) as f64)
         );
+    }
+
+    #[test]
+    fn embedded_guard_policy_lowers_in_planning_view_and_blocks_unguarded_runtime() {
+        let mut config = ram_config(ExecutionModeConfig::PlanOnly);
+        config.controllers[0].guard_config = Some(
+            crate::GuardConfigV1::from_bounded_json(
+                br#"{
+                  "schema_version":1,
+                  "predicates":[{
+                    "kind":"observation-threshold",
+                    "key":{"namespace":"elastic.test","name":"healthy"},
+                    "signal":{"kind":"builtin","name":"utilization"},
+                    "comparison":"less-or-equal",
+                    "threshold":0.8,
+                    "unit":"fraction",
+                    "max_age_ms":500
+                  }],
+                  "guards":[{
+                    "scope":{"kind":"resource"},
+                    "expression":{"op":"atom","predicate":{"namespace":"elastic.test","name":"healthy"}}
+                  }]
+                }"#,
+            )
+            .unwrap(),
+        );
+
+        let view = config.build_planning_view("ram").unwrap();
+        let lowered = view
+            .guard_config()
+            .expect("embedded guard policy must lower");
+        assert_eq!(lowered.predicates().len(), 1);
+        assert_eq!(lowered.guards().len(), 1);
+
+        let error = config
+            .build_controller("ram")
+            .expect_err("unguarded runtime must not silently ignore attached guards");
+        assert!(error.to_string().contains("not guard-aware yet"));
+
+        let error = config
+            .build_controllers()
+            .expect_err("bulk runtime construction must fail closed on attached guards");
+        assert!(error.to_string().contains("not guard-aware yet"));
     }
 
     #[test]

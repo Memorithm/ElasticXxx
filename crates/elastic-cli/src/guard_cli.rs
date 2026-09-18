@@ -20,7 +20,7 @@ use elastic::{
     GuardedPlanningOutcomeTrace, GuardedResourceSpec, InvariantPrecheckStatus, ObservationEpoch,
     ObservationSnapshot, OperatorConfig, PlannerEpoch, PredicateEvaluationInput,
     PredicateEvaluator, PredicateKey, ResourceGeneration, TransitionMechanism, TruthValue,
-    MAX_GUARD_CONFIG_BYTES,
+    GUARD_CONFIG_SCHEMA_V1, MAX_GUARD_CONFIG_BYTES, MAX_OPERATOR_CONFIG_BYTES,
 };
 use serde_json::{json, Value};
 
@@ -156,15 +156,36 @@ fn evaluate(path: &Path, assignments: &[String], explain: bool) -> CommandResult
 
 pub(crate) fn plan_dry_run(
     operator_config_path: &Path,
-    guard_config_path: &Path,
+    guard_config_path: Option<&Path>,
     resource_id: &str,
 ) -> CommandResult {
     let operator_config = read_operator_config(operator_config_path)?;
     operator_config.validate()?;
     let view = operator_config.build_planning_view(resource_id)?;
 
-    let guard_config = read_config(guard_config_path)?;
-    let lowered = guard_config.lower()?;
+    let embedded = view.guard_config().cloned();
+    let (lowered, guard_schema_version, guard_source) = match (guard_config_path, embedded) {
+        (Some(_), Some(_)) => {
+            return Err(IoError::new(
+                ErrorKind::InvalidInput,
+                "guard policy is ambiguous: the selected resource already embeds guard_config; remove --guard-config or remove the embedded policy",
+            )
+            .into())
+        }
+        (Some(path), None) => {
+            let guard_config = read_config(path)?;
+            let schema_version = guard_config.schema_version;
+            (guard_config.lower()?, schema_version, "external-file")
+        }
+        (None, Some(lowered)) => (lowered, GUARD_CONFIG_SCHEMA_V1, "operator-config"),
+        (None, None) => {
+            return Err(IoError::new(
+                ErrorKind::InvalidInput,
+                "selected resource has no embedded guard_config; provide --guard-config FILE",
+            )
+            .into())
+        }
+    };
     let guarded_spec =
         GuardedResourceSpec::new(view.resource_spec().clone(), lowered.guards().to_vec())?;
     let guarded = lower_guarded(&guarded_spec)?;
@@ -214,7 +235,8 @@ pub(crate) fn plan_dry_run(
     print_json(json!({
         "command": "guard-plan-dry-run",
         "operator_config_version": operator_config.version,
-        "guard_schema_version": guard_config.schema_version,
+        "guard_schema_version": guard_schema_version,
+        "guard_config_source": guard_source,
         "resource_id": resource.as_str(),
         "observation_source": "operator-config-declared-initial-state",
         "freshness_identity_scope": "dry-run-local",
@@ -248,11 +270,11 @@ pub(crate) fn plan_dry_run(
 }
 
 fn read_operator_config(path: &Path) -> Result<OperatorConfig, Box<dyn Error>> {
-    let bytes = read_bounded_file(path, "operator config", MAX_GUARD_CONFIG_BYTES)?;
-    Ok(serde_json::from_slice(&bytes)?)
+    let bytes = read_bounded_file(path, "operator config", MAX_OPERATOR_CONFIG_BYTES)?;
+    Ok(OperatorConfig::from_bounded_json(&bytes)?)
 }
 
-fn read_bounded_file(
+pub(crate) fn read_bounded_file(
     path: &Path,
     label: &str,
     max_bytes: usize,
