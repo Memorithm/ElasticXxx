@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 4f9a35c8bccede27c1abec98c76c9e075a771f96
+  main_sha: 72169e8803155ce9b639ced33585f2271d06cd3a
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -120,6 +120,14 @@ current_verified_state:
       hardening_run: 35291995573
       result: success
       purpose: dependency_free_bounded_exact_boolean_small_domain_oracle
+    - pr: 110
+      head: efa03a1f62fff9dd7301f78ceffc567de58b87f0
+      merge: 72169e8803155ce9b639ced33585f2271d06cd3a
+      ci_run: 35295353231
+      packageability_run: 35295353296
+      hardening_run: 35295353260
+      result: success
+      purpose: exact_strong_Kleene_three_valued_semantic_oracle_and_classical_divergence_regression
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -132,9 +140,9 @@ current_verified_state:
     live domain/controller qualification belongs to BE14. BE8 is closed through
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
-    qualification. BE11 is now the earliest incomplete phase; BE12 through BE15
-    remain unimplemented unless current default-branch evidence proves otherwise
-    during a future execution.
+    qualification. BE11a is now closed through PR110 strong-Kleene qualification;
+    BE11b is the earliest incomplete slice. BE12 through BE15 remain unimplemented
+    unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -535,7 +543,7 @@ phases:
     required_slices:
       - id: BE11a
         name: dependency_free_exact_small_domain_oracle
-        status: active
+        status: completed
         qualification_evidence:
           - ElasticXxx_PR_109
           - PR109_exact_head_6ff4ef77e970a28a9a79e64c279cd4195c2681d0
@@ -547,14 +555,21 @@ phases:
           - dead_guard_and_conjunction_clause_redundancy_checks
           - deterministic_witnesses_counterexamples_and_explicit_variable_assignment_caps
           - analysis_is_dependency_free_non_actuating_and_fail_closed_on_limits_or_unexpected_Unknown
-        remaining:
+          - ElasticXxx_PR_110
+          - PR110_exact_head_efa03a1f62fff9dd7301f78ceffc567de58b87f0
+          - PR110_CI_35295353231_completed_success_on_exact_head
+          - PR110_packageability_35295353296_completed_success_on_exact_head
+          - PR110_hardening_35295353260_completed_success_on_exact_head
+          - PR110_merged_to_main_as_72169e8803155ce9b639ced33585f2271d06cd3a
           - exact_strong_Kleene_three_valued_enumeration_for_runtime_semantic_equivalence_and_redundancy
           - differential_case_where_classical_equivalence_diverges_from_Unknown_preserving_semantics
+        remaining: []
         correction_note: >-
-          PR109 qualified the fully-grounded Boolean oracle but does not by itself
-          close BE11a because runtime BoolExpr semantics are strong Kleene and
-          Unknown-sensitive equivalence/redundancy must be checked over explicit
-          three-valued assignments. Classical-only equivalence is insufficient.
+          PR109 qualified the fully-grounded Boolean oracle. PR110 closed the
+          remaining runtime-semantic gap by exhaustively enumerating explicit
+          False/True/Unknown assignments, preserving Unknown-sensitive exact
+          equivalence and redundancy, and qualifying a differential case where
+          classical equivalence diverges from strong-Kleene semantics.
         tasks:
           - enumerate_all_three_valued_or_boolean_assignments_under_declared_semantics_where_applicable
           - bounded_satisfiable_unsatisfiable_tautology_contradiction_queries
@@ -563,7 +578,7 @@ phases:
           - explicit_variable_and_assignment_caps
       - id: BE11b
         name: resource_policy_queries
-        status: planned
+        status: active
         precondition: BE11a_qualified
         tasks:
           - unreachable_transition_detection
