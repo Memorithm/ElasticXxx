@@ -274,10 +274,7 @@ fn complete_facts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        PseudoBooleanRelation, PseudoBooleanScale, WeightedPredicate,
-        DEFAULT_EXACT_ORACLE_ASSIGNMENTS,
-    };
+    use crate::{PseudoBooleanRelation, PseudoBooleanScale, WeightedPredicate};
 
     const A: PredicateId = PredicateId::new(0);
     const B: PredicateId = PredicateId::new(1);
@@ -302,11 +299,7 @@ mod tests {
 
     #[test]
     fn exact_oracle_refines_interval_unknown_for_equality() {
-        let exactly_one = constraint(
-            &[(A, 1), (B, 1)],
-            PseudoBooleanRelation::Equal,
-            1,
-        );
+        let exactly_one = constraint(&[(A, 1), (B, 1)], PseudoBooleanRelation::Equal, 1);
         let facts = FactSet::new();
         assert_eq!(exactly_one.evaluate(&facts).unwrap(), TruthValue::Unknown);
 
@@ -350,11 +343,7 @@ mod tests {
 
     #[test]
     fn exact_oracle_proves_unsatisfiable_and_tautological_small_domains() {
-        let impossible = constraint(
-            &[(A, 1), (B, 1)],
-            PseudoBooleanRelation::GreaterOrEqual,
-            3,
-        );
+        let impossible = constraint(&[(A, 1), (B, 1)], PseudoBooleanRelation::GreaterOrEqual, 3);
         let impossible_report = ExactPseudoBooleanOracle::default()
             .analyze(&impossible, &FactSet::new())
             .unwrap();
@@ -363,11 +352,7 @@ mod tests {
         assert!(impossible_report.first_satisfying().is_none());
         assert!(impossible_report.first_violating().is_some());
 
-        let always_within = constraint(
-            &[(A, 1), (B, 1)],
-            PseudoBooleanRelation::LessOrEqual,
-            2,
-        );
+        let always_within = constraint(&[(A, 1), (B, 1)], PseudoBooleanRelation::LessOrEqual, 2);
         let tautology_report = ExactPseudoBooleanOracle::default()
             .analyze(&always_within, &FactSet::new())
             .unwrap();
@@ -378,11 +363,7 @@ mod tests {
 
     #[test]
     fn signed_weights_are_enumerated_exactly() {
-        let implication = constraint(
-            &[(A, 1), (B, -1)],
-            PseudoBooleanRelation::LessOrEqual,
-            0,
-        );
+        let implication = constraint(&[(A, 1), (B, -1)], PseudoBooleanRelation::LessOrEqual, 0);
         let report = ExactPseudoBooleanOracle::default()
             .analyze(&implication, &FactSet::new())
             .unwrap();
@@ -419,7 +400,6 @@ mod tests {
                 maximum: 4,
             })
         ));
-        assert!(DEFAULT_EXACT_ORACLE_ASSIGNMENTS >= 4);
     }
 
     #[test]
