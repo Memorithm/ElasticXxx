@@ -1,0 +1,11 @@
+schema=tdi.elasticxxx-c3-carrier-manifest.v1
+source_repository=Memorithm/TDI
+source_commit=7dab3bfa97e74eeff7965cefcada56c59b4322ab
+source_pr=505
+source_fixture=interop/elasticxxx/tdi9.3-c3-carrier-v1.tsv
+source_schema=tdi9.3.elasticxxx-c3-carrier.v1
+source_generator=tdi-ai/examples/boolean_c3_elastic_interop.rs
+source_generator_sha256=5a6fb59f4d2e3902773994aad8781d51625f3c4ec059ee05a05b4de7f364d84a
+fixture_sha256=4dc0d135af3ad99fae9c76c8c7721ab61e22aa36d68b055daedceb1f6d1d7635
+claim_boundary=non-final-representation-only
+unknown_policy=missing-is-elastic-unknown-and-never-tdi-false

@@ -53,6 +53,9 @@ jobs:
       - name: Verify pinned BooleanLab BE15a fixture
         run: python3 tools/verify_booleanlab_be15a_fixture.py --self-test
 
+      - name: Verify pinned TDI-9.3 BE15b fixture
+        run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
+
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
 

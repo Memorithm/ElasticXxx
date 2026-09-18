@@ -36,6 +36,7 @@ pub mod permits;
 pub mod planners;
 pub mod ram;
 pub mod soup;
+pub mod tdi93;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
 pub use error::AdapterError;
@@ -79,4 +80,8 @@ pub use soup::{
     SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS,
     SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1, SOUP_RESOURCE_PLAN_V1,
     SOUP_STREAM_TASKS,
+};
+pub use tdi93::{
+    Tdi93C3FactsV1, Tdi93C3PredicateV1, TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1,
+    TDI93_C3_PREDICATE_NAMESPACE_V1, TDI93_C3_SOURCE_COMMIT_V1,
 };
