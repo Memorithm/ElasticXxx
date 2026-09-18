@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 82575e5de1cc624016d9afe97f993d418c6030dc
+  main_sha: fcbc929588bac6fe6afa67120cb48406803e5da5
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -168,6 +168,14 @@ current_verified_state:
       hardening_run: 35299666634
       result: success
       purpose: contract_specific_non_negative_weight_rejection_for_budget_domains
+    - pr: 117
+      head: 6f0aa61a80493888e3b8b2d45b17aa902788c0e6
+      merge: fcbc929588bac6fe6afa67120cb48406803e5da5
+      ci_run: 35300149045
+      packageability_run: 35300148940
+      hardening_run: 35300148835
+      result: success
+      purpose: stable_resource_budget_cardinality_mutual_exclusion_capacity_and_feature_bundle_patterns
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
