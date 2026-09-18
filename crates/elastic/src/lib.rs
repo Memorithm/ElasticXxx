@@ -52,13 +52,16 @@ pub use elastic_core::resource::{
     ResourceSpecBuilder, ResourceSpecError,
 };
 pub use elastic_core::{
-    BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard, FactMask,
-    FactSet, GuardBindingError, GuardFactSource, GuardScope, GuardedResourceSpec,
-    InvariantPredicateBinding, LogicError, PredicateComponent, PredicateComponentError,
-    PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard,
-    TransitionMechanism, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1, BOOLEAN_PREDICATE_SCHEMA_V1,
+    BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard,
+    ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
+    ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError, GuardFactSource, GuardScope,
+    GuardedResourceSpec, InvariantPredicateBinding, LogicError, PredicateComponent,
+    PredicateComponentError, PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError,
+    TransitionGuard, TransitionMechanism, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1,
+    BOOLEAN_PREDICATE_SCHEMA_V1, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_CANONICAL_EXPRESSION_NODES,
-    MAX_PREDICATE_COMPONENT_BYTES, MAX_REGISTERED_PREDICATES,
+    MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES, MAX_PREDICATE_COMPONENT_BYTES,
+    MAX_REGISTERED_PREDICATES,
 };
 pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
@@ -179,10 +182,13 @@ pub mod prelude {
         ResourceSpec, ResourceSpecError,
     };
     pub use elastic_core::{
-        BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard, FactMask, FactSet,
-        GuardBindingError, GuardScope, GuardedResourceSpec, InvariantPredicateBinding, LogicError,
-        PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError, TransitionGuard,
-        TransitionMechanism, TruthValue, FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+        BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard, ExactBooleanOracle,
+        ExactOracleError, ExactOracleLimits, ExactPropertyReport, ExactSatisfiabilityReport,
+        FactMask, FactSet, GuardBindingError, GuardScope, GuardedResourceSpec,
+        InvariantPredicateBinding, LogicError, PredicateId, PredicateKey, PredicateRegistry,
+        PredicateRegistryError, TransitionGuard, TransitionMechanism, TruthValue,
+        DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES, FAST_PREDICATE_CAPACITY,
+        MAX_BOOLEAN_EXPR_DEPTH, MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES,
     };
     pub use elastic_eir::{
         evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,

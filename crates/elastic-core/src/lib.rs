@@ -23,6 +23,7 @@
 
 pub mod canonical;
 pub mod control;
+pub mod exact_oracle;
 pub mod frontier;
 pub mod guard;
 pub mod invariant_predicate;
@@ -38,6 +39,11 @@ pub use canonical::{
 pub use control::{
     FreshnessSnapshot, ObservationEpoch, PlannerEpoch, RecommendationContext,
     RecommendationFreshnessError, ResourceGeneration,
+};
+pub use exact_oracle::{
+    ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
+    ExactSatisfiabilityReport, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
+    MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES,
 };
 pub use frontier::{FrontierError, VersionFrontier};
 pub use guard::{
