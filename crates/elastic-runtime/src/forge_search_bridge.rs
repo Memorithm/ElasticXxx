@@ -25,8 +25,13 @@ pub const FORGE_SEARCH_CANDIDATE_SCHEMA_V1: u32 = 1;
 pub const FORGE_SEARCH_PRODUCER_REPOSITORY_V1: &str = "Memorithm/Forge";
 /// Maximum encoded candidate document accepted before JSON allocation.
 pub const MAX_FORGE_SEARCH_CANDIDATE_BYTES: usize = 384 * 1024;
-/// Additional wrapper depth permitted around an already-bounded guard expression.
-pub const MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH: usize = MAX_BOOLEAN_EXPR_DEPTH + 16;
+/// Maximum raw JSON container depth accepted before deserialization.
+///
+/// `All` and `Any` add both an expression object and an `expressions` array
+/// for each semantic expression level. The additive allowance covers the
+/// candidate, guard-config, guard-rule, predicate-key and sibling wrapper
+/// containers. This bound is enforced before serde allocation/recursion.
+pub const MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH: usize = (MAX_BOOLEAN_EXPR_DEPTH * 2) + 16;
 
 /// Forge provenance carried with a proposed policy.
 ///
@@ -97,7 +102,17 @@ impl ForgeSearchCandidateV1 {
     /// Decode a bounded candidate and validate it with Elastic-owned semantics.
     pub fn from_bounded_json(bytes: &[u8]) -> Result<Self, ForgeSearchCandidateError> {
         validate_json_preallocation_bounds(bytes)?;
-        let candidate: Self = serde_json::from_slice(bytes)
+        let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+        // The preallocation scan above is the hard structural recursion bound.
+        // serde_json's default depth (128) is lower than the valid wire depth
+        // of a maximally nested `All`/`Any` guard, because each semantic level
+        // includes both an object and an array. Disable only serde_json's
+        // internal limit after our stricter byte/depth scan has succeeded.
+        deserializer.disable_recursion_limit();
+        let candidate = Self::deserialize(&mut deserializer)
+            .map_err(|error| ForgeSearchCandidateError::Decode(error.to_string()))?;
+        deserializer
+            .end()
             .map_err(|error| ForgeSearchCandidateError::Decode(error.to_string()))?;
         candidate.validate()?;
         Ok(candidate)
@@ -451,6 +466,56 @@ mod tests {
             value.validate(),
             Err(ForgeSearchCandidateError::Constraint(_))
         ));
+    }
+
+    #[test]
+    fn maximally_nested_all_guard_roundtrips_with_bounded_deserializer() {
+        let mut value = candidate();
+        let atom = value.guard_config.guards[0].expression.clone();
+        let mut expression = atom;
+        for _ in 0..MAX_BOOLEAN_EXPR_DEPTH {
+            expression = GuardExprConfigV1::All {
+                expressions: vec![expression],
+            };
+        }
+        value.guard_config.guards[0].expression = expression;
+        value.validate().unwrap();
+
+        let encoded = serde_json::to_vec(&value).unwrap();
+        let decoded = ForgeSearchCandidateV1::from_bounded_json(&encoded).unwrap();
+        assert_eq!(decoded, value);
+    }
+
+    #[test]
+    fn semantic_and_raw_json_depth_limits_remain_fail_closed() {
+        let mut value = candidate();
+        let atom = value.guard_config.guards[0].expression.clone();
+        let mut expression = atom;
+        for _ in 0..=MAX_BOOLEAN_EXPR_DEPTH {
+            expression = GuardExprConfigV1::All {
+                expressions: vec![expression],
+            };
+        }
+        value.guard_config.guards[0].expression = expression;
+        let encoded = serde_json::to_vec(&value).unwrap();
+        assert!(matches!(
+            ForgeSearchCandidateV1::from_bounded_json(&encoded),
+            Err(ForgeSearchCandidateError::GuardConfig(
+                GuardConfigError::ExpressionTooDeep { .. }
+            ))
+        ));
+
+        let too_deep = format!(
+            "{}0{}",
+            "[".repeat(MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH + 1),
+            "]".repeat(MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH + 1)
+        );
+        assert_eq!(
+            ForgeSearchCandidateV1::from_bounded_json(too_deep.as_bytes()),
+            Err(ForgeSearchCandidateError::JsonTooDeep {
+                maximum: MAX_FORGE_SEARCH_CANDIDATE_JSON_DEPTH,
+            })
+        );
     }
 
     #[test]
