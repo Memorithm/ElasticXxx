@@ -104,6 +104,11 @@ pub use elastic_runtime::{
     CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
 };
 pub use elastic_runtime::{
+    model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
+    BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
+    MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
+};
+pub use elastic_runtime::{
     model_execution_rule_free_capacity_predicate_key,
     model_execution_rule_utilization_predicate_key, BooleanModelExecutionPreplannerV1,
     BooleanModelExecutionRuleEvidenceV1, BooleanModelExecutionScreenOutcomeV1,
@@ -181,6 +186,8 @@ pub mod runtime {
 pub mod adapters {
     pub use elastic_adapters::*;
     pub use elastic_runtime::{
+        model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
+        BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
         FixedModelExecutionTransitionPolicyV1, ModelExecutionControllerContractsV1,
         ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
         ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
@@ -190,7 +197,8 @@ pub mod adapters {
         ModelExecutionRunEvidenceResultV1, ModelExecutionTransitionModeV1,
         ModelExecutionTransitionPolicyV1, TransactionalConcurrency, TransactionalModelExecution,
         TransactionalRam, TransitionGuardedModelExecutionBackendError,
-        TransitionGuardedModelExecutionBackendV1,
+        TransitionGuardedModelExecutionBackendV1, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME,
+        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
     };
 }
 
@@ -247,23 +255,26 @@ pub mod prelude {
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
         capture_constrained_decision_trace, capture_decision_trace, capture_guarded_planning_trace,
-        fact_snapshot_fingerprint, planning_context_fingerprint, precheck_plan_invariants,
-        BooleanGuardPlanner, BooleanGuardPreplanner, BuiltinDimensionConfigV1,
-        BuiltinObservationSignalConfigV1, CadenceConfig, CancellationToken, CapabilityPredicate,
-        ConfiguredController, ConfiguredForecaster, ConfiguredPlanner, ConfiguredResource,
-        ConfiguredResourceState, ConstrainedDecisionTrace, Controller, ControllerConfig,
-        CurrentStateForecaster, CycleAttempt, CycleFailure, DecisionTrace, DecisionTraceChange,
-        DecisionTraceChangeKind, DecisionTraceDiff, DecisionTraceError, DimensionConfigV1,
-        EwmaForecaster, ExecutionModeConfig, FactResourceBinding, FactSnapshot, FactSourceId,
-        FixedModelExecutionTransitionPolicyV1, Forecast, ForecastController, ForecastCycleAttempt,
-        ForecastCycleFailure, ForecastCycleResult, ForecastRunAttempt, ForecastRunFailure,
-        ForecastRunResult, ForecastRuntime, Forecaster, ForecasterSelection, GuardConfigError,
-        GuardConfigV1, GuardExprConfigV1, GuardPlannerTarget, GuardPreplannerError,
-        GuardRuleConfigV1, GuardScopeConfigV1, GuardedPlanningDecision,
-        GuardedPlanningOutcomeTrace, GuardedPlanningTrace, HostMemoryObserver,
-        InvariantPrecheckReport, InvariantPrecheckStatus, InvariantPrecheckTraceSummary,
-        ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
-        ModelExecutionControllerV1, ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
+        fact_snapshot_fingerprint, model_execution_envelope_predicate_key,
+        planning_context_fingerprint, precheck_plan_invariants, BooleanGuardPlanner,
+        BooleanGuardPreplanner, BooleanModelExecutionProfileControllerV1,
+        BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
+        BuiltinDimensionConfigV1, BuiltinObservationSignalConfigV1, CadenceConfig,
+        CancellationToken, CapabilityPredicate, ConfiguredController, ConfiguredForecaster,
+        ConfiguredPlanner, ConfiguredResource, ConfiguredResourceState, ConstrainedDecisionTrace,
+        Controller, ControllerConfig, CurrentStateForecaster, CycleAttempt, CycleFailure,
+        DecisionTrace, DecisionTraceChange, DecisionTraceChangeKind, DecisionTraceDiff,
+        DecisionTraceError, DimensionConfigV1, EwmaForecaster, ExecutionModeConfig,
+        FactResourceBinding, FactSnapshot, FactSourceId, FixedModelExecutionTransitionPolicyV1,
+        Forecast, ForecastController, ForecastCycleAttempt, ForecastCycleFailure,
+        ForecastCycleResult, ForecastRunAttempt, ForecastRunFailure, ForecastRunResult,
+        ForecastRuntime, Forecaster, ForecasterSelection, GuardConfigError, GuardConfigV1,
+        GuardExprConfigV1, GuardPlannerTarget, GuardPreplannerError, GuardRuleConfigV1,
+        GuardScopeConfigV1, GuardedPlanningDecision, GuardedPlanningOutcomeTrace,
+        GuardedPlanningTrace, HostMemoryObserver, InvariantPrecheckReport, InvariantPrecheckStatus,
+        InvariantPrecheckTraceSummary, ModelExecutionControllerContractsV1,
+        ModelExecutionControllerContractsWireV1, ModelExecutionControllerV1,
+        ModelExecutionCycleEvidenceV1, ModelExecutionObserverBundleV1,
         ModelExecutionProfileBackendV1, ModelExecutionResourceObserverV1,
         ModelExecutionResourceTelemetrySampleV1, ModelExecutionResourceTelemetryV1,
         ModelExecutionRunEvidenceAttemptV1, ModelExecutionRunEvidenceFailureV1,
@@ -278,7 +289,8 @@ pub mod prelude {
         TransitionGuardedModelExecutionBackendError, TransitionGuardedModelExecutionBackendV1,
         TransitionMechanismConfigV1, VerificationResult, CONSTRAINED_DECISION_TRACE_SCHEMA_V1,
         DECISION_TRACE_SCHEMA_V1, GUARD_CONFIG_SCHEMA_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
-        MODEL_EXECUTION_CYCLE_EVIDENCE_V1, OPERATOR_CONFIG_VERSION,
+        MODEL_EXECUTION_CYCLE_EVIDENCE_V1, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME,
+        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE, OPERATOR_CONFIG_VERSION,
     };
     pub use elastic_runtime::{
         EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,

@@ -171,11 +171,14 @@ where
     }
 }
 
-impl<T> Observer for ModelExecutionResourceObserverV1<T>
+impl<T> ModelExecutionResourceObserverV1<T>
 where
     T: ModelExecutionResourceTelemetryV1,
 {
-    fn observe(&self) -> (PlanningContext, Vec<Observation>) {
+    /// Observe resource telemetry once while preserving the provider-owned validity deadline.
+    pub(crate) fn observe_with_validity(
+        &self,
+    ) -> (PlanningContext, Vec<Observation>, Option<Instant>) {
         let failure_at = Instant::now();
         let source = self.telemetry.source();
         let free_signal = ObservationSignalId::FREE_CAPACITY;
@@ -201,12 +204,14 @@ where
                             reason,
                         ),
                     ],
+                    None,
                 );
             }
         };
 
         let evaluated_at = Instant::now();
         let observed_at = sample.observed_at();
+        let valid_until = sample.valid_until();
         if let Some(reason) = sample.invalid_at(evaluated_at) {
             return (
                 PlanningContext::new(),
@@ -224,6 +229,7 @@ where
                         reason,
                     ),
                 ],
+                valid_until,
             );
         }
 
@@ -248,7 +254,7 @@ where
                     snapshot.capacity_unit()
                 ),
             ));
-            return (context, observations);
+            return (context, observations, valid_until);
         }
 
         if snapshot.free_capacity() > MAX_EXACT_F64_INTEGER_U64 {
@@ -261,7 +267,7 @@ where
                     snapshot.free_capacity()
                 ),
             ));
-            return (context, observations);
+            return (context, observations, valid_until);
         }
 
         let free_capacity = snapshot.free_capacity() as f64;
@@ -272,6 +278,16 @@ where
             free_capacity,
             observed_at,
         ));
+        (context, observations, valid_until)
+    }
+}
+
+impl<T> Observer for ModelExecutionResourceObserverV1<T>
+where
+    T: ModelExecutionResourceTelemetryV1,
+{
+    fn observe(&self) -> (PlanningContext, Vec<Observation>) {
+        let (context, observations, _) = self.observe_with_validity();
         (context, observations)
     }
 }
@@ -382,6 +398,30 @@ mod tests {
         assert!(observations
             .iter()
             .all(|observation| *observation.timestamp() == observed_at));
+    }
+
+    #[test]
+    fn provider_validity_deadline_is_preserved_for_downstream_guards() {
+        let observed_at = Instant::now();
+        let valid_until = observed_at + Duration::from_secs(5);
+        let snapshot = ModelExecutionResourceSnapshotV1::new("bytes", 3_000, 8_000).unwrap();
+        let observer = ModelExecutionResourceObserverV1::new(
+            "bytes",
+            CachedTelemetry {
+                sample: ModelExecutionResourceTelemetrySampleV1::new(snapshot, observed_at)
+                    .with_valid_until(valid_until),
+            },
+        )
+        .unwrap();
+
+        let (context, observations, preserved_valid_until) = observer.observe_with_validity();
+
+        assert_eq!(preserved_valid_until, Some(valid_until));
+        assert_eq!(
+            context.get(ObservationSignalId::FREE_CAPACITY),
+            Some(3_000.0)
+        );
+        assert!(observations.iter().all(Observation::is_valid));
     }
 
     #[test]

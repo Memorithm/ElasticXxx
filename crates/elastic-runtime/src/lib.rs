@@ -48,6 +48,7 @@ pub mod guard_planner;
 pub mod guard_preplanner;
 pub mod invariant_precheck;
 pub mod model_execution_boolean_admission;
+pub mod model_execution_boolean_controller;
 pub mod model_execution_contracts;
 pub mod model_execution_controller;
 pub mod model_execution_evidence;
@@ -140,6 +141,11 @@ pub use model_execution_boolean_admission::{
     BooleanModelExecutionScreenReportV1, MODEL_EXECUTION_BOOLEAN_MAX_AGE,
     MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT, MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
     MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT, MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT,
+};
+pub use model_execution_boolean_controller::{
+    model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
+    BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
+    MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
 };
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,

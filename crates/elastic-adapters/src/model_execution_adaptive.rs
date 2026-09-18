@@ -66,7 +66,12 @@ impl ModelExecutionAdaptivePlannerV1 {
         &self.profiles
     }
 
-    fn snapshot_from_context(
+    /// Convert the generic planner-facing context into the exact typed resource
+    /// snapshot consumed by this adaptive policy.
+    ///
+    /// This pure validation boundary is shared by numeric planning and Boolean
+    /// pre-planning gates. It performs no profile selection or actuation.
+    pub fn resource_snapshot_from_context(
         &self,
         context: &PlanningContext,
     ) -> Result<ModelExecutionResourceSnapshotV1, String> {
@@ -109,7 +114,7 @@ impl TransitionPlanner for ModelExecutionAdaptivePlannerV1 {
         resource: &EirResource,
         context: &PlanningContext,
     ) -> PlanOutcome {
-        let snapshot = match self.snapshot_from_context(context) {
+        let snapshot = match self.resource_snapshot_from_context(context) {
             Ok(snapshot) => snapshot,
             Err(detail) => return PlanOutcome::InsufficientEvidence { detail },
         };

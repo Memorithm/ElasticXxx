@@ -25,6 +25,18 @@ use crate::{
     ObserverSet, PlannerConfig, Runtime, RuntimeConfig, RuntimeError, TransactionalModelExecution,
 };
 
+#[derive(Clone)]
+struct CapturedObserver {
+    context: PlanningContext,
+    observations: Vec<Observation>,
+}
+
+impl Observer for CapturedObserver {
+    fn observe(&self) -> (PlanningContext, Vec<Observation>) {
+        (self.context.clone(), self.observations.clone())
+    }
+}
+
 /// Owned observation bundle for one adaptive model-execution controller.
 ///
 /// The model actuator contributes the current profile rank. The typed resource
@@ -53,6 +65,32 @@ impl<B, T> ModelExecutionObserverBundleV1<B, T> {
     #[must_use]
     pub const fn resources(&self) -> &ModelExecutionResourceObserverV1<T> {
         &self.resources
+    }
+
+    /// Capture model and resource observations once while retaining the
+    /// provider-owned resource validity deadline for downstream eligibility gates.
+    pub(crate) fn observe_with_resource_validity(
+        &self,
+    ) -> (
+        PlanningContext,
+        Vec<Observation>,
+        Option<std::time::Instant>,
+    )
+    where
+        B: ModelExecutionProfileBackendV1,
+        T: ModelExecutionResourceTelemetryV1,
+    {
+        let (resource_context, resource_observations, valid_until) =
+            self.resources.observe_with_validity();
+        let captured_resources = CapturedObserver {
+            context: resource_context,
+            observations: resource_observations,
+        };
+        let mut observers = ObserverSet::new();
+        observers.push(&self.model);
+        observers.push(&captured_resources);
+        let (context, observations) = observers.observe();
+        (context, observations, valid_until)
     }
 }
 
@@ -399,6 +437,27 @@ where
         &mut self,
     ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
         let result = self.inner.cycle()?;
+        self.capture_cycle_evidence(result)
+    }
+
+    /// Execute one cycle from an already captured observer result and bind the
+    /// ordinary model-cycle evidence to that exact observation set.
+    ///
+    /// This crate-private path exists for pre-planning eligibility layers. It
+    /// never re-reads the physical telemetry provider.
+    pub(crate) fn cycle_from_observations_with_evidence(
+        &mut self,
+        current: PlanningContext,
+        observations: Vec<Observation>,
+    ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
+        let result = self.inner.cycle_from_observations(current, observations)?;
+        self.capture_cycle_evidence(result)
+    }
+
+    fn capture_cycle_evidence(
+        &self,
+        result: ForecastCycleResult,
+    ) -> Result<(ForecastCycleResult, ModelExecutionCycleEvidenceV1), RuntimeError> {
         let final_profile_rank = self.current_profile_rank()?;
         let contracts = self.controller_contracts()?;
         let resource_id = self.resource_id();
