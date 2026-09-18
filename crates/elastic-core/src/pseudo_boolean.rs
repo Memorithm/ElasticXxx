@@ -183,6 +183,22 @@ impl PseudoBooleanConstraintDeclaration {
         })
     }
 
+    /// Construct a durable declaration for a domain that forbids negative weights.
+    pub fn new_non_negative(
+        terms: Vec<WeightedPredicateKey>,
+        relation: PseudoBooleanRelation,
+        threshold: i128,
+        scale: PseudoBooleanScale,
+    ) -> Result<Self, PseudoBooleanBindingError> {
+        if let Some(term) = terms.iter().find(|term| term.weight < 0) {
+            return Err(PseudoBooleanBindingError::NegativeWeightForbidden {
+                predicate: term.predicate.clone(),
+                weight: term.weight,
+            });
+        }
+        Self::new(terms, relation, threshold, scale)
+    }
+
     /// Canonically ordered durable terms.
     #[must_use]
     pub fn terms(&self) -> &[WeightedPredicateKey] {
@@ -236,10 +252,23 @@ impl PseudoBooleanConstraintDeclaration {
 /// Stable-key declaration or binding failure.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PseudoBooleanBindingError {
-    ZeroWeight { predicate: PredicateKey },
-    DuplicatePredicate { predicate: PredicateKey },
-    TooManyTerms { terms: usize, maximum: usize },
-    UnregisteredPredicate { predicate: PredicateKey },
+    ZeroWeight {
+        predicate: PredicateKey,
+    },
+    NegativeWeightForbidden {
+        predicate: PredicateKey,
+        weight: i128,
+    },
+    DuplicatePredicate {
+        predicate: PredicateKey,
+    },
+    TooManyTerms {
+        terms: usize,
+        maximum: usize,
+    },
+    UnregisteredPredicate {
+        predicate: PredicateKey,
+    },
     Compiled(PseudoBooleanError),
 }
 
@@ -249,6 +278,10 @@ impl fmt::Display for PseudoBooleanBindingError {
             Self::ZeroWeight { predicate } => {
                 write!(f, "pseudo-Boolean predicate {predicate} has a zero weight")
             }
+            Self::NegativeWeightForbidden { predicate, weight } => write!(
+                f,
+                "pseudo-Boolean predicate {predicate} has forbidden negative weight {weight}"
+            ),
             Self::DuplicatePredicate { predicate } => write!(
                 f,
                 "pseudo-Boolean predicate {predicate} is declared more than once"
@@ -317,6 +350,22 @@ impl PseudoBooleanConstraint {
             threshold,
             scale,
         })
+    }
+
+    /// Construct a compiled constraint for a domain that forbids negative weights.
+    pub fn new_non_negative(
+        terms: Vec<WeightedPredicate>,
+        relation: PseudoBooleanRelation,
+        threshold: i128,
+        scale: PseudoBooleanScale,
+    ) -> Result<Self, PseudoBooleanError> {
+        if let Some(term) = terms.iter().find(|term| term.weight < 0) {
+            return Err(PseudoBooleanError::NegativeWeightForbidden {
+                predicate: term.predicate,
+                weight: term.weight,
+            });
+        }
+        Self::new(terms, relation, threshold, scale)
     }
 
     /// Cardinality `sum(predicates) <= maximum`.
@@ -449,13 +498,31 @@ impl PseudoBooleanConstraint {
 pub enum PseudoBooleanError {
     EmptyUnit,
     UnitNotTrimmed,
-    UnitTooLong { bytes: usize, maximum: usize },
+    UnitTooLong {
+        bytes: usize,
+        maximum: usize,
+    },
     ZeroQuantum,
-    ZeroWeight { predicate: PredicateId },
-    PredicateOutOfRange { predicate: PredicateId },
-    DuplicatePredicate { predicate: PredicateId },
-    TooManyTerms { terms: usize, maximum: usize },
-    ThresholdOutOfRange { threshold: usize },
+    ZeroWeight {
+        predicate: PredicateId,
+    },
+    NegativeWeightForbidden {
+        predicate: PredicateId,
+        weight: i128,
+    },
+    PredicateOutOfRange {
+        predicate: PredicateId,
+    },
+    DuplicatePredicate {
+        predicate: PredicateId,
+    },
+    TooManyTerms {
+        terms: usize,
+        maximum: usize,
+    },
+    ThresholdOutOfRange {
+        threshold: usize,
+    },
     ArithmeticOverflow,
     Logic(LogicError),
 }
@@ -473,6 +540,11 @@ impl fmt::Display for PseudoBooleanError {
             Self::ZeroWeight { predicate } => write!(
                 f,
                 "pseudo-Boolean predicate {} has a zero weight",
+                predicate.index()
+            ),
+            Self::NegativeWeightForbidden { predicate, weight } => write!(
+                f,
+                "pseudo-Boolean predicate {} has forbidden negative weight {weight}",
                 predicate.index()
             ),
             Self::PredicateOutOfRange { predicate } => write!(
@@ -655,6 +727,46 @@ mod tests {
         assert_eq!(
             constraint.evaluate(&facts),
             Err(PseudoBooleanError::ArithmeticOverflow)
+        );
+    }
+
+    #[test]
+    fn non_negative_constructor_rejects_negative_compiled_weights() {
+        assert_eq!(
+            PseudoBooleanConstraint::new_non_negative(
+                vec![WeightedPredicate::new(A, -1).unwrap()],
+                PseudoBooleanRelation::GreaterOrEqual,
+                -1,
+                PseudoBooleanScale::count(),
+            ),
+            Err(PseudoBooleanError::NegativeWeightForbidden {
+                predicate: A,
+                weight: -1,
+            })
+        );
+        assert!(PseudoBooleanConstraint::new(
+            vec![WeightedPredicate::new(A, -1).unwrap()],
+            PseudoBooleanRelation::GreaterOrEqual,
+            -1,
+            PseudoBooleanScale::count(),
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn durable_non_negative_constructor_rejects_negative_weights_before_binding() {
+        let key = PredicateKey::new("elastic.memory", "resident").unwrap();
+        assert_eq!(
+            PseudoBooleanConstraintDeclaration::new_non_negative(
+                vec![WeightedPredicateKey::new(key.clone(), -8).unwrap()],
+                PseudoBooleanRelation::LessOrEqual,
+                32,
+                PseudoBooleanScale::new("bytes", 1).unwrap(),
+            ),
+            Err(PseudoBooleanBindingError::NegativeWeightForbidden {
+                predicate: key,
+                weight: -8,
+            })
         );
     }
 
