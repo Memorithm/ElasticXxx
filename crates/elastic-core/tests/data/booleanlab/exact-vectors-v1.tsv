@@ -1,0 +1,8 @@
+schema_version	case_id	shape_class	input_bits	expression_rpn	truth_table_row_major	algebraic_degree	nonlinearity	balanced	correlation_immunity	satisfiable	tautology	contradiction	booleanlab_fingerprint
+1	conjunction-with-negation	conjunction	3	p0 p1 not and p2 and	00000100	3	1	false	0	true	false	false	5254af7a7cc69bf1
+1	disjunction-with-negation	disjunction	3	p0 p1 not or p2 or	11011111	3	1	false	0	true	false	false	18adcd1b5cf8df93
+1	xor-two-inputs	general	3	p0 p1 xor	01100110	1	0	true	1	true	false	false	3b0d60d1e0a5c56a
+1	implication	general	3	p0 p1 implies	10111011	2	2	false	0	true	false	false	f8c73372bbf8b076
+1	tautology	tautology	3	p0 p0 not or	11111111	0	0	false	3	true	true	false	0a8f9709f2ed0fbe
+1	contradiction	contradiction	3	p0 p0 not and	00000000	0	0	false	3	false	false	true	49ab347a77de9d46
+1	nested-xor-implies	general	3	p0 p1 xor p2 implies	10011111	2	2	false	0	true	false	false	f34bae6156cf1c60
