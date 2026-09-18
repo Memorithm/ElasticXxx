@@ -60,3 +60,42 @@ fn public_facade_missing_placement_capacity_is_unknown_not_false() {
     ));
     assert_eq!(report.candidates[0].truth, "unknown");
 }
+
+#[test]
+fn public_facade_persists_and_rechecks_decision_only_trace() {
+    let planner = BooleanBatchDevicePreplannerV1::new(vec![BatchDeviceCandidateV1::new(
+        "candidate-a",
+        "placement-a",
+        2,
+        1,
+    )
+    .unwrap()])
+    .unwrap();
+    let now = Instant::now();
+    let snapshot = BatchDeviceCapacitySnapshotV1::new_with_generation(
+        "public-test-provider",
+        BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
+        9,
+        vec![BatchDeviceCapacitySampleV1::valid("placement-a", 4.0, now).unwrap()],
+    )
+    .unwrap();
+
+    let trace = planner.decision_trace(&snapshot, now).unwrap();
+    let encoded = trace.to_bounded_json().unwrap();
+    let decoded =
+        elastic::BooleanBatchDeviceDecisionTraceV1::from_bounded_json(encoded.as_bytes()).unwrap();
+    decoded
+        .validate_explanatory_context(&planner, &snapshot, now)
+        .unwrap();
+
+    let changed = BatchDeviceCapacitySnapshotV1::new_with_generation(
+        "public-test-provider",
+        BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
+        10,
+        vec![BatchDeviceCapacitySampleV1::valid("placement-a", 4.0, now).unwrap()],
+    )
+    .unwrap();
+    assert!(decoded
+        .validate_explanatory_context(&planner, &changed, now)
+        .is_err());
+}
