@@ -31,6 +31,7 @@ pub mod kleene_oracle;
 pub mod logic;
 pub mod predicate;
 pub mod pseudo_boolean;
+pub mod pseudo_boolean_oracle;
 pub mod representation;
 pub mod resource;
 pub mod resource_policy_analysis;
@@ -71,6 +72,9 @@ pub use pseudo_boolean::{
     PseudoBooleanBindingError, PseudoBooleanConstraint, PseudoBooleanConstraintDeclaration,
     PseudoBooleanError, PseudoBooleanRelation, PseudoBooleanScale, WeightedPredicate,
     WeightedPredicateKey, MAX_PSEUDO_BOOLEAN_TERMS, MAX_PSEUDO_BOOLEAN_UNIT_BYTES,
+};
+pub use pseudo_boolean_oracle::{
+    ExactPseudoBooleanOracle, ExactPseudoBooleanOracleError, ExactPseudoBooleanReport,
 };
 pub use representation::{
     CapabilitySet, EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
