@@ -135,10 +135,12 @@ projection costs, and the distinction between original and projected identity.
 The BE0–BE15 roadmap remains the source of implementation priorities through
 [the agent bootstrap](AGENTS.md).
 
-Full guarded controller integration, strict persisted trace ingestion,
-pseudo-Boolean constraints, optional symbolic analysis, multiword evaluation and
-hardware qualification remain separate work. No Boolean speedup or completed
-end-to-end production qualification is claimed by the library slices alone.
+BE0–BE14 are now qualified within their explicitly bounded scopes; BE15
+cross-repository promotion/productization is active. The BooleanLab exact-vector
+bridge is qualified, while the TDI-9.3 bridge remains representation-only and
+non-final: missing source predicates stay `Unknown` and cannot be turned into a
+TDI action or scientific authority. No Boolean speedup or completed end-to-end
+production qualification is inferred from these integration slices.
 
 ## Research method
 
