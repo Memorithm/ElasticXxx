@@ -68,7 +68,7 @@ jobs:
                   f"got {package['rust_version']}"
               )
 
-          publish_chain = {
+          documented_publish_chain = {
               "elastic-core",
               "elastic-macros",
               "elastic-eir",
@@ -77,6 +77,31 @@ jobs:
               "elastic-kv",
               "elastic",
           }
+
+          # Fail closed when the public facade acquires a new non-dev workspace
+          # dependency that the release/packageability policy has not reviewed.
+          publish_chain = set()
+          pending = ["elastic"]
+          while pending:
+              package_name = pending.pop()
+              if package_name in publish_chain:
+                  continue
+              publish_chain.add(package_name)
+              for dependency in packages[package_name]["dependencies"]:
+                  dependency_name = dependency["name"]
+                  if (
+                      dependency["kind"] != "dev"
+                      and dependency_name in packages
+                      and dependency_name not in publish_chain
+                  ):
+                      pending.append(dependency_name)
+
+          assert publish_chain == documented_publish_chain, (
+              "documented public facade package chain drifted from Cargo metadata; "
+              f"reachable={sorted(publish_chain)!r}, "
+              f"documented={sorted(documented_publish_chain)!r}"
+          )
+
           for package_name in publish_chain:
               package = packages[package_name]
               assert package["version"] == "0.1.0", (
