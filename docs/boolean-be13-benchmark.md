@@ -142,3 +142,12 @@ measured, but not assumed beneficial. The BE13e gate and retained portable vs
 qualified decision keeps the portable production path and enables no SVE/SVE2
 or native-codegen dispatch because the specialized probe did not dominate the
 portable candidate on the target multiword paths.
+
+### BE13e codegen provenance correction
+
+PR #130's automated review identified that the first BE13e codegen labels were
+post-hoc and that squash merging could make the measured source unreachable.
+The source is now retained by a permanent tag, and the corrected collector
+captures effective Cargo/rustc configuration during collection. The attested
+replacement datasets and conservative gate decision are documented in
+`docs/boolean-be13-acceleration-gate.md`.

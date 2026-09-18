@@ -1,99 +1,108 @@
 # BE13e architecture-specific Boolean acceleration gate
 
-Status: **qualified gate decision; portable path retained; no architecture-specific dispatch enabled; no speedup claim**.
+Status: **qualified conservative gate; portable production path retained; no architecture-specific dispatch enabled; no speedup claim**.
 
 BE13e asks whether the portable Boolean machinery should gain a CPU-specific
 execution path after BE13d established controlled measurements. The gate is a
-measurement and correctness decision, not an instruction to add SIMD by default.
+correctness/provenance/measurement decision, not an instruction to add SIMD.
 
-## Qualified host and feature detection
+## Production change under evaluation
 
-The qualification host is the same NVIDIA Jetson AGX Thor / AArch64 environment
-used for the retained BE13d measurements. Rust 1.89 reports `neon` as a
-compile-time target feature. The runtime detector in `BooleanCpuFeatures`
-reported:
+The multiword conjunction/disjunction kernel was simplified from two word
+traversals to one. The single pass keeps separate accumulators for decisive
+and missing evidence, then preserves strong-Kleene precedence:
 
-```text
-compile_time_neon=true
-runtime_neon=true
-runtime_sve=true
-runtime_sve2=true
-```
-
-The detector is diagnostic only. Detection never authorizes a different Boolean
-result, validation, or actuation path.
-
-## Portable kernel change under test
-
-Before considering a specialized path, the multiword conjunction/disjunction
-kernel was simplified from two word traversals to one. The single pass maintains
-separate accumulators for decisive evidence and missing evidence, then applies
-the same strong-Kleene precedence:
-
-- conjunction: any contradiction -> `False`; otherwise missing evidence ->
+- conjunction: contradiction -> `False`; otherwise missing evidence ->
   `Unknown`; otherwise `True`;
-- disjunction: any satisfying literal -> `True`; otherwise missing evidence ->
+- disjunction: satisfying literal -> `True`; otherwise missing evidence ->
   `Unknown`; otherwise `False`.
 
-The exhaustive semantic tests remain authoritative. Timing does not justify the
-semantic change; the change is accepted only because the one-pass formulation is
-semantically equivalent and structurally simpler.
+Exhaustive semantic tests remain authoritative. Timing does not justify the
+semantic change.
 
-## Retained controlled evidence
+`BooleanCpuFeatures` also exposes safe diagnostic feature detection. Detection
+never changes Boolean semantics, validation or actuation authority.
 
-All three retained sets use the BE13 v2 collector with:
+## Provenance correction after PR #130 review
 
-- 30 timing repetitions per path;
-- 10 process-metric repetitions per path;
-- CPU 0 affinity;
-- CPUFreq `lock-max` control at 2,601,000 kHz;
-- continuous frequency sampling and verified policy restoration;
-- direct Linux generalized hardware branch-miss counters when available;
-- whole-process peak RSS via `wait4(2)`;
-- explicit `unmeasured` allocation counts;
-- preregistered timing-stability threshold of 0.10.
+The first retained `e8268e8` portable/native comparison was collected under
+controlled CPU-frequency conditions, but the `codegen_profile`/`rustflags`
+labels were appended after collection rather than emitted by the collector.
+Those two datasets remain archival timing evidence but are **not sufficient for
+codegen attribution**.
 
-The source sets are:
+The measured source `e8268e81f882503a07dd7163fa97578d55f60514` is retained by
+the permanent tag:
 
-| Set | Source SHA | Codegen |
-| --- | --- | --- |
-| parent portable | `e3cb2141260dce36495db4b736d2654d4eac959f` | normal portable AArch64 |
-| candidate portable | `e8268e81f882503a07dd7163fa97578d55f60514` | normal portable AArch64 |
-| candidate native | `e8268e81f882503a07dd7163fa97578d55f60514` | `-C target-cpu=native` |
+```text
+refs/tags/elasticxxx-be13e-source-e8268e8
+```
+
+The corrected collector source is:
+
+```text
+324152544479094f76112bb0f1419bb492e6c779
+refs/tags/elasticxxx-be13e-source-32415254
+```
+
+The corrected collector emits, before checksumming the run:
+
+- the permanent `source_ref`;
+- a collector-derived `codegen_profile`;
+- base64-encoded `RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, and host-target
+  `CARGO_TARGET_*_RUSTFLAGS`;
+- `compiler_cfg.txt`, produced by `cargo rustc -p elastic-core --bench
+  be13_portable -- --print cfg` under the same build environment;
+- `cargo_config_inventory.txt` and its SHA-256;
+- SHA-256 bindings for both files.
+
+Qualified `portable/native` attestation currently requires the Cargo config
+inventory to be `none`; otherwise the profile is not inferred because config
+files may inject additional rustflags.
+
+## Corrected attested evidence
+
+Both corrected sets use source `324152544479094f76112bb0f1419bb492e6c779`,
+30 timing repetitions per path, 10 PMU/RSS repetitions per path, CPU 0 affinity,
+CPUFreq lock-max at 2,601,000 kHz, continuous frequency sampling, and verified
+policy restoration.
+
+The effective compiler cfg establishes:
+
+```text
+portable: target_feature="neon"
+native:   target_feature="neon", target_feature="sve", target_feature="sve2", ...
+```
 
 Observed median `ns_per_guard` values:
 
-| Path | Parent portable | Candidate portable | Candidate native |
-| --- | ---: | ---: | ---: |
-| scalar_if_chain | 1.682631 | 1.682401 | 1.682480 |
-| generic_bool_expr | 15.070390 | 16.428681 | 14.959818 |
-| u64_compiled_guard | 1.830464 | 1.774945 | 1.831598 |
-| multiword_guard | 8.941499 | 8.151631 | 8.240145 |
-| batch_filter | 9.535709 | 6.784151 | 6.992903 |
+| Path | Attested portable | Attested native |
+| --- | ---: | ---: |
+| scalar_if_chain | 1.682435 | 1.682804 |
+| generic_bool_expr | 16.267042 | 14.950487 |
+| u64_compiled_guard | 1.773483 | 1.831371 |
+| multiword_guard | 8.255534 | 8.239687 |
+| batch_filter | 6.816522 | 6.998007 |
 
-Worst preregistered block-median spread ratios were `0.072670099`,
-`0.073688569`, and `0.079590609` respectively; all remain below the existing
+The preregistered worst block-median spread ratios are `0.033795819` for the
+portable build and `0.019796140` for the native build, both below the existing
 0.10 stability gate.
 
-These values are retained decision evidence, not a public speedup claim. In
-particular, unchanged paths also move between code layouts/build profiles, so
-this table must not be interpreted as a causal percentage attribution to one
-source edit.
+These values are retained decision evidence, not a public speedup claim.
 
 ## Gate decision
 
-The native/SVE-capable build does not dominate the portable candidate on the
-multiword paths that BE13e is intended to accelerate: its medians are slightly
-higher for both `multiword_guard` and `batch_filter`, and `u64_compiled_guard`
-is also higher. It does improve the generic AST path, demonstrating that
-`target-cpu=native` changes code generation, but not in a uniformly beneficial
-way for the target workload.
+`target-cpu=native` does not dominate the portable build on the workload BE13e
+is intended to accelerate: it is slightly lower for `multiword_guard`, but
+higher for `u64_compiled_guard` and `batch_filter`. It improves the generic AST
+path, proving the effective codegen differs, but not in a uniformly beneficial
+way for the target fast paths.
 
-Therefore BE13e does **not** enable a `target-cpu=native`, SVE, SVE2, or explicit
-SIMD dispatch in the production core. The normal portable path remains the
-runtime path and fallback. No `unsafe`, nightly portable-SIMD dependency, or
-architecture-specific semantic implementation is introduced.
+Therefore BE13e does **not** enable a `target-cpu=native`, SVE, SVE2, explicit
+SIMD, or other architecture-specific production dispatch. The portable path
+remains authoritative and fallback. No `unsafe` or nightly portable-SIMD
+dependency is introduced.
 
-A future specialized path may reopen the gate only with a new implementation,
-semantic parity tests, controlled raw evidence, and a measured benefit on the
+A future specialized implementation may reopen the gate only with semantic
+parity tests, source-reachable attested evidence, and a measured benefit on the
 specific path it replaces.

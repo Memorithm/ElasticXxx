@@ -322,6 +322,12 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
                 raise AssertionError(f"missing codegen attestation file: {path}")
             if meta.get(field) != sha256(path):
                 raise AssertionError(f"{field} does not match {path}")
+        inventory_text = cargo_inventory.read_text(encoding="utf-8").strip()
+        if inventory_text != "none":
+            raise AssertionError(
+                "qualified portable/native codegen attestation requires no discovered Cargo config files; "
+                "use a separately reviewed custom-profile contract when config-injected rustflags exist"
+            )
         cfg_lines = set(compiler_cfg.read_text(encoding="utf-8").splitlines())
         if not any(line.startswith('target_arch=') for line in cfg_lines):
             raise AssertionError("compiler_cfg.txt lacks target_arch")
