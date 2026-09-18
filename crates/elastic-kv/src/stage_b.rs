@@ -1119,11 +1119,8 @@ mod tests {
 
     #[test]
     fn any_frozen_manifest_byte_drift_fails_closed() {
-        let drifted = FROZEN_MANIFEST.replacen(
-            "\"sequence_length\": 2048",
-            "\"sequence_length\": 1024",
-            1,
-        );
+        let drifted =
+            FROZEN_MANIFEST.replacen("\"sequence_length\": 2048", "\"sequence_length\": 1024", 1);
         assert_ne!(drifted, FROZEN_MANIFEST);
         assert!(matches!(
             load_stage_b_preregistration(&drifted),
