@@ -207,6 +207,25 @@ fn execute_after_numeric_validation<B: ThermalEnergyTransitionBackendV1>(
     decision_trace_json: String,
     backend: &mut B,
 ) -> Result<CommittedThermalEnergyTransitionV1, ThermalEnergyTransactionFailureV1> {
+    execute_after_numeric_validation_with_action_clock(
+        planner,
+        inputs,
+        decision_trace_json,
+        backend,
+        Instant::now,
+    )
+}
+
+fn execute_after_numeric_validation_with_action_clock<
+    B: ThermalEnergyTransitionBackendV1,
+    F: FnOnce() -> Instant,
+>(
+    planner: &BooleanThermalEnergyPreplannerV1,
+    inputs: TransactionInputs<'_>,
+    decision_trace_json: String,
+    backend: &mut B,
+    action_now: F,
+) -> Result<CommittedThermalEnergyTransitionV1, ThermalEnergyTransactionFailureV1> {
     match planner.direct_policy_truth(inputs.planning_context, inputs.observations, inputs.now) {
         TruthValue::True => {}
         TruthValue::False => {
@@ -235,6 +254,26 @@ fn execute_after_numeric_validation<B: ThermalEnergyTransitionBackendV1>(
             format!("trusted backend validation failed: {error}"),
         ));
     }
+
+    // Backend validation may itself take long enough for telemetry that was fresh
+    // at planning time to expire. Re-evaluate against the real action-time clock
+    // after validation and immediately before the first possibly mutating call.
+    match planner.direct_policy_truth(inputs.planning_context, inputs.observations, action_now()) {
+        TruthValue::True => {}
+        TruthValue::False => {
+            return Err(failure_without_rollback(
+                ThermalEnergyTransactionStageV1::Validate,
+                "action-time numeric thermal/energy policy rejects transition after backend validation",
+            ));
+        }
+        TruthValue::Unknown => {
+            return Err(failure_without_rollback(
+                ThermalEnergyTransactionStageV1::Validate,
+                "action-time numeric thermal/energy evidence is unknown after backend validation",
+            ));
+        }
+    }
+
     if let Err(error) = backend.actuate_transition(&candidate) {
         return Err(fail_after_possible_mutation(
             backend,
@@ -302,8 +341,8 @@ pub fn execute_unguarded_thermal_energy_transaction<B: ThermalEnergyTransitionBa
 ///
 /// The fresh `DecisionTrace` is explanatory evidence only. `False` and
 /// `Unknown` stop before every backend method. A Boolean `True` is not authority:
-/// the direct numeric policy is evaluated again immediately before backend
-/// validation and any possible mutation.
+/// the direct numeric policy is evaluated before backend validation and again
+/// against the action-time clock immediately before any possible mutation.
 pub fn execute_guarded_thermal_energy_transaction<B: ThermalEnergyTransitionBackendV1>(
     planner: &BooleanThermalEnergyPreplannerV1,
     planning_context: &PlanningContext,
@@ -367,6 +406,10 @@ mod tests {
     use crate::{DecisionTrace, Observation, ObservationSource, THERMAL_ENERGY_MAX_AGE};
 
     fn planner() -> BooleanThermalEnergyPreplannerV1 {
+        planner_with_max_age(THERMAL_ENERGY_MAX_AGE)
+    }
+
+    fn planner_with_max_age(max_age: Duration) -> BooleanThermalEnergyPreplannerV1 {
         let spec = ResourceSpec::builder(
             ResourceClassId::CONFIGURATIONAL,
             LogicalResourceId::new("be14h-transaction-test").unwrap(),
@@ -392,7 +435,7 @@ mod tests {
             75.0,
             ObservationSource::host("test:thermal"),
             ObservationSource::host("test:power"),
-            THERMAL_ENERGY_MAX_AGE,
+            max_age,
         )
         .unwrap()
     }
@@ -602,6 +645,37 @@ mod tests {
         assert_eq!(error.stage(), ThermalEnergyTransactionStageV1::Verify);
         assert!(error.rollback_attempted());
         assert_eq!(backend.calls, ["validate", "act", "verify", "rollback"]);
+        assert!(!backend.applied);
+        assert!(!backend.committed);
+    }
+
+    #[test]
+    fn action_time_freshness_is_rechecked_after_backend_validation() {
+        let max_age = Duration::from_millis(10);
+        let planner = planner_with_max_age(max_age);
+        let observed_at = Instant::now();
+        let (context, snapshot) = evidence(observed_at, 12.0, 60.0);
+        let mut backend = TestBackend::default();
+
+        let error = execute_after_numeric_validation_with_action_clock(
+            &planner,
+            TransactionInputs {
+                planning_context: &context,
+                observations: &snapshot,
+                now: observed_at,
+                observation_epoch: ObservationEpoch::new(6),
+                resource_generation: ResourceGeneration::new(2),
+            },
+            String::new(),
+            &mut backend,
+            || observed_at + max_age + Duration::from_nanos(1),
+        )
+        .unwrap_err();
+
+        assert_eq!(error.stage(), ThermalEnergyTransactionStageV1::Validate);
+        assert!(error.reason().contains("action-time"));
+        assert!(!error.rollback_attempted());
+        assert_eq!(backend.calls, ["validate"]);
         assert!(!backend.applied);
         assert!(!backend.committed);
     }
