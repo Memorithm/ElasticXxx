@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: ccfa8d78741a2a66ae7431e80a0610bfaadd72ec
+  main_sha: 6aaa54eac91be30d62d0c654e5ad1e03bd438785
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -191,6 +191,22 @@ current_verified_state:
       packageability_run: 35304050545
       result: success
       purpose: versioned_bounded_pseudo_Boolean_EIR_schema_and_structural_fingerprint
+    - pr: 120
+      head: 9ce44c88944d2fddb66fe44b0c45cb77b26a19df
+      merge: c2530d5599f846167c05fb71e1f11386bdebaf83
+      ci_run: 35305736659
+      packageability_run: 35305736656
+      hardening_run: 35305736653
+      result: success
+      purpose: durable_bounded_pseudo_Boolean_constraint_reasons_and_pure_replay_identity_checks
+    - pr: 121
+      head: c55475a6f21d349e6d755cf4e574b7bc06e596c2
+      merge: 6aaa54eac91be30d62d0c654e5ad1e03bd438785
+      ci_run: 35306766039
+      packageability_run: 35306766009
+      hardening_run: 35306766020
+      result: success
+      purpose: bounded_multiword_three_valued_fact_storage_beyond_u64_fast_path
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -204,8 +220,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12e is now the earliest incomplete slice after BE12d exact small-domain reference qualification; BE13 through BE15 remain unimplemented
-    unless current default-branch evidence proves otherwise during a future execution.
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121; BE13b compiled multiword guards is now the earliest incomplete slice. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -251,7 +266,7 @@ ownership:
 
 execution_policy:
   order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
-  active_phase: BE12
+  active_phase: BE13
   next_major_phase_after_BE8: BE10
   rule: earliest_unblocked_reviewable_slice_first
   branch_rule: new_feature_branch_from_current_main_after_every_merge
@@ -731,7 +746,7 @@ phases:
 
   - id: BE12
     name: pseudo_boolean_resource_constraints
-    status: active
+    status: completed
     target_crates: [elastic-core, elastic-eir, elastic-runtime]
     required_slices:
       - id: BE12a
@@ -786,6 +801,14 @@ phases:
           - deterministic_tie_breaking
       - id: BE12c
         name: resource_budget_patterns
+        status: completed
+        qualification_evidence:
+          - ElasticXxx_PR_117
+          - PR117_exact_head_6f0aa61a80493888e3b8b2d45b17aa902788c0e6
+          - PR117_CI_35300149045_completed_success_on_exact_head
+          - PR117_packageability_35300148940_completed_success_on_exact_head
+          - PR117_hardening_35300148835_completed_success_on_exact_head
+          - PR117_merged_to_main_as_fcbc929588bac6fe6afa67120cb48406803e5da5
         tasks:
           - mutually_exclusive_features
           - replica_or_worker_cardinality
@@ -814,7 +837,7 @@ phases:
           - no_claim_of_scalability_from_reference_enumerator
       - id: BE12e
         name: EIR_and_trace_integration
-        status: active
+        status: completed
         qualification_evidence:
           - ElasticXxx_PR_119
           - PR119_exact_head_5bfb26d5ef67112fcf6c91af987546cd248c71b2
@@ -826,10 +849,16 @@ phases:
           - stable_PredicateKey_relation_signed_weight_threshold_unit_and_quantum_are_bound_into_structural_identity
           - constrained_EIR_envelope_is_bounded_to_64_constraints_and_rejects_oversize_before_cloning
           - lowering_remains_representation_only_and_non_actuating
+          - ElasticXxx_PR_120
+          - PR120_exact_head_9ce44c88944d2fddb66fe44b0c45cb77b26a19df
+          - PR120_CI_35305736659_completed_success_on_exact_head
+          - PR120_packageability_35305736656_completed_success_on_exact_head
+          - PR120_hardening_35305736653_completed_success_on_exact_head
+          - PR120_merged_to_main_as_c2530d5599f846167c05fb71e1f11386bdebaf83
+          - durable_constraint_failure_and_Unknown_reasons_are_strictly_decoded_and_replay_is_non_actuating
         completed_tasks:
           - version_constraint_schema
           - fingerprint_constraints
-        remaining_tasks:
           - include_constraint_failure_or_unknown_reason_in_decision_trace
         tasks:
           - version_constraint_schema
@@ -842,11 +871,23 @@ phases:
 
   - id: BE13
     name: multiword_and_hardware_friendly_evaluation
-    status: planned
+    status: active
     target_crates: [elastic-core, elastic-runtime]
     required_slices:
       - id: BE13a
         name: multiword_fact_representation
+        status: completed
+        qualification_evidence:
+          - ElasticXxx_PR_121
+          - PR121_exact_head_c55475a6f21d349e6d755cf4e574b7bc06e596c2
+          - PR121_CI_35306766039_completed_success_on_exact_head
+          - PR121_packageability_35306766009_completed_success_on_exact_head
+          - PR121_hardening_35306766020_completed_success_on_exact_head
+          - PR121_automated_review_completed_without_material_findings
+          - PR121_merged_to_main_as_6aaa54eac91be30d62d0c654e5ad1e03bd438785
+          - bounded_64_word_4096_predicate_storage_with_explicit_True_False_Unknown_masks
+          - existing_u64_fact_fast_path_and_compact_PredicateId_identity_remain_unchanged
+          - no_performance_SIMD_or_compiled_multiword_guard_claim
         tasks:
           - support_more_than_64_predicates_without_changing_public_stable_identity
           - word_index_and_bit_index_checked_math
@@ -854,6 +895,7 @@ phases:
           - bounded_allocation_limits
       - id: BE13b
         name: multiword_compiled_guards
+        status: active
         tasks:
           - conjunction_and_disjunction_fast_paths
           - generic_expression_fallback
@@ -1067,11 +1109,11 @@ automation_contract:
     measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE11
-  immediate_next_slice: BE11a_strong_Kleene_three_valued_oracle
+  earliest_incomplete_phase: BE13
+  immediate_next_slice: BE13b_multiword_compiled_guards
   open_pull_requests_at_checkpoint: 0
-  verified_main: 4f9a35c8bccede27c1abec98c76c9e075a771f96
-  latest_qualified_slice: BE11a_boolean_foundation
-  latest_qualified_pr: 109
-  latest_qualified_head: 6ff4ef77e970a28a9a79e64c279cd4195c2681d0
+  verified_main: 6aaa54eac91be30d62d0c654e5ad1e03bd438785
+  latest_qualified_slice: BE13a_multiword_fact_representation
+  latest_qualified_pr: 121
+  latest_qualified_head: c55475a6f21d349e6d755cf4e574b7bc06e596c2
   performance_claims: none
