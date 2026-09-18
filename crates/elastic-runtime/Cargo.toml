@@ -22,3 +22,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [[bench]]
 name = "be14e_representation_precision"
 harness = false
+
+[[bench]]
+name = "be14g_batch_device"
+harness = false
