@@ -197,6 +197,31 @@ pub struct BooleanRepresentationPrecisionReportV1 {
     pub candidates: Vec<BooleanRepresentationPrecisionCandidateEvidenceV1>,
 }
 
+/// Per-candidate durable Boolean trace binding for the additive BE14e v2 report.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanRepresentationPrecisionCandidateTraceV1 {
+    pub candidate_id: String,
+    pub preference_rank: u32,
+    /// Strict bounded `DecisionTrace/v1` when the numeric Boolean guard was evaluated.
+    /// Structural/capability rejection deliberately records `None` rather than fabricating
+    /// a precision predicate value for a guard that was never evaluated.
+    pub decision_trace_json: Option<String>,
+}
+
+/// Additive BE14e durable-evidence envelope.
+///
+/// The embedded v1 planning report remains byte/schema compatible with the original
+/// planning-only contract. The v2 envelope adds explanatory `DecisionTrace/v1` bindings
+/// without changing validation or actuation authority.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanRepresentationPrecisionReportV2 {
+    pub schema_version: u16,
+    pub planning: BooleanRepresentationPrecisionReportV1,
+    pub candidate_traces: Vec<BooleanRepresentationPrecisionCandidateTraceV1>,
+}
+
 /// Planning-only BE14e preplanner over an existing representational declaration.
 ///
 /// Construction compiles one Boolean guard per fixed-width candidate. Screening
@@ -434,6 +459,113 @@ impl BooleanRepresentationPrecisionPreplannerV1 {
             resource_generation: resource_generation.get(),
             outcome,
             candidates: evidence,
+        })
+    }
+
+    /// Screen candidates and bind every evaluated Boolean outcome to strict durable
+    /// `DecisionTrace/v1` evidence without changing the v1 planning wire contract.
+    ///
+    /// This method replays only pure fact derivation and Boolean pruning against the exact
+    /// supplied snapshot. It performs no validation, actuation, verification, commit, or rollback.
+    #[allow(clippy::too_many_arguments)]
+    pub fn screen_with_trace(
+        &self,
+        current: &RepresentationState,
+        capabilities: &CapabilitySet,
+        planning_context: &elastic_eir::PlanningContext,
+        observations: &ObservationSnapshot,
+        now: Instant,
+        observation_epoch: ObservationEpoch,
+        resource_generation: ResourceGeneration,
+    ) -> Result<BooleanRepresentationPrecisionReportV2, String> {
+        let planning = self.screen(
+            current,
+            capabilities,
+            planning_context,
+            observations,
+            now,
+            observation_epoch,
+            resource_generation,
+        )?;
+        let key = representation_precision_floor_predicate_key();
+        let signal = representation_precision_floor_signal();
+        let input = PredicateEvaluationInput::new(planning_context, observations, now);
+        let selected_id = match &planning.outcome {
+            BooleanRepresentationPrecisionOutcomeV1::Selected { candidate_id, .. } => {
+                Some(candidate_id.as_str())
+            }
+            _ => None,
+        };
+        let mut candidate_traces = Vec::with_capacity(planning.candidates.len());
+
+        for evidence in &planning.candidates {
+            let index = self
+                .candidates
+                .iter()
+                .position(|candidate| candidate.candidate_id() == evidence.candidate_id)
+                .ok_or_else(|| "BE14e planning report contains an unknown candidate".to_owned())?;
+            let candidate = &self.candidates[index];
+            let guarded = &self.guarded[index];
+            let decision_trace_json = if evidence.declaration_supports_target
+                && evidence.capability_supports_target
+            {
+                let evaluator = RequiredPrecisionBitsPredicate {
+                    key: key.clone(),
+                    signal: signal.clone(),
+                    candidate_bits: candidate.declared_precision_bits,
+                    max_age: REPRESENTATION_PRECISION_MAX_AGE,
+                };
+                let facts = FactSnapshot::derive(
+                    FactSourceId::new("elastic-runtime:be14e-representation-precision")
+                        .map_err(|error| error.to_string())?,
+                    observation_epoch,
+                    Some(FactResourceBinding::new(
+                        guarded.resource().identity().clone(),
+                        resource_generation,
+                    )),
+                    &input,
+                    &[&evaluator as &dyn PredicateEvaluator],
+                )
+                .map_err(|error| error.to_string())?;
+                let freshness = FreshnessSnapshot::new(
+                    PlannerEpoch::new(observation_epoch.get()),
+                    observation_epoch,
+                )
+                .with_resource_generation(
+                    guarded.resource().identity().clone(),
+                    resource_generation,
+                );
+                let selected = if selected_id == Some(candidate.candidate_id()) {
+                    guarded
+                        .resource()
+                        .transitions()
+                        .iter()
+                        .find(|entry| {
+                            entry.transition().mechanism() == candidate.mechanism
+                                && entry.transition().dimension() == &DimensionId::REPRESENTATION
+                        })
+                        .map(elastic_eir::TransitionCandidate::from_admitted)
+                } else {
+                    None
+                };
+                let trace =
+                    crate::capture_decision_trace(guarded, &facts, &freshness, selected.as_ref())
+                        .map_err(|error| error.to_string())?;
+                Some(trace.to_bounded_json().map_err(|error| error.to_string())?)
+            } else {
+                None
+            };
+            candidate_traces.push(BooleanRepresentationPrecisionCandidateTraceV1 {
+                candidate_id: evidence.candidate_id.clone(),
+                preference_rank: evidence.preference_rank,
+                decision_trace_json,
+            });
+        }
+
+        Ok(BooleanRepresentationPrecisionReportV2 {
+            schema_version: 2,
+            planning,
+            candidate_traces,
         })
     }
 
@@ -847,6 +979,92 @@ mod tests {
                 TransitionAttestations::default().attest_reencoder_available(),
             )
             .unwrap();
+    }
+
+    #[test]
+    fn additive_v2_trace_binds_false_unknown_and_selected_without_actuation_authority() {
+        let preplanner = BooleanRepresentationPrecisionPreplannerV1::new(
+            declaration(),
+            vec![
+                candidate("tensor.int4", 0, 4),
+                candidate("tensor.int8", 10, 8),
+            ],
+        )
+        .unwrap();
+        let now = Instant::now();
+        let (context, observations) = evidence(now, 8.0);
+        let report = preplanner
+            .screen_with_trace(
+                &current(),
+                &capabilities(),
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(11),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
+        assert_eq!(report.schema_version, 2);
+        assert_eq!(report.planning.schema_version, 1);
+        assert_eq!(report.candidate_traces.len(), 2);
+        let rejected = crate::DecisionTrace::from_bounded_json(
+            report.candidate_traces[0]
+                .decision_trace_json
+                .as_deref()
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap();
+        assert!(rejected.selected().is_none());
+        let selected = crate::DecisionTrace::from_bounded_json(
+            report.candidate_traces[1]
+                .decision_trace_json
+                .as_deref()
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap();
+        assert!(selected.selected().is_some());
+        assert_eq!(selected.observation_epoch(), ObservationEpoch::new(11));
+        assert_eq!(selected.resource_generation(), ResourceGeneration::new(3));
+
+        let unknown = preplanner
+            .screen_with_trace(
+                &current(),
+                &capabilities(),
+                &PlanningContext::new(),
+                &ObservationSnapshot::new(now, vec![]),
+                now,
+                ObservationEpoch::new(12),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
+        let unknown_trace = crate::DecisionTrace::from_bounded_json(
+            unknown.candidate_traces[0]
+                .decision_trace_json
+                .as_deref()
+                .unwrap()
+                .as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(unknown_trace.unknown().len(), 1);
+        assert!(unknown_trace.selected().is_none());
+
+        let structural = preplanner
+            .screen_with_trace(
+                &current(),
+                &CapabilitySet::new(),
+                &context,
+                &observations,
+                now,
+                ObservationEpoch::new(13),
+                ResourceGeneration::new(3),
+            )
+            .unwrap();
+        assert!(structural
+            .candidate_traces
+            .iter()
+            .all(|entry| entry.decision_trace_json.is_none()));
     }
 
     #[test]
