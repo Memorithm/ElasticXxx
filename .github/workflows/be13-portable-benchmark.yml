@@ -1,0 +1,63 @@
+name: BE13 portable Boolean benchmark smoke
+
+on:
+  pull_request:
+    paths:
+      - 'crates/elastic-core/**'
+      - 'docs/boolean-be13-benchmark.md'
+      - '.github/workflows/be13-portable-benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/elastic-core/**'
+      - 'docs/boolean-be13-benchmark.md'
+      - '.github/workflows/be13-portable-benchmark.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require pinned Rust and report environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rustc +1.89.0 -Vv
+          uname -a
+      - name: Build and smoke all declared BE13 paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+            --warmup 10 --iterations 1000 | tee /tmp/be13.csv
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          rows = list(csv.DictReader(Path('/tmp/be13.csv').read_text().splitlines()))
+          expected = [
+              'scalar_if_chain',
+              'generic_bool_expr',
+              'u64_compiled_guard',
+              'multiword_guard',
+              'batch_filter',
+          ]
+          assert [row['path'] for row in rows] == expected
+          assert all(row['result'] == 'True' for row in rows)
+          assert all(int(row['evaluations']) > 0 for row in rows)
+          assert all(row['allocations'] == 'unmeasured' for row in rows)
+          assert all(row['memory_peak_bytes'] == 'unmeasured' for row in rows)
+          assert all(row['branch_misses'] == 'unmeasured' for row in rows)
+          PY
