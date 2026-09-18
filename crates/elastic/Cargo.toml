@@ -14,6 +14,7 @@ elastic-eir = { workspace = true }
 elastic-macros = { workspace = true }
 elastic-runtime = { workspace = true }
 elastic-adapters = { workspace = true }
+elastic-kv = { workspace = true }
 
 [dev-dependencies]
 trybuild = "1"

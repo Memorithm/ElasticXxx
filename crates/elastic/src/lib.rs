@@ -10,6 +10,20 @@
 pub mod boolean;
 mod guard_macro;
 
+/// Versioned KV-cache representation and transaction contracts.
+///
+/// This namespace exposes the reviewed `elastic-kv` boundary through the
+/// single-dependency facade. Physical storage and codec semantics remain owned
+/// by downstream backends implementing [`kv::KvTransitionBackendV1`]; a
+/// planning or Boolean admission result never authorizes actuation by itself.
+pub mod kv {
+    pub use elastic_core::{
+        CapabilitySet, RepresentationEpoch, RepresentationId, RepresentationState, TargetContract,
+        TransitionAttestations,
+    };
+    pub use elastic_kv::*;
+}
+
 pub use boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
 pub use elastic_adapters::{
     actuate_if_fresh, model_execution_current_profile_rank_signal,

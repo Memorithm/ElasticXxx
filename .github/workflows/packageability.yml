@@ -36,6 +36,7 @@ jobs:
               "elastic-adapters": "crates/elastic-adapters",
               "elastic-macros": "crates/elastic-macros",
               "elastic-runtime": "crates/elastic-runtime",
+              "elastic-kv": "crates/elastic-kv",
           }
           for name, path in expected.items():
               spec = deps.get(name)
@@ -53,6 +54,7 @@ jobs:
             elastic-eir \
             elastic-adapters \
             elastic-runtime \
+            elastic-kv \
             elastic
           do
             cargo package -p "$crate" --allow-dirty --list >/dev/null

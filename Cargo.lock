@@ -120,6 +120,7 @@ dependencies = [
  "elastic-adapters",
  "elastic-core",
  "elastic-eir",
+ "elastic-kv",
  "elastic-macros",
  "elastic-runtime",
  "trybuild",
