@@ -98,6 +98,13 @@ pub use elastic_runtime::{
     MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
 };
 pub use elastic_runtime::{
+    ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
+    BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityEvidenceV1,
+    CapacityAdmissionControllerV1, CapacityAdmissionReportV1, CapacityAdmissionRequestV1,
+    CapacityObservationV1, CapacityStateV1, RAM_CAPACITY_PREDICATE_NAME,
+    RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
+};
+pub use elastic_runtime::{
     Actuation, BooleanGuardPlanner, BooleanGuardPreplanner, BuiltinDimensionConfigV1,
     BuiltinObservationSignalConfigV1, Cadence, CadenceConfig, CancellationToken,
     CandidateDecisionTrace, CapabilityPredicate, CommitRecord, ConcurrencyPermitsObserver,
@@ -149,10 +156,6 @@ pub use elastic_runtime::{
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
     MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
     OPERATOR_CONFIG_VERSION,
-};
-pub use elastic_runtime::{
-    CapacityAdmissionControllerV1, CapacityAdmissionReportV1, CapacityAdmissionRequestV1,
-    CapacityObservationV1, CapacityStateV1,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.

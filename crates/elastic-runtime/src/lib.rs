@@ -56,6 +56,7 @@ pub mod observation;
 pub mod observers;
 pub mod operator_config;
 pub mod plan;
+pub mod ram_boolean_admission;
 pub mod reference_adapters;
 pub mod registry;
 pub mod runtime;
@@ -169,6 +170,11 @@ pub use operator_config::{
     OPERATOR_CONFIG_VERSION,
 };
 pub use plan::{InvariantCheck, Plan, ValidatedPlan};
+pub use ram_boolean_admission::{
+    ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
+    BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityEvidenceV1, RAM_CAPACITY_PREDICATE_NAME,
+    RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
+};
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};
 pub use registry::{RegisteredResource, ResourceRegistry};
 pub use runtime::{CycleResult, LoopStopReason, RunResult, Runtime};
