@@ -26,3 +26,7 @@ harness = false
 [[bench]]
 name = "be14g_batch_device"
 harness = false
+
+[[bench]]
+name = "be14h_thermal_energy"
+harness = false
