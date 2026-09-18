@@ -1,6 +1,6 @@
 # BE14f kernel-realization Boolean admission — first slice
 
-Status: candidate implementation only. It does not close BE14f.
+Status: second candidate slice. It does not close BE14f.
 
 This slice adds a fail-closed Boolean front-end to the existing `elastic-kernel`
 planner. The front-end evaluates the stable predicate
@@ -27,7 +27,18 @@ change the winner. The existing kernel lifecycle remains the only path from a
 selection to validation, activation, post-activation verification and commit or
 rollback.
 
-This first slice intentionally does **not** claim durable decision-trace
-qualification, real backend actuation, latency/throughput improvement, GPU
-execution, energy reduction, model-quality equivalence, or BE14f completion.
-Those require later slices and exact-head evidence.
+The second slice adds `plan_with_boolean_admission_traced` and the strict,
+bounded `BooleanKernelDecisionTraceV1` JSON contract. It binds the logical
+resource, workload fingerprint, capability fingerprint when grounded, policy,
+Boolean candidate classifications, planner outcome, selected realization and
+selection fingerprint. Unknown/duplicate JSON fields, future schemas,
+oversized inputs, invalid truth values, unordered candidate identities and
+inconsistent selected outcomes fail closed. Decoding is explicitly explanatory:
+it has no lifecycle authority and cannot replace current capability discovery or
+the trusted kernel lifecycle.
+
+This slice still does **not** claim real backend actuation,
+latency/throughput improvement, GPU execution, energy reduction, model-quality
+equivalence, or BE14f completion. Trusted transaction/real-consumer
+VALIDATE->ACT->VERIFY->COMMIT/ROLLBACK, an explicit unguarded differential
+baseline, and portable benchmark evidence remain separate slices.
