@@ -1632,6 +1632,18 @@ phases:
           - runtime_integration_never_counts_as_scientific_confirmation
       - id: BE15c
         name: SciRust_promotion_review
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_163
+          - PR163_exact_head_a4e1ea46ae27c0bf2eb5046512b9921ff12645d9
+          - PR163_merge_f0c1d65287810eb0ec693205e65568cef7354b03
+          - PR163_ci_35403792170_completed_success_on_exact_head
+          - PR163_packageability_35403792328_completed_success_on_exact_head
+          - SciRust_source_master_d3ef8a2687163cffcb85d2cc38e10d4ce2d4ea3b
+          - no_promotion_multiple_independent_real_consumers_not_established
+          - SciRust_scirust_modalg_already_owns_exact_ANF_Walsh_boolean_function_mathematics
+          - Elastic_boolean_runtime_APIs_remain_Elastic_owned_and_no_cross_repo_runtime_dependency_was_added
+          - no_performance_novelty_scientific_actuation_release_or_compatibility_claim
         tasks:
           - promote_only_mathematically_general_primitives_with_multiple_real_consumers
           - avoid_dependency_cycle
@@ -1742,20 +1754,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15c_SciRust_promotion_review
+  immediate_next_slice: BE15d_Forge_optional_search_bridge
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: none_BE15b_completed
-  verified_main: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
-  latest_qualified_slice: BE15b_TDI_9_3_non_final_adapter
-  latest_qualified_pr: 162
-  latest_qualified_head: 352a6e9f2011a0f479150a104ee94f5509b43f73
-  latest_merge: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
-  latest_merged_progress_slice: BE15b_TDI_9_3_non_final_adapter
-  latest_merged_progress_pr: 162
-  latest_merged_progress_head: 352a6e9f2011a0f479150a104ee94f5509b43f73
-  latest_merged_progress_merge: b56cb87ae8b5e203293eb09cf5dafc1a921ccee3
+  current_candidate_status: none_BE15c_completed_no_promotion
+  verified_main: f0c1d65287810eb0ec693205e65568cef7354b03
+  latest_qualified_slice: BE15c_SciRust_promotion_review_no_promotion
+  latest_qualified_pr: 163
+  latest_qualified_head: a4e1ea46ae27c0bf2eb5046512b9921ff12645d9
+  latest_merge: f0c1d65287810eb0ec693205e65568cef7354b03
+  latest_merged_progress_slice: BE15c_SciRust_promotion_review_no_promotion
+  latest_merged_progress_pr: 163
+  latest_merged_progress_head: a4e1ea46ae27c0bf2eb5046512b9921ff12645d9
+  latest_merged_progress_merge: f0c1d65287810eb0ec693205e65568cef7354b03
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
