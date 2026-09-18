@@ -28,6 +28,10 @@ pub const BATCH_DEVICE_MAX_AGE: Duration = Duration::from_secs(1);
 pub const MAX_BATCH_DEVICE_CANDIDATES: usize = 64;
 /// Maximum per-placement samples accepted by one snapshot.
 pub const MAX_BATCH_DEVICE_SAMPLES: usize = 128;
+/// Durable BE14g decision-trace schema.
+pub const BOOLEAN_BATCH_DEVICE_DECISION_TRACE_SCHEMA_V1: u16 = 1;
+/// Maximum JSON bytes accepted or emitted by the BE14g trace codec.
+pub const MAX_BOOLEAN_BATCH_DEVICE_TRACE_BYTES: usize = 64 * 1024;
 const MAX_CANDIDATE_ID_BYTES: usize = 32;
 const MAX_PLACEMENT_ID_BYTES: usize = 128;
 const MAX_SOURCE_ID_BYTES: usize = 128;
@@ -163,6 +167,7 @@ impl BatchDeviceCapacitySampleV1 {
 pub struct BatchDeviceCapacitySnapshotV1 {
     source_id: String,
     source_unit: String,
+    source_generation: u64,
     samples: Vec<BatchDeviceCapacitySampleV1>,
 }
 
@@ -171,6 +176,20 @@ impl BatchDeviceCapacitySnapshotV1 {
     pub fn new(
         source_id: impl Into<String>,
         source_unit: impl Into<String>,
+        samples: Vec<BatchDeviceCapacitySampleV1>,
+    ) -> Result<Self, String> {
+        Self::new_with_generation(source_id, source_unit, 0, samples)
+    }
+
+    /// Construct a bounded snapshot with an explicit provider generation.
+    ///
+    /// The generation is an opaque monotonic/provider-owned evidence identity.
+    /// It is persisted only for explanatory context binding; it is never an
+    /// actuation lease, fencing token, or authorization.
+    pub fn new_with_generation(
+        source_id: impl Into<String>,
+        source_unit: impl Into<String>,
+        source_generation: u64,
         samples: Vec<BatchDeviceCapacitySampleV1>,
     ) -> Result<Self, String> {
         let source_id = source_id.into();
@@ -194,8 +213,15 @@ impl BatchDeviceCapacitySnapshotV1 {
         Ok(Self {
             source_id,
             source_unit,
+            source_generation,
             samples,
         })
+    }
+
+    /// Opaque provider generation bound into durable decision traces.
+    #[must_use]
+    pub const fn source_generation(&self) -> u64 {
+        self.source_generation
     }
 }
 
@@ -244,6 +270,121 @@ pub struct BooleanBatchDeviceReportV1 {
     pub candidates: Vec<BooleanBatchDeviceCandidateEvidenceV1>,
 }
 
+/// Bounded durable BE14g decision evidence.
+///
+/// This trace binds the complete declared candidate policy, the provider source
+/// identity/generation and the exact planning result. It is explanatory only:
+/// decoding or context validation cannot reserve a placement, dispatch work, or
+/// authorize any downstream actuation.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct BooleanBatchDeviceDecisionTraceV1 {
+    schema_version: u16,
+    source_id: String,
+    source_unit: String,
+    source_generation: u64,
+    policy_fingerprint: u64,
+    max_age_secs: u64,
+    max_age_nanos: u32,
+    outcome: BooleanBatchDeviceOutcomeV1,
+    candidates: Vec<BooleanBatchDeviceCandidateEvidenceV1>,
+}
+
+impl BooleanBatchDeviceDecisionTraceV1 {
+    #[must_use]
+    pub const fn schema_version(&self) -> u16 {
+        self.schema_version
+    }
+
+    #[must_use]
+    pub fn source_id(&self) -> &str {
+        &self.source_id
+    }
+
+    #[must_use]
+    pub const fn source_generation(&self) -> u64 {
+        self.source_generation
+    }
+
+    #[must_use]
+    pub const fn policy_fingerprint(&self) -> u64 {
+        self.policy_fingerprint
+    }
+
+    #[must_use]
+    pub const fn outcome(&self) -> &BooleanBatchDeviceOutcomeV1 {
+        &self.outcome
+    }
+
+    #[must_use]
+    pub fn candidates(&self) -> &[BooleanBatchDeviceCandidateEvidenceV1] {
+        &self.candidates
+    }
+
+    /// Encode bounded explanatory evidence.
+    pub fn to_bounded_json(&self) -> Result<String, String> {
+        self.validate()?;
+        let json = serde_json::to_string(self).map_err(|error| error.to_string())?;
+        if json.len() > MAX_BOOLEAN_BATCH_DEVICE_TRACE_BYTES {
+            return Err("BE14g decision trace exceeds the persisted byte bound".into());
+        }
+        Ok(json)
+    }
+
+    /// Strictly decode bounded explanatory evidence.
+    pub fn from_bounded_json(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() > MAX_BOOLEAN_BATCH_DEVICE_TRACE_BYTES {
+            return Err("BE14g decision trace input exceeds the persisted byte bound".into());
+        }
+        let trace: Self = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+        trace.validate()?;
+        Ok(trace)
+    }
+
+    /// Recompute one explicit planning context and require byte-semantic equality.
+    ///
+    /// This is a replay-style explanatory check only. It does not establish
+    /// freshness for later actuation and never calls an actuation backend.
+    pub fn validate_explanatory_context(
+        &self,
+        planner: &BooleanBatchDevicePreplannerV1,
+        snapshot: &BatchDeviceCapacitySnapshotV1,
+        now: Instant,
+    ) -> Result<(), String> {
+        let expected = planner.decision_trace(snapshot, now)?;
+        if &expected != self {
+            return Err("BE14g decision trace context mismatch".into());
+        }
+        Ok(())
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.schema_version != BOOLEAN_BATCH_DEVICE_DECISION_TRACE_SCHEMA_V1 {
+            return Err("unsupported BE14g decision trace schema".into());
+        }
+        validate_text("trace source id", &self.source_id, MAX_SOURCE_ID_BYTES)?;
+        validate_text("trace source unit", &self.source_unit, 64)?;
+        if self.max_age_secs != BATCH_DEVICE_MAX_AGE.as_secs()
+            || self.max_age_nanos != BATCH_DEVICE_MAX_AGE.subsec_nanos()
+        {
+            return Err("BE14g decision trace freshness contract mismatch".into());
+        }
+        if self.candidates.is_empty() || self.candidates.len() > MAX_BATCH_DEVICE_CANDIDATES {
+            return Err("BE14g decision trace candidate count is outside bounds".into());
+        }
+        let computed_policy = batch_device_policy_fingerprint(&self.candidates)?;
+        if computed_policy != self.policy_fingerprint {
+            return Err("BE14g decision trace policy fingerprint mismatch".into());
+        }
+        validate_trace_outcome(
+            &self.outcome,
+            &self.candidates,
+            &self.source_id,
+            &self.source_unit,
+        )
+    }
+}
+
 /// Planning-only BE14g Boolean preplanner.
 #[derive(Clone, Debug)]
 pub struct BooleanBatchDevicePreplannerV1 {
@@ -271,6 +412,37 @@ impl BooleanBatchDevicePreplannerV1 {
             }
         }
         Ok(Self { candidates })
+    }
+
+    /// Stable non-cryptographic identity of the exact declared candidate policy.
+    ///
+    /// This fingerprint is only an evidence-association guard. It is not a
+    /// signature, attestation, lease, or authorization token.
+    #[must_use]
+    pub fn policy_fingerprint(&self) -> u64 {
+        policy_fingerprint_from_declared_candidates(&self.candidates)
+    }
+
+    /// Capture a strict, bounded, decision-only trace for one planning pass.
+    pub fn decision_trace(
+        &self,
+        snapshot: &BatchDeviceCapacitySnapshotV1,
+        now: Instant,
+    ) -> Result<BooleanBatchDeviceDecisionTraceV1, String> {
+        let report = self.screen(snapshot, now);
+        let trace = BooleanBatchDeviceDecisionTraceV1 {
+            schema_version: BOOLEAN_BATCH_DEVICE_DECISION_TRACE_SCHEMA_V1,
+            source_id: snapshot.source_id.clone(),
+            source_unit: snapshot.source_unit.clone(),
+            source_generation: snapshot.source_generation,
+            policy_fingerprint: self.policy_fingerprint(),
+            max_age_secs: BATCH_DEVICE_MAX_AGE.as_secs(),
+            max_age_nanos: BATCH_DEVICE_MAX_AGE.subsec_nanos(),
+            outcome: report.outcome,
+            candidates: report.candidates,
+        };
+        trace.validate()?;
+        Ok(trace)
     }
 
     /// Screen capacity first, then rank only complete `True` survivors.
@@ -344,6 +516,166 @@ impl BooleanBatchDevicePreplannerV1 {
             outcome,
             candidates: evidence,
         }
+    }
+}
+
+const FNV1A64_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+const FNV1A64_PRIME: u64 = 0x0000_0100_0000_01b3;
+
+fn fnv1a64_update(mut state: u64, bytes: &[u8]) -> u64 {
+    for byte in bytes {
+        state ^= u64::from(*byte);
+        state = state.wrapping_mul(FNV1A64_PRIME);
+    }
+    state
+}
+
+fn hash_trace_field(mut state: u64, label: &str, value: &str) -> u64 {
+    state = fnv1a64_update(state, label.as_bytes());
+    state = fnv1a64_update(state, b"=");
+    state = fnv1a64_update(state, value.len().to_string().as_bytes());
+    state = fnv1a64_update(state, b":");
+    state = fnv1a64_update(state, value.as_bytes());
+    fnv1a64_update(state, b"\n")
+}
+
+fn policy_fingerprint_from_declared_candidates(candidates: &[BatchDeviceCandidateV1]) -> u64 {
+    let mut state = hash_trace_field(FNV1A64_OFFSET, "schema", "be14g.batch-device-policy.v1");
+    for candidate in candidates {
+        state = hash_trace_field(state, "candidate_id", &candidate.candidate_id);
+        state = hash_trace_field(state, "placement_id", &candidate.placement_id);
+        state = hash_trace_field(state, "batch_size", &candidate.batch_size.to_string());
+        state = hash_trace_field(
+            state,
+            "preference_score",
+            &candidate.preference_score.to_string(),
+        );
+    }
+    state
+}
+
+fn batch_device_policy_fingerprint(
+    candidates: &[BooleanBatchDeviceCandidateEvidenceV1],
+) -> Result<u64, String> {
+    let mut prior: Option<&str> = None;
+    let mut state = hash_trace_field(FNV1A64_OFFSET, "schema", "be14g.batch-device-policy.v1");
+    for candidate in candidates {
+        validate_text(
+            "trace candidate id",
+            &candidate.candidate_id,
+            MAX_CANDIDATE_ID_BYTES,
+        )?;
+        batch_device_capacity_predicate_key(&candidate.candidate_id)?;
+        validate_text(
+            "trace placement id",
+            &candidate.placement_id,
+            MAX_PLACEMENT_ID_BYTES,
+        )?;
+        if candidate.batch_size == 0 {
+            return Err("BE14g decision trace contains zero batch size".into());
+        }
+        if prior.is_some_and(|value| value >= candidate.candidate_id.as_str()) {
+            return Err("BE14g decision trace candidates are not strictly ordered".into());
+        }
+        prior = Some(&candidate.candidate_id);
+        state = hash_trace_field(state, "candidate_id", &candidate.candidate_id);
+        state = hash_trace_field(state, "placement_id", &candidate.placement_id);
+        state = hash_trace_field(state, "batch_size", &candidate.batch_size.to_string());
+        state = hash_trace_field(
+            state,
+            "preference_score",
+            &candidate.preference_score.to_string(),
+        );
+    }
+    Ok(state)
+}
+
+fn validate_trace_outcome(
+    outcome: &BooleanBatchDeviceOutcomeV1,
+    candidates: &[BooleanBatchDeviceCandidateEvidenceV1],
+    source_id: &str,
+    source_unit: &str,
+) -> Result<(), String> {
+    let mut first_unknown = None;
+    let mut best_true: Option<&BooleanBatchDeviceCandidateEvidenceV1> = None;
+    for candidate in candidates {
+        if candidate.source_id != source_id || candidate.source_unit != source_unit {
+            return Err("BE14g decision trace candidate source context mismatch".into());
+        }
+        let expected_key =
+            batch_device_capacity_predicate_key(&candidate.candidate_id)?.to_string();
+        if candidate.predicate_key != expected_key {
+            return Err("BE14g decision trace predicate key mismatch".into());
+        }
+        if candidate.reason.trim().is_empty() || candidate.reason.len() > 128 {
+            return Err("BE14g decision trace reason is outside bounds".into());
+        }
+        match candidate.truth.as_str() {
+            "unknown" => {
+                if candidate.observed_available_batch_items.is_some() {
+                    return Err(
+                        "BE14g Unknown trace candidate cannot carry accepted capacity".into(),
+                    );
+                }
+                first_unknown.get_or_insert(candidate.candidate_id.as_str());
+            }
+            "false" => {
+                let observed = candidate.observed_available_batch_items.ok_or_else(|| {
+                    "BE14g False trace candidate lacks grounded capacity".to_owned()
+                })?;
+                if observed >= u64::from(candidate.batch_size) {
+                    return Err("BE14g False trace candidate satisfies its capacity bound".into());
+                }
+            }
+            "true" => {
+                if candidate.reason != "batch-capacity-satisfied" {
+                    return Err("BE14g True trace candidate reason is inconsistent".into());
+                }
+                let observed = candidate.observed_available_batch_items.ok_or_else(|| {
+                    "BE14g True trace candidate lacks grounded capacity".to_owned()
+                })?;
+                if observed < u64::from(candidate.batch_size) {
+                    return Err("BE14g True trace candidate violates its capacity bound".into());
+                }
+                if best_true.is_none_or(|best| {
+                    (candidate.preference_score, candidate.candidate_id.as_str())
+                        < (best.preference_score, best.candidate_id.as_str())
+                }) {
+                    best_true = Some(candidate);
+                }
+            }
+            _ => return Err("BE14g decision trace contains invalid truth text".into()),
+        }
+    }
+
+    match (first_unknown, best_true, outcome) {
+        (
+            Some(expected),
+            _,
+            BooleanBatchDeviceOutcomeV1::InsufficientEvidence {
+                blocking_candidate_id,
+            },
+        ) if blocking_candidate_id == expected => Ok(()),
+        (Some(_), _, _) => Err("BE14g decision trace does not preserve Unknown blocking".into()),
+        (
+            None,
+            Some(best),
+            BooleanBatchDeviceOutcomeV1::Selected {
+                candidate_id,
+                placement_id,
+                batch_size,
+                preference_score,
+            },
+        ) if candidate_id == &best.candidate_id
+            && placement_id == &best.placement_id
+            && batch_size == &best.batch_size
+            && preference_score == &best.preference_score =>
+        {
+            Ok(())
+        }
+        (None, Some(_), _) => Err("BE14g decision trace selected outcome is inconsistent".into()),
+        (None, None, BooleanBatchDeviceOutcomeV1::NoCandidate) => Ok(()),
+        (None, None, _) => Err("BE14g decision trace no-candidate outcome is inconsistent".into()),
     }
 }
 
@@ -603,6 +935,143 @@ mod tests {
                 BatchDeviceCapacitySampleV1::valid("device-a", 1.0, now).unwrap(),
                 BatchDeviceCapacitySampleV1::valid("device-a", 2.0, now).unwrap(),
             ],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn decision_trace_roundtrips_and_revalidates_exact_explanatory_context() {
+        let planner = BooleanBatchDevicePreplannerV1::new(vec![
+            candidate("candidate-a", "device-a", 8, 1),
+            candidate("candidate-b", "device-b", 2, 10),
+        ])
+        .unwrap();
+        let now = Instant::now();
+        let snapshot = BatchDeviceCapacitySnapshotV1::new_with_generation(
+            "be14g-test-provider",
+            BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
+            17,
+            vec![
+                BatchDeviceCapacitySampleV1::valid("device-a", 4.0, now).unwrap(),
+                BatchDeviceCapacitySampleV1::valid("device-b", 8.0, now).unwrap(),
+            ],
+        )
+        .unwrap();
+        let trace = planner.decision_trace(&snapshot, now).unwrap();
+        let encoded = trace.to_bounded_json().unwrap();
+        let decoded =
+            BooleanBatchDeviceDecisionTraceV1::from_bounded_json(encoded.as_bytes()).unwrap();
+        assert_eq!(decoded, trace);
+        assert_eq!(decoded.source_generation(), 17);
+        decoded
+            .validate_explanatory_context(&planner, &snapshot, now)
+            .unwrap();
+    }
+
+    #[test]
+    fn decision_trace_context_drift_fails_closed_without_actuation() {
+        let planner =
+            BooleanBatchDevicePreplannerV1::new(vec![candidate("candidate-a", "device-a", 2, 1)])
+                .unwrap();
+        let now = Instant::now();
+        let snapshot = BatchDeviceCapacitySnapshotV1::new_with_generation(
+            "be14g-test-provider",
+            BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
+            5,
+            vec![BatchDeviceCapacitySampleV1::valid("device-a", 4.0, now).unwrap()],
+        )
+        .unwrap();
+        let trace = planner.decision_trace(&snapshot, now).unwrap();
+
+        let changed_generation = BatchDeviceCapacitySnapshotV1::new_with_generation(
+            "be14g-test-provider",
+            BATCH_DEVICE_CAPACITY_SOURCE_UNIT,
+            6,
+            vec![BatchDeviceCapacitySampleV1::valid("device-a", 4.0, now).unwrap()],
+        )
+        .unwrap();
+        assert!(trace
+            .validate_explanatory_context(&planner, &changed_generation, now)
+            .is_err());
+
+        let changed_policy =
+            BooleanBatchDevicePreplannerV1::new(vec![candidate("candidate-a", "device-a", 3, 1)])
+                .unwrap();
+        assert!(trace
+            .validate_explanatory_context(&changed_policy, &snapshot, now)
+            .is_err());
+    }
+
+    #[test]
+    fn decision_trace_decoder_rejects_unknown_duplicate_future_and_oversized_input() {
+        let planner =
+            BooleanBatchDevicePreplannerV1::new(vec![candidate("candidate-a", "device-a", 2, 1)])
+                .unwrap();
+        let now = Instant::now();
+        let snapshot = snapshot(
+            now,
+            vec![BatchDeviceCapacitySampleV1::valid("device-a", 4.0, now).unwrap()],
+        );
+        let encoded = planner
+            .decision_trace(&snapshot, now)
+            .unwrap()
+            .to_bounded_json()
+            .unwrap();
+
+        let mut value: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+        value["unknown_field"] = serde_json::json!(true);
+        assert!(BooleanBatchDeviceDecisionTraceV1::from_bounded_json(
+            serde_json::to_string(&value).unwrap().as_bytes()
+        )
+        .is_err());
+
+        let duplicate = encoded.replacen(
+            "{\"schema_version\":1,",
+            "{\"schema_version\":1,\"schema_version\":1,",
+            1,
+        );
+        assert!(
+            BooleanBatchDeviceDecisionTraceV1::from_bounded_json(duplicate.as_bytes()).is_err()
+        );
+
+        let mut future: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+        future["schema_version"] = serde_json::json!(2);
+        assert!(BooleanBatchDeviceDecisionTraceV1::from_bounded_json(
+            serde_json::to_string(&future).unwrap().as_bytes()
+        )
+        .is_err());
+
+        let oversized = vec![b' '; MAX_BOOLEAN_BATCH_DEVICE_TRACE_BYTES + 1];
+        assert!(BooleanBatchDeviceDecisionTraceV1::from_bounded_json(&oversized).is_err());
+    }
+
+    #[test]
+    fn decision_trace_decoder_rejects_policy_and_reason_tampering() {
+        let planner =
+            BooleanBatchDevicePreplannerV1::new(vec![candidate("candidate-a", "device-a", 2, 1)])
+                .unwrap();
+        let now = Instant::now();
+        let snapshot = snapshot(
+            now,
+            vec![BatchDeviceCapacitySampleV1::valid("device-a", 4.0, now).unwrap()],
+        );
+        let encoded = planner
+            .decision_trace(&snapshot, now)
+            .unwrap()
+            .to_bounded_json()
+            .unwrap();
+
+        let mut policy: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+        policy["candidates"][0]["batch_size"] = serde_json::json!(3);
+        assert!(BooleanBatchDeviceDecisionTraceV1::from_bounded_json(
+            serde_json::to_string(&policy).unwrap().as_bytes()
+        )
+        .is_err());
+
+        let mut reason: serde_json::Value = serde_json::from_str(&encoded).unwrap();
+        reason["candidates"][0]["reason"] = serde_json::json!("placement-capacity-missing");
+        assert!(BooleanBatchDeviceDecisionTraceV1::from_bounded_json(
+            serde_json::to_string(&reason).unwrap().as_bytes()
         )
         .is_err());
     }

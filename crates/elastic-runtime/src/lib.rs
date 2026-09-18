@@ -73,9 +73,10 @@ pub use attempt::{CycleAttempt, CycleFailure};
 pub use batch_device_boolean_admission::{
     batch_device_capacity_predicate_key, BatchDeviceCandidateV1, BatchDeviceCapacitySampleV1,
     BatchDeviceCapacitySnapshotV1, BooleanBatchDeviceCandidateEvidenceV1,
-    BooleanBatchDeviceOutcomeV1, BooleanBatchDevicePreplannerV1, BooleanBatchDeviceReportV1,
-    BATCH_DEVICE_CAPACITY_SOURCE_UNIT, BATCH_DEVICE_MAX_AGE, BATCH_DEVICE_PREDICATE_NAMESPACE,
-    MAX_BATCH_DEVICE_CANDIDATES, MAX_BATCH_DEVICE_SAMPLES,
+    BooleanBatchDeviceDecisionTraceV1, BooleanBatchDeviceOutcomeV1, BooleanBatchDevicePreplannerV1,
+    BooleanBatchDeviceReportV1, BATCH_DEVICE_CAPACITY_SOURCE_UNIT, BATCH_DEVICE_MAX_AGE,
+    BATCH_DEVICE_PREDICATE_NAMESPACE, BOOLEAN_BATCH_DEVICE_DECISION_TRACE_SCHEMA_V1,
+    MAX_BATCH_DEVICE_CANDIDATES, MAX_BATCH_DEVICE_SAMPLES, MAX_BOOLEAN_BATCH_DEVICE_TRACE_BYTES,
 };
 pub use cancellation::CancellationToken;
 pub use capacity_admission::{
