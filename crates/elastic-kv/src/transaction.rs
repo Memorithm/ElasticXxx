@@ -13,7 +13,7 @@
 //! around backend-owned semantic verification and rollback.
 
 use elastic_core::resource::{DimensionId, LogicalResourceId};
-use elastic_eir::PlanOutcome;
+use elastic_eir::{EirResource, Fingerprint, PlanOutcome};
 use elastic_runtime::{
     Actuation, CommitRecord, InvariantCheck, Plan, RollbackRecord, RuntimeError,
     TransactionalActuator, ValidatedPlan, VerificationResult,
@@ -54,8 +54,13 @@ pub trait KvTransitionBackendV1 {
         transition: &KvTransitionPlan,
     ) -> Result<(), String>;
 
-    /// Apply the physical transition prepared above.
-    fn apply_transition(
+    /// Atomically re-check the authoritative source state and action-time
+    /// physical feasibility, then apply the prepared transition.
+    ///
+    /// The source comparison and mutation must share the backend's concurrency
+    /// boundary. A stale `source` must fail without overwriting a concurrent KV
+    /// mutation. This method is the last trusted check before physical effect.
+    fn apply_transition_if_source(
         &mut self,
         source: &KvPageDescriptor,
         target: &KvPageDescriptor,
@@ -100,6 +105,7 @@ pub fn kv_transition_target_descriptor(
 pub struct TransactionalKvPageV1<B> {
     backend: B,
     resource: LogicalResourceId,
+    resource_fingerprint: Fingerprint,
     source: KvPageDescriptor,
     target: KvPageDescriptor,
     transition: KvTransitionPlan,
@@ -111,9 +117,11 @@ impl<B: KvTransitionBackendV1> TransactionalKvPageV1<B> {
     /// Bind a backend to an exact representation-only transition.
     pub fn new(
         backend: B,
-        resource: LogicalResourceId,
+        resource: &EirResource,
         source: KvPageDescriptor,
         transition: KvTransitionPlan,
+        capabilities: &elastic_core::CapabilitySet,
+        attestations: elastic_core::TransitionAttestations,
     ) -> Result<Self, RuntimeError> {
         source
             .validate_descriptor()
@@ -123,21 +131,46 @@ impl<B: KvTransitionBackendV1> TransactionalKvPageV1<B> {
                 "KV transaction source descriptor does not match transition source representation",
             ));
         }
-        let target = kv_transition_target_descriptor(&source, &transition);
+
+        // `KvTransitionPlan` is a public explanatory value, not an unforgeable
+        // authorization token. Re-run the authoritative structural validator at
+        // this trust boundary from the exact supplied target contract and
+        // provenance-carrying capabilities/attestations before binding it.
+        let authoritative = source
+            .validate_reusable_representation_change(
+                transition.representation.to.clone(),
+                transition.representation.mechanism,
+                capabilities,
+                attestations,
+                crate::KvTargetMaterialization::new(
+                    transition.target_key_transform_scope,
+                    transition.target_key_encoding_pipeline,
+                    transition.target_recovery_source,
+                ),
+            )
+            .map_err(|error| RuntimeError::configuration(error.to_string()))?;
+        if authoritative != transition {
+            return Err(RuntimeError::configuration(
+                "KV transaction plan does not match authoritative structural validation",
+            ));
+        }
+
+        let target = kv_transition_target_descriptor(&source, &authoritative);
         target
             .validate_descriptor()
             .map_err(|error| RuntimeError::configuration(error.to_string()))?;
-        if target.cache_compatibility() != transition.compatibility {
+        if target.cache_compatibility() != authoritative.compatibility {
             return Err(RuntimeError::configuration(
                 "KV transaction target descriptor disagrees with transition compatibility",
             ));
         }
         Ok(Self {
             backend,
-            resource,
+            resource: resource.identity().clone(),
+            resource_fingerprint: resource.fingerprint(),
             source,
             target,
-            transition,
+            transition: authoritative,
             prepared: false,
             actuated: false,
         })
@@ -165,6 +198,11 @@ impl<B: KvTransitionBackendV1> TransactionalKvPageV1<B> {
         if plan.resource.identity() != &self.resource {
             return Err(RuntimeError::validation(
                 "KV runtime plan targets a different logical resource",
+            ));
+        }
+        if plan.resource.fingerprint() != self.resource_fingerprint {
+            return Err(RuntimeError::validation(
+                "KV runtime plan resource fingerprint differs from the bound EIR contract",
             ));
         }
         let candidate = plan.candidate().ok_or_else(|| {
@@ -239,8 +277,12 @@ impl<B: KvTransitionBackendV1> TransactionalActuator for TransactionalKvPageV1<B
                 "KV transaction actuation is not bound to the prepared validated adapter state",
             ));
         }
+        // Re-read immediately before the physical boundary for a cheap
+        // fail-closed guard, then require the backend itself to compare source
+        // + feasibility atomically with the mutation.
+        self.require_source_state("pre-actuation")?;
         self.backend
-            .apply_transition(&self.source, &self.target, &self.transition)
+            .apply_transition_if_source(&self.source, &self.target, &self.transition)
             .map_err(RuntimeError::actuation)?;
         self.actuated = true;
         Ok(())
@@ -348,6 +390,7 @@ mod tests {
     struct TestBackend {
         page: KvPageDescriptor,
         fail_verify: bool,
+        drift_at_apply: bool,
         prepare_count: usize,
         apply_count: usize,
         restore_count: usize,
@@ -358,6 +401,7 @@ mod tests {
             Self {
                 page,
                 fail_verify: false,
+                drift_at_apply: false,
                 prepare_count: 0,
                 apply_count: 0,
                 restore_count: 0,
@@ -409,12 +453,18 @@ mod tests {
             Ok(())
         }
 
-        fn apply_transition(
+        fn apply_transition_if_source(
             &mut self,
-            _source: &KvPageDescriptor,
+            source: &KvPageDescriptor,
             target: &KvPageDescriptor,
             _transition: &KvTransitionPlan,
         ) -> Result<(), String> {
+            if self.drift_at_apply {
+                self.page.representation = state("kv.concurrent-drift", 99);
+            }
+            if &self.page != source {
+                return Err("atomic source comparison rejected stale KV page".into());
+            }
             self.apply_count += 1;
             self.page = target.clone();
             Ok(())
@@ -558,8 +608,15 @@ mod tests {
             }
         };
         let backend = TestBackend::new(source.clone());
-        let mut actuator =
-            TransactionalKvPageV1::new(backend, resource_id, source, transition).unwrap();
+        let mut actuator = TransactionalKvPageV1::new(
+            backend,
+            &eir,
+            source,
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .unwrap();
         let expected = actuator.target().clone();
 
         let result = runtime(spec, eir.clone())
@@ -575,13 +632,129 @@ mod tests {
     }
 
     #[test]
+    fn forged_public_transition_is_revalidated_before_backend_binding() {
+        let (_spec, eir, source, mut transition) = fixture();
+        transition.representation.mechanism = TransitionMechanism::Reinterpret;
+        let mut capabilities = CapabilitySet::new();
+        capabilities.insert(
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+        );
+        let error = TransactionalKvPageV1::new(
+            TestBackend::new(source.clone()),
+            &eir,
+            source,
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .err()
+        .expect("forged public transition must be rejected");
+        assert!(error.to_string().contains("configuration error"));
+    }
+
+    #[test]
+    fn same_resource_id_with_different_eir_fingerprint_is_rejected() {
+        let (_spec, bound_eir, source, transition) = fixture();
+        let mut capabilities = CapabilitySet::new();
+        capabilities.insert(
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+        );
+        let mut actuator = TransactionalKvPageV1::new(
+            TestBackend::new(source),
+            &bound_eir,
+            source_page(),
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .unwrap();
+
+        let foreign_spec = ResourceSpec::builder(
+            ResourceClassId::REPRESENTATIONAL,
+            bound_eir.identity().clone(),
+        )
+        .allow(DimensionId::REPRESENTATION)
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reencode,
+            DimensionId::REPRESENTATION,
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reencode,
+            DimensionId::REPRESENTATION,
+        ))
+        .observe(ObservationSignalId::FREE_CAPACITY)
+        .build()
+        .unwrap();
+        let foreign_eir = lower(&foreign_spec).unwrap().resources()[0].clone();
+        assert_ne!(foreign_eir.fingerprint(), bound_eir.fingerprint());
+
+        let error = runtime(foreign_spec, foreign_eir.clone())
+            .cycle(&foreign_eir, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("foreign EIR with reused logical id must fail closed");
+        assert!(error.to_string().contains("fingerprint differs"));
+        assert_eq!(actuator.backend().prepare_count, 0);
+        assert_eq!(actuator.backend().apply_count, 0);
+    }
+
+    #[test]
+    fn atomic_backend_source_check_rolls_back_concurrent_drift() {
+        let (spec, eir, source, transition) = fixture();
+        let mut capabilities = CapabilitySet::new();
+        capabilities.insert(
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+        );
+        let mut backend = TestBackend::new(source.clone());
+        backend.drift_at_apply = true;
+        let mut actuator = TransactionalKvPageV1::new(
+            backend,
+            &eir,
+            source.clone(),
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .unwrap();
+
+        let result = runtime(spec, eir.clone())
+            .cycle(&eir, &FirstGroundedPlanner, &(), &mut actuator)
+            .unwrap();
+
+        assert!(result.commit.is_none());
+        assert!(matches!(
+            result.verification,
+            Some(VerificationResult::Inconclusive { .. })
+        ));
+        assert!(result
+            .rollback
+            .as_ref()
+            .is_some_and(|record| record.invariants_restored));
+        assert_eq!(actuator.backend().page, source);
+        assert_eq!(actuator.backend().apply_count, 0);
+        assert_eq!(actuator.backend().restore_count, 1);
+    }
+
+    #[test]
     fn failed_backend_semantic_verification_rolls_back_exact_source() {
         let (spec, eir, source, transition) = fixture();
-        let resource_id = spec.resource_id().clone();
+        let mut capabilities = CapabilitySet::new();
+        capabilities.insert(
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+        );
         let mut backend = TestBackend::new(source.clone());
         backend.fail_verify = true;
-        let mut actuator =
-            TransactionalKvPageV1::new(backend, resource_id, source.clone(), transition).unwrap();
+        let mut actuator = TransactionalKvPageV1::new(
+            backend,
+            &eir,
+            source.clone(),
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .unwrap();
 
         let result = runtime(spec, eir.clone())
             .cycle(&eir, &FirstGroundedPlanner, &(), &mut actuator)
@@ -600,12 +773,23 @@ mod tests {
     #[test]
     fn action_time_source_drift_fails_before_prepare_or_actuation() {
         let (spec, eir, source, transition) = fixture();
-        let resource_id = spec.resource_id().clone();
+        let mut capabilities = CapabilitySet::new();
+        capabilities.insert(
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+        );
         let mut drifted = source.clone();
         drifted.representation = state("kv.external-drift", 2);
         let backend = TestBackend::new(drifted);
-        let mut actuator =
-            TransactionalKvPageV1::new(backend, resource_id, source, transition).unwrap();
+        let mut actuator = TransactionalKvPageV1::new(
+            backend,
+            &eir,
+            source,
+            transition,
+            &capabilities,
+            TransitionAttestations::none().attest_reencoder_available(),
+        )
+        .unwrap();
 
         let error = runtime(spec, eir.clone())
             .cycle(&eir, &FirstGroundedPlanner, &(), &mut actuator)
