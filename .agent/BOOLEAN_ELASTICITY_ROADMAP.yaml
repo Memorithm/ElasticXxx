@@ -1206,6 +1206,15 @@ phases:
           - True_only_delegates_to_existing_KvPageDescriptor_structural_validator
           - DecisionTrace_evidence_retained_without_actuation_or_performance_claim
           - BE14d_not_closed_first_slice_has_no_physical_KV_actuation_VERIFY_or_rollback
+          - ElasticXxx_PR_138_source_bound_provider_slice
+          - PR138_exact_head_8d8a47d8687c4a23c0b19405e3a9a5d2b5150e30
+          - PR138_ci_35345080701_completed_success_on_exact_head
+          - PR138_packageability_35345080688_completed_success_on_exact_head
+          - PR138_continuous_hardening_35345080691_completed_success_on_exact_head
+          - PR138_merged_to_main_as_107123123fd4e3430e1ee7ed2f74fdd91268f3a2
+          - source_bound_KvCapacityObservationV1_pairs_numeric_context_with_exact_resource_provenance
+          - inexact_capacity_transport_and_explicit_unavailable_telemetry_fail_closed_to_Unknown
+          - BE14d_still_not_closed_no_physical_KV_actuation_VERIFY_or_rollback_qualified
       - id: BE14e
         domain: representation_precision
       - id: BE14f
@@ -1353,15 +1362,15 @@ current_execution:
   current_candidate_pr: null
   current_candidate_head: null
   current_candidate_status: no_candidate_open_after_BE14d_first_slice_merge
-  verified_main: 73eef8463c3c05de91e5450cca7e9579379a2e03
+  verified_main: 107123123fd4e3430e1ee7ed2f74fdd91268f3a2
   latest_qualified_slice: BE14c_model_execution_profiles
   latest_qualified_pr: 135
   latest_qualified_head: 83669fd0b1570dd2cd0160fa1be01d6164d41d4b
   latest_merge: f5af4f3129100f4bb52d47d1adfc202347d0b098
-  latest_merged_progress_slice: BE14d_KV_capacity_preflight
-  latest_merged_progress_pr: 136
-  latest_merged_progress_head: ef03172858c30c36708c10a9dec0d4c92e198fe5
-  latest_merged_progress_merge: 73eef8463c3c05de91e5450cca7e9579379a2e03
+  latest_merged_progress_slice: BE14d_KV_source_bound_provider
+  latest_merged_progress_pr: 138
+  latest_merged_progress_head: 8d8a47d8687c4a23c0b19405e3a9a5d2b5150e30
+  latest_merged_progress_merge: 107123123fd4e3430e1ee7ed2f74fdd91268f3a2
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
