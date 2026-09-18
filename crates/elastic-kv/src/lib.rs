@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 pub mod benchmark;
+pub mod boolean_admission;
 pub mod stage_b;
 
 pub use benchmark::{
