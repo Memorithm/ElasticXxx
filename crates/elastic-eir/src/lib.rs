@@ -102,8 +102,9 @@ mod resource;
 mod validate;
 
 pub use constraint::{
-    lower_constrained, EirConstrainedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
-    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
+    lower_constrained, ConstraintLoweringError, EirConstrainedResource, EirPseudoBooleanConstraint,
+    EirPseudoBooleanTerm, EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
+    MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
 pub use document::{lower, EirDocument, EirDocumentBuilder};
 pub use error::ValidationError;

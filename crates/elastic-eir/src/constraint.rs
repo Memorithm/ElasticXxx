@@ -11,9 +11,45 @@ use elastic_core::{
     GuardedResourceSpec, PredicateKey, PseudoBooleanConstraintDeclaration, PseudoBooleanRelation,
     PseudoBooleanScale, BOOLEAN_PREDICATE_SCHEMA_V1,
 };
+use std::fmt;
 
 /// Schema version of the pseudo-Boolean constraint EIR envelope.
 pub const EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION: u16 = 1;
+
+/// Maximum number of constraints accepted in one bounded EIR constraint envelope.
+pub const MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS: usize = 64;
+
+/// Fail-closed errors while lowering pseudo-Boolean constraint EIR.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConstraintLoweringError {
+    /// The guarded base resource failed ordinary EIR validation.
+    Base(ValidationError),
+    /// The caller supplied more constraints than the bounded envelope permits.
+    TooManyConstraints { constraints: usize, maximum: usize },
+}
+
+impl fmt::Display for ConstraintLoweringError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Base(error) => error.fmt(f),
+            Self::TooManyConstraints {
+                constraints,
+                maximum,
+            } => write!(
+                f,
+                "pseudo-Boolean EIR constraint count {constraints} exceeds maximum {maximum}"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ConstraintLoweringError {}
+
+impl From<ValidationError> for ConstraintLoweringError {
+    fn from(value: ValidationError) -> Self {
+        Self::Base(value)
+    }
+}
 
 /// One durable weighted term in EIR canonical stable-key order.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -177,12 +213,18 @@ impl EirConstrainedResource {
 ///
 /// # Errors
 ///
-/// Returns the ordinary guarded-resource [`ValidationError`] if the base resource
-/// cannot be lowered.
+/// Rejects an oversized constraint envelope before cloning declarations, then wraps
+/// ordinary guarded-resource [`ValidationError`] failures from base lowering.
 pub fn lower_constrained(
     spec: &GuardedResourceSpec,
     declarations: &[PseudoBooleanConstraintDeclaration],
-) -> Result<EirConstrainedResource, ValidationError> {
+) -> Result<EirConstrainedResource, ConstraintLoweringError> {
+    if declarations.len() > MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS {
+        return Err(ConstraintLoweringError::TooManyConstraints {
+            constraints: declarations.len(),
+            maximum: MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+        });
+    }
     let guarded = lower_guarded(spec)?;
     let constraints = declarations
         .iter()
@@ -313,6 +355,19 @@ mod tests {
                 changed.constraints()[0].fingerprint()
             );
         }
+    }
+
+    #[test]
+    fn oversized_constraint_envelope_fails_closed() {
+        let spec = guarded_resource();
+        let declarations = vec![budget(1, 1); MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS + 1];
+        assert!(matches!(
+            lower_constrained(&spec, &declarations),
+            Err(ConstraintLoweringError::TooManyConstraints {
+                constraints,
+                maximum: MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+            }) if constraints == MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS + 1
+        ));
     }
 
     #[test]

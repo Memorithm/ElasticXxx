@@ -78,12 +78,12 @@ pub use elastic_core::{
 pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
     evaluate_transition_guards, lower, lower_constrained, lower_guarded,
-    prune_transition_candidates, EirConstrainedResource, EirDocument, EirDocumentBuilder, EirGuard,
-    EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
-    EirResource, Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome,
-    PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
+    prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource, EirDocument,
+    EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint,
+    EirPseudoBooleanTerm, EirResource, Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome,
+    PlanOutcome, PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
     TransitionPruningReport, UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
-    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
+    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
@@ -214,9 +214,10 @@ pub mod prelude {
     };
     pub use elastic_eir::{
         evaluate_transition_guards, lower, lower_constrained, lower_guarded,
-        prune_transition_candidates, EirConstrainedResource, EirDocument, EirGuardedResource,
-        EirPseudoBooleanConstraint, EirPseudoBooleanTerm, EirResource, Fingerprint,
-        FirstGroundedPlanner, PlanningContext, TransitionPlanner, TransitionPruningReport,
+        prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource, EirDocument,
+        EirGuardedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm, EirResource,
+        Fingerprint, FirstGroundedPlanner, PlanningContext, TransitionPlanner,
+        TransitionPruningReport, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
     };
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{
