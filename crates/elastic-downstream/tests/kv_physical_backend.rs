@@ -17,8 +17,12 @@ use elastic::kv::{
     TransactionalKvPageV1, TransitionAttestations,
 };
 use elastic::prelude::*;
+use elastic::resource::RepresentationalDeclaration;
 use elastic::{
-    Actuation, CommitRecord, InvariantCheck, Plan, RollbackRecord, ValidatedPlan,
+    representation_precision_floor_signal, Actuation, BooleanRepresentationPrecisionPreplannerV1,
+    BooleanRepresentationPrecisionReportV2, CommitRecord, InvariantCheck, Observation,
+    ObservationEpoch, ObservationSnapshot, ObservationSource, Plan,
+    RepresentationPrecisionCandidateV1, ResourceGeneration, RollbackRecord, ValidatedPlan,
     VerificationResult,
 };
 use std::time::{Duration, Instant};
@@ -246,6 +250,7 @@ fn fixture() -> (
             DimensionId::REPRESENTATION,
         ))
         .observe(ObservationSignalId::FREE_CAPACITY)
+        .observe(representation_precision_floor_signal())
         .build()
         .unwrap();
     let eir = lower(&spec).unwrap().resources()[0].clone();
@@ -268,6 +273,86 @@ fn fixture() -> (
         )
         .unwrap();
     (spec, eir, source, transition, capabilities, attestations)
+}
+
+fn admit_with_boolean_representation_precision(
+    spec: &ResourceSpec,
+    source: &KvPageDescriptor,
+    transition: &KvTransitionPlan,
+    capabilities: &CapabilitySet,
+    attestations: TransitionAttestations,
+) -> BooleanRepresentationPrecisionReportV2 {
+    let declaration = RepresentationalDeclaration::new(
+        spec.clone(),
+        [
+            (
+                source.representation.id.clone(),
+                source.representation.schema_version,
+            ),
+            (
+                transition.representation.to.id.clone(),
+                transition.representation.to.schema_version,
+            ),
+        ],
+    )
+    .unwrap();
+    let preplanner = BooleanRepresentationPrecisionPreplannerV1::new(
+        declaration,
+        vec![RepresentationPrecisionCandidateV1::new(
+            "downstream-host-u16-be-fixed-width",
+            0,
+            transition.representation.to.id.clone(),
+            transition.representation.to.schema_version,
+            transition.representation.mechanism,
+            16,
+        )
+        .unwrap()],
+    )
+    .unwrap();
+    let now = Instant::now();
+    let signal = representation_precision_floor_signal();
+    let context = PlanningContext::new().observe(signal.clone(), 16.0);
+    let observations = ObservationSnapshot::new(
+        now,
+        vec![Observation::from_source(
+            ObservationSource::runtime("downstream-be14e-host-u16"),
+            signal,
+            16.0,
+            now,
+        )],
+    );
+    let report = preplanner
+        .screen_with_trace(
+            &source.representation,
+            capabilities,
+            &context,
+            &observations,
+            now,
+            ObservationEpoch::new(73),
+            ResourceGeneration::new(5),
+        )
+        .unwrap();
+    let trace = DecisionTrace::from_bounded_json(
+        report.candidate_traces[0]
+            .decision_trace_json
+            .as_deref()
+            .expect("BE14e evaluated candidate must retain a durable trace")
+            .as_bytes(),
+    )
+    .unwrap();
+    assert!(trace.selected().is_some());
+    assert_eq!(trace.observation_epoch(), ObservationEpoch::new(73));
+    assert_eq!(trace.resource_generation(), ResourceGeneration::new(5));
+
+    let selected = preplanner
+        .selected_transition(&source.representation, &report.planning)
+        .unwrap()
+        .expect("BE14e fixed-width policy must select the declared host representation");
+    assert_eq!(selected, transition.representation);
+    selected
+        .validate(capabilities, attestations)
+        .expect("trusted representation validation remains authoritative after Boolean admission");
+    report
 }
 
 fn runtime(spec: ResourceSpec, eir: EirResource) -> Runtime {
@@ -332,6 +417,14 @@ fn facade_only_consumer_physically_reencodes_and_commits_semantically_equal_kv_b
     let (spec, eir, source, transition, capabilities, attestations) = fixture();
     let (guard_report, transition) =
         admit_with_boolean_capacity(&spec, &source, &transition, &capabilities, attestations);
+    let precision_report = admit_with_boolean_representation_precision(
+        &spec,
+        &source,
+        &transition,
+        &capabilities,
+        attestations,
+    );
+    assert_eq!(precision_report.schema_version, 2);
     let trace =
         DecisionTrace::from_bounded_json(guard_report.evidence.decision_trace_json.as_bytes())
             .expect("BE14d durable guard trace must decode through the public facade");
@@ -404,6 +497,14 @@ fn facade_only_consumer_physically_reencodes_and_commits_semantically_equal_kv_b
 #[test]
 fn facade_only_consumer_rolls_back_exact_source_bytes_after_semantic_failure() {
     let (spec, eir, source, transition, capabilities, attestations) = fixture();
+    let precision_report = admit_with_boolean_representation_precision(
+        &spec,
+        &source,
+        &transition,
+        &capabilities,
+        attestations,
+    );
+    assert_eq!(precision_report.schema_version, 2);
     let source_bytes = encode(&VALUES, ByteOrder::Little);
     let mut backend = HostKvPageBackend::new(source.clone());
     backend.fail_semantic_verification = true;
