@@ -30,6 +30,7 @@ pub mod cancellation;
 pub mod capacity_admission;
 pub mod clock;
 pub mod commit;
+pub mod concurrency_boolean_admission;
 pub mod config;
 pub mod configured_controller;
 pub mod configured_forecaster;
@@ -72,6 +73,12 @@ pub use capacity_admission::{
 };
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
+pub use concurrency_boolean_admission::{
+    concurrency_headroom_predicate_key, BooleanConcurrencyEvidenceV1,
+    BooleanConcurrencyResizeControllerV1, BooleanConcurrencyResizeReportV1,
+    ConcurrencyResizeReportV1, CONCURRENCY_HEADROOM_MAX_AGE, CONCURRENCY_HEADROOM_PREDICATE_NAME,
+    CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
+};
 pub use config::{Cadence, PlannerConfig, RuntimeConfig, RuntimeMode};
 pub use configured_controller::{
     ConfiguredController, ConfiguredPlanner, ConfiguredPlanningView, ConfiguredResource,

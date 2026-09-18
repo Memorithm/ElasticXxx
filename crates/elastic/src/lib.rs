@@ -98,6 +98,12 @@ pub use elastic_runtime::{
     MAX_EVIDENCE_NODES, MAX_EVIDENCE_RESOURCE_ID_BYTES, MAX_EVIDENCE_STRING_BYTES,
 };
 pub use elastic_runtime::{
+    concurrency_headroom_predicate_key, BooleanConcurrencyEvidenceV1,
+    BooleanConcurrencyResizeControllerV1, BooleanConcurrencyResizeReportV1,
+    ConcurrencyResizeReportV1, CONCURRENCY_HEADROOM_MAX_AGE, CONCURRENCY_HEADROOM_PREDICATE_NAME,
+    CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
+};
+pub use elastic_runtime::{
     ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
     BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityAdmissionReportV2,
     BooleanRamCapacityEvidenceV1, BooleanRamCapacityEvidenceV2, CapacityAdmissionControllerV1,
