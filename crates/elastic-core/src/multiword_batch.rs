@@ -7,7 +7,10 @@
 
 use std::fmt;
 
-use crate::{BoolExpr, MultiwordCompiledGuard, MultiwordFactSet, MultiwordGuardError, TruthValue};
+use crate::{
+    BoolExpr, MultiwordCompiledGuard, MultiwordFactError, MultiwordFactSet, MultiwordGuardError,
+    TruthValue, MAX_MULTIWORD_FACT_PREDICATES,
+};
 
 /// Hard bound on candidate guards held by one precomputed batch.
 pub const MAX_MULTIWORD_GUARDS_PER_BATCH: usize = 1024;
@@ -62,6 +65,14 @@ impl MultiwordGuardBatch {
                 actual: expressions.len(),
             });
         }
+        if predicate_capacity > MAX_MULTIWORD_FACT_PREDICATES {
+            return Err(MultiwordBatchError::Guard(MultiwordGuardError::Facts(
+                MultiwordFactError::CapacityTooLarge {
+                    max: MAX_MULTIWORD_FACT_PREDICATES,
+                    actual: predicate_capacity,
+                },
+            )));
+        }
         let mut guards = Vec::with_capacity(expressions.len());
         for expression in expressions {
             guards.push(MultiwordCompiledGuard::compile(
@@ -80,6 +91,14 @@ impl MultiwordGuardBatch {
         &self,
         facts: &MultiwordFactSet,
     ) -> Result<MultiwordBatchScreen, MultiwordBatchError> {
+        if facts.predicate_capacity() < self.predicate_capacity {
+            return Err(MultiwordBatchError::Guard(
+                MultiwordGuardError::FactCapacityTooSmall {
+                    required: self.predicate_capacity,
+                    actual: facts.predicate_capacity(),
+                },
+            ));
+        }
         let mut outcomes = Vec::with_capacity(self.guards.len());
         for guard in &self.guards {
             outcomes.push(guard.evaluate(facts)?);
@@ -251,6 +270,34 @@ mod tests {
     #[test]
     fn too_small_fact_domain_fails_without_partial_screen() {
         let batch = MultiwordGuardBatch::compile(&[BoolExpr::atom(C)], 130).unwrap();
+        let too_small = MultiwordFactSet::new(129).unwrap();
+        assert_eq!(
+            batch.evaluate(&too_small),
+            Err(MultiwordBatchError::Guard(
+                MultiwordGuardError::FactCapacityTooSmall {
+                    required: 130,
+                    actual: 129,
+                }
+            ))
+        );
+    }
+
+    #[test]
+    fn empty_batch_still_rejects_unrepresentable_domain() {
+        assert_eq!(
+            MultiwordGuardBatch::compile(&[], MAX_MULTIWORD_FACT_PREDICATES + 1),
+            Err(MultiwordBatchError::Guard(MultiwordGuardError::Facts(
+                MultiwordFactError::CapacityTooLarge {
+                    max: MAX_MULTIWORD_FACT_PREDICATES,
+                    actual: MAX_MULTIWORD_FACT_PREDICATES + 1,
+                }
+            )))
+        );
+    }
+
+    #[test]
+    fn empty_batch_still_requires_declared_fact_domain() {
+        let batch = MultiwordGuardBatch::compile(&[], 130).unwrap();
         let too_small = MultiwordFactSet::new(129).unwrap();
         assert_eq!(
             batch.evaluate(&too_small),
