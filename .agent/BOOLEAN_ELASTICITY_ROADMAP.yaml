@@ -1124,7 +1124,7 @@ phases:
 
   - id: BE14
     name: end_to_end_domain_integration
-    status: active
+    status: completed
     target_domains:
       - RAM_capacity
       - concurrency
@@ -1407,7 +1407,7 @@ phases:
             remaining: []
       - id: BE14g
         domain: batching_and_device_placement
-        status: active
+        status: completed
         completed_slices:
           - id: BE14g_fail_closed_batch_placement_preplanning
             status: complete_planning_only
@@ -1427,8 +1427,7 @@ phases:
               - public_elastic_facade_exposes_the_planning_contract_and_downstream_tests
               - selection_is_explanatory_only_and_cannot_reserve_dispatch_lease_or_actuate_a_device_or_worker
               - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
-            remaining:
-              - portable_benchmark_before_any_performance_claim
+            remaining: []
         planned_slices:
           - id: BE14g_durable_trace_binding
             status: completed
@@ -1466,9 +1465,31 @@ phases:
               - only_explicit_test_provider_exercised_no_production_device_placement_claim
             remaining: []
           - id: BE14g_portable_benchmark
-            status: planned
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_155
+              - PR155_exact_head_01fdb3690144eabc1aa3d8fa1b09a24b05f2fb74
+              - PR155_ci_35386126205_completed_success_on_exact_head
+              - PR155_continuous_hardening_35386125979_completed_success_on_exact_head
+              - PR155_packageability_35386126380_completed_success_on_exact_head
+              - PR155_BE14e_representation_benchmark_smoke_35386126646_completed_success_on_exact_head
+              - PR155_BE14g_batch_device_benchmark_smoke_35386126314_completed_success_on_exact_head
+              - PR155_merged_as_b30023d6d527248655a1f51e7b55e200ca4b1aa9
+              - benchmark_requires_direct_equality_of_the_full_CommittedBatchDeviceSelectionV1_before_timing
+              - guarded_path_measures_boolean_screening_ranking_trace_capture_and_fresh_context_rebind_plus_the_same_test_provider_transaction
+              - unguarded_reference_receives_the_exact_already_declared_candidate_and_is_not_an_alternative_ranking_algorithm
+              - raw_timing_is_a_synthetic_host_side_regression_surface_only_and_authorizes_no_speed_or_production_placement_claim
+            remaining: []
       - id: BE14h
         domain: thermal_and_energy_when_real_observers_exist
+        status: not_applicable_until_real_observer_exists
+        blocking_evidence:
+          - main_b30023d6d527248655a1f51e7b55e200ca4b1aa9_contains_generic_thermal_margin_and_energy_rate_signal_vocabulary_but_no_concrete_hardware_observer_backend
+          - model_execution_docs_explicitly_leave_thermal_and_power_mapping_backend_specific
+          - no_thermal_or_energy_actuation_or_performance_claim_authorized_without_real_observer_evidence
+        unblock_condition:
+          - a_real_observer_backend_exposes_documented_numeric_source_units_freshness_and_invalid_semantics
+          - then_apply_the_same_False_Unknown_True_trace_validate_verify_rollback_and_benchmark_gates_before_any_claim
     each_slice_requires:
       - real_observer_or_explicit_test_provider
       - at_least_one_false_one_unknown_and_one_true_policy_case
@@ -1483,7 +1504,7 @@ phases:
 
   - id: BE15
     name: cross_repository_promotion_and_productization
-    status: planned
+    status: active
     required_slices:
       - id: BE15a
         name: BooleanLab_oracle_and_benchmark_bridge
@@ -1602,21 +1623,21 @@ automation_contract:
     measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14g_portable_benchmark
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_PR153_merge
-  verified_main: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
-  latest_qualified_slice: BE14g_trusted_transaction_and_differential_baseline
-  latest_qualified_pr: 153
-  latest_qualified_head: 8253e0586052917c9f6e018f8e22a7424504a21c
-  latest_merge: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
-  latest_merged_progress_slice: BE14g_trusted_transaction_and_differential_baseline
-  latest_merged_progress_pr: 153
-  latest_merged_progress_head: 8253e0586052917c9f6e018f8e22a7424504a21c
-  latest_merged_progress_merge: 5c4137e0e9aae580a7ecbe82acb8cf589c98e6b8
+  earliest_incomplete_phase: BE15
+  immediate_next_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 156
+  current_candidate_head: def2278531a07acba873f6f95b8a6fd00273f2e7
+  current_candidate_status: existing_BE15f_productization_candidate_rebased_on_current_main_but_not_yet_qualified
+  verified_main: b30023d6d527248655a1f51e7b55e200ca4b1aa9
+  latest_qualified_slice: BE14g_portable_benchmark
+  latest_qualified_pr: 155
+  latest_qualified_head: 01fdb3690144eabc1aa3d8fa1b09a24b05f2fb74
+  latest_merge: b30023d6d527248655a1f51e7b55e200ca4b1aa9
+  latest_merged_progress_slice: BE14g_portable_benchmark
+  latest_merged_progress_pr: 155
+  latest_merged_progress_head: 01fdb3690144eabc1aa3d8fa1b09a24b05f2fb74
+  latest_merged_progress_merge: b30023d6d527248655a1f51e7b55e200ca4b1aa9
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
