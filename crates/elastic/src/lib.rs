@@ -52,17 +52,20 @@ pub use elastic_core::resource::{
     ResourceSpecBuilder, ResourceSpecError,
 };
 pub use elastic_core::{
-    BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError, CompiledGuard,
-    ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
+    analyze_resource_policy, BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError,
+    CompiledGuard, ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
     ExactPropertyReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
-    GuardFactSource, GuardScope, GuardedResourceSpec, InvariantPredicateBinding, KleeneOracleError,
-    KleenePropertyReport, KleeneSatisfiabilityReport, LogicError, PredicateComponent,
-    PredicateComponentError, PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError,
-    TransitionGuard, TransitionMechanism, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1,
+    GuardFactSource, GuardScope, GuardedResourceSpec, InvariantGuardDiagnostic,
+    InvariantGuardStatus, InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
+    KleeneSatisfiabilityReport, LogicError, PredicateComponent, PredicateComponentError,
+    PredicateId, PredicateKey, PredicateRegistry, PredicateRegistryError, ResourcePolicyAnalysis,
+    ResourcePolicyAnalysisError, TransitionGuard, TransitionMechanism, TransitionPairAnalysis,
+    TransitionPolicyAnalysis, TruthValue, BOOLEAN_EXPRESSION_SCHEMA_V1,
     BOOLEAN_PREDICATE_SCHEMA_V1, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_CANONICAL_EXPRESSION_NODES,
     MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES, MAX_PREDICATE_COMPONENT_BYTES,
-    MAX_REGISTERED_PREDICATES,
+    MAX_REGISTERED_PREDICATES, MAX_RESOURCE_POLICY_INVARIANT_BINDINGS, MAX_RESOURCE_POLICY_PAIRS,
+    MAX_RESOURCE_POLICY_TRANSITIONS,
 };
 pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
@@ -183,14 +186,17 @@ pub mod prelude {
         ResourceSpec, ResourceSpecError,
     };
     pub use elastic_core::{
-        BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard, ExactBooleanOracle,
-        ExactKleeneOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
-        ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError, GuardScope,
-        GuardedResourceSpec, InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
+        analyze_resource_policy, BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard,
+        ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
+        ExactPropertyReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
+        GuardScope, GuardedResourceSpec, InvariantGuardDiagnostic, InvariantGuardStatus,
+        InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
         KleeneSatisfiabilityReport, LogicError, PredicateId, PredicateKey, PredicateRegistry,
-        PredicateRegistryError, TransitionGuard, TransitionMechanism, TruthValue,
-        DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES, FAST_PREDICATE_CAPACITY,
-        MAX_BOOLEAN_EXPR_DEPTH, MAX_EXACT_ORACLE_ASSIGNMENTS, MAX_EXACT_ORACLE_VARIABLES,
+        PredicateRegistryError, ResourcePolicyAnalysis, ResourcePolicyAnalysisError,
+        TransitionGuard, TransitionMechanism, TransitionPairAnalysis, TransitionPolicyAnalysis,
+        TruthValue, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
+        FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH, MAX_EXACT_ORACLE_ASSIGNMENTS,
+        MAX_EXACT_ORACLE_VARIABLES,
     };
     pub use elastic_eir::{
         evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
