@@ -1400,20 +1400,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14d_KV_cache
+  immediate_next_slice: BE14e_representation_precision
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14d_transaction_slice_merge
-  verified_main: 70aff3e993239037466a784b2a643c630f151e49
-  latest_qualified_slice: BE14c_model_execution_profiles
-  latest_qualified_pr: 135
-  latest_qualified_head: 83669fd0b1570dd2cd0160fa1be01d6164d41d4b
-  latest_merge: f5af4f3129100f4bb52d47d1adfc202347d0b098
-  latest_merged_progress_slice: BE14d_KV_trusted_transaction_backend_test_provider
-  latest_merged_progress_pr: 139
-  latest_merged_progress_head: 3167c9ae9600f0aae0e868a2f868c50c7a8914ba
-  latest_merged_progress_merge: 70aff3e993239037466a784b2a643c630f151e49
+  current_candidate_status: no_ElasticXxx_candidate_open_after_BE14d_domain_qualification
+  verified_main: a8d4310ef2d655bb5856f2822ae5c1340a1a623b
+  latest_qualified_slice: BE14d_KV_cache
+  latest_qualified_pr: 142
+  latest_qualified_head: f22e57afe87475249fd2ee187222511af086bcdf
+  latest_merge: a8d4310ef2d655bb5856f2822ae5c1340a1a623b
+  latest_merged_progress_slice: BE14d_KV_durable_trace_differential_baseline_and_real_consumer
+  latest_merged_progress_pr: 142
+  latest_merged_progress_head: f22e57afe87475249fd2ee187222511af086bcdf
+  latest_merged_progress_merge: a8d4310ef2d655bb5856f2822ae5c1340a1a623b
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
