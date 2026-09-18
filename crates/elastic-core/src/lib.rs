@@ -29,6 +29,7 @@ pub mod guard;
 pub mod invariant_predicate;
 pub mod kleene_oracle;
 pub mod logic;
+pub mod multiword;
 pub mod predicate;
 pub mod pseudo_boolean;
 pub mod pseudo_boolean_oracle;
@@ -62,6 +63,10 @@ pub use kleene_oracle::{
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
+};
+pub use multiword::{
+    MultiwordFactError, MultiwordFactSet, MultiwordFactWord, MAX_MULTIWORD_FACT_PREDICATES,
+    MAX_MULTIWORD_FACT_WORDS, MULTIWORD_FACT_WORD_BITS,
 };
 pub use predicate::{
     PredicateComponent, PredicateComponentError, PredicateKey, PredicateRegistry,
