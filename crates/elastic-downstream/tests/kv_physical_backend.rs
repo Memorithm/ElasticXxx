@@ -7,7 +7,8 @@
 //! memory-saving, hardware, or model-quality claim.
 
 use elastic::kv::boolean_admission::{
-    BooleanKvCapacityPreflightControllerV1, BooleanKvTransitionPreflightV2, KvCapacityObservationV1,
+    BooleanKvCapacityPreflightControllerV1, BooleanKvCapacityReportV2,
+    BooleanKvTransitionPreflightV2, KvCapacityObservationV1,
 };
 use elastic::kv::{
     CapabilitySet, KeyEncodingPipeline, KeyTransformScope, KvPageDescriptor, KvPageId, KvPrecision,
@@ -286,7 +287,7 @@ fn admit_with_boolean_capacity(
     transition: &KvTransitionPlan,
     capabilities: &CapabilitySet,
     attestations: TransitionAttestations,
-) -> KvTransitionPlan {
+) -> (BooleanKvCapacityReportV2, KvTransitionPlan) {
     let now = Instant::now();
     let observation = KvCapacityObservationV1::measured(spec.resource_id().clone(), 4096, now);
     let mut gate = BooleanKvCapacityPreflightControllerV1::new(
@@ -318,7 +319,7 @@ fn admit_with_boolean_capacity(
             assert_eq!(report.evidence.forecast_method, "current-state");
             assert_eq!(report.evidence.forecast_horizon_milliseconds, 0);
             assert!(!report.evidence.forecast_confidence_claimed);
-            plan
+            (report, plan)
         }
         BooleanKvTransitionPreflightV2::Blocked(report) => {
             panic!("sufficient measured capacity unexpectedly blocked: {report:?}")
@@ -329,8 +330,13 @@ fn admit_with_boolean_capacity(
 #[test]
 fn facade_only_consumer_physically_reencodes_and_commits_semantically_equal_kv_bytes() {
     let (spec, eir, source, transition, capabilities, attestations) = fixture();
-    let transition =
+    let (guard_report, transition) =
         admit_with_boolean_capacity(&spec, &source, &transition, &capabilities, attestations);
+    let trace =
+        DecisionTrace::from_bounded_json(guard_report.evidence.decision_trace_json.as_bytes())
+            .expect("BE14d durable guard trace must decode through the public facade");
+    assert!(trace.selected().is_some());
+
     let source_bytes = encode(&VALUES, ByteOrder::Little);
     let target_bytes = encode(&VALUES, ByteOrder::Big);
     assert_ne!(source_bytes, target_bytes);
@@ -355,6 +361,44 @@ fn facade_only_consumer_physically_reencodes_and_commits_semantically_equal_kv_b
     assert!(result.rollback.is_none());
     assert_eq!(actuator.backend().bytes, target_bytes);
     assert_eq!(actuator.backend().semantic_values().unwrap(), VALUES);
+
+    // Explicit differential baseline: the same declared and trusted physical
+    // transition executes without the Boolean pruning layer. The guard is only
+    // allowed to shrink eligibility; it must not alter the committed semantics.
+    let (
+        baseline_spec,
+        baseline_eir,
+        baseline_source,
+        baseline_transition,
+        baseline_capabilities,
+        baseline_attestations,
+    ) = fixture();
+    let baseline_backend = HostKvPageBackend::new(baseline_source.clone());
+    let mut baseline_actuator = TransactionalKvPageV1::new(
+        baseline_backend,
+        &baseline_eir,
+        baseline_source,
+        baseline_transition,
+        &baseline_capabilities,
+        baseline_attestations,
+    )
+    .unwrap();
+    let baseline_result = runtime(baseline_spec, baseline_eir.clone())
+        .cycle(
+            &baseline_eir,
+            &FirstGroundedPlanner,
+            &(),
+            &mut baseline_actuator,
+        )
+        .unwrap();
+
+    assert!(baseline_result.commit.is_some());
+    assert!(baseline_result.rollback.is_none());
+    assert_eq!(baseline_actuator.backend().bytes, actuator.backend().bytes);
+    assert_eq!(
+        baseline_actuator.backend().semantic_values().unwrap(),
+        actuator.backend().semantic_values().unwrap()
+    );
 }
 
 #[test]
