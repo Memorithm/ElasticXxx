@@ -423,6 +423,25 @@ impl BooleanBatchDevicePreplannerV1 {
         policy_fingerprint_from_declared_candidates(&self.candidates)
     }
 
+    pub(crate) fn candidate_by_id(&self, candidate_id: &str) -> Option<&BatchDeviceCandidateV1> {
+        self.candidates
+            .iter()
+            .find(|candidate| candidate.candidate_id == candidate_id)
+    }
+
+    pub(crate) fn evaluate_candidate_truth(
+        &self,
+        candidate: &BatchDeviceCandidateV1,
+        snapshot: &BatchDeviceCapacitySnapshotV1,
+        now: Instant,
+    ) -> TruthValue {
+        let sample = snapshot
+            .samples
+            .iter()
+            .find(|sample| sample.placement_id == candidate.placement_id);
+        evaluate_candidate(snapshot, sample, candidate, now).0
+    }
+
     /// Capture a strict, bounded, decision-only trace for one planning pass.
     pub fn decision_trace(
         &self,

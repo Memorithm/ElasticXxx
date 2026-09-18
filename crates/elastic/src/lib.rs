@@ -128,6 +128,12 @@ pub use elastic_runtime::{
     CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
 };
 pub use elastic_runtime::{
+    execute_guarded_batch_device_transaction, execute_unguarded_batch_device_transaction,
+    BatchDevicePlacementBackendV1, BatchDeviceTransactionBlockV1, BatchDeviceTransactionFailureV1,
+    BatchDeviceTransactionStageV1, CommittedBatchDeviceSelectionV1,
+    GuardedBatchDeviceTransactionOutcomeV1,
+};
+pub use elastic_runtime::{
     model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
     BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
     MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
