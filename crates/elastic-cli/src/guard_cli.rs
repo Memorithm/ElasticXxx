@@ -274,7 +274,7 @@ fn read_operator_config(path: &Path) -> Result<OperatorConfig, Box<dyn Error>> {
     Ok(OperatorConfig::from_bounded_json(&bytes)?)
 }
 
-fn read_bounded_file(
+pub(crate) fn read_bounded_file(
     path: &Path,
     label: &str,
     max_bytes: usize,
