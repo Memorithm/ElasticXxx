@@ -30,6 +30,7 @@ pub mod invariant_predicate;
 pub mod kleene_oracle;
 pub mod logic;
 pub mod predicate;
+pub mod pseudo_boolean;
 pub mod representation;
 pub mod resource;
 pub mod resource_policy_analysis;
@@ -65,6 +66,10 @@ pub use predicate::{
     PredicateComponent, PredicateComponentError, PredicateKey, PredicateRegistry,
     PredicateRegistryError, BOOLEAN_PREDICATE_SCHEMA_V1, MAX_PREDICATE_COMPONENT_BYTES,
     MAX_REGISTERED_PREDICATES,
+};
+pub use pseudo_boolean::{
+    PseudoBooleanConstraint, PseudoBooleanError, PseudoBooleanRelation, PseudoBooleanScale,
+    WeightedPredicate, MAX_PSEUDO_BOOLEAN_TERMS, MAX_PSEUDO_BOOLEAN_UNIT_BYTES,
 };
 pub use representation::{
     CapabilitySet, EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
