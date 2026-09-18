@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 9618f41f710b1e0e8dc0a6be4badb34fc79c844d
+  main_sha: bfd24630595c214bb5956cd7c324d62bce95ad87
   main_observed_at: "2026-09-18"
-  open_pull_requests: 0
+  open_pull_requests: 2
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -294,6 +294,15 @@ current_verified_state:
       hardening_run: 35335144458
       result: success
       purpose: BE14b_concurrency_guarded_transactional_cycle
+    - pr: 133
+      head: 47d1260fa8ef1ad1b51104e59311fd3821d38aeb
+      merge: bfd24630595c214bb5956cd7c324d62bce95ad87
+      ci_run: 35339720143
+      packageability_run: 35339720045
+      dedicated_benchmark_smoke_run: 35339720099
+      evidence_integrity_run: 35339719994
+      result: success
+      purpose: BE13e_complete_build_context_attestation_hardening_without_dispatch_authorization
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -307,7 +316,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121, BE13b compiled multiword guards through PR122, and BE13c stable-order batch screening through PR123. PR124 qualifies the portable benchmark harness. PR125 retains the original DVFS-confounded negative evidence. PR129 qualifies the controlled portable measurement protocol. PR130 closes the BE13e acceleration gate conservatively: runtime feature diagnostics exist, but native codegen did not dominate the target fast paths, so no SVE/SVE2/native/SIMD production dispatch or speedup claim was authorized. PR131 hardens source reachability and codegen attestation and retains replacement controlled evidence without changing that negative decision. BE13 is therefore closed through PR131. BE14a RAM capacity is qualified through PR126 plus PR127 with a guarded transactional cycle, an explicit CurrentStateForecaster boundary, DecisionTrace evidence, and a frozen strict V1 wire plus explicit V2 forecast metadata. BE14b concurrency is qualified through PR132: live active-permits evidence drives a stable fail-closed Boolean predicate, True only preserves a declared concurrency candidate, and the existing transactional adapter remains authoritative for validation, mutation, verification, commit and rollback. False and Unknown stop before mutation, and no performance claim is made. BE14c model-execution profiles is now the earliest incomplete domain slice.
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121, BE13b compiled multiword guards through PR122, and BE13c stable-order batch screening through PR123. PR124 qualifies the portable benchmark harness. PR125 retains the original DVFS-confounded negative evidence. PR129 qualifies the controlled portable measurement protocol. PR130 closes the BE13e acceleration gate conservatively: runtime feature diagnostics exist, but native codegen did not dominate the target fast paths, so no SVE/SVE2/native/SIMD production dispatch or speedup claim was authorized. PR131 hardens source reachability and codegen attestation and retains replacement controlled evidence without changing that negative decision. PR133 further hardens retained-evidence provenance by fail-closing inherited Cargo profile overrides, explicit encoded-rustflags presence, compiler/wrapper/linker overrides, and permanent source identity on exact-head green CI; it does not change the conservative no-dispatch decision. BE13 remains closed and qualified through this additional hardening. BE14a RAM capacity is qualified through PR126 plus PR127 with a guarded transactional cycle, an explicit CurrentStateForecaster boundary, DecisionTrace evidence, and a frozen strict V1 wire plus explicit V2 forecast metadata. BE14b concurrency is qualified through PR132: live active-permits evidence drives a stable fail-closed Boolean predicate, True only preserves a declared concurrency candidate, and the existing transactional adapter remains authoritative for validation, mutation, verification, commit and rollback. False and Unknown stop before mutation, and no performance claim is made. BE14c model-execution profiles is now the earliest incomplete domain slice.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -1303,15 +1312,15 @@ automation_contract:
 current_execution:
   earliest_incomplete_phase: BE14
   immediate_next_slice: BE14c_model_execution_profiles
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none
-  verified_main: 9618f41f710b1e0e8dc0a6be4badb34fc79c844d
+  open_pull_requests_at_checkpoint: 2
+  current_candidate_pr: 135
+  current_candidate_head: 1558d3dbf81589ed31d41a2535fdde21ce63faa4
+  current_candidate_status: exact_head_CI_in_progress_after_main_sync_and_P1_validity_fix
+  verified_main: bfd24630595c214bb5956cd7c324d62bce95ad87
   latest_qualified_slice: BE14b_concurrency_guarded_transactional_cycle
-  latest_qualified_pr: 132
-  latest_qualified_head: 40afdd10262b5fdd798d4880d5951a5ccece4fd7
-  latest_merge: 9618f41f710b1e0e8dc0a6be4badb34fc79c844d
+  latest_qualified_pr: 133
+  latest_qualified_head: 47d1260fa8ef1ad1b51104e59311fd3821d38aeb
+  latest_merge: bfd24630595c214bb5956cd7c324d62bce95ad87
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
