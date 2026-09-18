@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: ab00157dd7b01142b88afc1e1145f9b49518c1a0
+  main_sha: b77e70f56077354dd0998101b4de072fd8727168
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -215,6 +215,23 @@ current_verified_state:
       hardening_run: 35307258170
       result: success
       purpose: bounded_multiword_compiled_conjunction_disjunction_and_generic_Kleene_fallback
+    - pr: 123
+      head: 82ae2f9ce58ab42a213be2b12ece81fba7096e11
+      merge: a0833b05f3e411e742c5e27afa236bc1a989389b
+      ci_run: 35307891494
+      packageability_run: 35307891435
+      hardening_run: 35307891467
+      result: success
+      purpose: bounded_stable_order_multiword_batch_screening_with_explicit_True_False_Unknown
+    - pr: 124
+      head: e1d4a0bf8305d11d205b515287e82522a447118a
+      merge: b77e70f56077354dd0998101b4de072fd8727168
+      ci_run: 35311805989
+      packageability_run: 35311805982
+      hardening_run: 35311805990
+      dedicated_benchmark_smoke_run: 35311806001
+      result: success
+      purpose: portable_BE13_benchmark_harness_without_performance_claim
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -228,7 +245,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121 and BE13b compiled multiword guards is closed through PR122; BE13c stable-order batch screening is now the earliest incomplete slice. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is closed through PR120 after durable constraint reasons and pure replay identity checks qualified on the exact final head. BE13a multiword fact storage is closed through PR121, BE13b compiled multiword guards through PR122, and BE13c stable-order batch screening through PR123. PR124 qualifies the portable benchmark harness and its exact-head smoke contract, but it deliberately does not establish a speedup or complete the remaining measurement evidence needed before BE13e architecture-specific acceleration. BE14 and BE15 remain unimplemented unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -920,12 +937,39 @@ phases:
           - exact_equivalence_to_generic_evaluator
       - id: BE13c
         name: batch_candidate_screening
+        status: completed
+        qualification_evidence:
+          - ElasticXxx_PR_123
+          - PR123_exact_head_82ae2f9ce58ab42a213be2b12ece81fba7096e11
+          - PR123_CI_35307891494_completed_success_on_exact_head
+          - PR123_packageability_35307891435_completed_success_on_exact_head
+          - PR123_hardening_35307891467_completed_success_on_exact_head
+          - PR123_merged_to_main_as_a0833b05f3e411e742c5e27afa236bc1a989389b
+          - bounded_precompiled_guard_batches_preserve_stable_candidate_order_and_True_False_Unknown
+          - empty_or_invalid_domains_fail_closed_without_partial_screen
+          - no_performance_or_actuation_claim
         tasks:
           - precompute_guard_batches
           - evaluate_multiple_candidates_word_parallel
           - preserve_stable_candidate_order
       - id: BE13d
         name: portable_benchmark_harness
+        status: harness_qualified_measurement_evidence_pending
+        qualification_evidence:
+          - ElasticXxx_PR_124
+          - PR124_exact_head_e1d4a0bf8305d11d205b515287e82522a447118a
+          - PR124_CI_35311805989_completed_success_on_exact_head
+          - PR124_packageability_35311805982_completed_success_on_exact_head
+          - PR124_hardening_35311805990_completed_success_on_exact_head
+          - PR124_benchmark_smoke_35311806001_completed_success_on_exact_head
+          - PR124_material_P2_runner_allowlist_and_TMPDIR_findings_resolved_before_merge
+          - PR124_merged_to_main_as_b77e70f56077354dd0998101b4de072fd8727168
+          - smoke_exercises_all_declared_paths_but_is_not_retained_performance_evidence
+          - allocations_peak_memory_and_branch_misses_remain_explicitly_unmeasured
+        remaining:
+          - retain_reproducible_non_smoke_raw_measurement_evidence_bound_to_exact_SHA_toolchain_build_mode_and_hardware_identity
+          - measure_allocations_and_memory_when_a_qualified_method_is_available_or_keep_them_explicitly_unmeasured
+          - do_not_authorize_BE13e_from_smoke_timing_alone
         matrix:
           - scalar_if_chain
           - generic_BoolExpr
@@ -1128,10 +1172,13 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE13
-  immediate_next_slice: BE13c_batch_screening
+  immediate_next_slice: BE13d_portable_benchmark_measurement_evidence
   open_pull_requests_at_checkpoint: 0
-  verified_main: ab00157dd7b01142b88afc1e1145f9b49518c1a0
-  latest_qualified_slice: BE13b_multiword_compiled_guards
-  latest_qualified_pr: 122
-  latest_qualified_head: 3d025702be87cefd6e211fddbc9019cc80c6d9b8
+  verified_main: b77e70f56077354dd0998101b4de072fd8727168
+  latest_qualified_slice: BE13d_portable_benchmark_harness
+  latest_qualified_pr: 124
+  latest_qualified_head: e1d4a0bf8305d11d205b515287e82522a447118a
+  latest_merge: b77e70f56077354dd0998101b4de072fd8727168
+  BE13e_authorized: false
+  BE13e_block_reason: portable_smoke_is_not_reproducible_performance_evidence
   performance_claims: none
