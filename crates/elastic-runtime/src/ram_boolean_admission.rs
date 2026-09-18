@@ -28,8 +28,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     capture_decision_trace, BooleanGuardPreplanner, CapabilityPredicate,
     CapacityAdmissionControllerV1, CapacityAdmissionReportV1, CapacityAdmissionRequestV1,
-    CapacityStateV1, FactResourceBinding, FactSnapshot, FactSourceId, Observation,
-    ObservationSnapshot, ObservationSource, ObservationThresholdPredicate,
+    CapacityStateV1, CurrentStateForecaster, FactResourceBinding, FactSnapshot, FactSourceId,
+    Forecaster, Observation, ObservationSnapshot, ObservationSource, ObservationThresholdPredicate,
     PredicateEvaluationInput, PredicateEvaluator, ThresholdComparison,
 };
 
@@ -70,6 +70,9 @@ pub struct BooleanRamCapacityEvidenceV1 {
     pub source_signal: String,
     pub source_unit: String,
     pub required_memory_bytes: Option<u64>,
+    pub forecast_method: Option<String>,
+    pub forecast_horizon_milliseconds: Option<u64>,
+    pub forecast_confidence_claimed: bool,
     pub truth: String,
     pub decision_trace_json: Option<String>,
 }
@@ -178,7 +181,13 @@ impl BooleanRamCapacityAdmissionControllerV1 {
         let generation = ResourceGeneration::new(self.resource_generation);
         let now = Instant::now();
         let (context, observations, required_memory_bytes) = ram_observation_inputs(&request, now);
-        let input = PredicateEvaluationInput::new(&context, &observations, now);
+        let forecast = CurrentStateForecaster
+            .forecast(&observations, &context)
+            .map_err(|error| error.to_string())?;
+        let forecast_context = forecast.planning_context().ok_or_else(|| {
+            "BE14a current-state forecast produced no planning context".to_owned()
+        })?;
+        let input = PredicateEvaluationInput::new(forecast_context, &observations, now);
         let predicate_key = ram_capacity_predicate_key();
         let facts = if let Some(required) =
             required_memory_bytes.filter(|value| *value <= MAX_EXACT_F64_INTEGER_U64)
@@ -293,6 +302,13 @@ impl BooleanRamCapacityAdmissionControllerV1 {
                 source_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
                 source_unit: RAM_CAPACITY_SOURCE_UNIT.to_owned(),
                 required_memory_bytes,
+                forecast_method: Some(forecast.method.clone()),
+                forecast_horizon_milliseconds: Some(
+                    u64::try_from(forecast.horizon.as_millis()).map_err(|_| {
+                        "BE14a forecast horizon exceeds u64 milliseconds".to_owned()
+                    })?,
+                ),
+                forecast_confidence_claimed: forecast.confidence.is_some(),
                 truth: truth_text(truth).to_owned(),
                 decision_trace_json: Some(decision_trace_json),
             },
@@ -348,6 +364,9 @@ impl BooleanRamCapacityAdmissionControllerV1 {
                 source_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
                 source_unit: RAM_CAPACITY_SOURCE_UNIT.to_owned(),
                 required_memory_bytes: None,
+                forecast_method: None,
+                forecast_horizon_milliseconds: None,
+                forecast_confidence_claimed: false,
                 truth: "not-evaluated".into(),
                 decision_trace_json: None,
             },
@@ -455,6 +474,12 @@ mod tests {
         let actual = boolean.admit(request()).unwrap();
         assert_eq!(actual.guard.truth, "true");
         assert_eq!(actual.guard.required_memory_bytes, Some(200));
+        assert_eq!(
+            actual.guard.forecast_method.as_deref(),
+            Some("current-state")
+        );
+        assert_eq!(actual.guard.forecast_horizon_milliseconds, Some(0));
+        assert!(!actual.guard.forecast_confidence_claimed);
         assert_eq!(actual.admission.proposed_width, expected.proposed_width);
         assert_eq!(actual.admission.final_width, expected.final_width);
         assert_eq!(actual.admission.committed, expected.committed);
