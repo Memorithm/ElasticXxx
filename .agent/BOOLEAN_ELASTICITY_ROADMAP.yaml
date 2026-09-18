@@ -1535,7 +1535,15 @@ phases:
               - verify_and_rollback_or_fail_closed_without_granting_authority_from_DecisionTrace
               - compare_guarded_and_non_boolean_reference_paths_under_the_same_declared_policy_and_backend
           - id: BE14h_portable_benchmark
-            status: planned_after_transaction_slice
+            status: candidate_exact_head_CI_and_review_pending
+            candidate_evidence:
+              - ElasticXxx_PR_160
+              - PR160_exact_head_a01547b7677a4d08aee6fd6e0c8ed37636d25f27
+              - local_workflow_YAML_parse_passed
+              - local_thermal_energy_targeted_tests_13_passed
+              - local_benchmark_smoke_both_paths_completed_with_identical_outcome_sanity_44
+              - local_benchmark_smoke_raw_timing_is_non_qualifying_host_side_observation_only
+              - local_clippy_elastic_runtime_BE14h_benchmark_all_features_D_warnings_passed
             requirements:
               - benchmark_same_observer_policy_and_backend_contract_before_any_speed_or_energy_claim
               - retain_raw_host_side_measurements_as_bounded_regression_evidence_only
@@ -1687,10 +1695,10 @@ automation_contract:
 current_execution:
   earliest_incomplete_phase: BE14
   immediate_next_slice: BE14h_portable_benchmark
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none_transaction_slice_merged
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 160
+  current_candidate_head: a01547b7677a4d08aee6fd6e0c8ed37636d25f27
+  current_candidate_status: BE14h_portable_benchmark_exact_head_CI_and_review_pending
   verified_main: b27e8a9b21ccd21717a721d8fe4ce919468bf32f
   latest_qualified_slice: BE14h_trusted_transaction_and_differential_baseline
   latest_qualified_pr: 159
