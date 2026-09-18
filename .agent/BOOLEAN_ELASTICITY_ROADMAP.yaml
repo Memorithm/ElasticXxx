@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 08ac2398488dd2ba62291535fbdc072b1e6d41db
+  main_sha: 897db4d98ce60d49d3da97664bf21d6bea8b1c67
   main_observed_at: "2026-09-18"
-  open_pull_requests: 1
+  open_pull_requests: 0
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -81,6 +81,37 @@ current_verified_state:
       hardening_run: 35281645298
       result: success
       purpose: fuzz_and_adversarial_decoder_hardening
+    - pr: 105
+      head: 738fd27f9d01d53756e6806ac54e96764ef93797
+      merge: e3807ed90f910b5f8e133fc6e17a967e29ef69d7
+      ci_run: 35284661534
+      packageability_run: 35284661539
+      hardening_run: 35284661697
+      result: success
+      purpose: strict_guard_configuration_and_read_only_guard_CLI
+    - pr: 106
+      head: af094b668f64303f8447363ffb34fecbffd47f72
+      merge: e9260015805777e612b15f80ba68198c2eaa11bc
+      ci_run: 35287652043
+      packageability_run: 35287652054
+      hardening_run: 35287652125
+      result: success
+      purpose: non_actuating_guarded_plan_dry_run
+    - pr: 107
+      head: 636d9f43697b50515a61fceabd2058673e613b31
+      merge: ab224ccc5acb86a5e0101c3bade1d393c00e546b
+      ci_run: 35289770642
+      packageability_run: 35289770598
+      hardening_run: 35289770599
+      result: success
+      purpose: operator_config_embedded_guard_policy
+    - pr: 108
+      head: a5b778b30c1f58e38cb4c8c25e98d19a20ba6b6a
+      merge: 897db4d98ce60d49d3da97664bf21d6bea8b1c67
+      ci_run: 35291259256
+      packageability_run: 35291259274
+      result: success
+      purpose: guarded_CLI_process_contract_and_public_library_equivalence
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -91,9 +122,11 @@ current_verified_state:
     ci and packageability runs. The old roadmap still described these slices as
     pending. BE6 and BE9 are therefore closed. BE7 core semantics are closed;
     live domain/controller qualification belongs to BE14. BE8 is closed through
-    PR103 decoder fuzz/adversarial hardening. BE10 is active; BE11 through BE15
-    remain unimplemented unless current default-branch evidence
-    proves otherwise during a future execution.
+    PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
+    exact-head CLI process, fail-closed input, and public-facade equivalence
+    qualification. BE11 is now the earliest incomplete phase; BE12 through BE15
+    remain unimplemented unless current default-branch evidence proves otherwise
+    during a future execution.
 
 hard_invariants:
   - Unknown_is_not_False
@@ -139,7 +172,7 @@ ownership:
 
 execution_policy:
   order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
-  active_phase: BE10
+  active_phase: BE11
   next_major_phase_after_BE8: BE10
   rule: earliest_unblocked_reviewable_slice_first
   branch_rule: new_feature_branch_from_current_main_after_every_merge
@@ -383,7 +416,7 @@ phases:
 
   - id: BE10
     name: operator_configuration_and_CLI
-    status: active
+    status: completed
     target_crates: [elastic, elastic-runtime, elastic-cli]
     required_slices:
       - id: BE10a
@@ -433,27 +466,50 @@ phases:
           - no_actuation
       - id: BE10c
         name: guarded_plan_dry_run
-        status: active
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_106
+          - PR106_exact_head_af094b668f64303f8447363ffb34fecbffd47f72
+          - PR106_CI_35287652043_completed_success_on_exact_head
+          - PR106_packageability_35287652054_completed_success_on_exact_head
+          - PR106_hardening_35287652125_cargo_fuzz_completed_success
+          - PR106_merged_to_main_as_e9260015805777e612b15f80ba68198c2eaa11bc
+          - declaration_only_planning_view_prevents_dry_run_RAM_materialization
+          - dry_run_reports_survivors_rejected_unknown_numeric_outcome_and_trace_without_actuation
         tasks:
           - feed_versioned_policy_and_observations_to_public_runtime
           - emit_survivors_rejected_unknown_numeric_outcome_and_trace
           - support_strict_non_actuating_dry_run
       - id: BE10d
         name: operator_config_integration
-        status: planned
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_107
+          - PR107_exact_head_636d9f43697b50515a61fceabd2058673e613b31
+          - PR107_CI_35289770642_completed_success_on_exact_head
+          - PR107_packageability_35289770598_completed_success_on_exact_head
+          - PR107_hardening_35289770599_cargo_fuzz_completed_success
+          - PR107_merged_to_main_as_ab224ccc5acb86a5e0101c3bade1d393c00e546b
+          - embedded_guard_policy_validated_at_operator_config_boundary
+          - external_and_embedded_guard_policy_ambiguity_rejected_fail_closed
+          - state_changing_runtime_with_attached_guards_remains_blocked_until_BE14
         tasks:
           - attach_guard_configuration_to_declared_resources
           - preserve_existing_config_backward_compatibility_or_version_break_explicitly
           - validate_at_load_time_and_again_at_runtime_boundaries
       - id: BE10e
         name: CLI_contract_tests
-        status: partial
+        status: completed
         completion_evidence:
           - PR105_process_tests_cover_read_only_command_success_True_False_Unknown_and_fail_closed_duplicate_or_undeclared_facts
-        remaining:
-          - guarded_plan_process_success_and_failure_exit_codes
-          - complete_malformed_unknown_field_and_nonfinite_process_matrix
-          - explicit_CLI_vs_library_equivalence_for_guarded_plan
+          - ElasticXxx_PR_108
+          - PR108_exact_head_a5b778b30c1f58e38cb4c8c25e98d19a20ba6b6a
+          - PR108_CI_35291259256_completed_success_on_exact_head
+          - PR108_packageability_35291259274_completed_success_on_exact_head
+          - PR108_merged_to_main_as_897db4d98ce60d49d3da97664bf21d6bea8b1c67
+          - guard_plan_dry_run_process_exit_0_on_success_and_2_on_fail_closed_error
+          - malformed_unknown_nonfinite_and_oversized_guard_or_operator_inputs_fail_closed_in_process
+          - guarded_plan_CLI_pruning_outcome_and_context_fingerprint_match_public_elastic_facade_semantics
         tasks:
           - process_level_success_and_failure_exit_codes
           - strict_input_size_limit
@@ -466,7 +522,7 @@ phases:
 
   - id: BE11
     name: bounded_symbolic_static_analysis
-    status: planned
+    status: active
     target_crates: [elastic-core, elastic-eir, elastic]
     required_slices:
       - id: BE11a
@@ -781,11 +837,11 @@ automation_contract:
     measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE10
-  immediate_next_slice: BE10c_guarded_plan_dry_run
+  earliest_incomplete_phase: BE11
+  immediate_next_slice: BE11a_dependency_free_exact_small_domain_oracle
   open_pull_requests_at_checkpoint: 0
-  verified_main: e3807ed90f910b5f8e133fc6e17a967e29ef69d7
-  latest_qualified_slice: BE10b
-  latest_qualified_pr: 105
-  latest_qualified_head: 738fd27f9d01d53756e6806ac54e96764ef93797
+  verified_main: 897db4d98ce60d49d3da97664bf21d6bea8b1c67
+  latest_qualified_slice: BE10e
+  latest_qualified_pr: 108
+  latest_qualified_head: a5b778b30c1f58e38cb4c8c25e98d19a20ba6b6a
   performance_claims: none
