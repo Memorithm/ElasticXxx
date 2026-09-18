@@ -130,10 +130,7 @@ pub struct EirConstrainedResource {
 }
 
 impl EirConstrainedResource {
-    fn new(
-        guarded: EirGuardedResource,
-        mut constraints: Vec<EirPseudoBooleanConstraint>,
-    ) -> Self {
+    fn new(guarded: EirGuardedResource, mut constraints: Vec<EirPseudoBooleanConstraint>) -> Self {
         constraints.sort();
         let mut fingerprint = Fingerprint::EMPTY
             .text("eir-constrained-resource")
@@ -232,12 +229,7 @@ mod tests {
         let key = predicate("capacity-ok");
         let registry = PredicateRegistry::from_keys([key.clone()]).unwrap();
         let id = registry.id(&key).unwrap();
-        let guard = BooleanGuard::new(
-            GuardScope::Resource,
-            registry,
-            BoolExpr::atom(id),
-        )
-        .unwrap();
+        let guard = BooleanGuard::new(GuardScope::Resource, registry, BoolExpr::atom(id)).unwrap();
         GuardedResourceSpec::new(resource, vec![guard]).unwrap()
     }
 
@@ -334,12 +326,10 @@ mod tests {
         let changed_id = registry.id(&changed_key).unwrap();
         let changed_spec = GuardedResourceSpec::new(
             resource,
-            vec![BooleanGuard::new(
-                GuardScope::Resource,
-                registry,
-                BoolExpr::atom(changed_id),
-            )
-            .unwrap()],
+            vec![
+                BooleanGuard::new(GuardScope::Resource, registry, BoolExpr::atom(changed_id))
+                    .unwrap(),
+            ],
         )
         .unwrap();
         let changed = lower_constrained(&changed_spec, &[budget(4, 8)]).unwrap();
