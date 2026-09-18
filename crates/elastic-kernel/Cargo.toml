@@ -16,3 +16,7 @@ serde_json = "1.0"
 
 [dev-dependencies]
 elastic = { path = "../elastic" }
+
+[[bench]]
+name = "be14f_kernel_realization"
+harness = false
