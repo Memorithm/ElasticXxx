@@ -1191,6 +1191,21 @@ phases:
           - verification_failure_rolls_back_and_no_performance_or_model_quality_claim
       - id: BE14d
         domain: KV_cache
+        status: active
+        progress_evidence:
+          - ElasticXxx_PR_136_first_planning_evidence_slice
+          - PR136_exact_head_ef03172858c30c36708c10a9dec0d4c92e198fe5
+          - PR136_ci_35344037484_completed_success_on_exact_head
+          - PR136_packageability_35344037487_completed_success_on_exact_head
+          - PR136_continuous_hardening_35344037476_completed_success_on_exact_head
+          - PR136_P2_cross_resource_capacity_evidence_finding_corrected_and_thread_resolved
+          - PR136_merged_to_main_as_73eef8463c3c05de91e5450cca7e9579379a2e03
+          - stable_predicate_elastic_kv_target_materialization_fits_over_free_capacity_bytes
+          - capacity_observation_must_bind_to_exact_guarded_logical_resource_or_remains_Unknown
+          - False_and_Unknown_stop_before_existing_KV_transition_validation
+          - True_only_delegates_to_existing_KvPageDescriptor_structural_validator
+          - DecisionTrace_evidence_retained_without_actuation_or_performance_claim
+          - BE14d_not_closed_first_slice_has_no_physical_KV_actuation_VERIFY_or_rollback
       - id: BE14e
         domain: representation_precision
       - id: BE14f
@@ -1337,12 +1352,16 @@ current_execution:
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_candidate_open_after_BE14c_merge
-  verified_main: f5af4f3129100f4bb52d47d1adfc202347d0b098
+  current_candidate_status: no_candidate_open_after_BE14d_first_slice_merge
+  verified_main: 73eef8463c3c05de91e5450cca7e9579379a2e03
   latest_qualified_slice: BE14c_model_execution_profiles
   latest_qualified_pr: 135
   latest_qualified_head: 83669fd0b1570dd2cd0160fa1be01d6164d41d4b
   latest_merge: f5af4f3129100f4bb52d47d1adfc202347d0b098
+  latest_merged_progress_slice: BE14d_KV_capacity_preflight
+  latest_merged_progress_pr: 136
+  latest_merged_progress_head: ef03172858c30c36708c10a9dec0d4c92e198fe5
+  latest_merged_progress_merge: 73eef8463c3c05de91e5450cca7e9579379a2e03
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
