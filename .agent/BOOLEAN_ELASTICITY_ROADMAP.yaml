@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 9d1f996a47536670e9f7d3610a4e13bc238c6042
+  main_sha: 3c18863780a739a4293a35843d98ff19e5c2e6d5
   main_observed_at: "2026-09-18"
-  open_pull_requests: 0
+  open_pull_requests: 1
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -1482,9 +1482,9 @@ phases:
             remaining: []
       - id: BE14h
         domain: thermal_and_energy_when_real_observers_exist
-        status: not_applicable_until_real_observer_exists
+        status: candidate_real_observer_not_yet_qualified
         blocking_evidence:
-          - main_b30023d6d527248655a1f51e7b55e200ca4b1aa9_contains_generic_thermal_margin_and_energy_rate_signal_vocabulary_but_no_concrete_hardware_observer_backend
+          - PR157_head_b5179449396257f265811d1b2b5a54eab2da9205_adds_concrete_Linux_thermal_and_power_observers_but_exact_head_CI_and_merge_are_still_pending
           - model_execution_docs_explicitly_leave_thermal_and_power_mapping_backend_specific
           - no_thermal_or_energy_actuation_or_performance_claim_authorized_without_real_observer_evidence
         unblock_condition:
@@ -1548,6 +1548,13 @@ phases:
           - Miri_where_applicable
           - packageability_and_facade_only_downstream_contracts
           - compatibility_matrix_for_cross_repo_consumers
+        qualified_slices:
+          - pr: 156
+            head: 391a2b0691c9e938aeb685f8202c36bf6339599d
+            merge: 3c18863780a739a4293a35843d98ff19e5c2e6d5
+            result: success
+            scope: pre_1_0_semver_MSRV_registry_compatible_internal_dependency_closure_strict_rustdoc_and_packageability_hardening
+            publication_authorized: false
     final_exit_criteria:
       - BE0_through_BE14_exit_criteria_are_satisfied
       - public_Boolean_guard_and_constraint_contracts_are_versioned_documented_and_tested
@@ -1626,18 +1633,18 @@ current_execution:
   earliest_incomplete_phase: BE15
   immediate_next_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
   open_pull_requests_at_checkpoint: 1
-  current_candidate_pr: 156
-  current_candidate_head: def2278531a07acba873f6f95b8a6fd00273f2e7
-  current_candidate_status: existing_BE15f_productization_candidate_rebased_on_current_main_but_not_yet_qualified
-  verified_main: b30023d6d527248655a1f51e7b55e200ca4b1aa9
-  latest_qualified_slice: BE14g_portable_benchmark
-  latest_qualified_pr: 155
-  latest_qualified_head: 01fdb3690144eabc1aa3d8fa1b09a24b05f2fb74
-  latest_merge: b30023d6d527248655a1f51e7b55e200ca4b1aa9
-  latest_merged_progress_slice: BE14g_portable_benchmark
-  latest_merged_progress_pr: 155
-  latest_merged_progress_head: 01fdb3690144eabc1aa3d8fa1b09a24b05f2fb74
-  latest_merged_progress_merge: b30023d6d527248655a1f51e7b55e200ca4b1aa9
+  current_candidate_pr: 157
+  current_candidate_head: b5179449396257f265811d1b2b5a54eab2da9205
+  current_candidate_status: BE14h_real_observer_candidate_rebased_on_main_3c18863780a739a4293a35843d98ff19e5c2e6d5_exact_head_CI_pending
+  verified_main: 3c18863780a739a4293a35843d98ff19e5c2e6d5
+  latest_qualified_slice: BE15f_pre_1_0_compatibility_and_packageability_hardening
+  latest_qualified_pr: 156
+  latest_qualified_head: 391a2b0691c9e938aeb685f8202c36bf6339599d
+  latest_merge: 3c18863780a739a4293a35843d98ff19e5c2e6d5
+  latest_merged_progress_slice: BE15f_pre_1_0_compatibility_and_packageability_hardening
+  latest_merged_progress_pr: 156
+  latest_merged_progress_head: 391a2b0691c9e938aeb685f8202c36bf6339599d
+  latest_merged_progress_merge: 3c18863780a739a4293a35843d98ff19e5c2e6d5
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
