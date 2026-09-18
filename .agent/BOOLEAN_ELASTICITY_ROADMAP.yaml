@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 3c18863780a739a4293a35843d98ff19e5c2e6d5
+  main_sha: 7cb03916bf911fd690ae2b9de95565e00addd647
   main_observed_at: "2026-09-18"
-  open_pull_requests: 1
+  open_pull_requests: 0
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -325,6 +325,15 @@ current_verified_state:
       packageability_run: 35375083738
       result: success
       purpose: durable_kernel_decision_trace_binding
+    - pr: 161
+      head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
+      merge: 7cb03916bf911fd690ae2b9de95565e00addd647
+      ci_run: 35398738967
+      packageability_run: 35398738926
+      hardening_run: 35398738933
+      dedicated_benchmark_smoke_run: 35398738971
+      result: success
+      purpose: BE15a_pinned_BooleanLab_exact_vector_oracle_and_evaluation_bridge
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -1576,17 +1585,24 @@ phases:
     required_slices:
       - id: BE15a
         name: BooleanLab_oracle_and_benchmark_bridge
-        status: candidate_exact_head_CI_and_review_pending
-        candidate_evidence:
+        status: completed
+        completion_evidence:
           - ElasticXxx_PR_161
-          - PR161_exact_head_73039f678caa09280bcac5fb3c17332e040ebe56
+          - PR161_exact_head_89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
+          - PR161_merge_7cb03916bf911fd690ae2b9de95565e00addd647
+          - PR161_ci_35398738967_completed_success_on_exact_head
+          - PR161_packageability_35398738926_completed_success_on_exact_head
+          - PR161_continuous_hardening_35398738933_completed_success_on_exact_head
+          - PR161_BE13_benchmark_smoke_35398738971_completed_success_on_exact_head
+          - PR161_material_P2_generator_module_identity_finding_corrected_and_resolved
           - BooleanLab_source_main_2646e7ca675d3dcde71abed10c7531e1d36c93b8
+          - BooleanLab_generator_commit_7fd929a62cfc219a525b21ff02801fbc8bcb012e
+          - BooleanLab_generator_module_SHA256_85dcf9951b27b9da3aae64e56326e2737f86ae4ca7f2483d67588d396189bef7_pinned
           - BooleanLab_fixture_SHA256_b27f14593c908a5d3ccdb2d410d64d3420d1f9c42da593621e9ca7a6f339dd59_recomputed_and_matched_source_manifest
           - destination_owned_stdlib_provenance_verifier_self_test_passed
-          - local_exact_vector_differential_test_2_of_2_passed
-          - local_elastic_core_115_unit_tests_plus_integration_and_doc_tests_passed
-          - local_elastic_core_all_targets_clippy_D_warnings_passed
+          - exact_vector_differential_checks_cover_generic_compiled_multiword_and_symbolic_surfaces
           - no_BooleanLab_runtime_or_network_dependency
+          - no_runtime_actuation_or_scientific_confirmation_authority_granted
         tasks:
           - version_exact_small_domain_test_vectors
           - compare_generic_compiled_multiword_and_symbolic_results
@@ -1710,19 +1726,19 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
-  open_pull_requests_at_checkpoint: 1
-  current_candidate_pr: 161
-  current_candidate_head: 73039f678caa09280bcac5fb3c17332e040ebe56
-  current_candidate_status: BE15a_BooleanLab_exact_vector_bridge_exact_head_CI_and_review_pending
-  verified_main: 7e522ff8e43aec29b94446aae2d33d9c43ca69b9
-  latest_qualified_slice: BE14h_portable_benchmark
-  latest_qualified_pr: 160
-  latest_qualified_head: a01547b7677a4d08aee6fd6e0c8ed37636d25f27
-  latest_merge: 7e522ff8e43aec29b94446aae2d33d9c43ca69b9
-  latest_merged_progress_slice: BE14h_portable_benchmark
-  latest_merged_progress_pr: 160
-  latest_merged_progress_head: a01547b7677a4d08aee6fd6e0c8ed37636d25f27
+  immediate_next_slice: BE15b_TDI_9_3_non_final_adapter
+  open_pull_requests_at_checkpoint: 0
+  current_candidate_pr: null
+  current_candidate_head: null
+  current_candidate_status: none_BE15a_completed
+  verified_main: 7cb03916bf911fd690ae2b9de95565e00addd647
+  latest_qualified_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
+  latest_qualified_pr: 161
+  latest_qualified_head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
+  latest_merge: 7cb03916bf911fd690ae2b9de95565e00addd647
+  latest_merged_progress_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
+  latest_merged_progress_pr: 161
+  latest_merged_progress_head: 89cdbc2ff88f240b2cc32e0912839ba45c4ffb44
   latest_merged_progress_merge: 7e522ff8e43aec29b94446aae2d33d9c43ca69b9
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
