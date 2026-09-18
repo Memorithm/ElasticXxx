@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 7cb03916bf911fd690ae2b9de95565e00addd647
-  main_observed_at: "2026-09-18"
-  open_pull_requests: 0
+  main_sha: 3cb8701e517919033366c2f0cf0a58cc21022f52
+  main_observed_at: "2026-09-19"
+  open_pull_requests: 1
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -334,6 +334,17 @@ current_verified_state:
       dedicated_benchmark_smoke_run: 35398738971
       result: success
       purpose: BE15a_pinned_BooleanLab_exact_vector_oracle_and_evaluation_bridge
+    - pr: 164
+      head: 17e3551639ff792a1011ef6390a002437d469176
+      merge: 3cb8701e517919033366c2f0cf0a58cc21022f52
+      ci_run: 35404701803
+      packageability_run: 35404701832
+      hardening_run: 35404701823
+      result: merged_exact_head_checks_success_but_not_fully_qualified
+      purpose: BE15d_fail_closed_Forge_search_candidate_bridge
+      qualification_blocker: material_P2_JSON_array_nesting_depth_finding_remained_applicable_at_merge
+      follow_up_pr: 165
+      follow_up_head: d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -1649,6 +1660,18 @@ phases:
           - avoid_dependency_cycle
       - id: BE15d
         name: Forge_optional_search_bridge
+        status: active_hardening
+        merged_candidate_evidence:
+          - ElasticXxx_PR_164
+          - PR164_exact_head_17e3551639ff792a1011ef6390a002437d469176
+          - PR164_merge_3cb8701e517919033366c2f0cf0a58cc21022f52
+          - PR164_ci_35404701803_completed_success_on_exact_head
+          - PR164_packageability_35404701832_completed_success_on_exact_head
+          - PR164_continuous_hardening_35404701823_completed_success_on_exact_head
+          - bridge_revalidates_Forge_origin_guards_and_pseudo_Boolean_constraints_without_actuation_authority
+        qualification_blockers:
+          - PR164_material_P2_JSON_array_nesting_depth_finding_remained_applicable_at_merge
+          - PR165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_is_follow_up_candidate_and_not_qualified_until_its_own_gates_review_and_merge_complete
         tasks:
           - Forge_may_generate_candidate_guard_or_constraint_forms
           - ElasticXxx_revalidates_structure_semantics_and_limits
@@ -1754,20 +1777,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15d_Forge_optional_search_bridge
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none_BE15c_completed_no_promotion
-  verified_main: f0c1d65287810eb0ec693205e65568cef7354b03
+  immediate_next_slice: BE15d_Forge_optional_search_bridge_depth_hardening
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 165
+  current_candidate_head: d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e
+  current_candidate_status: exact_head_local_tests_green_GitHub_gates_pending
+  verified_main: 3cb8701e517919033366c2f0cf0a58cc21022f52
   latest_qualified_slice: BE15c_SciRust_promotion_review_no_promotion
   latest_qualified_pr: 163
   latest_qualified_head: a4e1ea46ae27c0bf2eb5046512b9921ff12645d9
-  latest_merge: f0c1d65287810eb0ec693205e65568cef7354b03
-  latest_merged_progress_slice: BE15c_SciRust_promotion_review_no_promotion
-  latest_merged_progress_pr: 163
-  latest_merged_progress_head: a4e1ea46ae27c0bf2eb5046512b9921ff12645d9
-  latest_merged_progress_merge: f0c1d65287810eb0ec693205e65568cef7354b03
+  latest_merge: 3cb8701e517919033366c2f0cf0a58cc21022f52
+  latest_merged_progress_slice: BE15d_Forge_optional_search_bridge_merged_with_material_P2_follow_up_required
+  latest_merged_progress_pr: 164
+  latest_merged_progress_head: 17e3551639ff792a1011ef6390a002437d469176
+  latest_merged_progress_merge: 3cb8701e517919033366c2f0cf0a58cc21022f52
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
