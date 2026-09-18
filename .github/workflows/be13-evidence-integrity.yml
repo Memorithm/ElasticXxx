@@ -6,6 +6,7 @@ on:
       - 'benchmarks/be13/evidence/**'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/check-be13-portable-evidence.py'
+      - 'scripts/test-be13-build-attestation.sh'
       - 'scripts/be13_timing_stability.py'
       - 'tools/be13/process_metrics.c'
       - 'crates/elastic-core/benches/be13_portable.rs'
@@ -17,6 +18,7 @@ on:
       - 'benchmarks/be13/evidence/**'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/check-be13-portable-evidence.py'
+      - 'scripts/test-be13-build-attestation.sh'
       - 'scripts/be13_timing_stability.py'
       - 'tools/be13/process_metrics.c'
       - 'crates/elastic-core/benches/be13_portable.rs'
@@ -34,6 +36,8 @@ jobs:
   validate:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -57,10 +61,14 @@ jobs:
               ;;
           esac
       - name: Validate Python evidence tooling
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/be13-pycache
         run: python3 -m py_compile scripts/be13_timing_stability.py scripts/check-be13-portable-evidence.py
       - name: Validate retained evidence
         run: python3 scripts/check-be13-portable-evidence.py
       - name: Validate collector shell syntax
-        run: bash -n scripts/collect-be13-portable-evidence.sh
+        run: bash -n scripts/collect-be13-portable-evidence.sh scripts/test-be13-build-attestation.sh
+      - name: Validate build-attestation rejection paths
+        run: bash scripts/test-be13-build-attestation.sh
       - name: Compile direct process-metrics helper
         run: cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c -o "$RUNNER_TEMP/be13-process-metrics"

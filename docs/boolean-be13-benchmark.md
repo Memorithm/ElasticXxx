@@ -68,15 +68,21 @@ timed loop alone.
 ## Controlled evidence collection
 
 The portable default remains observation-only and requires no privileged
-CPU-frequency change:
+CPU-frequency change. Every newly emitted v2 attestation requires an explicit
+permanent source tag resolving to the exact clean source commit:
 
 ```bash
+BE13_SOURCE_REF=refs/tags/<permanent-source-tag> \
 BE13_REPETITIONS=30 \
 BE13_WARMUP=10000 \
 BE13_ITERATIONS=500000 \
 BE13_CPU=0 \
 ./scripts/collect-be13-portable-evidence.sh /tmp/be13-observed
 ```
+
+The tag must already exist and resolve exactly to `git rev-parse HEAD`; an
+untagged run is rejected before benchmark compilation. This keeps the source of
+retained attested evidence reachable after branch deletion or squash merging.
 
 On a reviewed host where the selected CPU exposes a writable CPUFreq policy,
 controlled comparison evidence can be requested explicitly:
@@ -89,23 +95,48 @@ BE13_ITERATIONS=500000 \
 BE13_CPU=0 \
 BE13_FREQUENCY_MODE=lock-max \
 BE13_PROCESS_METRICS=required \
+BE13_SOURCE_REF=refs/tags/<permanent-source-tag> \
+BE13_CODEGEN_PROFILE_EXPECTED=portable \
 BE13_REQUIRE_QUALIFIED=1 \
 ./scripts/collect-be13-portable-evidence.sh /tmp/be13-controlled
 ```
 
-The collector refuses a dirty worktree and a non-empty destination. It builds
-the benchmark before applying any CPUFreq lock, pins the benchmark to the
-selected CPU when `taskset` is available, rotates path order, verifies the five
-semantic `True` results, samples the CPUFreq policy during the campaign, and
-restores the original CPU policy before finalizing metadata. A lock file prevents
-two BE13 collectors from changing the same policy concurrently.
+The collector refuses a dirty worktree, a non-empty destination, or a missing
+permanent source tag. Before assigning a `portable`, `native`, or `custom`
+codegen profile it captures all supported build-context channels that can alter
+this benchmark: `RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, the host-target
+`CARGO_TARGET_*_RUSTFLAGS`, `CARGO_BUILD_RUSTFLAGS`, `CARGO_BUILD_TARGET`,
+`CARGO_INCREMENTAL`, every `CARGO_PROFILE_*` environment override (including the
+`release` profile inherited by `bench`), Cargo config files discovered from the
+workspace directory through all ancestors plus Cargo home, and the effective `cargo rustc -- --print cfg` output. Cargo-profile
+overrides are retained in `build_env_inventory.txt`; only hashes and paths of
+Cargo config files are retained, never their contents.
 
-The retained-evidence validator supports both v1 and v2. For v2 it validates the
-exact repetition/path matrices, deterministic order, recomputes the timing
-stability summary from raw rows, checks continuous frequency samples, policy
-restoration, process-counter semantics, SHA-256 files, and the historical
-collector/helper/stability-analyzer blobs from the recorded source SHA. The
-evidence CI uses full Git history so this source binding can be checked.
+A run is classified `portable` only when those build-context channels are clean;
+`native` additionally requires exactly `RUSTFLAGS='-C target-cpu=native'`, an
+unset `CARGO_ENCODED_RUSTFLAGS`, and no other captured override. An explicitly
+empty encoded-flags variable is still an override because Cargo gives its
+presence precedence over `RUSTFLAGS`. Everything else is `custom`. Qualified collection
+requires an explicit expected `portable` or `native` profile and fails closed on
+mismatch.
+
+After attestation, the collector builds the benchmark before applying any
+CPUFreq lock, pins the benchmark to the selected CPU when `taskset` is
+available, rotates path order, verifies the five semantic `True` results,
+samples the CPUFreq policy during the campaign, and restores the original CPU
+policy before finalizing metadata. A lock file prevents two BE13 collectors
+from changing the same policy concurrently.
+
+The retained-evidence validator supports historical v1/v2 evidence and the
+current `cargo-build-context-v2` attestation. For current v2 attestation it
+recomputes the codegen classification from the captured Rustflags channels,
+bench-profile environment inventory and Cargo-config inventory; verifies the
+permanent tag-to-SHA binding; validates the exact repetition/path matrices and
+deterministic order; recomputes the timing stability summary from raw rows;
+checks continuous frequency samples, policy restoration, process-counter
+semantics and SHA-256 files; and checks the historical collector/helper/stability
+analyzer blobs from the recorded source SHA. The evidence CI fetches full
+history and tags so these bindings can be checked.
 
 This benchmark performs no actuation and grants no validation authority. No
 speedup, hardware, energy, or scientific-novelty claim is valid merely because a
@@ -148,6 +179,10 @@ portable candidate on the target multiword paths.
 PR #130's automated review identified that the first BE13e codegen labels were
 post-hoc and that squash merging could make the measured source unreachable.
 The source is now retained by a permanent tag, and the corrected collector
-captures effective Cargo/rustc configuration during collection. The attested
-replacement datasets and conservative gate decision are documented in
+captures effective Cargo/rustc configuration during collection. A later
+hardening pass closes additional build-context channels identified by automated
+review: `CARGO_BUILD_RUSTFLAGS`, ancestor `.cargo/config*`,
+`CARGO_PROFILE_*` (including release overrides inherited by bench), explicit encoded-flags presence, and untagged attestation are now fail-closed inputs for
+portable/native qualification. The attested replacement datasets and
+conservative gate decision are documented in
 `docs/boolean-be13-acceleration-gate.md`.
