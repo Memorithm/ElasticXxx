@@ -77,11 +77,13 @@ pub use elastic_core::{
 };
 pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
-    evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
-    EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirResource, Fingerprint,
-    FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome, PlanningContext,
-    RejectedTransition, TransitionCandidate, TransitionPlanner, TransitionPruningReport,
-    UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
+    evaluate_transition_guards, lower, lower_constrained, lower_guarded,
+    prune_transition_candidates, EirConstrainedResource, EirDocument, EirDocumentBuilder, EirGuard,
+    EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
+    EirResource, Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome, PlanOutcome,
+    PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
+    TransitionPruningReport, UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
+    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
@@ -211,9 +213,10 @@ pub mod prelude {
         MAX_PSEUDO_BOOLEAN_UNIT_BYTES,
     };
     pub use elastic_eir::{
-        evaluate_transition_guards, lower, lower_guarded, prune_transition_candidates, EirDocument,
-        EirGuardedResource, EirResource, Fingerprint, FirstGroundedPlanner, PlanningContext,
-        TransitionPlanner, TransitionPruningReport,
+        evaluate_transition_guards, lower, lower_constrained, lower_guarded,
+        prune_transition_candidates, EirConstrainedResource, EirDocument, EirGuardedResource,
+        EirPseudoBooleanConstraint, EirPseudoBooleanTerm, EirResource, Fingerprint,
+        FirstGroundedPlanner, PlanningContext, TransitionPlanner, TransitionPruningReport,
     };
     pub use elastic_macros::ElasticResource;
     pub use elastic_runtime::{

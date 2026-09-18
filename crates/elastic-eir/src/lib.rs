@@ -90,6 +90,7 @@
 //! # run().unwrap();
 //! ```
 
+mod constraint;
 mod document;
 mod error;
 mod fingerprint;
@@ -100,6 +101,10 @@ mod planning_subset;
 mod resource;
 mod validate;
 
+pub use constraint::{
+    lower_constrained, EirConstrainedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
+    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
+};
 pub use document::{lower, EirDocument, EirDocumentBuilder};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
