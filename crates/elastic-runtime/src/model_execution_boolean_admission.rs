@@ -280,7 +280,10 @@ fn fresh_value(
         return None;
     }
     let value = context.get(signal)?;
-    value.is_finite().then_some(value)
+    if !value.is_finite() || observation.value().to_bits() != value.to_bits() {
+        return None;
+    }
+    Some(value)
 }
 
 const fn kleene_and(left: TruthValue, right: TruthValue) -> TruthValue {
@@ -525,6 +528,22 @@ mod tests {
                 blocking_rule_rank: 0,
                 ..
             }
+        ));
+    }
+
+    #[test]
+    fn planning_context_observation_mismatch_is_unknown() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+        let context = PlanningContext::new()
+            .observe(ObservationSignalId::FREE_CAPACITY, 9_001.0)
+            .observe(ObservationSignalId::UTILIZATION, 0.60);
+        let (_, observations) = evidence(now, 9_000.0, 0.60);
+        assert!(matches!(
+            preplanner.screen(&context, &observations, now).outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence { .. }
         ));
     }
 
