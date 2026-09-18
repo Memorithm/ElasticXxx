@@ -1,6 +1,6 @@
-# BE14f kernel-realization Boolean admission — first slice
+# BE14f kernel-realization Boolean admission — guarded transaction
 
-Status: second candidate slice. It does not close BE14f.
+Status: third candidate slice. It does not close BE14f.
 
 This slice adds a fail-closed Boolean front-end to the existing `elastic-kernel`
 planner. The front-end evaluates the stable predicate
@@ -37,8 +37,23 @@ inconsistent selected outcomes fail closed. Decoding is explicitly explanatory:
 it has no lifecycle authority and cannot replace current capability discovery or
 the trusted kernel lifecycle.
 
-This slice still does **not** claim real backend actuation,
-latency/throughput improvement, GPU execution, energy reduction, model-quality
-equivalence, or BE14f completion. Trusted transaction/real-consumer
-VALIDATE->ACT->VERIFY->COMMIT/ROLLBACK, an explicit unguarded differential
-baseline, and portable benchmark evidence remain separate slices.
+The third slice adds `KernelRealizationBackendV1` and
+`execute_guarded_kernel_transaction`. A selected plan is rebound to the exact
+candidate and an unchanged, freshly supplied capability fingerprint before any
+backend method runs. The backend must then discharge action-time validation,
+activation, verification and commit. Activation/verification/commit failures
+produce lifecycle rollback evidence and invoke backend restoration. Boolean
+`Unknown`, conclusive `False`/no-candidate, planner non-results, trace mismatch,
+and capability drift do not enter backend actuation.
+
+The test provider exercises `True`, `False` and `Unknown`, fresh-capability drift,
+verification rollback, and an explicit guarded-vs-unguarded differential
+baseline. The differential test establishes only semantic equality of the
+selected/committed realization in the deterministic host test fixture; it is not
+a performance result or physical-device qualification.
+
+This slice still does **not** claim a real GPU/backend deployment,
+latency/throughput improvement, energy reduction, model-quality equivalence, or
+BE14f completion. Portable benchmark evidence remains required before any
+performance claim, and physical consumers must separately qualify their own
+backend semantics and hardware observations.

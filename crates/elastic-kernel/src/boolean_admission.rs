@@ -142,6 +142,14 @@ impl BooleanKernelDecisionTraceV1 {
     pub fn selected_realization(&self) -> Option<&str> {
         self.selected_realization.as_deref()
     }
+    /// Selection-record fingerprint captured by this explanatory trace.
+    #[must_use]
+    pub const fn selection_fingerprint(&self) -> Option<Fingerprint> {
+        match self.selection_fingerprint {
+            Some(bits) => Some(Fingerprint::from_bits(bits)),
+            None => None,
+        }
+    }
     #[must_use]
     pub fn candidates(&self) -> &[BooleanKernelCandidateTraceV1] {
         &self.candidates
