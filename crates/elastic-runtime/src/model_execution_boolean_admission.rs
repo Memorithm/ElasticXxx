@@ -25,8 +25,7 @@ use crate::{
     capture_decision_trace, BooleanGuardPreplanner, CadenceConfig, CurrentStateForecaster,
     ExecutionModeConfig, FactResourceBinding, FactSnapshot, FactSourceId, Forecaster,
     ModelExecutionControllerV1, ModelExecutionProfileBackendV1, ModelExecutionResourceTelemetryV1,
-    Observation, ObservationSnapshot, Observer, PredicateEvaluationInput, PredicateEvaluator,
-    RuntimeError,
+    Observation, ObservationSnapshot, PredicateEvaluationInput, PredicateEvaluator, RuntimeError,
 };
 
 /// Stable namespace of the BE14c resource-envelope predicate.
@@ -82,6 +81,7 @@ pub struct BooleanModelExecutionProfileReportV1 {
 struct EnvelopeAvailablePredicate<'a> {
     key: PredicateKey,
     planner: &'a ModelExecutionAdaptivePlannerV1,
+    valid_until: Option<Instant>,
 }
 
 impl EnvelopeAvailablePredicate<'_> {
@@ -112,6 +112,12 @@ impl PredicateEvaluator for EnvelopeAvailablePredicate<'_> {
     }
 
     fn evaluate(&self, input: &PredicateEvaluationInput<'_>) -> TruthValue {
+        if self
+            .valid_until
+            .is_some_and(|valid_until| input.now() > valid_until)
+        {
+            return TruthValue::Unknown;
+        }
         if !Self::signal_is_bound(input, ObservationSignalId::FREE_CAPACITY)
             || !Self::signal_is_bound(input, ObservationSignalId::UTILIZATION)
         {
@@ -221,14 +227,16 @@ where
 
     /// Execute one guarded current-state profile cycle.
     pub fn cycle(&mut self) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
-        let (current, observations) = self.inner.observer().observe();
-        self.cycle_from_observations(current, observations, Instant::now())
+        let (current, observations, resource_valid_until) =
+            self.inner.observer().observe_with_resource_validity();
+        self.cycle_from_observations(current, observations, resource_valid_until, Instant::now())
     }
 
     fn cycle_from_observations(
         &mut self,
         current: PlanningContext,
         observations: Vec<Observation>,
+        resource_valid_until: Option<Instant>,
         now: Instant,
     ) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
         let observation_snapshot = ObservationSnapshot::new(now, observations.clone());
@@ -243,6 +251,7 @@ where
         let evaluator = EnvelopeAvailablePredicate {
             key: key.clone(),
             planner: self.inner.planner(),
+            valid_until: resource_valid_until,
         };
         let input = PredicateEvaluationInput::new(forecast_context, &observation_snapshot, now);
         let facts = FactSnapshot::derive(
