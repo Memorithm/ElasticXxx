@@ -159,6 +159,18 @@ priority_program:
           - dense_reference_planned_low_bit_and_structural_candidates_blocked_missing_backend_capability
           - metric_values_remain_null_with_explicit_not_executed_or_blocked_statuses
           - operator_run_NNIS_evidence_collection_and_allocator_GO_remain_out_of_scope
+      - id: EXML2d
+        name: BE14e fixed-width representation precision preplanning
+        status: complete_planning_only_no_actuation_qualification
+        completion_evidence:
+          - PR_143_exact_head_ef92faf61d920579902635060f81ea504c710c0e
+          - PR_143_CI_packageability_and_continuous_hardening_completed_success_on_exact_head
+          - PR_143_merged_as_ea85ec690df730d486908cc6abe71836f76922e5
+          - public_facade_exposes_fixed_width_fail_closed_preplanning_over_existing_representation_contracts
+          - missing_stale_invalid_or_context_mismatched_precision_floor_evidence_remains_Unknown
+          - Boolean_True_cannot_bypass_authoritative_RepresentationTransition_validation
+          - declared_bits_per_scalar_is_policy_metadata_not_a_numerical_error_or_model_quality_claim
+          - this_slice_is_not_real_representation_actuation_policy_quality_or_performance_evidence
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
       - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters
