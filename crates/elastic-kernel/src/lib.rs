@@ -47,6 +47,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod boolean_admission;
 pub mod candidate;
 pub mod capability;
 pub mod contextual;
@@ -54,6 +55,14 @@ pub mod lifecycle;
 pub mod planner;
 pub mod requirements;
 
+pub use boolean_admission::{
+    kernel_capability_predicate_key, plan_with_boolean_admission, screen_kernel_candidates,
+    BooleanKernelCandidateEvidenceV1, BooleanKernelPlanOutcomeV1, BooleanKernelScreenOutcomeV1,
+    BooleanKernelScreenReportV1, KernelBooleanReasonV1, KERNEL_CAPABILITY_FEATURE_UNIT,
+    KERNEL_CAPABILITY_MAX_AGE, KERNEL_CAPABILITY_NUMERIC_UNITS, KERNEL_CAPABILITY_PREDICATE_NAME,
+    KERNEL_CAPABILITY_PREDICATE_NAMESPACE, KERNEL_CAPABILITY_SOURCE_SCHEMA,
+    MAX_BOOLEAN_KERNEL_CANDIDATES,
+};
 pub use candidate::{
     Evidence, EvidenceTier, EvidenceUnit, KernelCandidate, MeasuredQuantity, ObjectiveEvidence,
     RealizationIdentity, StaticQuantity,
