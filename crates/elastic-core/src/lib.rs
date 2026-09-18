@@ -27,6 +27,7 @@ pub mod exact_oracle;
 pub mod frontier;
 pub mod guard;
 pub mod invariant_predicate;
+pub mod kleene_oracle;
 pub mod logic;
 pub mod predicate;
 pub mod representation;
@@ -51,6 +52,9 @@ pub use guard::{
     TransitionGuard,
 };
 pub use invariant_predicate::InvariantPredicateBinding;
+pub use kleene_oracle::{
+    ExactKleeneOracle, KleeneOracleError, KleenePropertyReport, KleeneSatisfiabilityReport,
+};
 pub use logic::{
     BoolExpr, CompiledGuard, FactMask, FactSet, LogicError, PredicateId, TruthValue,
     FAST_PREDICATE_CAPACITY, MAX_BOOLEAN_EXPR_DEPTH,
