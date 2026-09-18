@@ -125,6 +125,67 @@ pub fn public_boolean_surface_smoke() {
     );
 }
 
+/// Compile-time and semantic proof that BE14h source-bound thermal/energy
+/// eligibility is usable through only the public `elastic` dependency.
+pub fn public_thermal_energy_policy_surface_smoke() {
+    use std::time::{Duration, Instant};
+
+    let resource = ResourceSpec::builder(
+        ResourceClassId::CONFIGURATIONAL,
+        LogicalResourceId::new("downstream-thermal-energy").unwrap(),
+    )
+    .allow(DimensionId::ENERGY)
+    .admit(AdmissibleTransition::new(
+        TransitionMechanism::Reinterpret,
+        DimensionId::ENERGY,
+    ))
+    .require_capability(CapabilityRequirement::new(
+        TransitionMechanism::Reinterpret,
+        DimensionId::ENERGY,
+    ))
+    .observe(ObservationSignalId::THERMAL_MARGIN)
+    .observe(ObservationSignalId::ENERGY_RATE)
+    .build()
+    .unwrap();
+    let thermal_source = ObservationSource::host("downstream:thermal");
+    let energy_source = ObservationSource::host("downstream:power");
+    let now = Instant::now();
+    let context = PlanningContext::new()
+        .observe(ObservationSignalId::THERMAL_MARGIN, 20.0)
+        .observe(ObservationSignalId::ENERGY_RATE, 40.0);
+    let observations = ObservationSnapshot::new(
+        now,
+        vec![
+            Observation::from_source(
+                thermal_source.clone(),
+                ObservationSignalId::THERMAL_MARGIN,
+                20.0,
+                now,
+            ),
+            Observation::from_source(
+                energy_source.clone(),
+                ObservationSignalId::ENERGY_RATE,
+                40.0,
+                now,
+            ),
+        ],
+    );
+    let mut policy = BooleanThermalEnergyPreplannerV1::new(
+        resource,
+        TransitionMechanism::Reinterpret,
+        DimensionId::ENERGY,
+        10.0,
+        50.0,
+        thermal_source,
+        energy_source,
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let report = policy.evaluate(&context, &observations, now).unwrap();
+    assert_eq!(report.status, BooleanThermalEnergyStatusV1::Eligible);
+    assert_eq!(report.evidence.combined_truth, "true");
+}
+
 /// Compile-time and semantic proof that stable-key guarded EIR can be authored
 /// through only the public `elastic` dependency.
 pub fn public_stable_guard_surface_smoke() {
@@ -184,6 +245,7 @@ mod tests {
         public_guarded_planning_trace_surface_smoke();
         public_decision_trace_diff_surface_smoke();
         public_boolean_surface_smoke();
+        public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }
 }
