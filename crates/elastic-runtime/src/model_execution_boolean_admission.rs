@@ -1,434 +1,297 @@
-//! BE14c Boolean eligibility for correlated model-execution profiles.
+//! BE14c fail-closed Boolean screening for model-execution envelope rules.
 //!
-//! The stable predicate in this module answers one question only: does the
-//! current fresh resource envelope satisfy at least one published policy rule?
-//! It never chooses a rule or profile. On `True`, the existing adaptive planner
-//! still selects among correlated profiles and `TransactionalModelExecution`
-//! remains authoritative for validation, actuation, verification, and rollback.
+//! This module is deliberately planning-only. It evaluates the existing
+//! `FREE_CAPACITY` and `UTILIZATION` telemetry against provider-declared model
+//! envelope rules before the existing numeric/profile planner is invoked.
+//! `False` prunes a rule, `Unknown` blocks preference resolution whenever that
+//! unknown rule could precede a later match, and `True` only admits the existing
+//! [`ModelExecutionAdaptivePlannerV1`] to re-resolve the same policy. Boolean
+//! evidence is explanatory and never authorizes actuation.
 
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use elastic_adapters::{
-    model_execution_current_profile_rank_signal, model_execution_profile_dimension,
     ModelExecutionAdaptivePlannerV1, ModelExecutionEnvelopePolicyV1, ModelExecutionProfileSetV1,
 };
 use elastic_core::resource::ObservationSignalId;
-use elastic_core::{
-    BoolExpr, BooleanGuard, FreshnessSnapshot, GuardFactSource, GuardScope, GuardedResourceSpec,
-    ObservationEpoch, PlannerEpoch, PredicateKey, PredicateRegistry, ResourceGeneration,
-    TransitionMechanism, TruthValue,
-};
-use elastic_eir::{lower_guarded, EirGuardedResource, PlanningContext};
+use elastic_core::{PredicateKey, TruthValue};
+use elastic_eir::{EirResource, PlanOutcome, PlanningContext, TransitionPlanner};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    capture_decision_trace, BooleanGuardPreplanner, CadenceConfig, CurrentStateForecaster,
-    ExecutionModeConfig, FactResourceBinding, FactSnapshot, FactSourceId, Forecaster,
-    ModelExecutionControllerV1, ModelExecutionProfileBackendV1, ModelExecutionResourceTelemetryV1,
-    Observation, ObservationSnapshot, PredicateEvaluationInput, PredicateEvaluator, RuntimeError,
-};
+use crate::ObservationSnapshot;
 
-/// Stable namespace of the BE14c resource-envelope predicate.
-pub const MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE: &str = "elastic.model-execution";
-/// Stable local name of the BE14c resource-envelope predicate.
-pub const MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME: &str = "resource-envelope-available";
-/// Unit of the generic utilization signal.
-pub const MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT: &str = "fraction";
+/// Stable namespace for BE14c rule-threshold predicates.
+pub const MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE: &str = "elastic.model-execution";
+/// Unit carried by the runtime `UTILIZATION` observation.
+pub const MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT: &str = "fraction-0-to-1";
+/// Unit used by provider-declared utilization thresholds.
+pub const MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT: &str = "basis-points";
+/// Symbolic unit marker for `FREE_CAPACITY`; the concrete unit comes from policy.
+pub const MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT: &str = "policy-capacity-unit";
+/// Freshness envelope for live model-execution resource telemetry.
+pub const MODEL_EXECUTION_BOOLEAN_MAX_AGE: Duration = Duration::from_secs(1);
 
-/// Stable key used by the BE14c model-execution guard.
-pub fn model_execution_envelope_predicate_key() -> PredicateKey {
+const MAX_EXACT_F64_INTEGER: f64 = 9_007_199_254_740_992.0;
+
+/// Stable key for a provider rule's free-capacity threshold.
+pub fn model_execution_rule_free_capacity_predicate_key(rule_rank: u32) -> PredicateKey {
     PredicateKey::new(
-        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
-        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME,
+        MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
+        format!("rule-{rule_rank}-free-capacity"),
     )
-    .expect("static BE14c PredicateKey is valid")
+    .expect("numeric BE14c rule rank produces a valid PredicateKey")
 }
 
-/// Durable explanatory Boolean evidence for one profile cycle.
+/// Stable key for a provider rule's utilization threshold.
+pub fn model_execution_rule_utilization_predicate_key(rule_rank: u32) -> PredicateKey {
+    PredicateKey::new(
+        MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
+        format!("rule-{rule_rank}-utilization"),
+    )
+    .expect("numeric BE14c rule rank produces a valid PredicateKey")
+}
+
+/// Durable explanatory evidence for one provider rule screened by BE14c.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct BooleanModelExecutionProfileEvidenceV1 {
-    pub schema_version: u16,
-    pub predicate_key: String,
-    pub free_capacity_signal: String,
-    pub free_capacity_unit: String,
-    pub utilization_signal: String,
-    pub utilization_unit: String,
-    pub truth: String,
-    pub forecast_method: String,
-    pub forecast_horizon_milliseconds: u64,
-    pub forecast_confidence_claimed: bool,
-    pub decision_trace_json: String,
+pub struct BooleanModelExecutionRuleEvidenceV1 {
+    pub rule_id: String,
+    pub rule_rank: u32,
+    pub free_capacity_predicate_key: String,
+    pub utilization_predicate_key: String,
+    pub min_free_capacity: u64,
+    pub max_utilization_bps: u16,
+    pub free_capacity_truth: String,
+    pub utilization_truth: String,
+    pub combined_truth: String,
 }
 
-/// One BE14c gated profile result.
+/// Fail-closed result of Boolean rule screening before numeric/profile ranking.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum BooleanModelExecutionScreenOutcomeV1 {
+    /// The first provider-preferred rule with complete `True` evidence.
+    Selected { rule_id: String, rule_rank: u32 },
+    /// All provider rules were conclusively `False`.
+    NoMatchingRule,
+    /// At least one potentially preferred rule had unusable evidence.
+    InsufficientEvidence {
+        blocking_rule_id: String,
+        blocking_rule_rank: u32,
+    },
+}
+
+/// Durable BE14c screening report. It is evidence only and cannot authorize actuation.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-pub struct BooleanModelExecutionProfileReportV1 {
+pub struct BooleanModelExecutionScreenReportV1 {
     pub schema_version: u16,
-    pub guard: BooleanModelExecutionProfileEvidenceV1,
-    pub status: String,
-    pub reason: String,
-    pub previous_profile_rank: Option<u32>,
-    pub final_profile_rank: Option<u32>,
-    pub committed: Option<bool>,
-    pub rolled_back: Option<bool>,
-    pub verification: Option<String>,
-    pub events: Vec<String>,
-    pub model_cycle_evidence_json: Option<String>,
+    pub capacity_unit: String,
+    pub free_capacity_source_unit: String,
+    pub utilization_source_unit: String,
+    pub utilization_threshold_unit: String,
+    pub outcome: BooleanModelExecutionScreenOutcomeV1,
+    pub rules: Vec<BooleanModelExecutionRuleEvidenceV1>,
 }
 
-struct EnvelopeAvailablePredicate<'a> {
-    key: PredicateKey,
-    planner: &'a ModelExecutionAdaptivePlannerV1,
-    valid_until: Option<Instant>,
+/// Planning-only BE14c bridge. The existing numeric planner remains authoritative.
+#[derive(Clone, Debug)]
+pub struct BooleanModelExecutionPreplannerV1 {
+    policy: ModelExecutionEnvelopePolicyV1,
+    numeric: ModelExecutionAdaptivePlannerV1,
 }
 
-impl EnvelopeAvailablePredicate<'_> {
-    fn signal_is_bound(input: &PredicateEvaluationInput<'_>, signal: ObservationSignalId) -> bool {
-        let Some(observation) = input.observations().get(signal.clone()) else {
-            return false;
-        };
-        if !observation.is_valid() || !observation.value().is_finite() {
-            return false;
-        }
-        if input
-            .now()
-            .checked_duration_since(*observation.timestamp())
-            .is_none()
-        {
-            return false;
-        }
-        let Some(context_value) = input.planning_context().get(signal) else {
-            return false;
-        };
-        context_value.is_finite() && context_value.to_bits() == observation.value().to_bits()
-    }
-}
-
-impl PredicateEvaluator for EnvelopeAvailablePredicate<'_> {
-    fn key(&self) -> &PredicateKey {
-        &self.key
-    }
-
-    fn evaluate(&self, input: &PredicateEvaluationInput<'_>) -> TruthValue {
-        if self
-            .valid_until
-            .is_some_and(|valid_until| input.now() > valid_until)
-        {
-            return TruthValue::Unknown;
-        }
-        if !Self::signal_is_bound(input, ObservationSignalId::FREE_CAPACITY)
-            || !Self::signal_is_bound(input, ObservationSignalId::UTILIZATION)
-        {
-            return TruthValue::Unknown;
-        }
-
-        let snapshot = match self
-            .planner
-            .resource_snapshot_from_context(input.planning_context())
-        {
-            Ok(snapshot) => snapshot,
-            Err(_) => return TruthValue::Unknown,
-        };
-        if self
-            .planner
-            .policy()
-            .rules()
-            .iter()
-            .any(|rule| rule.matches(&snapshot))
-        {
-            TruthValue::True
-        } else {
-            TruthValue::False
-        }
-    }
-}
-
-/// Current-state BE14c controller.
-///
-/// One physical observation is captured per cycle. The guard and, on `True`,
-/// the existing forecast/planner/runtime path consume that same captured data.
-pub struct BooleanModelExecutionProfileControllerV1<B, T> {
-    inner: ModelExecutionControllerV1<B, T, CurrentStateForecaster>,
-    guarded_resource: EirGuardedResource,
-    next_observation_epoch: u64,
-    resource_generation: u64,
-}
-
-impl<B, T> BooleanModelExecutionProfileControllerV1<B, T>
-where
-    B: ModelExecutionProfileBackendV1,
-    T: ModelExecutionResourceTelemetryV1,
-{
-    /// Assemble one current-state Boolean-gated model-execution controller.
-    #[allow(clippy::too_many_arguments)]
+impl BooleanModelExecutionPreplannerV1 {
+    /// Bind the Boolean preplanner to exactly the same policy/profile contracts
+    /// as the existing numeric planner.
     pub fn new(
-        resource_id: &str,
-        profiles: ModelExecutionProfileSetV1,
         policy: ModelExecutionEnvelopePolicyV1,
-        backend: B,
-        telemetry: T,
-        cadence: CadenceConfig,
-        mode: ExecutionModeConfig,
-    ) -> Result<Self, RuntimeError> {
-        let predicate = model_execution_envelope_predicate_key();
-        let registry = PredicateRegistry::from_keys([predicate.clone()])
-            .map_err(|error| RuntimeError::configuration(error.to_string()))?;
-        let predicate_id = registry
-            .id(&predicate)
-            .expect("registry contains the BE14c predicate");
-        let guard = BooleanGuard::new(
-            GuardScope::Transition {
-                mechanism: TransitionMechanism::Reinterpret,
-                dimension: model_execution_profile_dimension(),
-            },
-            registry,
-            BoolExpr::atom(predicate_id),
-        )
-        .map_err(|error| RuntimeError::configuration(error.to_string()))?;
-        let guarded_spec = GuardedResourceSpec::new(
-            profiles
-                .atomic_resource_spec(resource_id)
-                .map_err(|error| RuntimeError::configuration(error.to_string()))?,
-            vec![guard],
-        )
-        .map_err(|error| RuntimeError::configuration(error.to_string()))?;
-        let guarded_resource = lower_guarded(&guarded_spec)
-            .map_err(|error| RuntimeError::configuration(error.to_string()))?;
-
-        let inner = ModelExecutionControllerV1::current_state(
-            resource_id,
-            profiles,
-            policy,
-            backend,
-            telemetry,
-            cadence,
-            mode,
-        )?;
-        Ok(Self {
-            inner,
-            guarded_resource,
-            next_observation_epoch: 1,
-            resource_generation: 1,
-        })
+        profiles: ModelExecutionProfileSetV1,
+    ) -> Result<Self, String> {
+        let numeric = ModelExecutionAdaptivePlannerV1::new(policy.clone(), profiles)
+            .map_err(|error| error.to_string())?;
+        Ok(Self { policy, numeric })
     }
 
-    /// Borrow the existing authoritative controller.
+    /// Exact backend-owned capacity unit used by `FREE_CAPACITY`.
     #[must_use]
-    pub const fn inner(&self) -> &ModelExecutionControllerV1<B, T, CurrentStateForecaster> {
-        &self.inner
+    pub fn capacity_unit(&self) -> &str {
+        self.policy.capacity_unit()
     }
 
-    /// Current physical profile rank from the bound backend.
-    pub fn current_profile_rank(&self) -> Result<u32, RuntimeError> {
-        self.inner.current_profile_rank()
-    }
-
-    /// Execute one guarded current-state profile cycle.
-    pub fn cycle(&mut self) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
-        let (current, observations, resource_valid_until) =
-            self.inner.observer().observe_with_resource_validity();
-        self.cycle_from_observations(current, observations, resource_valid_until, Instant::now())
-    }
-
-    fn cycle_from_observations(
-        &mut self,
-        current: PlanningContext,
-        observations: Vec<Observation>,
-        resource_valid_until: Option<Instant>,
+    /// Screen provider rules from fresh explicit telemetry without planning or actuation.
+    #[must_use]
+    pub fn screen(
+        &self,
+        context: &PlanningContext,
+        observations: &ObservationSnapshot,
         now: Instant,
-    ) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
-        let observation_snapshot = ObservationSnapshot::new(now, observations.clone());
-        let forecast = CurrentStateForecaster.forecast(&observation_snapshot, &current)?;
-        let forecast_context = forecast.planning_context().ok_or_else(|| {
-            RuntimeError::planning("BE14c current-state forecast produced no planner context")
-        })?;
+    ) -> BooleanModelExecutionScreenReportV1 {
+        let mut rules = Vec::with_capacity(self.policy.rules().len());
+        let mut first_unknown = None;
+        let mut selected = None;
 
-        let epoch = self.next_epoch()?;
-        let generation = ResourceGeneration::new(self.resource_generation);
-        let key = model_execution_envelope_predicate_key();
-        let evaluator = EnvelopeAvailablePredicate {
-            key: key.clone(),
-            planner: self.inner.planner(),
-            valid_until: resource_valid_until,
-        };
-        let input = PredicateEvaluationInput::new(forecast_context, &observation_snapshot, now);
-        let facts = FactSnapshot::derive(
-            FactSourceId::new("elastic-runtime:be14c-model-envelope")
-                .map_err(|error| RuntimeError::planning(error.to_string()))?,
-            epoch,
-            Some(FactResourceBinding::new(
-                self.guarded_resource.resource().identity().clone(),
-                generation,
-            )),
-            &input,
-            &[&evaluator as &dyn PredicateEvaluator],
-        )
-        .map_err(|error| RuntimeError::planning(error.to_string()))?;
-        let freshness = FreshnessSnapshot::new(PlannerEpoch::new(epoch.get()), epoch)
-            .with_resource_generation(
-                self.guarded_resource.resource().identity().clone(),
-                generation,
-            );
-        let truth = facts.truth(&key);
-        let pruning = BooleanGuardPreplanner
-            .prune(&self.guarded_resource, &facts, &freshness)
-            .map_err(|error| RuntimeError::planning(error.to_string()))?;
+        for rule in self.policy.rules() {
+            let free = evaluate_free_capacity(context, observations, now, rule.min_free_capacity());
+            let utilization =
+                evaluate_utilization(context, observations, now, rule.max_utilization_bps());
+            let combined = kleene_and(free, utilization);
+            rules.push(BooleanModelExecutionRuleEvidenceV1 {
+                rule_id: rule.rule_id().to_owned(),
+                rule_rank: rule.preference_rank(),
+                free_capacity_predicate_key: model_execution_rule_free_capacity_predicate_key(
+                    rule.preference_rank(),
+                )
+                .to_string(),
+                utilization_predicate_key: model_execution_rule_utilization_predicate_key(
+                    rule.preference_rank(),
+                )
+                .to_string(),
+                min_free_capacity: rule.min_free_capacity(),
+                max_utilization_bps: rule.max_utilization_bps(),
+                free_capacity_truth: truth_text(free).to_owned(),
+                utilization_truth: truth_text(utilization).to_owned(),
+                combined_truth: truth_text(combined).to_owned(),
+            });
 
-        let eligible = pruning.contains_eligible(
-            TransitionMechanism::Reinterpret,
-            &model_execution_profile_dimension(),
-        );
-        match truth {
-            TruthValue::True if eligible => {
-                self.execute_true_cycle(current, observations, &forecast, &facts, &freshness)
-            }
-            TruthValue::True => Err(RuntimeError::planning(
-                "BE14c guard was true but the atomic profile transition was not eligible",
-            )),
-            TruthValue::False | TruthValue::Unknown => {
-                self.blocked_report(truth, &forecast, &facts, &freshness, &current)
+            match combined {
+                TruthValue::False => {}
+                TruthValue::Unknown => {
+                    if first_unknown.is_none() {
+                        first_unknown = Some((rule.rule_id().to_owned(), rule.preference_rank()));
+                    }
+                }
+                TruthValue::True => {
+                    if first_unknown.is_none() {
+                        selected = Some((rule.rule_id().to_owned(), rule.preference_rank()));
+                    }
+                    break;
+                }
             }
         }
-    }
 
-    fn execute_true_cycle(
-        &mut self,
-        current: PlanningContext,
-        observations: Vec<Observation>,
-        forecast: &crate::Forecast,
-        facts: &FactSnapshot,
-        freshness: &FreshnessSnapshot,
-    ) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
-        let previous_profile_rank = observed_profile_rank(&current);
-        let (result, model_evidence) = self
-            .inner
-            .cycle_from_observations_with_evidence(current, observations)?;
-
-        let selected = result
-            .transaction
-            .plan
-            .as_ref()
-            .and_then(|validated| validated.plan.candidate());
-        let trace = capture_decision_trace(&self.guarded_resource, facts, freshness, selected)
-            .map_err(|error| RuntimeError::planning(error.to_string()))?;
-        let decision_trace_json = trace
-            .to_bounded_json()
-            .map_err(|error| RuntimeError::planning(error.to_string()))?;
-
-        let committed = result.transaction.commit.is_some();
-        let rolled_back = result.transaction.rollback.is_some();
-        let final_profile_rank = model_evidence.final_profile_rank();
-        if committed && previous_profile_rank != Some(final_profile_rank) {
-            self.resource_generation = self
-                .resource_generation
-                .checked_add(1)
-                .ok_or_else(|| RuntimeError::commit("BE14c resource generation exhausted"))?;
-        }
-
-        let (status, reason) = if committed {
-            ("committed", "verified-model-profile-commit")
-        } else if rolled_back {
-            ("rolled-back", "verified-model-profile-rollback")
+        let outcome = if let Some((rule_id, rule_rank)) = first_unknown {
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence {
+                blocking_rule_id: rule_id,
+                blocking_rule_rank: rule_rank,
+            }
+        } else if let Some((rule_id, rule_rank)) = selected {
+            BooleanModelExecutionScreenOutcomeV1::Selected { rule_id, rule_rank }
         } else {
-            ("no-change", "trusted-runtime-no-profile-change")
+            BooleanModelExecutionScreenOutcomeV1::NoMatchingRule
         };
-        Ok(BooleanModelExecutionProfileReportV1 {
+
+        BooleanModelExecutionScreenReportV1 {
             schema_version: 1,
-            guard: self.guard_evidence(TruthValue::True, forecast, decision_trace_json)?,
-            status: status.to_owned(),
-            reason: reason.to_owned(),
-            previous_profile_rank,
-            final_profile_rank: Some(final_profile_rank),
-            committed: Some(committed),
-            rolled_back: Some(rolled_back),
-            verification: result
-                .transaction
-                .verification
-                .as_ref()
-                .map(|value| format!("{value:?}")),
-            events: result
-                .events()
-                .map(|event| format!("{:?}: {}", event.kind, event.details))
-                .collect(),
-            model_cycle_evidence_json: Some(model_evidence.to_pretty_json()?),
-        })
+            capacity_unit: self.policy.capacity_unit().to_owned(),
+            free_capacity_source_unit: MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT.to_owned(),
+            utilization_source_unit: MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT.to_owned(),
+            utilization_threshold_unit: MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT.to_owned(),
+            outcome,
+            rules,
+        }
     }
 
-    fn blocked_report(
+    /// Screen first, then delegate complete `True` evidence to the existing
+    /// numeric/profile planner. `Unknown` never reaches numeric ranking.
+    pub fn plan_with_evidence(
         &self,
-        truth: TruthValue,
-        forecast: &crate::Forecast,
-        facts: &FactSnapshot,
-        freshness: &FreshnessSnapshot,
-        current: &PlanningContext,
-    ) -> Result<BooleanModelExecutionProfileReportV1, RuntimeError> {
-        let trace = capture_decision_trace(&self.guarded_resource, facts, freshness, None)
-            .map_err(|error| RuntimeError::planning(error.to_string()))?;
-        let decision_trace_json = trace
-            .to_bounded_json()
-            .map_err(|error| RuntimeError::planning(error.to_string()))?;
-        let rank = observed_profile_rank(current);
-        let reason = match truth {
-            TruthValue::False => "boolean-model-envelope-false",
-            TruthValue::Unknown => "boolean-model-envelope-unknown",
-            TruthValue::True => "boolean-model-envelope-internal-error",
+        resource: &EirResource,
+        context: &PlanningContext,
+        observations: &ObservationSnapshot,
+        now: Instant,
+    ) -> (BooleanModelExecutionScreenReportV1, PlanOutcome) {
+        let report = self.screen(context, observations, now);
+        let outcome = match &report.outcome {
+            BooleanModelExecutionScreenOutcomeV1::Selected { .. } => {
+                self.numeric.propose_transition_with_context(resource, context)
+            }
+            BooleanModelExecutionScreenOutcomeV1::NoMatchingRule => PlanOutcome::NoCandidate,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence {
+                blocking_rule_id, ..
+            } => PlanOutcome::InsufficientEvidence {
+                detail: format!(
+                    "boolean model-execution screening lacks usable evidence for preferred rule {blocking_rule_id:?}"
+                ),
+            },
         };
-        Ok(BooleanModelExecutionProfileReportV1 {
-            schema_version: 1,
-            guard: self.guard_evidence(truth, forecast, decision_trace_json)?,
-            status: "rejected".to_owned(),
-            reason: reason.to_owned(),
-            previous_profile_rank: rank,
-            final_profile_rank: rank,
-            committed: Some(false),
-            rolled_back: Some(false),
-            verification: None,
-            events: Vec::new(),
-            model_cycle_evidence_json: None,
-        })
-    }
-
-    fn guard_evidence(
-        &self,
-        truth: TruthValue,
-        forecast: &crate::Forecast,
-        decision_trace_json: String,
-    ) -> Result<BooleanModelExecutionProfileEvidenceV1, RuntimeError> {
-        Ok(BooleanModelExecutionProfileEvidenceV1 {
-            schema_version: 1,
-            predicate_key: model_execution_envelope_predicate_key().to_string(),
-            free_capacity_signal: ObservationSignalId::FREE_CAPACITY.as_str().to_owned(),
-            free_capacity_unit: self.inner.planner().capacity_unit().to_owned(),
-            utilization_signal: ObservationSignalId::UTILIZATION.as_str().to_owned(),
-            utilization_unit: MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT.to_owned(),
-            truth: truth_text(truth).to_owned(),
-            forecast_method: forecast.method.clone(),
-            forecast_horizon_milliseconds: u64::try_from(forecast.horizon.as_millis()).map_err(
-                |_| RuntimeError::planning("BE14c forecast horizon exceeds u64 milliseconds"),
-            )?,
-            forecast_confidence_claimed: forecast.confidence.is_some(),
-            decision_trace_json,
-        })
-    }
-
-    fn next_epoch(&mut self) -> Result<ObservationEpoch, RuntimeError> {
-        let epoch = ObservationEpoch::new(self.next_observation_epoch);
-        self.next_observation_epoch = self
-            .next_observation_epoch
-            .checked_add(1)
-            .ok_or_else(|| RuntimeError::planning("BE14c observation epoch exhausted"))?;
-        Ok(epoch)
+        (report, outcome)
     }
 }
 
-fn observed_profile_rank(context: &PlanningContext) -> Option<u32> {
-    let value = context.get(model_execution_current_profile_rank_signal())?;
-    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 || value > f64::from(u32::MAX) {
+fn evaluate_free_capacity(
+    context: &PlanningContext,
+    observations: &ObservationSnapshot,
+    now: Instant,
+    threshold: u64,
+) -> TruthValue {
+    let Some(value) = fresh_value(
+        context,
+        observations,
+        now,
+        ObservationSignalId::FREE_CAPACITY,
+    ) else {
+        return TruthValue::Unknown;
+    };
+    if !(0.0..=MAX_EXACT_F64_INTEGER).contains(&value) || value.fract() != 0.0 {
+        return TruthValue::Unknown;
+    }
+    let observed = value as u64;
+    if observed >= threshold {
+        TruthValue::True
+    } else {
+        TruthValue::False
+    }
+}
+
+fn evaluate_utilization(
+    context: &PlanningContext,
+    observations: &ObservationSnapshot,
+    now: Instant,
+    max_utilization_bps: u16,
+) -> TruthValue {
+    let Some(value) = fresh_value(context, observations, now, ObservationSignalId::UTILIZATION)
+    else {
+        return TruthValue::Unknown;
+    };
+    if !(0.0..=1.0).contains(&value) {
+        return TruthValue::Unknown;
+    }
+    let observed_bps = (value * 10_000.0).round() as u16;
+    if observed_bps <= max_utilization_bps {
+        TruthValue::True
+    } else {
+        TruthValue::False
+    }
+}
+
+fn fresh_value(
+    context: &PlanningContext,
+    observations: &ObservationSnapshot,
+    now: Instant,
+    signal: ObservationSignalId,
+) -> Option<f64> {
+    let observation = observations.get(signal.clone())?;
+    if !observation.is_valid() || !observation.value().is_finite() {
         return None;
     }
-    Some(value as u32)
+    let age = now.checked_duration_since(*observation.timestamp())?;
+    if age > MODEL_EXECUTION_BOOLEAN_MAX_AGE {
+        return None;
+    }
+    let value = context.get(signal)?;
+    if !value.is_finite() || observation.value().to_bits() != value.to_bits() {
+        return None;
+    }
+    Some(value)
+}
+
+const fn kleene_and(left: TruthValue, right: TruthValue) -> TruthValue {
+    match (left, right) {
+        (TruthValue::False, _) | (_, TruthValue::False) => TruthValue::False,
+        (TruthValue::True, TruthValue::True) => TruthValue::True,
+        _ => TruthValue::Unknown,
+    }
 }
 
 const fn truth_text(value: TruthValue) -> &'static str {
@@ -436,5 +299,287 @@ const fn truth_text(value: TruthValue) -> &'static str {
         TruthValue::True => "true",
         TruthValue::False => "false",
         TruthValue::Unknown => "unknown",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    use crate::{Observation, ObservationSource};
+    use elastic_adapters::{
+        ModelExecutionCapabilitiesV1, ModelExecutionEnvelopeRuleV1,
+        ModelExecutionHardwarePlannerV1, ModelExecutionHardwareSelectionV1,
+        ModelExecutionProfileEnvelopeV1, ModelExecutionProfileV1,
+    };
+
+    fn profiles() -> ModelExecutionProfileSetV1 {
+        let capabilities = ModelExecutionCapabilitiesV1::new(
+            "reference-backend",
+            "model-rev-a",
+            64,
+            vec![1, 2, 4],
+            vec![2_500, 5_000, 10_000],
+            vec![2_500, 5_000, 10_000],
+        )
+        .unwrap();
+        ModelExecutionProfileSetV1::new(
+            &capabilities,
+            vec![
+                ModelExecutionProfileV1::new("full", 0, 4, 10_000, 10_000).unwrap(),
+                ModelExecutionProfileV1::new("balanced", 10, 2, 5_000, 5_000).unwrap(),
+                ModelExecutionProfileV1::new("minimal", 20, 1, 2_500, 2_500).unwrap(),
+            ],
+        )
+        .unwrap()
+    }
+
+    fn policy(profiles: &ModelExecutionProfileSetV1) -> ModelExecutionEnvelopePolicyV1 {
+        ModelExecutionEnvelopePolicyV1::new(
+            profiles,
+            "bytes",
+            vec![
+                ModelExecutionEnvelopeRuleV1::new(
+                    "rich",
+                    0,
+                    8_000,
+                    7_000,
+                    ModelExecutionProfileEnvelopeV1::new(4, 10_000, 10_000).unwrap(),
+                )
+                .unwrap(),
+                ModelExecutionEnvelopeRuleV1::new(
+                    "balanced",
+                    10,
+                    2_000,
+                    9_000,
+                    ModelExecutionProfileEnvelopeV1::new(2, 5_000, 5_000).unwrap(),
+                )
+                .unwrap(),
+                ModelExecutionEnvelopeRuleV1::new(
+                    "survival",
+                    20,
+                    0,
+                    10_000,
+                    ModelExecutionProfileEnvelopeV1::new(1, 2_500, 2_500).unwrap(),
+                )
+                .unwrap(),
+            ],
+        )
+        .unwrap()
+    }
+
+    fn evidence(
+        now: Instant,
+        free: f64,
+        utilization: f64,
+    ) -> (PlanningContext, ObservationSnapshot) {
+        let context = PlanningContext::new()
+            .observe(ObservationSignalId::FREE_CAPACITY, free)
+            .observe(ObservationSignalId::UTILIZATION, utilization);
+        let observations = ObservationSnapshot::new(
+            now,
+            vec![
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::FREE_CAPACITY,
+                    free,
+                    now,
+                ),
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::UTILIZATION,
+                    utilization,
+                    now,
+                ),
+            ],
+        );
+        (context, observations)
+    }
+
+    #[test]
+    fn complete_true_evidence_selects_first_matching_provider_rule() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+        let (context, observations) = evidence(now, 9_000.0, 0.60);
+        let report = preplanner.screen(&context, &observations, now);
+        assert_eq!(
+            report.outcome,
+            BooleanModelExecutionScreenOutcomeV1::Selected {
+                rule_id: "rich".into(),
+                rule_rank: 0,
+            }
+        );
+        assert_eq!(report.rules[0].combined_truth, "true");
+    }
+
+    #[test]
+    fn false_rule_is_pruned_before_later_true_rule() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+        let (context, observations) = evidence(now, 3_000.0, 0.80);
+        let report = preplanner.screen(&context, &observations, now);
+        assert_eq!(report.rules[0].combined_truth, "false");
+        assert_eq!(
+            report.outcome,
+            BooleanModelExecutionScreenOutcomeV1::Selected {
+                rule_id: "balanced".into(),
+                rule_rank: 10,
+            }
+        );
+    }
+
+    #[test]
+    fn missing_stale_and_invalid_evidence_are_unknown_and_block_ranking() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+
+        let missing = preplanner.screen(
+            &PlanningContext::new(),
+            &ObservationSnapshot::new(now, vec![]),
+            now,
+        );
+        assert!(matches!(
+            missing.outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence {
+                blocking_rule_rank: 0,
+                ..
+            }
+        ));
+
+        let old = now.checked_sub(Duration::from_secs(2)).unwrap();
+        let (stale_context, _) = evidence(now, 9_000.0, 0.60);
+        let stale = ObservationSnapshot::new(
+            now,
+            vec![
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::FREE_CAPACITY,
+                    9_000.0,
+                    old,
+                ),
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::UTILIZATION,
+                    0.60,
+                    old,
+                ),
+            ],
+        );
+        assert!(matches!(
+            preplanner.screen(&stale_context, &stale, now).outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence { .. }
+        ));
+
+        let invalid_context = PlanningContext::new()
+            .observe(ObservationSignalId::FREE_CAPACITY, 9_000.5)
+            .observe(ObservationSignalId::UTILIZATION, 1.5);
+        let invalid = ObservationSnapshot::new(
+            now,
+            vec![
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::FREE_CAPACITY,
+                    9_000.5,
+                    now,
+                ),
+                Observation::from_source(
+                    ObservationSource::runtime("be14c-test"),
+                    ObservationSignalId::UTILIZATION,
+                    1.5,
+                    now,
+                ),
+            ],
+        );
+        assert!(matches!(
+            preplanner.screen(&invalid_context, &invalid, now).outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence { .. }
+        ));
+    }
+
+    #[test]
+    fn unknown_higher_priority_rule_blocks_later_true_rule() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+        let context = PlanningContext::new()
+            .observe(ObservationSignalId::FREE_CAPACITY, 9_000.0)
+            .observe(ObservationSignalId::UTILIZATION, 0.80);
+        let observations = ObservationSnapshot::new(
+            now,
+            vec![Observation::from_source(
+                ObservationSource::runtime("be14c-test"),
+                ObservationSignalId::FREE_CAPACITY,
+                3_000.0,
+                now,
+            )],
+        );
+        let report = preplanner.screen(&context, &observations, now);
+        assert!(matches!(
+            report.outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence {
+                blocking_rule_rank: 0,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn planning_context_observation_mismatch_is_unknown() {
+        let profiles = profiles();
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy(&profiles), profiles).unwrap();
+        let now = Instant::now();
+        let context = PlanningContext::new()
+            .observe(ObservationSignalId::FREE_CAPACITY, 9_001.0)
+            .observe(ObservationSignalId::UTILIZATION, 0.60);
+        let (_, observations) = evidence(now, 9_000.0, 0.60);
+        assert!(matches!(
+            preplanner.screen(&context, &observations, now).outcome,
+            BooleanModelExecutionScreenOutcomeV1::InsufficientEvidence { .. }
+        ));
+    }
+
+    #[test]
+    fn complete_screening_matches_existing_numeric_rule_resolution() {
+        let profiles = profiles();
+        let policy = policy(&profiles);
+        let preplanner =
+            BooleanModelExecutionPreplannerV1::new(policy.clone(), profiles.clone()).unwrap();
+        for (free, utilization) in [(9_000_u64, 6_000_u16), (3_000, 8_000), (500, 9_500)] {
+            let now = Instant::now();
+            let utilization_fraction = f64::from(utilization) / 10_000.0;
+            let (context, observations) = evidence(now, free as f64, utilization_fraction);
+            let report = preplanner.screen(&context, &observations, now);
+            let snapshot =
+                elastic_adapters::ModelExecutionResourceSnapshotV1::new("bytes", free, utilization)
+                    .unwrap();
+            let numeric = ModelExecutionHardwarePlannerV1
+                .select(&policy, &profiles, &snapshot)
+                .unwrap();
+            match (report.outcome, numeric) {
+                (
+                    BooleanModelExecutionScreenOutcomeV1::Selected { rule_id, .. },
+                    ModelExecutionHardwareSelectionV1::Selected {
+                        rule_id: numeric_id,
+                        ..
+                    },
+                ) => assert_eq!(rule_id, numeric_id),
+                (
+                    BooleanModelExecutionScreenOutcomeV1::NoMatchingRule,
+                    ModelExecutionHardwareSelectionV1::NoMatchingRule,
+                ) => {}
+                (left, right) => {
+                    panic!("boolean/numeric rule resolution diverged: {left:?} vs {right:?}")
+                }
+            }
+        }
     }
 }

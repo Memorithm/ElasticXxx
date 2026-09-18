@@ -104,9 +104,27 @@ pub use elastic_runtime::{
     CONCURRENCY_HEADROOM_PREDICATE_NAMESPACE, CONCURRENCY_HEADROOM_SOURCE_UNIT,
 };
 pub use elastic_runtime::{
-    model_execution_envelope_predicate_key, Actuation, BooleanGuardPlanner, BooleanGuardPreplanner,
-    BooleanModelExecutionProfileControllerV1, BooleanModelExecutionProfileEvidenceV1,
-    BooleanModelExecutionProfileReportV1, BuiltinDimensionConfigV1,
+    model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
+    BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
+    MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
+};
+pub use elastic_runtime::{
+    model_execution_rule_free_capacity_predicate_key,
+    model_execution_rule_utilization_predicate_key, BooleanModelExecutionPreplannerV1,
+    BooleanModelExecutionRuleEvidenceV1, BooleanModelExecutionScreenOutcomeV1,
+    BooleanModelExecutionScreenReportV1, MODEL_EXECUTION_BOOLEAN_MAX_AGE,
+    MODEL_EXECUTION_FREE_CAPACITY_SOURCE_UNIT, MODEL_EXECUTION_RULE_PREDICATE_NAMESPACE,
+    MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT, MODEL_EXECUTION_UTILIZATION_THRESHOLD_UNIT,
+};
+pub use elastic_runtime::{
+    ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
+    BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityAdmissionReportV2,
+    BooleanRamCapacityEvidenceV1, BooleanRamCapacityEvidenceV2, CapacityAdmissionControllerV1,
+    CapacityAdmissionReportV1, CapacityAdmissionRequestV1, CapacityObservationV1, CapacityStateV1,
+    RAM_CAPACITY_PREDICATE_NAME, RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
+};
+pub use elastic_runtime::{
+    Actuation, BooleanGuardPlanner, BooleanGuardPreplanner, BuiltinDimensionConfigV1,
     BuiltinObservationSignalConfigV1, Cadence, CadenceConfig, CancellationToken,
     CandidateDecisionTrace, CapabilityPredicate, CommitRecord, ConcurrencyPermitsObserver,
     ConfiguredController, ConfiguredForecaster, ConfiguredPlanner, ConfiguredPlanningView,
@@ -156,15 +174,7 @@ pub use elastic_runtime::{
     MAX_GUARD_CONFIG_TERM_BYTES, MAX_OPERATOR_CONFIG_BYTES, MAX_OPERATOR_CONFIG_JSON_DEPTH,
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
     MODEL_EXECUTION_CYCLE_EVIDENCE_MEDIA_TYPE_V1, MODEL_EXECUTION_CYCLE_EVIDENCE_V1,
-    MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
-    MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT, OPERATOR_CONFIG_VERSION,
-};
-pub use elastic_runtime::{
-    ram_capacity_predicate_key, BooleanRamCapacityAdmissionControllerV1,
-    BooleanRamCapacityAdmissionReportV1, BooleanRamCapacityAdmissionReportV2,
-    BooleanRamCapacityEvidenceV1, BooleanRamCapacityEvidenceV2, CapacityAdmissionControllerV1,
-    CapacityAdmissionReportV1, CapacityAdmissionRequestV1, CapacityObservationV1, CapacityStateV1,
-    RAM_CAPACITY_PREDICATE_NAME, RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
+    OPERATOR_CONFIG_VERSION,
 };
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -188,7 +198,7 @@ pub mod adapters {
         ModelExecutionTransitionPolicyV1, TransactionalConcurrency, TransactionalModelExecution,
         TransactionalRam, TransitionGuardedModelExecutionBackendError,
         TransitionGuardedModelExecutionBackendV1, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME,
-        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE, MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT,
+        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,
     };
 }
 
@@ -280,8 +290,7 @@ pub mod prelude {
         TransitionMechanismConfigV1, VerificationResult, CONSTRAINED_DECISION_TRACE_SCHEMA_V1,
         DECISION_TRACE_SCHEMA_V1, GUARD_CONFIG_SCHEMA_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
         MODEL_EXECUTION_CYCLE_EVIDENCE_V1, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME,
-        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE, MODEL_EXECUTION_UTILIZATION_SOURCE_UNIT,
-        OPERATOR_CONFIG_VERSION,
+        MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE, OPERATOR_CONFIG_VERSION,
     };
     pub use elastic_runtime::{
         EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
