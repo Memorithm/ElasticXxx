@@ -106,6 +106,13 @@ pub use elastic_eir::{
 };
 pub use elastic_macros::ElasticResource;
 pub use elastic_runtime::{
+    batch_device_capacity_predicate_key, BatchDeviceCandidateV1, BatchDeviceCapacitySampleV1,
+    BatchDeviceCapacitySnapshotV1, BooleanBatchDeviceCandidateEvidenceV1,
+    BooleanBatchDeviceOutcomeV1, BooleanBatchDevicePreplannerV1, BooleanBatchDeviceReportV1,
+    BATCH_DEVICE_CAPACITY_SOURCE_UNIT, BATCH_DEVICE_MAX_AGE, BATCH_DEVICE_PREDICATE_NAMESPACE,
+    MAX_BATCH_DEVICE_CANDIDATES, MAX_BATCH_DEVICE_SAMPLES,
+};
+pub use elastic_runtime::{
     capture_constrained_decision_trace, capture_decision_trace, capture_guarded_planning_trace,
     fact_snapshot_fingerprint, observation_source_for, planning_context_fingerprint,
     precheck_plan_invariants, EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError,
