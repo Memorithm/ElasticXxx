@@ -17,7 +17,6 @@ members = [
 edition = "2021"
 rust-version = "1.89"
 repository = "https://github.com/Memorithm/ElasticXxx"
-license = "PolyForm-Noncommercial-1.0.0"
 license-file = "LICENSE.md"
 
 [workspace.dependencies]

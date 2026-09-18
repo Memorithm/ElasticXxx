@@ -1,7 +1,6 @@
 [package]
 name = "elastic-kernel"
 version = "0.1.0"
-license.workspace = true
 license-file.workspace = true
 edition.workspace = true
 rust-version.workspace = true
