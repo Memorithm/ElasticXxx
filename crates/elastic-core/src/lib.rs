@@ -32,6 +32,7 @@ pub mod logic;
 pub mod predicate;
 pub mod representation;
 pub mod resource;
+pub mod resource_policy_analysis;
 
 pub use canonical::{
     BoolExprFingerprint, CanonicalizationError, BOOLEAN_EXPRESSION_SCHEMA_V1,
@@ -74,4 +75,10 @@ pub use resource::{
     BuiltinResourceClass, CapabilityRequirement, ContractId, DimensionId, Invariant, InvariantKind,
     LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId, ResourceSpec,
     ResourceSpecError,
+};
+pub use resource_policy_analysis::{
+    analyze_resource_policy, InvariantGuardDiagnostic, InvariantGuardStatus,
+    ResourcePolicyAnalysis, ResourcePolicyAnalysisError, TransitionPairAnalysis,
+    TransitionPolicyAnalysis, MAX_RESOURCE_POLICY_INVARIANT_BINDINGS, MAX_RESOURCE_POLICY_PAIRS,
+    MAX_RESOURCE_POLICY_TRANSITIONS,
 };
