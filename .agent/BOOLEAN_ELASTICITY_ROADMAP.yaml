@@ -1576,6 +1576,17 @@ phases:
     required_slices:
       - id: BE15a
         name: BooleanLab_oracle_and_benchmark_bridge
+        status: candidate_exact_head_CI_and_review_pending
+        candidate_evidence:
+          - ElasticXxx_PR_161
+          - PR161_exact_head_73039f678caa09280bcac5fb3c17332e040ebe56
+          - BooleanLab_source_main_2646e7ca675d3dcde71abed10c7531e1d36c93b8
+          - BooleanLab_fixture_SHA256_b27f14593c908a5d3ccdb2d410d64d3420d1f9c42da593621e9ca7a6f339dd59_recomputed_and_matched_source_manifest
+          - destination_owned_stdlib_provenance_verifier_self_test_passed
+          - local_exact_vector_differential_test_2_of_2_passed
+          - local_elastic_core_115_unit_tests_plus_integration_and_doc_tests_passed
+          - local_elastic_core_all_targets_clippy_D_warnings_passed
+          - no_BooleanLab_runtime_or_network_dependency
         tasks:
           - version_exact_small_domain_test_vectors
           - compare_generic_compiled_multiword_and_symbolic_results
@@ -1700,10 +1711,10 @@ automation_contract:
 current_execution:
   earliest_incomplete_phase: BE15
   immediate_next_slice: BE15a_BooleanLab_oracle_and_benchmark_bridge
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none_BE14h_benchmark_merged
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 161
+  current_candidate_head: 73039f678caa09280bcac5fb3c17332e040ebe56
+  current_candidate_status: BE15a_BooleanLab_exact_vector_bridge_exact_head_CI_and_review_pending
   verified_main: 7e522ff8e43aec29b94446aae2d33d9c43ca69b9
   latest_qualified_slice: BE14h_portable_benchmark
   latest_qualified_pr: 160
