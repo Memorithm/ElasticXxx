@@ -29,11 +29,23 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - name: Require pinned Rust and report environment
+      - name: Require trusted persistent runner and pinned Rust
         shell: bash
         run: |
           set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::BE13 benchmark requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          install -d -m 700 "$rust_tmp"
+          test -w "$rust_tmp"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'Rust temporary directory: %s\n' "$rust_tmp"
           rustc +1.89.0 -Vv
           uname -a
       - name: Build and smoke all declared BE13 paths
