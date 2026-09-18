@@ -140,6 +140,12 @@ pub use elastic_runtime::{
     GuardedBatchDeviceTransactionOutcomeV1,
 };
 pub use elastic_runtime::{
+    execute_guarded_thermal_energy_transaction, execute_unguarded_thermal_energy_transaction,
+    CommittedThermalEnergyTransitionV1, GuardedThermalEnergyTransactionOutcomeV1,
+    ThermalEnergyTransactionBlockV1, ThermalEnergyTransactionFailureV1,
+    ThermalEnergyTransactionStageV1, ThermalEnergyTransitionBackendV1,
+};
+pub use elastic_runtime::{
     model_execution_envelope_predicate_key, BooleanModelExecutionProfileControllerV1,
     BooleanModelExecutionProfileEvidenceV1, BooleanModelExecutionProfileReportV1,
     MODEL_EXECUTION_ENVELOPE_PREDICATE_NAME, MODEL_EXECUTION_ENVELOPE_PREDICATE_NAMESPACE,

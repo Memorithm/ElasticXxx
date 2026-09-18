@@ -251,6 +251,52 @@ impl BooleanThermalEnergyPreplannerV1 {
         })
     }
 
+    pub(crate) fn declared_candidate(&self) -> TransitionCandidate {
+        self.guarded_resource
+            .resource()
+            .transitions()
+            .iter()
+            .find(|entry| {
+                entry.transition().mechanism() == self.mechanism
+                    && entry.transition().dimension() == &self.dimension
+            })
+            .map(TransitionCandidate::from_admitted)
+            .expect("BE14h constructor binds one declared transition")
+    }
+
+    pub(crate) fn direct_policy_truth(
+        &self,
+        planning_context: &PlanningContext,
+        observations: &ObservationSnapshot,
+        now: Instant,
+    ) -> TruthValue {
+        let thermal = direct_source_bound_threshold_truth(
+            planning_context,
+            observations,
+            now,
+            DirectThresholdSpec {
+                signal: ObservationSignalId::THERMAL_MARGIN,
+                expected_source: &self.thermal_source,
+                comparison: ThresholdComparison::GreaterOrEqual,
+                threshold: self.minimum_thermal_margin_celsius,
+                max_age: self.max_age,
+            },
+        );
+        let energy = direct_source_bound_threshold_truth(
+            planning_context,
+            observations,
+            now,
+            DirectThresholdSpec {
+                signal: ObservationSignalId::ENERGY_RATE,
+                expected_source: &self.energy_source,
+                comparison: ThresholdComparison::LessOrEqual,
+                threshold: self.maximum_energy_rate_watts,
+                max_age: self.max_age,
+            },
+        );
+        thermal.kleene_and(energy)
+    }
+
     /// Evaluate source-bound current observations and capture a durable decision trace.
     ///
     /// `observation_epoch` and `resource_generation` are trusted provenance inputs
@@ -389,6 +435,73 @@ impl BooleanThermalEnergyPreplannerV1 {
                 decision_trace_json,
             },
         })
+    }
+}
+
+struct DirectThresholdSpec<'a> {
+    signal: ObservationSignalId,
+    expected_source: &'a ObservationSource,
+    comparison: ThresholdComparison,
+    threshold: f64,
+    max_age: Duration,
+}
+
+fn direct_source_bound_threshold_truth(
+    planning_context: &PlanningContext,
+    observations: &ObservationSnapshot,
+    now: Instant,
+    spec: DirectThresholdSpec<'_>,
+) -> TruthValue {
+    let mut matching = observations.iter().filter(|observation| {
+        observation.signal() == &spec.signal && observation.source() == spec.expected_source
+    });
+    let Some(observation) = matching.next() else {
+        return TruthValue::Unknown;
+    };
+    if matching.next().is_some() || !observation.is_valid() || !observation.value().is_finite() {
+        return TruthValue::Unknown;
+    }
+    let Some(age) = now.checked_duration_since(*observation.timestamp()) else {
+        return TruthValue::Unknown;
+    };
+    if age > spec.max_age {
+        return TruthValue::Unknown;
+    }
+    let Some(value) = planning_context.get(spec.signal) else {
+        return TruthValue::Unknown;
+    };
+    if !value.is_finite() || value.to_bits() != observation.value().to_bits() {
+        return TruthValue::Unknown;
+    }
+    match spec.comparison {
+        ThresholdComparison::LessThan => {
+            if value < spec.threshold {
+                TruthValue::True
+            } else {
+                TruthValue::False
+            }
+        }
+        ThresholdComparison::LessOrEqual => {
+            if value <= spec.threshold {
+                TruthValue::True
+            } else {
+                TruthValue::False
+            }
+        }
+        ThresholdComparison::GreaterThan => {
+            if value > spec.threshold {
+                TruthValue::True
+            } else {
+                TruthValue::False
+            }
+        }
+        ThresholdComparison::GreaterOrEqual => {
+            if value >= spec.threshold {
+                TruthValue::True
+            } else {
+                TruthValue::False
+            }
+        }
     }
 }
 
