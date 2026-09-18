@@ -1344,7 +1344,7 @@ phases:
             remaining: []
       - id: BE14f
         domain: kernel_realization
-        status: active
+        status: completed
         completed_slices:
           - id: BE14f_fail_closed_kernel_capability_preplanning
             status: complete_planning_only
@@ -1374,8 +1374,7 @@ phases:
               - unknown_duplicate_fields_future_schema_oversized_input_and_inconsistent_selection_fail_closed
               - explanatory_context_validation_is_non_actuating_and_does_not_replace_fresh_capability_or_lifecycle_validation
               - no_latency_throughput_GPU_memory_bandwidth_energy_model_quality_or_end_to_end_performance_claim
-            remaining:
-              - portable_benchmark_before_any_performance_claim
+            remaining: []
           - id: BE14f_trusted_transaction_and_differential_baseline
             status: completed
             completion_evidence:
@@ -1391,8 +1390,21 @@ phases:
               - durable_trace_selection_fingerprint_must_match_in_memory_selection_but_never_grants_actuation_authority
               - explicit_guarded_vs_unguarded_test_provider_commits_same_realization_and_contract
               - no_GPU_latency_throughput_memory_bandwidth_energy_or_model_quality_claim
-            remaining:
-              - portable_benchmark_before_any_performance_claim
+            remaining: []
+          - id: BE14f_portable_benchmark
+            status: completed
+            completion_evidence:
+              - ElasticXxx_PR_150
+              - PR150_exact_head_c645fc05fe79adca0dee9d63c747d69dda5903b1
+              - PR150_ci_35381011591_completed_success_on_exact_head
+              - PR150_packageability_35381011673_completed_success_on_exact_head
+              - PR150_BE14f_kernel_realization_benchmark_smoke_35381011826_completed_success_on_exact_head
+              - PR150_merged_as_d2af2d453a111d035263e7be6c4109d743c2cb05
+              - portable_harness_compares_non_boolean_planner_plus_trusted_transaction_against_boolean_preplanning_trace_plus_same_trusted_transaction
+              - both_paths_commit_the_same_portable_realization_under_the_same_synthetic_capability_fixture_before_timing
+              - benchmark_is_host_side_planning_plus_test_provider_transaction_measurement_only
+              - no_physical_kernel_GPU_throughput_bandwidth_memory_energy_allocation_branch_numerical_model_quality_or_end_to_end_claim_authorized
+            remaining: []
       - id: BE14g
         domain: batching_and_device_placement
       - id: BE14h
@@ -1531,20 +1543,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14f_portable_benchmark
+  immediate_next_slice: BE14g_batching_and_device_placement
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_PR149_merge
-  verified_main: 1243be3ff709a5a447371d4fe33a5234833721ae
-  latest_qualified_slice: BE14f_trusted_transaction_and_differential_baseline
-  latest_qualified_pr: 149
-  latest_qualified_head: 5e158f74d9fabcad54ed5ed0d2112f2d1afc41f7
-  latest_merge: 1243be3ff709a5a447371d4fe33a5234833721ae
-  latest_merged_progress_slice: BE14f_trusted_transaction_and_differential_baseline
-  latest_merged_progress_pr: 149
-  latest_merged_progress_head: 5e158f74d9fabcad54ed5ed0d2112f2d1afc41f7
-  latest_merged_progress_merge: 1243be3ff709a5a447371d4fe33a5234833721ae
+  current_candidate_status: no_ElasticXxx_candidate_open_after_PR150_merge
+  verified_main: d2af2d453a111d035263e7be6c4109d743c2cb05
+  latest_qualified_slice: BE14f_portable_benchmark
+  latest_qualified_pr: 150
+  latest_qualified_head: c645fc05fe79adca0dee9d63c747d69dda5903b1
+  latest_merge: d2af2d453a111d035263e7be6c4109d743c2cb05
+  latest_merged_progress_slice: BE14f_portable_benchmark
+  latest_merged_progress_pr: 150
+  latest_merged_progress_head: c645fc05fe79adca0dee9d63c747d69dda5903b1
+  latest_merged_progress_merge: d2af2d453a111d035263e7be6c4109d743c2cb05
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
