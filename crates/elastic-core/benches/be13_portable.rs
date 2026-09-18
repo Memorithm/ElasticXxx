@@ -101,26 +101,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let expressions = vec![expression.clone(); BATCH_GUARDS];
     let batch = MultiwordGuardBatch::compile(&expressions, 130)?;
 
+    let scalar_values = [TruthValue::True, TruthValue::False, TruthValue::True];
     for _ in 0..config.warmup {
+        let values = black_box(&scalar_values);
         black_box(scalar_guard(
-            TruthValue::True,
-            TruthValue::False,
-            TruthValue::True,
+            black_box(values[0]),
+            black_box(values[1]),
+            black_box(values[2]),
         ));
-        black_box(expression.evaluate(&facts)?);
-        black_box(compiled.evaluate(&facts)?);
-        black_box(multi.evaluate(&multi_facts)?);
-        black_box(batch.evaluate(&multi_facts)?);
+        black_box(black_box(&expression).evaluate(black_box(&facts))?);
+        black_box(black_box(&compiled).evaluate(black_box(&facts))?);
+        black_box(black_box(&multi).evaluate(black_box(&multi_facts))?);
+        black_box(black_box(&batch).evaluate(black_box(&multi_facts))?);
     }
 
     println!("path,elapsed_ns,evaluations,ns_per_guard,candidates_per_second,stack_bytes_per_guard,allocations,memory_peak_bytes,branch_misses,result");
 
     let (elapsed, result) = timed(config.iterations, || {
-        scalar_guard(TruthValue::True, TruthValue::False, TruthValue::True)
+        let values = black_box(&scalar_values);
+        scalar_guard(
+            black_box(values[0]),
+            black_box(values[1]),
+            black_box(values[2]),
+        )
     });
     emit("scalar_if_chain", elapsed, config.iterations, result, 0.0);
 
-    let (elapsed, result) = timed(config.iterations, || expression.evaluate(&facts).unwrap());
+    let (elapsed, result) = timed(config.iterations, || {
+        black_box(&expression).evaluate(black_box(&facts)).unwrap()
+    });
     emit(
         "generic_bool_expr",
         elapsed,
@@ -129,7 +138,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         size_of_val(&expression) as f64,
     );
 
-    let (elapsed, result) = timed(config.iterations, || compiled.evaluate(&facts).unwrap());
+    let (elapsed, result) = timed(config.iterations, || {
+        black_box(&compiled).evaluate(black_box(&facts)).unwrap()
+    });
     emit(
         "u64_compiled_guard",
         elapsed,
@@ -138,7 +149,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         size_of_val(&compiled) as f64,
     );
 
-    let (elapsed, result) = timed(config.iterations, || multi.evaluate(&multi_facts).unwrap());
+    let (elapsed, result) = timed(config.iterations, || {
+        black_box(&multi).evaluate(black_box(&multi_facts)).unwrap()
+    });
     emit(
         "multiword_guard",
         elapsed,
@@ -150,7 +163,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let mut last = TruthValue::Unknown;
     for _ in 0..config.iterations {
-        let screen = black_box(batch.evaluate(&multi_facts)?);
+        let screen = black_box(black_box(&batch).evaluate(black_box(&multi_facts))?);
         last = *screen.outcomes().last().unwrap_or(&TruthValue::Unknown);
         black_box(screen);
     }
