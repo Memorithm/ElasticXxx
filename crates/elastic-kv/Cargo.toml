@@ -9,7 +9,7 @@ publish = false
 description = "KV-cache representation contracts for ElasticXxx"
 
 [dependencies]
-elastic-core = { path = "../elastic-core" }
+elastic-core = { workspace = true }
 elastic-eir = { workspace = true }
 elastic-runtime = { workspace = true }
 serde = { workspace = true }
