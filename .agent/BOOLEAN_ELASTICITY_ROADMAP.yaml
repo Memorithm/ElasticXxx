@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 897db4d98ce60d49d3da97664bf21d6bea8b1c67
+  main_sha: 4f9a35c8bccede27c1abec98c76c9e075a771f96
   main_observed_at: "2026-09-18"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -112,6 +112,14 @@ current_verified_state:
       packageability_run: 35291259274
       result: success
       purpose: guarded_CLI_process_contract_and_public_library_equivalence
+    - pr: 109
+      head: 6ff4ef77e970a28a9a79e64c279cd4195c2681d0
+      merge: 4f9a35c8bccede27c1abec98c76c9e075a771f96
+      ci_run: 35291995555
+      packageability_run: 35291995543
+      hardening_run: 35291995573
+      result: success
+      purpose: dependency_free_bounded_exact_boolean_small_domain_oracle
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -527,6 +535,18 @@ phases:
     required_slices:
       - id: BE11a
         name: dependency_free_exact_small_domain_oracle
+        status: completed
+        completion_evidence:
+          - ElasticXxx_PR_109
+          - PR109_exact_head_6ff4ef77e970a28a9a79e64c279cd4195c2681d0
+          - PR109_CI_35291995555_completed_success_on_exact_head
+          - PR109_packageability_35291995543_completed_success_on_exact_head
+          - PR109_hardening_35291995573_cargo_fuzz_completed_success
+          - PR109_merged_to_main_as_4f9a35c8bccede27c1abec98c76c9e075a771f96
+          - exact_Boolean_SAT_UNSAT_tautology_contradiction_implication_equivalence_and_mutual_exclusion
+          - dead_guard_and_conjunction_clause_redundancy_checks
+          - deterministic_witnesses_counterexamples_and_explicit_variable_assignment_caps
+          - analysis_is_dependency_free_non_actuating_and_fail_closed_on_limits_or_unexpected_Unknown
         tasks:
           - enumerate_all_three_valued_or_boolean_assignments_under_declared_semantics_where_applicable
           - bounded_satisfiable_unsatisfiable_tautology_contradiction_queries
@@ -535,6 +555,7 @@ phases:
           - explicit_variable_and_assignment_caps
       - id: BE11b
         name: resource_policy_queries
+        status: active
         tasks:
           - unreachable_transition_detection
           - mutually_exclusive_transition_detection
@@ -838,10 +859,10 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE11
-  immediate_next_slice: BE11a_dependency_free_exact_small_domain_oracle
+  immediate_next_slice: BE11b_resource_policy_queries
   open_pull_requests_at_checkpoint: 0
-  verified_main: 897db4d98ce60d49d3da97664bf21d6bea8b1c67
-  latest_qualified_slice: BE10e
-  latest_qualified_pr: 108
-  latest_qualified_head: a5b778b30c1f58e38cb4c8c25e98d19a20ba6b6a
+  verified_main: 4f9a35c8bccede27c1abec98c76c9e075a771f96
+  latest_qualified_slice: BE11a
+  latest_qualified_pr: 109
+  latest_qualified_head: 6ff4ef77e970a28a9a79e64c279cd4195c2681d0
   performance_claims: none
