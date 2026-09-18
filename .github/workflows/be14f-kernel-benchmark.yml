@@ -1,0 +1,71 @@
+name: BE14f kernel realization benchmark smoke
+
+on:
+  pull_request:
+    paths:
+      - 'crates/elastic-kernel/**'
+      - 'docs/boolean-be14f-benchmark.md'
+      - '.github/workflows/be14f-kernel-benchmark.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/elastic-kernel/**'
+      - 'docs/boolean-be14f-benchmark.md'
+      - '.github/workflows/be14f-kernel-benchmark.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require trusted persistent runner and pinned Rust
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::BE14f benchmark requires tarek-scirust-arm64-01..04; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          install -d -m 700 "$rust_tmp"
+          test -w "$rust_tmp"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          rustc +1.89.0 -Vv
+          uname -a
+      - name: Measure guarded and non-Boolean reference paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p elastic-kernel --bench be14f_kernel_realization -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14f.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'be14f.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert [row['path'] for row in rows] == [
+              'unguarded_plan_transaction',
+              'guarded_boolean_plan_transaction',
+          ]
+          assert all(int(row['elapsed_ns']) >= 0 for row in rows)
+          assert all(int(row['iterations']) == 1000 for row in rows)
+          assert all(float(row['ns_per_iteration']) >= 0.0 for row in rows)
+          assert len({row['outcome_sanity'] for row in rows}) == 1
+          PY
