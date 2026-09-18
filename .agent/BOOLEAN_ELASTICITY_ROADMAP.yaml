@@ -14,9 +14,9 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: d0a6656731bb1cef4e9bfa0dd578b0a6145b56bd
+  main_sha: 2e979dc3a8a2ba59e31b192d8cda737a91d09106
   main_observed_at: "2026-09-18"
-  open_pull_requests: 1
+  open_pull_requests: 0
   merged_boolean_prs:
     - pr: 90
       head: 8660a792eb3cbc11386e78fbb2d25dff29fff9d0
@@ -136,6 +136,14 @@ current_verified_state:
       hardening_run: 35296621331
       result: success
       purpose: bounded_analysis_only_symbolic_backend_interface
+    - pr: 113
+      head: b7ae1bc078d0977808a2cc0d69936e77437068cd
+      merge: 2e979dc3a8a2ba59e31b192d8cda737a91d09106
+      ci_run: 35297739618
+      packageability_run: 35297739590
+      hardening_run: 35297739587
+      result: success
+      purpose: bounded_dependency_free_guard_analysis_CLI
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -149,7 +157,7 @@ current_verified_state:
     PR103 decoder fuzz/adversarial hardening. BE10 is closed through PR108 after
     exact-head CLI process, fail-closed input, and public-facade equivalence
     qualification. BE11a is now closed through PR110 strong-Kleene qualification;
-    BE11c is closed through PR112 with the bounded analysis-only backend interface; BE11d is the earliest incomplete slice. BE12 through BE15 remain unimplemented
+    BE11 is closed through PR113 for the dependency-free exact analysis path and CLI. The optional concrete SAT/BDD backend remains deliberately deferred because the reviewed RustSAT/Minisat candidate did not satisfy the declared hard-memory-limit contract. BE12 is now the earliest incomplete phase; BE13 through BE15 remain unimplemented
     unless current default-branch evidence proves otherwise during a future execution.
 
 hard_invariants:
@@ -546,7 +554,7 @@ phases:
 
   - id: BE11
     name: bounded_symbolic_static_analysis
-    status: active
+    status: completed
     target_crates: [elastic-core, elastic-eir, elastic]
     required_slices:
       - id: BE11a
@@ -630,7 +638,7 @@ phases:
           - dependency_and_license_review_before_adding_RustSAT_BDD_or_Z3_like_backend
       - id: BE11d
         name: optional_SAT_or_BDD_backend
-        status: active
+        status: deferred_optional
         precondition: BE11a_and_BE11c_qualified
         current_review:
           observed_at: "2026-09-18"
@@ -653,17 +661,19 @@ phases:
           - preserve_solver_unknown_and_timeout_as_non_results
       - id: BE11e
         name: analysis_API_and_CLI
-        status: candidate
-        candidate_evidence:
+        status: completed
+        qualification_evidence:
           - ElasticXxx_PR_113
           - PR113_exact_head_b7ae1bc078d0977808a2cc0d69936e77437068cd
-          - local_workspace_all_targets_pass
-          - local_elastic_cli_guard_analysis_tests_pass
-          - local_process_level_guard_analyze_pass
-          - local_clippy_D_warnings_pass
-        qualification_rule: >-
-          Remains candidate until exact-head GitHub CI, packageability and
-          applicable hardening gates complete successfully and the PR is merged.
+          - PR113_CI_35297739618_completed_success_on_exact_head
+          - PR113_packageability_35297739590_completed_success_on_exact_head
+          - PR113_hardening_35297739587_completed_success_on_exact_head
+          - PR113_merged_to_main_as_2e979dc3a8a2ba59e31b192d8cda737a91d09106
+          - bounded_guard_analyze_machine_readable_read_only_surface
+          - exact_satisfiability_contradiction_tautology_implication_equivalence_and_mutual_exclusion
+          - deterministic_stable_PredicateKey_witnesses_and_counterexamples
+          - explicit_variable_and_assignment_limits
+          - no_validation_actuation_commit_or_publication_authority
         tasks:
           - contradiction_tautology_implication_equivalence_reachability_commands
           - bounded_diagnostics_and_machine_readable_reports
