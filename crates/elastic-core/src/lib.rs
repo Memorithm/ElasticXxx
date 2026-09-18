@@ -68,8 +68,9 @@ pub use predicate::{
     MAX_REGISTERED_PREDICATES,
 };
 pub use pseudo_boolean::{
-    PseudoBooleanConstraint, PseudoBooleanError, PseudoBooleanRelation, PseudoBooleanScale,
-    WeightedPredicate, MAX_PSEUDO_BOOLEAN_TERMS, MAX_PSEUDO_BOOLEAN_UNIT_BYTES,
+    PseudoBooleanBindingError, PseudoBooleanConstraint, PseudoBooleanConstraintDeclaration,
+    PseudoBooleanError, PseudoBooleanRelation, PseudoBooleanScale, WeightedPredicate,
+    WeightedPredicateKey, MAX_PSEUDO_BOOLEAN_TERMS, MAX_PSEUDO_BOOLEAN_UNIT_BYTES,
 };
 pub use representation::{
     CapabilitySet, EvidenceKind, EvidenceToken, IssuerId, RepresentationEpoch, RepresentationId,
