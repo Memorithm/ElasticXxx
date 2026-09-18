@@ -1407,6 +1407,38 @@ phases:
             remaining: []
       - id: BE14g
         domain: batching_and_device_placement
+        status: active
+        completed_slices:
+          - id: BE14g_fail_closed_batch_placement_preplanning
+            status: complete_planning_only
+            completion_evidence:
+              - ElasticXxx_PR_151
+              - PR151_exact_head_827a8f81867850f8243ca457f73321827e13d5ca
+              - PR151_ci_35382621771_completed_success_on_exact_head
+              - PR151_continuous_hardening_35382621802_completed_success_on_exact_head
+              - PR151_packageability_35382621739_completed_success_on_exact_head
+              - PR151_merged_as_e935454c520f0d381f0916f9dfe386ae792615f7
+              - stable_candidate_scoped_predicates_under_elastic.batch-device_namespace
+              - trusted_or_explicit_test_provider_capacity_source_unit_is_batch-items
+              - missing_future_stale_invalid_nonfinite_fractional_negative_overprecise_or_unit_mismatched_evidence_maps_to_Unknown
+              - conclusively_False_capacity_candidates_are_pruned_before_provider_owned_numeric_preference_ranking
+              - any_structurally_relevant_Unknown_blocks_ranking_instead_of_silently_dropping_an_unresolved_placement
+              - only_complete_True_survivors_enter_declared_numeric_preference_ranking
+              - public_elastic_facade_exposes_the_planning_contract_and_downstream_tests
+              - selection_is_explanatory_only_and_cannot_reserve_dispatch_lease_or_actuate_a_device_or_worker
+              - no_GPU_availability_throughput_latency_memory_energy_model_quality_placement_optimality_or_end_to_end_claim
+            remaining:
+              - durable_trace_binding
+              - trusted_validation_actuation_verification_and_rollback_boundary_when_actuation_exists
+              - explicit_non_boolean_differential_baseline
+              - portable_benchmark_before_any_performance_claim
+        planned_slices:
+          - id: BE14g_durable_trace_binding
+            status: planned
+          - id: BE14g_trusted_transaction_and_differential_baseline
+            status: planned
+          - id: BE14g_portable_benchmark
+            status: planned
       - id: BE14h
         domain: thermal_and_energy_when_real_observers_exist
     each_slice_requires:
@@ -1543,20 +1575,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE14
-  immediate_next_slice: BE14g_batching_and_device_placement
+  immediate_next_slice: BE14g_durable_trace_binding
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_ElasticXxx_candidate_open_after_PR150_merge
-  verified_main: d2af2d453a111d035263e7be6c4109d743c2cb05
-  latest_qualified_slice: BE14f_portable_benchmark
-  latest_qualified_pr: 150
-  latest_qualified_head: c645fc05fe79adca0dee9d63c747d69dda5903b1
-  latest_merge: d2af2d453a111d035263e7be6c4109d743c2cb05
-  latest_merged_progress_slice: BE14f_portable_benchmark
-  latest_merged_progress_pr: 150
-  latest_merged_progress_head: c645fc05fe79adca0dee9d63c747d69dda5903b1
-  latest_merged_progress_merge: d2af2d453a111d035263e7be6c4109d743c2cb05
+  current_candidate_status: no_ElasticXxx_candidate_open_after_PR151_merge
+  verified_main: e935454c520f0d381f0916f9dfe386ae792615f7
+  latest_qualified_slice: BE14g_fail_closed_batch_placement_preplanning
+  latest_qualified_pr: 151
+  latest_qualified_head: 827a8f81867850f8243ca457f73321827e13d5ca
+  latest_merge: e935454c520f0d381f0916f9dfe386ae792615f7
+  latest_merged_progress_slice: BE14g_fail_closed_batch_placement_preplanning
+  latest_merged_progress_pr: 151
+  latest_merged_progress_head: 827a8f81867850f8243ca457f73321827e13d5ca
+  latest_merged_progress_merge: e935454c520f0d381f0916f9dfe386ae792615f7
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
