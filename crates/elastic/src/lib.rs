@@ -54,7 +54,8 @@ pub use elastic_core::resource::{
 pub use elastic_core::{
     analyze_resource_policy, BoolExpr, BoolExprFingerprint, BooleanGuard, CanonicalizationError,
     CompiledGuard, ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
-    ExactPropertyReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
+    ExactPropertyReport, ExactPseudoBooleanOracle, ExactPseudoBooleanOracleError,
+    ExactPseudoBooleanReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
     GuardFactSource, GuardScope, GuardedResourceSpec, InvariantGuardDiagnostic,
     InvariantGuardStatus, InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
     KleeneSatisfiabilityReport, LogicError, PredicateComponent, PredicateComponentError,
@@ -195,7 +196,8 @@ pub mod prelude {
     pub use elastic_core::{
         analyze_resource_policy, BoolExpr, BooleanGuard, CanonicalizationError, CompiledGuard,
         ExactBooleanOracle, ExactKleeneOracle, ExactOracleError, ExactOracleLimits,
-        ExactPropertyReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
+        ExactPropertyReport, ExactPseudoBooleanOracle, ExactPseudoBooleanOracleError,
+        ExactPseudoBooleanReport, ExactSatisfiabilityReport, FactMask, FactSet, GuardBindingError,
         GuardScope, GuardedResourceSpec, InvariantGuardDiagnostic, InvariantGuardStatus,
         InvariantPredicateBinding, KleeneOracleError, KleenePropertyReport,
         KleeneSatisfiabilityReport, LogicError, PredicateId, PredicateKey, PredicateRegistry,
