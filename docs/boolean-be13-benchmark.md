@@ -106,15 +106,17 @@ permanent source tag. Before assigning a `portable`, `native`, or `custom`
 codegen profile it captures all supported build-context channels that can alter
 this benchmark: `RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, the host-target
 `CARGO_TARGET_*_RUSTFLAGS`, `CARGO_BUILD_RUSTFLAGS`, `CARGO_BUILD_TARGET`,
-`CARGO_INCREMENTAL`, every `CARGO_PROFILE_BENCH_*` environment override, Cargo
-config files discovered from the workspace directory through all ancestors plus
-Cargo home, and the effective `cargo rustc -- --print cfg` output. Bench-profile
+`CARGO_INCREMENTAL`, every `CARGO_PROFILE_*` environment override (including the
+`release` profile inherited by `bench`), Cargo config files discovered from the
+workspace directory through all ancestors plus Cargo home, and the effective `cargo rustc -- --print cfg` output. Cargo-profile
 overrides are retained in `build_env_inventory.txt`; only hashes and paths of
 Cargo config files are retained, never their contents.
 
 A run is classified `portable` only when those build-context channels are clean;
-`native` additionally requires exactly `RUSTFLAGS='-C target-cpu=native'` and no
-other captured override. Everything else is `custom`. Qualified collection
+`native` additionally requires exactly `RUSTFLAGS='-C target-cpu=native'`, an
+unset `CARGO_ENCODED_RUSTFLAGS`, and no other captured override. An explicitly
+empty encoded-flags variable is still an override because Cargo gives its
+presence precedence over `RUSTFLAGS`. Everything else is `custom`. Qualified collection
 requires an explicit expected `portable` or `native` profile and fails closed on
 mismatch.
 

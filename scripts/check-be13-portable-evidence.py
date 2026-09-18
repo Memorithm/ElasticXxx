@@ -343,6 +343,10 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
 
         rustflags = decoded("rustflags_base64")
         encoded = decoded("cargo_encoded_rustflags_base64")
+        encoded_present_raw = meta.get("cargo_encoded_rustflags_present")
+        if encoded_present_raw not in {"true", "false"}:
+            raise AssertionError("cargo_encoded_rustflags_present must be true or false")
+        encoded_present = encoded_present_raw == "true"
         target_flags = decoded("target_rustflags_base64")
         build_rustflags = decoded("cargo_build_rustflags_base64")
         build_target = decoded("cargo_build_target_base64")
@@ -368,11 +372,11 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
         cargo_inventory_text = cargo_inventory.read_text(encoding="utf-8").strip()
         build_env_text = build_env_inventory.read_text(encoding="utf-8").strip()
         configs_present = cargo_inventory_text != "none"
-        bench_overrides_present = build_env_text != "none"
+        cargo_profile_overrides_present = build_env_text != "none"
         if meta.get("cargo_configs_present") != str(configs_present).lower():
             raise AssertionError("cargo_configs_present disagrees with cargo_config_inventory.txt")
-        if meta.get("bench_profile_overrides_present") != str(bench_overrides_present).lower():
-            raise AssertionError("bench_profile_overrides_present disagrees with build_env_inventory.txt")
+        if meta.get("cargo_profile_overrides_present") != str(cargo_profile_overrides_present).lower():
+            raise AssertionError("cargo_profile_overrides_present disagrees with build_env_inventory.txt")
 
         clean_context = not any(
             (
@@ -386,7 +390,7 @@ def validate_v2(directory: Path, meta: dict[str, str]) -> None:
                 rustc_workspace_wrapper,
                 target_linker,
             )
-        ) and not configs_present and not bench_overrides_present
+        ) and not encoded_present and not configs_present and not cargo_profile_overrides_present
         expected_profile = (
             "portable"
             if clean_context and not rustflags

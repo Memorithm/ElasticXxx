@@ -161,6 +161,10 @@ COLLECTOR_SHA256=$(sha256sum "${BASH_SOURCE[0]}" | awk '{print $1}')
 HOST_TRIPLE=$(rustc +1.89.0 -Vv | awk -F': ' '$1 == "host" {print $2}')
 TARGET_RUSTFLAGS_VAR="CARGO_TARGET_$(printf '%s' "$HOST_TRIPLE" | tr '[:lower:].-' '[:upper:]__')_RUSTFLAGS"
 RUSTFLAGS_VALUE=${RUSTFLAGS:-}
+CARGO_ENCODED_RUSTFLAGS_PRESENT=false
+if [[ -v CARGO_ENCODED_RUSTFLAGS ]]; then
+  CARGO_ENCODED_RUSTFLAGS_PRESENT=true
+fi
 CARGO_ENCODED_RUSTFLAGS_VALUE=${CARGO_ENCODED_RUSTFLAGS:-}
 TARGET_RUSTFLAGS_VALUE=${!TARGET_RUSTFLAGS_VAR:-}
 CARGO_BUILD_RUSTFLAGS_VALUE=${CARGO_BUILD_RUSTFLAGS:-}
@@ -204,7 +208,7 @@ import os
 import sys
 
 path = sys.argv[1]
-keys = sorted(key for key in os.environ if key.startswith("CARGO_PROFILE_BENCH_"))
+keys = sorted(key for key in os.environ if key.startswith("CARGO_PROFILE_"))
 with open(path, "w", encoding="utf-8") as out:
     if not keys:
         out.write("none\n")
@@ -244,10 +248,11 @@ fi
 
 CARGO_CONFIGS_PRESENT=false
 [[ "$(cat "$CARGO_CONFIG_INVENTORY")" != none ]] && CARGO_CONFIGS_PRESENT=true
-BENCH_PROFILE_OVERRIDES_PRESENT=false
-[[ "$(cat "$BUILD_ENV_INVENTORY")" != none ]] && BENCH_PROFILE_OVERRIDES_PRESENT=true
+CARGO_PROFILE_OVERRIDES_PRESENT=false
+[[ "$(cat "$BUILD_ENV_INVENTORY")" != none ]] && CARGO_PROFILE_OVERRIDES_PRESENT=true
 
 CLEAN_BUILD_CONTEXT=true
+[[ "$CARGO_ENCODED_RUSTFLAGS_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
 for value in \
   "$CARGO_ENCODED_RUSTFLAGS_VALUE" \
   "$TARGET_RUSTFLAGS_VALUE" \
@@ -261,7 +266,7 @@ for value in \
   [[ -n "$value" ]] && CLEAN_BUILD_CONTEXT=false
 done
 [[ "$CARGO_CONFIGS_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
-[[ "$BENCH_PROFILE_OVERRIDES_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
+[[ "$CARGO_PROFILE_OVERRIDES_PRESENT" == true ]] && CLEAN_BUILD_CONTEXT=false
 
 if [[ "$CLEAN_BUILD_CONTEXT" == true && -z "$RUSTFLAGS_VALUE" ]]; then
   CODEGEN_PROFILE=portable
@@ -659,6 +664,7 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
   echo "codegen_profile=$CODEGEN_PROFILE"
   echo "rustflags_base64=$RUSTFLAGS_BASE64"
   echo "cargo_encoded_rustflags_base64=$CARGO_ENCODED_RUSTFLAGS_BASE64"
+  echo "cargo_encoded_rustflags_present=$CARGO_ENCODED_RUSTFLAGS_PRESENT"
   echo "target_rustflags_variable=$TARGET_RUSTFLAGS_VAR"
   echo "target_rustflags_base64=$TARGET_RUSTFLAGS_BASE64"
   echo "cargo_build_rustflags_base64=$CARGO_BUILD_RUSTFLAGS_BASE64"
@@ -673,7 +679,7 @@ DEVICE_MODEL=$(read_one /proc/device-tree/model)
   echo "cargo_config_inventory_sha256=$CARGO_CONFIG_INVENTORY_SHA256"
   echo "build_env_inventory_sha256=$BUILD_ENV_INVENTORY_SHA256"
   echo "cargo_configs_present=$CARGO_CONFIGS_PRESENT"
-  echo "bench_profile_overrides_present=$BENCH_PROFILE_OVERRIDES_PRESENT"
+  echo "cargo_profile_overrides_present=$CARGO_PROFILE_OVERRIDES_PRESENT"
   echo "collected_at_utc=$COLLECTED_AT_UTC"
   echo "collector_sha256=$COLLECTOR_SHA256"
   echo "metrics_helper_sha256=$METRICS_HELPER_SHA256"
@@ -748,7 +754,7 @@ Source: \`$SOURCE_SHA\` on \`$DEVICE_MODEL\` with Rust 1.89.0.
 - collector-derived codegen profile: \`$CODEGEN_PROFILE\`;
 - effective Cargo/rustc cfg retained in \`compiler_cfg.txt\`;
 - Cargo config inventory (workspace ancestors plus Cargo home) retained in \`cargo_config_inventory.txt\`;
-- bench-profile environment overrides retained in \`build_env_inventory.txt\`;
+- Cargo profile environment overrides retained in \`build_env_inventory.txt\`;
 
 - timing repetitions: $REPETITIONS; warmup: $WARMUP; iterations: $ITERATIONS;
 - timing paths run one-per-process in a deterministic rotating order;

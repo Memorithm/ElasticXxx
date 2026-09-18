@@ -80,6 +80,16 @@ expect_reject_in_root "$ROOT" bench-profile-override \
   env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
   BE13_CODEGEN_PROFILE_EXPECTED=portable CARGO_PROFILE_BENCH_OPT_LEVEL=0
 
+expect_reject_in_root "$ROOT" release-profile-override \
+  'effective codegen profile custom does not match expected portable' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=portable CARGO_PROFILE_RELEASE_OPT_LEVEL=0
+
+expect_reject_in_root "$ROOT" empty-encoded-rustflags-mask \
+  'effective codegen profile custom does not match expected native' \
+  env BE13_SOURCE_REF="$TAG" BE13_REQUIRE_QUALIFIED=1 \
+  BE13_CODEGEN_PROFILE_EXPECTED=native RUSTFLAGS='-C target-cpu=native' CARGO_ENCODED_RUSTFLAGS=''
+
 mkdir -p "$TMP/parent"
 git worktree add --detach "$NESTED_ROOT" HEAD >/dev/null
 NESTED_ADDED=1
