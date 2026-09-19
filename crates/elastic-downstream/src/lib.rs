@@ -215,6 +215,7 @@ pub fn public_composite_plan_surface_smoke() {
 struct DownstreamCompositePrepareBackend {
     resource: String,
     name: String,
+    backend_instance_id: String,
     checkpoint_active: bool,
     prepared: bool,
 }
@@ -224,6 +225,7 @@ impl DownstreamCompositePrepareBackend {
         Self {
             resource: resource.to_owned(),
             name: format!("downstream-{resource}"),
+            backend_instance_id: format!("downstream-instance-{resource}"),
             checkpoint_active: false,
             prepared: false,
         }
@@ -293,6 +295,10 @@ impl CompositePrepareBackend for DownstreamCompositePrepareBackend {
         &self.resource
     }
 
+    fn backend_instance_id(&self) -> &str {
+        &self.backend_instance_id
+    }
+
     fn capture_pre_act_state(
         &mut self,
         _plan: &ValidatedPlan,
@@ -301,6 +307,7 @@ impl CompositePrepareBackend for DownstreamCompositePrepareBackend {
         Ok(CompositePreActState::new(
             self.resource.clone(),
             self.name.clone(),
+            self.backend_instance_id.clone(),
             1,
             self.resource.len() as u64,
         ))

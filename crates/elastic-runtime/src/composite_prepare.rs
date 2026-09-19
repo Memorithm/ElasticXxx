@@ -30,6 +30,7 @@ pub const COMPOSITE_PREPARE_SCHEMA_V1: u16 = 1;
 pub struct CompositePreActState {
     resource_id: String,
     adapter_name: String,
+    backend_instance_id: String,
     generation: u64,
     state_fingerprint: u64,
 }
@@ -40,12 +41,14 @@ impl CompositePreActState {
     pub fn new(
         resource_id: impl Into<String>,
         adapter_name: impl Into<String>,
+        backend_instance_id: impl Into<String>,
         generation: u64,
         state_fingerprint: u64,
     ) -> Self {
         Self {
             resource_id: resource_id.into(),
             adapter_name: adapter_name.into(),
+            backend_instance_id: backend_instance_id.into(),
             generation,
             state_fingerprint,
         }
@@ -59,6 +62,12 @@ impl CompositePreActState {
     #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.adapter_name
+    }
+
+    /// Stable backend-issued identity of the concrete state owner.
+    #[must_use]
+    pub fn backend_instance_id(&self) -> &str {
+        &self.backend_instance_id
     }
 
     #[must_use]
@@ -82,6 +91,13 @@ impl CompositePreActState {
 pub trait CompositePrepareBackend: TransactionalActuator {
     /// Exact logical resource this backend controls.
     fn resource_id(&self) -> &str;
+
+    /// Stable unique identity of this concrete backend instance.
+    ///
+    /// Replacements that expose the same resource and adapter name must use a
+    /// different identity. The value must remain stable while recovery tokens
+    /// issued by this instance can still exist.
+    fn backend_instance_id(&self) -> &str;
 
     /// Capture rollback-relevant state without changing visible resource state.
     fn capture_pre_act_state(
@@ -110,6 +126,7 @@ pub trait CompositePrepareBackend: TransactionalActuator {
 pub struct CompositePreparedSubplan {
     resource_id: String,
     adapter_name: String,
+    backend_instance_id: String,
     validated_plan: ValidatedPlan,
     checkpoint: CompositePreActState,
     actuation: Actuation,
@@ -125,6 +142,12 @@ impl CompositePreparedSubplan {
     #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.adapter_name
+    }
+
+    /// Concrete backend instance that owns the opaque checkpoint/actuation.
+    #[must_use]
+    pub fn backend_instance_id(&self) -> &str {
+        &self.backend_instance_id
     }
 
     #[must_use]
@@ -190,6 +213,7 @@ impl CompositePreparedEnvelope {
 pub struct CompositePrepareRecoveryEntry {
     resource_id: String,
     adapter_name: String,
+    backend_instance_id: String,
     checkpoint: CompositePreActState,
     actuation: Option<Actuation>,
 }
@@ -203,6 +227,12 @@ impl CompositePrepareRecoveryEntry {
     #[must_use]
     pub fn adapter_name(&self) -> &str {
         &self.adapter_name
+    }
+
+    /// Concrete backend instance required to consume this recovery entry.
+    #[must_use]
+    pub fn backend_instance_id(&self) -> &str {
+        &self.backend_instance_id
     }
 
     #[must_use]
@@ -245,6 +275,7 @@ impl CompositePrepareRecoveryEnvelope {
             .map(|entry| CompositePrepareRecoveryEntry {
                 resource_id: entry.resource_id,
                 adapter_name: entry.adapter_name,
+                backend_instance_id: entry.backend_instance_id,
                 checkpoint: entry.checkpoint,
                 actuation: Some(entry.actuation),
             })
@@ -492,6 +523,7 @@ pub fn prepare_composite_plan(
         };
         if checkpoint.resource_id() != resource
             || checkpoint.adapter_name() != backends[index].name()
+            || checkpoint.backend_instance_id() != backends[index].backend_instance_id()
         {
             let mut cleanup = CleanupResult::new(envelope.group_id());
             if let Err(error) = backends[index].release_pre_act_state(&checkpoint) {
@@ -503,6 +535,7 @@ pub fn prepare_composite_plan(
                 cleanup.retained.push(CompositePrepareRecoveryEntry {
                     resource_id: resource.to_owned(),
                     adapter_name: backends[index].name().to_owned(),
+                    backend_instance_id: backends[index].backend_instance_id().to_owned(),
                     checkpoint,
                     actuation: None,
                 });
@@ -553,6 +586,7 @@ pub fn prepare_composite_plan(
             let current = CompositePreparedSubplan {
                 resource_id: resource.clone(),
                 adapter_name: backends[index].name().to_owned(),
+                backend_instance_id: backends[index].backend_instance_id().to_owned(),
                 validated_plan,
                 checkpoint,
                 actuation,
@@ -575,6 +609,7 @@ pub fn prepare_composite_plan(
         prepared.push(CompositePreparedSubplan {
             resource_id: resource,
             adapter_name: backends[index].name().to_owned(),
+            backend_instance_id: backends[index].backend_instance_id().to_owned(),
             validated_plan,
             checkpoint,
             actuation,
@@ -706,8 +741,10 @@ fn validate_prepared_backend_inventory(
         let index = backend_index(backends, entry.resource_id()).expect("backend set validated");
         let backend = &backends[index];
         if entry.adapter_name() != backend.name()
+            || entry.backend_instance_id() != backend.backend_instance_id()
             || entry.checkpoint.resource_id() != entry.resource_id()
             || entry.checkpoint.adapter_name() != entry.adapter_name()
+            || entry.checkpoint.backend_instance_id() != entry.backend_instance_id()
             || entry.actuation.adapter_name != entry.adapter_name()
         {
             return Err(CompositePrepareFailure::new(
@@ -732,11 +769,13 @@ fn validate_recovery_backend_inventory(
     validate_backend_set(&expected, backends)?;
     for entry in &recovery.entries {
         let index = backend_index(backends, &entry.resource_id).expect("backend set validated");
-        if backends[index].name() != entry.adapter_name {
+        if backends[index].name() != entry.adapter_name
+            || backends[index].backend_instance_id() != entry.backend_instance_id
+        {
             return Err(CompositePrepareFailure::new(
                 CompositePrepareStage::Bind,
                 Some(entry.resource_id.clone()),
-                "recovery state is bound to a different adapter instance/name",
+                "recovery state is bound to a different backend instance",
             ));
         }
     }
@@ -759,8 +798,24 @@ fn validate_backend_set(
         ));
     }
     let mut observed = BTreeSet::new();
+    let mut observed_instances = BTreeSet::new();
     for backend in backends {
         let resource = backend.resource_id().to_owned();
+        let instance = backend.backend_instance_id();
+        if instance.is_empty() {
+            return Err(CompositePrepareFailure::new(
+                CompositePrepareStage::Bind,
+                Some(resource),
+                "trusted backend instance identity must not be empty",
+            ));
+        }
+        if !observed_instances.insert(instance.to_owned()) {
+            return Err(CompositePrepareFailure::new(
+                CompositePrepareStage::Bind,
+                Some(resource),
+                "duplicate trusted backend instance identity",
+            ));
+        }
         if !observed.insert(resource.clone()) {
             return Err(CompositePrepareFailure::new(
                 CompositePrepareStage::Bind,
@@ -810,12 +865,15 @@ fn release_checkpoints(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
             continue;
         };
-        if backends[index].name() != checkpoint.adapter_name() {
+        if backends[index].name() != checkpoint.adapter_name()
+            || backends[index].backend_instance_id() != checkpoint.backend_instance_id()
+        {
             cleanup.failures.push(CompositePrepareCleanupFailure {
                 resource_id: resource.clone(),
                 operation: CompositePrepareCleanupOperation::ReleaseCheckpoint,
@@ -824,6 +882,7 @@ fn release_checkpoints(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
@@ -838,6 +897,7 @@ fn release_checkpoints(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
@@ -868,7 +928,9 @@ fn cleanup_prepared(
             cleanup.retained.push(recovery_from_prepared(entry));
             continue;
         };
-        if backends[index].name() != entry.adapter_name() {
+        if backends[index].name() != entry.adapter_name()
+            || backends[index].backend_instance_id() != entry.backend_instance_id()
+        {
             cleanup.failures.push(CompositePrepareCleanupFailure {
                 resource_id: resource.clone(),
                 operation: CompositePrepareCleanupOperation::AbortPrepare,
@@ -907,12 +969,15 @@ fn cleanup_prepared(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
             continue;
         };
-        if backends[index].name() != checkpoint.adapter_name() {
+        if backends[index].name() != checkpoint.adapter_name()
+            || backends[index].backend_instance_id() != checkpoint.backend_instance_id()
+        {
             cleanup.failures.push(CompositePrepareCleanupFailure {
                 resource_id: resource.clone(),
                 operation: CompositePrepareCleanupOperation::ReleaseCheckpoint,
@@ -921,6 +986,7 @@ fn cleanup_prepared(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
@@ -935,6 +1001,7 @@ fn cleanup_prepared(
             cleanup.retained.push(CompositePrepareRecoveryEntry {
                 resource_id: resource,
                 adapter_name: checkpoint.adapter_name().to_owned(),
+                backend_instance_id: checkpoint.backend_instance_id().to_owned(),
                 checkpoint: checkpoint.clone(),
                 actuation: None,
             });
@@ -947,6 +1014,7 @@ fn recovery_from_prepared(entry: &CompositePreparedSubplan) -> CompositePrepareR
     CompositePrepareRecoveryEntry {
         resource_id: entry.resource_id.clone(),
         adapter_name: entry.adapter_name.clone(),
+        backend_instance_id: entry.backend_instance_id.clone(),
         checkpoint: entry.checkpoint.clone(),
         actuation: Some(entry.actuation.clone()),
     }
@@ -1022,6 +1090,7 @@ mod tests {
     struct TestBackend {
         resource: String,
         name: String,
+        backend_instance_id: String,
         events: Rc<RefCell<Vec<String>>>,
         generation: u64,
         fail_validate: bool,
@@ -1038,6 +1107,7 @@ mod tests {
             Self {
                 resource: resource.to_owned(),
                 name: format!("test-{resource}"),
+                backend_instance_id: format!("test-instance-{resource}"),
                 events,
                 generation: 7,
                 fail_validate: false,
@@ -1114,6 +1184,10 @@ mod tests {
             &self.resource
         }
 
+        fn backend_instance_id(&self) -> &str {
+            &self.backend_instance_id
+        }
+
         fn capture_pre_act_state(
             &mut self,
             _plan: &ValidatedPlan,
@@ -1129,6 +1203,7 @@ mod tests {
                     &self.resource
                 },
                 self.name.clone(),
+                self.backend_instance_id.clone(),
                 self.generation,
                 self.generation ^ 0xa5a5,
             ))
@@ -1369,7 +1444,7 @@ mod tests {
     }
 
     #[test]
-    fn abort_refuses_same_resource_bound_to_different_adapter_and_returns_linear_recovery() {
+    fn abort_refuses_replacement_with_same_resource_and_adapter_name() {
         let envelope = envelope();
         let events = Rc::new(RefCell::new(Vec::new()));
         let mut base = TestBackend::new("base", events.clone());
@@ -1381,17 +1456,18 @@ mod tests {
         events.borrow_mut().clear();
 
         let mut replacement_base = TestBackend::new("base", events.clone());
-        replacement_base.name = "replacement-base".to_owned();
+        replacement_base.backend_instance_id = "replacement-instance-base".to_owned();
         let failure = {
             let mut wrong_backends: [&mut dyn CompositePrepareBackend; 2] =
                 [&mut replacement_base, &mut worker];
-            abort_composite_prepare(prepared, &mut wrong_backends, "wrong adapter").unwrap_err()
+            abort_composite_prepare(prepared, &mut wrong_backends, "replacement backend")
+                .unwrap_err()
         };
         assert_eq!(failure.stage(), CompositePrepareStage::Bind);
         assert!(events.borrow().is_empty());
         let recovery = failure
             .into_recovery()
-            .expect("binding failure retains all prepared state");
+            .expect("backend-instance mismatch retains all prepared state");
         assert_eq!(recovery.entries().len(), 2);
 
         let mut correct_backends: [&mut dyn CompositePrepareBackend; 2] = [&mut base, &mut worker];

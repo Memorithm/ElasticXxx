@@ -35,17 +35,18 @@ some other resource has already entered a prepared state.
 ## Backend contract
 
 `CompositePrepareBackend` extends the existing `TransactionalActuator` boundary
-with four pieces of composite-specific information/behavior:
+with five pieces of composite-specific information/behavior:
 
 - exact logical `resource_id()`;
+- stable, unique `backend_instance_id()` for the concrete state owner;
 - `capture_pre_act_state()`;
 - `abort_prepare()` for a preparation that never reached physical actuation;
 - `release_pre_act_state()` when a checkpoint is no longer needed.
 
 The generic runtime never attempts to copy arbitrary backend state. A
 `CompositePreActState` is an opaque binding token containing resource identity,
-adapter identity, a backend generation and a non-cryptographic state
-fingerprint. The backend remains responsible for retaining the concrete bytes,
+adapter identity, concrete backend-instance identity, a backend generation and
+a non-cryptographic state fingerprint. The backend remains responsible for retaining the concrete bytes,
 handles or other rollback material associated with that token.
 
 The exact backend set must equal the resources targeted by the composite plan:
@@ -92,9 +93,10 @@ recovery envelope and retries only the still-outstanding operations. Likewise,
 if abort succeeded but checkpoint release failed, recovery retains a
 release-only token so retry does not invoke abort a second time.
 
-Cleanup also rechecks adapter identity. A backend with the same logical
-`resource_id` but a different adapter name never receives another adapter's
-opaque actuation/checkpoint state. Binding failure returns all prepared state as
+Cleanup rechecks both adapter identity and the backend-issued concrete instance
+identity. A replacement backend never receives the original instance's opaque
+actuation/checkpoint state, even when it reuses the same logical `resource_id`
+and the same human-readable adapter name. Binding failure returns all prepared state as
 linear recovery data for retry with the correct backends.
 
 ## Deliberate non-goals
