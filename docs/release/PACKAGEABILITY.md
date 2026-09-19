@@ -31,6 +31,7 @@ The pre-release packageability workflow therefore proves only what can be proved
 - every workspace crate resolves the declared MSRV `rust-version = "1.89"`;
 - `cargo package --list` succeeds for the complete facade dependency chain, so Cargo can determine each package file set;
 - real `cargo package --no-verify` archives are built for the first-publish leaf crates `elastic-core` and `elastic-macros`;
+- those two leaf archives are inspected fail-closed against Cargo's exact `--list` file set, bounded archive/member sizes, safe package-relative paths, regular-file-only entries, exact packaged release metadata, repository `LICENSE.md`, crate-level rustdoc and exact Git-head VCS provenance;
 - normal workspace CI remains authoritative for compile, tests, Clippy, rustdoc and runtime semantics.
 
 This is intentionally weaker than claiming the full chain has already been upload-prepared. After a real registry contains the leaf crates, the same gate can advance one level at a time (`elastic-eir`, then `elastic-adapters`, then `elastic-runtime`, then `elastic-kv`, then `elastic`).
@@ -49,12 +50,12 @@ Real publication remains blocked until all of the following are resolved deliber
 
 - the observed crates.io collisions for `elastic` and `elastic-macros` are resolved by an explicitly approved naming or legitimate ownership path, and every intended package name is rechecked at release time;
 - the intended public/private crate topology is explicitly approved;
-- package archives are inspected for unintended files or missing documentation;
+- the remaining non-leaf package archives are built and inspected after dependency-order publication makes those registry-dependent archives constructible;
 - the exact release commit passes the normal required CI and the packageability workflow;
 - versions/changelog/release notes are frozen for that release;
 - a clean downstream sample can consume the published facade without workspace paths.
 
-No CI job may infer that a colliding or unverified crate name, unapproved public/private topology, incomplete release evidence, or failed archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
+The leaf-archive inspection closes only the archive-content/documentation check for `elastic-core` and `elastic-macros`; it does not make the registry-dependent non-leaf archives inspectable before their dependencies exist in the registry. No CI job may infer that a colliding or unverified crate name, unapproved public/private topology, incomplete release evidence, or failed remaining archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
 The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md). The machine-readable BE15f pre-release state, canonical SciRust license-source fingerprint, exact consumer/source pins and unresolved publication blockers are recorded in [PRODUCTIZATION-V1.json](PRODUCTIZATION-V1.json); CI validates that record with `scripts/check_release_productization.py`. The point-in-time registry lookup and its non-reservation limits are recorded in [REGISTRY-NAME-AUDIT.md](REGISTRY-NAME-AUDIT.md). Migration and cross-repository scope are documented in [MIGRATION-0.1.md](MIGRATION-0.1.md) and [CROSS_REPO_COMPATIBILITY.md](CROSS_REPO_COMPATIBILITY.md).
 
