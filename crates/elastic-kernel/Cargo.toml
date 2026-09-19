@@ -9,13 +9,13 @@ publish = false
 description = "Generic kernel-realization planning contracts for ElasticXxx"
 
 [dependencies]
-elastic-core = { path = "../elastic-core" }
-elastic-eir = { path = "../elastic-eir" }
+elastic-core = { package = "memorithm-elastic-core", path = "../elastic-core" }
+elastic-eir = { package = "memorithm-elastic-eir", path = "../elastic-eir" }
 serde = { workspace = true }
 serde_json = "1.0"
 
 [dev-dependencies]
-elastic = { path = "../elastic" }
+elastic = { package = "memorithm-elastic", path = "../elastic" }
 
 [[bench]]
 name = "be14f_kernel_realization"

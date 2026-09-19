@@ -16,7 +16,7 @@ The benchmark prints raw elapsed nanoseconds, iteration count, nanoseconds per i
 Example:
 
 ```bash
-cargo +1.89.0 bench -p elastic-runtime --bench be14e_representation_precision -- \
+cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14e_representation_precision -- \
   --warmup 1000 --iterations 10000
 ```
 

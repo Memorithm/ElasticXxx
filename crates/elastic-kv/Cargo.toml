@@ -1,5 +1,5 @@
 [package]
-name = "elastic-kv"
+name = "memorithm-elastic-kv"
 version = "0.1.0"
 license-file.workspace = true
 edition.workspace = true
@@ -7,6 +7,9 @@ rust-version.workspace = true
 repository.workspace = true
 publish = false
 description = "KV-cache representation contracts for ElasticXxx"
+
+[lib]
+name = "elastic_kv"
 
 [dependencies]
 elastic-core = { workspace = true }
@@ -16,4 +19,4 @@ serde = { workspace = true }
 serde_json = "1.0"
 
 [dev-dependencies]
-elastic = { path = "../elastic" }
+elastic = { package = "memorithm-elastic", path = "../elastic" }

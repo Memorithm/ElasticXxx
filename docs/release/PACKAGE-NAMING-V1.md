@@ -26,8 +26,10 @@ At `2026-09-19T05:58:13Z`, read-only GET requests to the crates.io API returned 
 
 The requests used the identifying user agent `Memorithm-release-audit/1.0 contact@checkupauto.fr`. These observations are not reservations or ownership proof. Every selected name must be rechecked immediately before any separately authorized publish operation. Registry mutation remains forbidden by the current productization contract.
 
-## Migration rule
+## Applied Cargo mapping
 
-This decision does not rename any Cargo package in this slice. The next implementation slice must apply the selected registry package names to Cargo manifests while preserving crate import names through explicit Cargo package aliases where necessary, update packageability checks, and prove workspace and downstream facade-only compilation. Until that lands and exact-head CI is green, publication remains blocked.
+The selected registry names are now the `[package].name` values of the seven registry-visible crates. Source-level crate names remain stable through explicit `[lib].name` declarations (`elastic`, `elastic_core`, `elastic_eir`, `elastic_adapters`, `elastic_runtime`, `elastic_kv`, `elastic_macros`) and Cargo dependency aliases. Workspace path dependencies retain both `path` and `version = "0.1.0"` while declaring the corresponding `package = "memorithm-elastic-*"` identity. Non-published workspace consumers use the same explicit aliases.
+
+This mapping is a packaging change, not a registry publication. Every selected crates.io name must still be rechecked immediately before any separately authorized publish operation, `publish = false` remains in force, and the dependency-order/archive/downstream-install/release-freeze gates remain unresolved.
 
 The prior audit in `REGISTRY-NAME-AUDIT.md` remains provenance for why the unprefixed names are not used. This document records the explicit replacement naming and topology decision; it does not rewrite or erase that negative collision evidence.

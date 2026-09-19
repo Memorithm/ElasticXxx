@@ -112,8 +112,8 @@ Required commands (from the repository root):
 ```bash
 cargo +1.89.0 fmt --all -- --check
 cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
-cargo +1.89.0 test -p elastic-runtime --test compiled_invariant_precheck
-cargo +1.89.0 test -p elastic-downstream --test compiled_invariants
+cargo +1.89.0 test -p memorithm-elastic-runtime --test compiled_invariant_precheck
+cargo +1.89.0 test -p memorithm-elastic-downstream --test compiled_invariants
 cargo +1.89.0 test --workspace
 ```
 

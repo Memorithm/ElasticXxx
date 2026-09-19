@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+          cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
             --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be13.csv"
           python3 - <<'PY'
           import csv
@@ -84,7 +84,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+          cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
             --warmup 10 --iterations 1000 --path u64_compiled_guard \
             >"$RUNNER_TEMP/be13-single.csv"
           python3 - <<'PY'

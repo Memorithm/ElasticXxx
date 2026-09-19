@@ -16,7 +16,7 @@ The unguarded path is deliberately an exact-candidate reference; it does **not**
 Example:
 
 ```bash
-cargo +1.89.0 bench -p elastic-runtime --bench be14g_batch_device -- \
+cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14g_batch_device -- \
   --warmup 1000 --iterations 10000
 ```
 

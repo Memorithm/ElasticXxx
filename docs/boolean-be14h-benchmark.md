@@ -16,7 +16,7 @@ Before timing begins, the harness requires both paths to commit the same declare
 Example:
 
 ```bash
-cargo +1.89.0 bench -p elastic-runtime --bench be14h_thermal_energy -- \
+cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14h_thermal_energy -- \
   --warmup 1000 --iterations 10000
 ```
 

@@ -79,6 +79,6 @@ live holders, successful reduction after release, stale/unknown/unavailable/
 insufficient capacity, zero per-trial budget and saturating subtraction. Run:
 
 ```sh
-cargo test --locked -p elastic-runtime capacity_admission
-cargo build --locked -p elastic-cli
+cargo test --locked -p memorithm-elastic-runtime capacity_admission
+cargo build --locked -p memorithm-elastic-cli
 ```

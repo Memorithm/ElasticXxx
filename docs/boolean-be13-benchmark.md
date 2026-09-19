@@ -11,9 +11,9 @@ The benchmark supports the historical five-path run and a single-path mode:
 
 ```bash
 git rev-parse HEAD
-cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
   --warmup 10000 --iterations 200000
-cargo +1.89.0 bench -p elastic-core --bench be13_portable -- \
+cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
   --warmup 10000 --iterations 200000 --path u64_compiled_guard
 ```
 

@@ -14,15 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "docs/release/PRODUCTIZATION-V1.json"
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
-PUBLIC_CHAIN = {
-    "elastic-core",
-    "elastic-macros",
-    "elastic-eir",
-    "elastic-adapters",
-    "elastic-runtime",
-    "elastic-kv",
-    "elastic",
+REGISTRY_BY_SOURCE = {
+    "elastic-core": "memorithm-elastic-core",
+    "elastic-macros": "memorithm-elastic-macros",
+    "elastic-eir": "memorithm-elastic-eir",
+    "elastic-adapters": "memorithm-elastic-adapters",
+    "elastic-runtime": "memorithm-elastic-runtime",
+    "elastic-kv": "memorithm-elastic-kv",
+    "elastic": "memorithm-elastic",
 }
+SOURCE_BY_REGISTRY = {registry: source for source, registry in REGISTRY_BY_SOURCE.items()}
+PUBLIC_CHAIN = set(SOURCE_BY_REGISTRY)
 EXPECTED_MANIFEST_KEYS = {
     "schema", "scope", "release_line", "workspace_version", "msrv",
     "registry_publication_authorized", "public_rust_boundary", "license_source",
@@ -78,9 +80,8 @@ EXPECTED_RELEASE_DOCUMENTS = {
 }
 EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10ccb60654e0c42bcfecfc"
 
-EXPECTED_PACKAGE_NAMING_SHA256 = "319aae97f1496dfb58623e7ebbdd928d6049a98635c320ab3484a5b3690ae7de"
+EXPECTED_PACKAGE_NAMING_SHA256 = "654025cc9b1cbab15cc41eaadad1c76c356b980be9b6de39f30d9b4ae3efcabc"
 EXPECTED_PUBLICATION_BLOCKERS = {
-    "selected_registry_package_names_not_yet_applied_to_cargo_manifests",
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
@@ -105,7 +106,7 @@ EXPECTED_PUBLIC_PACKAGE_TOPOLOGY = {
     ],
     "availability_observed_at": "2026-09-19T05:58:13Z",
     "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
-    "manifests_renamed": False,
+    "manifests_renamed": True,
 }
 
 def fail(message: str) -> None:
@@ -165,7 +166,7 @@ def self_test_pinned_declarations(data: dict[str, object]) -> None:
         fail("self-test accepted tampered productization declarations")
 
     rejected(lambda d: d["license_source"].update(source_commit="0" * 40))
-    rejected(lambda d: d["public_package_topology"].update(manifests_renamed=True))
+    rejected(lambda d: d["public_package_topology"].update(manifests_renamed=False))
     rejected(lambda d: d["public_package_topology"]["registry_packages"][0].update(registry_package="elastic-core"))
 
     def move_authority(d) -> None:
@@ -217,19 +218,43 @@ def main() -> None:
     workspace_ids = set(metadata["workspace_members"])
     packages = {p["name"]: p for p in metadata["packages"] if p["id"] in workspace_ids}
     if not PUBLIC_CHAIN <= packages.keys():
-        fail("public facade dependency chain package is missing")
-    for name in PUBLIC_CHAIN:
-        p = packages[name]
+        fail("public facade dependency chain registry package is missing")
+    for registry_name in PUBLIC_CHAIN:
+        p = packages[registry_name]
+        source_name = SOURCE_BY_REGISTRY[registry_name]
         if p["version"] != data["workspace_version"]:
-            fail(f"{name} version does not match productization manifest")
+            fail(f"{registry_name} version does not match productization manifest")
         if p["rust_version"] != data["msrv"]:
-            fail(f"{name} MSRV does not match productization manifest")
+            fail(f"{registry_name} MSRV does not match productization manifest")
         # Cargo metadata represents `publish = false` as an empty allow-list.
         if p.get("publish") != []:
-            fail(f"{name} must remain publish=false until a separate release authorization")
+            fail(f"{registry_name} must remain publish=false until a separate release authorization")
         license_file = p.get("license_file") or ""
         if not license_file.endswith("/LICENSE.md"):
-            fail(f"{name} must package LICENSE.md")
+            fail(f"{registry_name} must package LICENSE.md")
+        manifest_path = Path(p["manifest_path"]).resolve()
+        expected_manifest = (ROOT / "crates" / source_name / "Cargo.toml").resolve()
+        if manifest_path != expected_manifest:
+            fail(f"{registry_name} moved away from reviewed workspace source path {source_name}")
+        expected_lib = source_name.replace("-", "_")
+        library_targets = [
+            target for target in p.get("targets", [])
+            if "lib" in target.get("kind", []) or "proc-macro" in target.get("kind", [])
+        ]
+        if len(library_targets) != 1 or library_targets[0].get("name") != expected_lib:
+            fail(f"{registry_name} must preserve source crate name {expected_lib!r}")
+        for dependency in p.get("dependencies", []):
+            dep_registry = dependency.get("name")
+            if dependency.get("kind") == "dev" or dep_registry not in PUBLIC_CHAIN:
+                continue
+            expected_alias = SOURCE_BY_REGISTRY[dep_registry]
+            if dependency.get("rename") != expected_alias:
+                fail(
+                    f"{registry_name} -> {dep_registry} must preserve dependency alias "
+                    f"{expected_alias!r}; got {dependency.get('rename')!r}"
+                )
+            if dependency.get("req") != "^0.1.0":
+                fail(f"{registry_name} -> {dep_registry} must retain ^0.1.0 registry requirement")
 
     consumers = data["qualified_consumers_and_sources"]
     actual_by_repo = {entry["repository"]: entry for entry in consumers}

@@ -9,4 +9,4 @@ publish = false
 description = "Compile-time guard: an Elastic user depending only on the elastic facade"
 
 [dependencies]
-elastic = { path = "../elastic" }
+elastic = { package = "memorithm-elastic", path = "../elastic" }

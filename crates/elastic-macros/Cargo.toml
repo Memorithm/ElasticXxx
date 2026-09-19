@@ -1,5 +1,5 @@
 [package]
-name = "elastic-macros"
+name = "memorithm-elastic-macros"
 version = "0.1.0"
 license-file.workspace = true
 edition.workspace = true
@@ -9,6 +9,7 @@ publish = false
 description = "Procedural macros lowering Elastic resource declarations to the typed semantic model"
 
 [lib]
+name = "elastic_macros"
 proc-macro = true
 
 [dependencies]

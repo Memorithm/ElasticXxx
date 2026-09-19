@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo +1.89.0 bench -p elastic-runtime --bench be14e_representation_precision -- \
+          cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14e_representation_precision -- \
             --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14e.csv"
           python3 - <<'PY'
           import csv

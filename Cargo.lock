@@ -114,100 +114,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d07550c9036bf2ae0c684c4297d503f838287c83c53686d05370d0e139ae570"
 
 [[package]]
-name = "elastic"
-version = "0.1.0"
-dependencies = [
- "elastic-adapters",
- "elastic-core",
- "elastic-eir",
- "elastic-kv",
- "elastic-macros",
- "elastic-runtime",
- "trybuild",
-]
-
-[[package]]
-name = "elastic-adapters"
-version = "0.1.0"
-dependencies = [
- "elastic-core",
- "elastic-eir",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "elastic-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
- "elastic",
+ "memorithm-elastic",
  "serde_json",
 ]
-
-[[package]]
-name = "elastic-core"
-version = "0.1.0"
 
 [[package]]
 name = "elastic-downstream"
 version = "0.1.0"
 dependencies = [
- "elastic",
-]
-
-[[package]]
-name = "elastic-eir"
-version = "0.1.0"
-dependencies = [
- "elastic-core",
+ "memorithm-elastic",
 ]
 
 [[package]]
 name = "elastic-kernel"
 version = "0.1.0"
 dependencies = [
- "elastic",
- "elastic-core",
- "elastic-eir",
+ "memorithm-elastic",
+ "memorithm-elastic-core",
+ "memorithm-elastic-eir",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "elastic-kv"
-version = "0.1.0"
-dependencies = [
- "elastic",
- "elastic-core",
- "elastic-eir",
- "elastic-runtime",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "elastic-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "elastic-runtime"
-version = "0.1.0"
-dependencies = [
- "elastic-adapters",
- "elastic-core",
- "elastic-eir",
- "log",
- "serde",
- "serde_json",
- "thiserror",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -282,6 +212,76 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "memorithm-elastic"
+version = "0.1.0"
+dependencies = [
+ "memorithm-elastic-adapters",
+ "memorithm-elastic-core",
+ "memorithm-elastic-eir",
+ "memorithm-elastic-kv",
+ "memorithm-elastic-macros",
+ "memorithm-elastic-runtime",
+ "trybuild",
+]
+
+[[package]]
+name = "memorithm-elastic-adapters"
+version = "0.1.0"
+dependencies = [
+ "memorithm-elastic-core",
+ "memorithm-elastic-eir",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "memorithm-elastic-core"
+version = "0.1.0"
+
+[[package]]
+name = "memorithm-elastic-eir"
+version = "0.1.0"
+dependencies = [
+ "memorithm-elastic-core",
+]
+
+[[package]]
+name = "memorithm-elastic-kv"
+version = "0.1.0"
+dependencies = [
+ "memorithm-elastic",
+ "memorithm-elastic-core",
+ "memorithm-elastic-eir",
+ "memorithm-elastic-runtime",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "memorithm-elastic-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "memorithm-elastic-runtime"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "memorithm-elastic-adapters",
+ "memorithm-elastic-core",
+ "memorithm-elastic-eir",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "nu-ansi-term"

@@ -20,12 +20,12 @@ repository = "https://github.com/Memorithm/ElasticXxx"
 license-file = "LICENSE.md"
 
 [workspace.dependencies]
-elastic-core = { version = "0.1.0", path = "crates/elastic-core" }
-elastic-eir = { version = "0.1.0", path = "crates/elastic-eir" }
-elastic-adapters = { version = "0.1.0", path = "crates/elastic-adapters" }
-elastic-macros = { version = "0.1.0", path = "crates/elastic-macros" }
-elastic-runtime = { version = "0.1.0", path = "crates/elastic-runtime" }
-elastic-kv = { version = "0.1.0", path = "crates/elastic-kv" }
+elastic-core = { package = "memorithm-elastic-core", version = "0.1.0", path = "crates/elastic-core" }
+elastic-eir = { package = "memorithm-elastic-eir", version = "0.1.0", path = "crates/elastic-eir" }
+elastic-adapters = { package = "memorithm-elastic-adapters", version = "0.1.0", path = "crates/elastic-adapters" }
+elastic-macros = { package = "memorithm-elastic-macros", version = "0.1.0", path = "crates/elastic-macros" }
+elastic-runtime = { package = "memorithm-elastic-runtime", version = "0.1.0", path = "crates/elastic-runtime" }
+elastic-kv = { package = "memorithm-elastic-kv", version = "0.1.0", path = "crates/elastic-kv" }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = { version = "2.0" }
 log = "0.4"
