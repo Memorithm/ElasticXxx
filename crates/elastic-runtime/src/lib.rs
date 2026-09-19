@@ -32,6 +32,7 @@ pub mod cancellation;
 pub mod capacity_admission;
 pub mod clock;
 pub mod commit;
+pub mod composite_plan;
 pub mod concurrency_boolean_admission;
 pub mod config;
 pub mod configured_controller;
@@ -95,6 +96,10 @@ pub use capacity_admission::{
 };
 pub use clock::{RuntimeClock, SystemClock};
 pub use commit::{CommitRecord, RollbackRecord};
+pub use composite_plan::{
+    CompositePlanEnvelope, CompositePlanError, COMPOSITE_PLAN_ENVELOPE_SCHEMA_V1,
+    MAX_COMPOSITE_SUBPLANS,
+};
 pub use concurrency_boolean_admission::{
     concurrency_headroom_predicate_key, BooleanConcurrencyEvidenceV1,
     BooleanConcurrencyResizeControllerV1, BooleanConcurrencyResizeReportV1,

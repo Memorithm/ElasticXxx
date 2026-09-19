@@ -172,6 +172,44 @@ pub fn public_grouped_document_surface_smoke() {
         .is_some());
 }
 
+/// Compile-time and semantic proof that ELANG4 composite-plan ordering is
+/// usable through only the public `elastic` dependency.
+pub fn public_composite_plan_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker_id = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache_id = LogicalResourceId::new("downstream-cache").unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("runtime").unwrap())
+        .members([worker_id.clone(), cache_id.clone()])
+        .dependency(ResourceDependency::new(cache_id, worker_id))
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let worker = grouped
+        .group_resource("runtime", "downstream-worker-pool")
+        .unwrap();
+    let cache = grouped
+        .group_resource("runtime", "downstream-cache")
+        .unwrap();
+    let worker_plan = Plan::new(
+        worker.clone(),
+        PlanningContext::new(),
+        FirstGroundedPlanner.propose_transition(worker),
+        "downstream worker".into(),
+    );
+    let cache_plan = Plan::new(
+        cache.clone(),
+        PlanningContext::new(),
+        FirstGroundedPlanner.propose_transition(cache),
+        "downstream cache".into(),
+    );
+    let envelope =
+        CompositePlanEnvelope::new(&grouped, "runtime", vec![cache_plan, worker_plan]).unwrap();
+    assert_eq!(
+        envelope.execution_order().collect::<Vec<_>>(),
+        vec!["downstream-worker-pool", "downstream-cache"]
+    );
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
