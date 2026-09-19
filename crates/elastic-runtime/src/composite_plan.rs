@@ -9,7 +9,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use elastic_core::resource::MAX_RESOURCE_GROUP_MEMBERS;
+use elastic_core::resource::{DimensionId, ObservationSignalId, MAX_RESOURCE_GROUP_MEMBERS};
 use elastic_core::TransitionMechanism;
 use elastic_eir::{EirGroupedDocument, EirResourceGroup, Fingerprint};
 
@@ -185,24 +185,26 @@ fn composite_execution_order(
     group: &EirResourceGroup,
     targeted: &BTreeSet<String>,
 ) -> Result<Vec<String>, CompositePlanError> {
-    let mut indegree = targeted
+    // Topologically order the complete ELANG3 group, then filter to the
+    // targeted subset. This preserves transitive requirements that pass
+    // through untargeted members (a -> b -> z still orders z before a when
+    // only a and z have subplans).
+    let mut indegree = group
+        .members()
         .iter()
         .cloned()
         .map(|resource| (resource, 0_usize))
         .collect::<BTreeMap<_, _>>();
-    let mut outgoing = targeted
+    let mut outgoing = group
+        .members()
         .iter()
         .cloned()
         .map(|resource| (resource, BTreeSet::<String>::new()))
         .collect::<BTreeMap<_, _>>();
 
     // ELANG3 declares `dependent -> required`. Composite execution uses the
-    // inverse edge so required resources are processed before dependents when
-    // both are targeted by this envelope.
+    // inverse edge so required resources are processed before dependents.
     for dependency in group.dependencies() {
-        if !targeted.contains(dependency.dependent()) || !targeted.contains(dependency.required()) {
-            continue;
-        }
         outgoing
             .get_mut(dependency.required())
             .ok_or_else(|| CompositePlanError::OrderingLostResource {
@@ -221,9 +223,9 @@ fn composite_execution_order(
         .iter()
         .filter_map(|(resource, degree)| (*degree == 0).then_some(resource.clone()))
         .collect::<BTreeSet<_>>();
-    let mut ordered = Vec::with_capacity(targeted.len());
+    let mut ordered_all = Vec::with_capacity(group.members().len());
     while let Some(resource) = ready.pop_first() {
-        ordered.push(resource.clone());
+        ordered_all.push(resource.clone());
         let dependents =
             outgoing
                 .get(&resource)
@@ -243,12 +245,19 @@ fn composite_execution_order(
         }
     }
 
+    if ordered_all.len() != group.members().len() {
+        return Err(CompositePlanError::OrderingCycle {
+            group: group.id().to_owned(),
+        });
+    }
+    let ordered = ordered_all
+        .into_iter()
+        .filter(|resource| targeted.contains(resource))
+        .collect::<Vec<_>>();
     if ordered.len() == targeted.len() {
         Ok(ordered)
     } else {
-        Err(CompositePlanError::OrderingCycle {
-            group: group.id().to_owned(),
-        })
+        Err(CompositePlanError::OrderingIncomplete)
     }
 }
 
@@ -278,6 +287,7 @@ fn composite_plan_fingerprint(
                 TransitionMechanism::Reencode => 1,
                 TransitionMechanism::Recompute => 2,
             })
+            .text(dimension_kind(candidate.dimension()))
             .text(candidate.dimension().as_str())
             .number(u64::from(candidate.capability_grounded()));
         match candidate.magnitude() {
@@ -291,10 +301,29 @@ fn composite_plan_fingerprint(
         let context_len = plan.context.iter().count();
         fingerprint = fingerprint.number(context_len as u64);
         for (signal, value) in plan.context.iter() {
-            fingerprint = fingerprint.text(signal.as_str()).number(value.to_bits());
+            fingerprint = fingerprint
+                .text(observation_signal_kind(signal))
+                .text(signal.as_str())
+                .number(value.to_bits());
         }
     }
     Ok(fingerprint)
+}
+
+const fn dimension_kind(dimension: &DimensionId) -> &'static str {
+    if dimension.builtin_part().is_some() {
+        "builtin"
+    } else {
+        "custom"
+    }
+}
+
+const fn observation_signal_kind(signal: &ObservationSignalId) -> &'static str {
+    if signal.builtin_part().is_some() {
+        "builtin"
+    } else {
+        "custom"
+    }
 }
 
 /// Fail-closed structural validation errors for composite plan construction.
@@ -589,5 +618,132 @@ mod tests {
             CompositePlanEnvelope::new(&grouped, "stack", vec![plan]),
             Err(CompositePlanError::NonFinitePlanningValue { .. })
         ));
+    }
+
+    #[test]
+    fn partial_envelope_preserves_transitive_required_order_through_untargeted_member() {
+        let mut builder = EirDocumentBuilder::new();
+        for id in ["a", "b", "z"] {
+            builder.push(&spec(id)).unwrap();
+        }
+        let document = builder.finish().unwrap();
+        let group = ResourceGroupBuilder::new(ResourceGroupId::new("transitive").unwrap())
+            .members([
+                LogicalResourceId::new("a").unwrap(),
+                LogicalResourceId::new("b").unwrap(),
+                LogicalResourceId::new("z").unwrap(),
+            ])
+            .dependency(ResourceDependency::new(
+                LogicalResourceId::new("a").unwrap(),
+                LogicalResourceId::new("b").unwrap(),
+            ))
+            .dependency(ResourceDependency::new(
+                LogicalResourceId::new("b").unwrap(),
+                LogicalResourceId::new("z").unwrap(),
+            ))
+            .build()
+            .unwrap();
+        let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+        let make_plan = |resource: &str| {
+            let node = grouped.group_resource("transitive", resource).unwrap();
+            plan_with_context(&FirstGroundedPlanner, node, &PlanningContext::new())
+        };
+        let envelope = CompositePlanEnvelope::new(
+            &grouped,
+            "transitive",
+            vec![make_plan("a"), make_plan("z")],
+        )
+        .unwrap();
+        assert_eq!(
+            envelope.execution_order().collect::<Vec<_>>(),
+            vec!["z", "a"]
+        );
+    }
+
+    #[test]
+    fn built_in_and_custom_same_text_do_not_alias_in_composite_fingerprint() {
+        let custom_capacity = DimensionId::custom("capacity").unwrap();
+        let spec = ResourceSpec::builder(
+            ResourceClassId::CONFIGURATIONAL,
+            LogicalResourceId::new("typed").unwrap(),
+        )
+        .allow(DimensionId::CAPACITY)
+        .allow(custom_capacity.clone())
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .admit(AdmissibleTransition::new(
+            TransitionMechanism::Reinterpret,
+            custom_capacity.clone(),
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            DimensionId::CAPACITY,
+        ))
+        .require_capability(CapabilityRequirement::new(
+            TransitionMechanism::Reinterpret,
+            custom_capacity.clone(),
+        ))
+        .build()
+        .unwrap();
+        let document = lower(&spec).unwrap();
+        let group = ResourceGroupBuilder::new(ResourceGroupId::new("typed-group").unwrap())
+            .member(LogicalResourceId::new("typed").unwrap())
+            .build()
+            .unwrap();
+        let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+        let resource = grouped.group_resource("typed-group", "typed").unwrap();
+        let builtin_admitted = resource
+            .transitions()
+            .iter()
+            .find(|entry| entry.transition().dimension() == &DimensionId::CAPACITY)
+            .unwrap();
+        let custom_admitted = resource
+            .transitions()
+            .iter()
+            .find(|entry| entry.transition().dimension() == &custom_capacity)
+            .unwrap();
+        let builtin_plan = Plan::new(
+            resource.clone(),
+            PlanningContext::new(),
+            PlanOutcome::Candidate(elastic_eir::TransitionCandidate::from_admitted(
+                builtin_admitted,
+            )),
+            "builtin".into(),
+        );
+        let custom_plan = Plan::new(
+            resource.clone(),
+            PlanningContext::new(),
+            PlanOutcome::Candidate(elastic_eir::TransitionCandidate::from_admitted(
+                custom_admitted,
+            )),
+            "custom".into(),
+        );
+        let builtin =
+            CompositePlanEnvelope::new(&grouped, "typed-group", vec![builtin_plan]).unwrap();
+        let custom =
+            CompositePlanEnvelope::new(&grouped, "typed-group", vec![custom_plan]).unwrap();
+        assert_ne!(builtin.fingerprint(), custom.fingerprint());
+
+        let candidate = elastic_eir::TransitionCandidate::from_admitted(builtin_admitted);
+        let builtin_signal_plan = Plan::new(
+            resource.clone(),
+            PlanningContext::new().observe(ObservationSignalId::UTILIZATION, 0.5),
+            PlanOutcome::Candidate(candidate.clone()),
+            "builtin signal".into(),
+        );
+        let custom_signal_plan = Plan::new(
+            resource.clone(),
+            PlanningContext::new()
+                .observe(ObservationSignalId::custom("utilization").unwrap(), 0.5),
+            PlanOutcome::Candidate(candidate),
+            "custom signal".into(),
+        );
+        let builtin_signal =
+            CompositePlanEnvelope::new(&grouped, "typed-group", vec![builtin_signal_plan]).unwrap();
+        let custom_signal =
+            CompositePlanEnvelope::new(&grouped, "typed-group", vec![custom_signal_plan]).unwrap();
+        assert_ne!(builtin_signal.fingerprint(), custom_signal.fingerprint());
     }
 }

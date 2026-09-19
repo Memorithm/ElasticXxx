@@ -48,6 +48,8 @@ elastic! {
             id("downstream-cache");
             allow(representation);
             preserve(contents);
+            admit(reencode @ representation);
+            capability(reencode @ representation);
         }
     }
 }
@@ -400,6 +402,7 @@ mod tests {
         public_boolean_surface_smoke();
         public_elastic_language_surface_smoke();
         public_elastic_document_surface_smoke();
+        public_composite_plan_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }
