@@ -147,3 +147,5 @@ jobs:
           set -euo pipefail
           cargo package -p elastic-core --allow-dirty --no-verify
           cargo package -p elastic-macros --allow-dirty --no-verify
+      - name: Inspect first-publish leaf archives
+        run: python3 scripts/check_package_archives.py

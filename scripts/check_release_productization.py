@@ -83,7 +83,7 @@ EXPECTED_PUBLICATION_BLOCKERS = {
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
     "release_versions_changelog_and_release_notes_not_frozen",
-    "package_archives_not_inspected_for_unintended_files_or_missing_documentation",
+    "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish",
     "exact_release_commit_required_ci_and_packageability_not_yet_successful",
 }
 
