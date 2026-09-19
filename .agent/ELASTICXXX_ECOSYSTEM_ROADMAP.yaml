@@ -667,9 +667,9 @@ post_prepublication_language_program:
     publication_authorized: false
   current_main_after_baseline_decoupling: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
   current_language_candidate:
-    pr: null
-    head: null
-    phase: ELANG4_composite_planning_and_transaction_semantics_active_no_open_candidate
+    pr: 183
+    head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
+    phase: ELANG4a_composite_plan_envelope
   rule: >-
     Language/runtime work has priority over registry publication. Read the
     dedicated language roadmap before macro, public-programming-model,

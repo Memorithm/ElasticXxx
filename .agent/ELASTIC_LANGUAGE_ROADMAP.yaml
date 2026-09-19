@@ -138,10 +138,25 @@ phases:
   - id: ELANG4
     name: composite_planning_and_transaction_semantics
     priority: P0
-    status: active
-    tasks:
-      - composite_plan_envelope
-      - ordering_and_conflict_resolution_for_subplans
+    status: active_candidate
+    current_candidate:
+      pr: 183
+      head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
+      base: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
+      slice: ELANG4a_composite_plan_envelope
+    completed_in_candidate:
+      - exact_EirGroupedDocument_and_group_binding
+      - candidate_bearing_exact_EIR_subplan_validation
+      - duplicate_foreign_mismatched_undeclared_and_nonfinite_subplan_rejection
+      - required_before_dependent_topological_order_for_targeted_resources
+      - canonical_lexicographic_tie_breaking_for_independent_ready_resources
+      - reverse_structural_rollback_order_exposed_without_claiming_execution_authority
+      - semantic_fingerprint_binds_grouped_document_resource_candidate_magnitude_and_PlanningContext_bits
+      - diagnostic_Plan_reasoning_explicitly_excluded_from_semantic_fingerprint
+      - facade_only_downstream_contract_and_normative_documentation
+      - local_workspace_all_targets_clippy_rustdoc_internal_baseline_and_productization_gates_green
+    remaining:
+      - exact_head_CI_and_review_qualification_for_PR183
       - explicit_prepare_boundary
       - capture_pre_act_state_per_resource
       - coordinated_verify_commit_or_rollback
@@ -223,10 +238,10 @@ phases:
 current_execution:
   verified_main: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
   earliest_incomplete_phase: ELANG4
-  immediate_next_slice: ELANG4a_composite_plan_envelope_topological_ordering_and_conflict_rejection_before_any_multi_resource_actuation
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: ELANG3_merged_ELANG4_active_no_open_language_candidate
+  immediate_next_slice: qualify_and_merge_PR183_then_ELANG4b_checkpoint_and_prepare_boundary_before_any_composite_actuation
+  current_candidate_pr: 183
+  current_candidate_head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
+  current_candidate_status: exact_head_CI_pending_local_workspace_clippy_rustdoc_composite_tests_baseline_and_productization_gates_green
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none
