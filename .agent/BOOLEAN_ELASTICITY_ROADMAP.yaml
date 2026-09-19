@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+  main_sha: 914116cd531ded905a45547bee45c4bdefeeff43
   main_observed_at: "2026-09-19"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -441,7 +441,7 @@ ownership:
 
 execution_policy:
   order: [BE0, BE1, BE2, BE3, BE4, BE5, BE6, BE7, BE8, BE9, BE10, BE11, BE12, BE13, BE14, BE15]
-  active_phase: BE14
+  active_phase: none_prepublication_roadmap_complete
   next_major_phase_after_BE8: BE10
   rule: earliest_unblocked_reviewable_slice_first
   branch_rule: new_feature_branch_from_current_main_after_every_merge
