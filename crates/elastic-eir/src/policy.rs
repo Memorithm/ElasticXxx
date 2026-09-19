@@ -37,7 +37,7 @@ impl EirPolicyHeader {
                 resource: resource.as_str().to_owned(),
             }
         })?;
-        Ok(Self::new(
+        Ok(Self::from_bound_target(
             header,
             PolicyTarget::Resource(resource.clone()),
             node.fingerprint(),
@@ -61,14 +61,18 @@ impl EirPolicyHeader {
                 .ok_or_else(|| PolicyLoweringError::UnknownGroup {
                     group: group.as_str().to_owned(),
                 })?;
-        Ok(Self::new(
+        Ok(Self::from_bound_target(
             header,
             PolicyTarget::Group(group.clone()),
             node.fingerprint(),
         ))
     }
 
-    fn new(header: &PolicyHeader, target: PolicyTarget, target_fingerprint: Fingerprint) -> Self {
+    pub(crate) fn from_bound_target(
+        header: &PolicyHeader,
+        target: PolicyTarget,
+        target_fingerprint: Fingerprint,
+    ) -> Self {
         let identity = header.identity().clone();
         let version = identity.version();
         let fingerprint = Fingerprint::EMPTY

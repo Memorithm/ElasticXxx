@@ -688,6 +688,70 @@ pub fn public_policy_identity_surface_smoke() {
     assert_eq!(EIR_POLICY_HEADER_SCHEMA_VERSION, 1);
 }
 
+/// Semantic proof that ELANG5b resource-policy rules reuse the public Boolean
+/// guard and pseudo-Boolean constraint authorities through only `elastic`.
+pub fn public_resource_policy_rules_surface_smoke() {
+    let resource = ResourceSpec::builder(
+        ResourceClassId::CONFIGURATIONAL,
+        LogicalResourceId::new("downstream-policy-resource").unwrap(),
+    )
+    .allow(DimensionId::CAPACITY)
+    .admit(AdmissibleTransition::new(
+        TransitionMechanism::Reinterpret,
+        DimensionId::CAPACITY,
+    ))
+    .build()
+    .unwrap();
+    let capacity_ok = PredicateKey::new("elastic.downstream", "capacity-ok").unwrap();
+    let high_mode = PredicateKey::new("elastic.downstream", "high-mode").unwrap();
+    let registry = PredicateRegistry::from_keys([capacity_ok.clone()]).unwrap();
+    let capacity_id = registry.id(&capacity_ok).unwrap();
+    let guard = BooleanGuard::requires(
+        GuardScope::Transition {
+            mechanism: TransitionMechanism::Reinterpret,
+            dimension: DimensionId::CAPACITY,
+        },
+        registry,
+        capacity_id,
+    )
+    .unwrap();
+    let constraint = PseudoBooleanConstraintDeclaration::capacity_budget(
+        vec![WeightedPredicateKey::new(high_mode, 4).unwrap()],
+        8,
+        PseudoBooleanScale::new("units", 1).unwrap(),
+    )
+    .unwrap();
+    let header = PolicyHeader::new(
+        PolicyIdentity::new(
+            PolicyId::new("downstream.capacity-policy").unwrap(),
+            PolicyVersion::new(1, 0, 0),
+        ),
+        PolicyTarget::resource(LogicalResourceId::new("downstream-policy-resource").unwrap()),
+    );
+    let policy = ResourcePolicySpec::new(header, resource, vec![guard], vec![constraint]).unwrap();
+    let eir = lower_resource_policy(&policy).unwrap();
+
+    assert_eq!(
+        eir.header().identity().id().as_str(),
+        "downstream.capacity-policy"
+    );
+    assert_eq!(
+        eir.constrained_resource().guarded_resource().guards().len(),
+        1
+    );
+    assert_eq!(eir.constrained_resource().constraints().len(), 1);
+    assert_eq!(eir.constrained_resource().constraints()[0].threshold(), 8);
+    assert_eq!(
+        eir.constrained_resource().constraints()[0].scale().unit(),
+        "units"
+    );
+    assert_eq!(EIR_RESOURCE_POLICY_SCHEMA_VERSION, 1);
+    assert_eq!(
+        MAX_RESOURCE_POLICY_CONSTRAINTS,
+        MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS
+    );
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
@@ -883,6 +947,7 @@ mod tests {
         public_composite_prepare_recovery_surface_smoke();
         public_composite_transaction_surface_smoke();
         public_policy_identity_surface_smoke();
+        public_resource_policy_rules_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

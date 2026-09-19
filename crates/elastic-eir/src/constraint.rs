@@ -9,7 +9,7 @@
 use crate::{lower_guarded, EirGuardedResource, Fingerprint, ValidationError};
 use elastic_core::{
     GuardedResourceSpec, PredicateKey, PseudoBooleanConstraintDeclaration, PseudoBooleanRelation,
-    PseudoBooleanScale, BOOLEAN_PREDICATE_SCHEMA_V1,
+    PseudoBooleanScale, BOOLEAN_PREDICATE_SCHEMA_V1, MAX_RESOURCE_POLICY_CONSTRAINTS,
 };
 use std::fmt;
 
@@ -17,7 +17,7 @@ use std::fmt;
 pub const EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION: u16 = 1;
 
 /// Maximum number of constraints accepted in one bounded EIR constraint envelope.
-pub const MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS: usize = 64;
+pub const MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS: usize = MAX_RESOURCE_POLICY_CONSTRAINTS;
 
 /// Fail-closed errors while lowering pseudo-Boolean constraint EIR.
 #[derive(Clone, Debug, PartialEq, Eq)]

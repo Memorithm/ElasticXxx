@@ -6,7 +6,10 @@
 //! while existing Boolean/pseudo-Boolean/resource contracts remain the semantic
 //! authorities.
 
-use crate::resource::{LogicalResourceId, ResourceGroupId};
+use crate::resource::{LogicalResourceId, ResourceGroupId, ResourceSpec};
+use crate::{
+    BooleanGuard, GuardBindingError, GuardedResourceSpec, PseudoBooleanConstraintDeclaration,
+};
 use std::fmt;
 
 /// Maximum canonical UTF-8 byte length of one policy identity.
@@ -14,6 +17,8 @@ use std::fmt;
 /// Policy IDs are restricted to canonical lowercase ASCII, so byte length is
 /// also character length and no Unicode-normalization ambiguity is possible.
 pub const MAX_POLICY_ID_BYTES: usize = 128;
+/// Maximum pseudo-Boolean constraints attached to one resource policy revision.
+pub const MAX_RESOURCE_POLICY_CONSTRAINTS: usize = 64;
 
 /// Stable, canonical identity of one policy lineage.
 ///
@@ -224,6 +229,121 @@ impl PolicyHeader {
     }
 }
 
+/// Validated ELANG5 policy rules for one exact logical resource.
+///
+/// This type deliberately reuses the existing guard and pseudo-Boolean
+/// authorities. It does not evaluate facts, plan a transition or authorize
+/// actuation. Group-targeted policies require separate group semantics and are
+/// rejected here rather than implicitly applying a resource guard to a group.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResourcePolicySpec {
+    header: PolicyHeader,
+    guarded_resource: GuardedResourceSpec,
+    constraints: Vec<PseudoBooleanConstraintDeclaration>,
+}
+
+impl ResourcePolicySpec {
+    /// Bind one policy revision to an exact validated resource declaration.
+    pub fn new(
+        header: PolicyHeader,
+        resource: ResourceSpec,
+        guards: Vec<BooleanGuard>,
+        constraints: Vec<PseudoBooleanConstraintDeclaration>,
+    ) -> Result<Self, ResourcePolicyError> {
+        let PolicyTarget::Resource(target) = header.target() else {
+            return Err(ResourcePolicyError::TargetKindMismatch {
+                observed: header.target().kind(),
+            });
+        };
+        if target != resource.resource_id() {
+            return Err(ResourcePolicyError::TargetResourceMismatch {
+                target: target.clone(),
+                resource: resource.resource_id().clone(),
+            });
+        }
+        if constraints.len() > MAX_RESOURCE_POLICY_CONSTRAINTS {
+            return Err(ResourcePolicyError::TooManyConstraints {
+                constraints: constraints.len(),
+                maximum: MAX_RESOURCE_POLICY_CONSTRAINTS,
+            });
+        }
+        let guarded_resource = GuardedResourceSpec::new(resource, guards)
+            .map_err(ResourcePolicyError::GuardBinding)?;
+        Ok(Self {
+            header,
+            guarded_resource,
+            constraints,
+        })
+    }
+
+    #[must_use]
+    pub const fn header(&self) -> &PolicyHeader {
+        &self.header
+    }
+
+    #[must_use]
+    pub const fn guarded_resource(&self) -> &GuardedResourceSpec {
+        &self.guarded_resource
+    }
+
+    #[must_use]
+    pub fn constraints(&self) -> &[PseudoBooleanConstraintDeclaration] {
+        &self.constraints
+    }
+}
+
+/// Fail-closed policy-to-resource binding errors.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ResourcePolicyError {
+    TargetKindMismatch {
+        observed: PolicyTargetKind,
+    },
+    TargetResourceMismatch {
+        target: LogicalResourceId,
+        resource: LogicalResourceId,
+    },
+    TooManyConstraints {
+        constraints: usize,
+        maximum: usize,
+    },
+    GuardBinding(GuardBindingError),
+}
+
+impl fmt::Display for ResourcePolicyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::TargetKindMismatch { observed } => write!(
+                f,
+                "resource policy requires resource target, observed {}",
+                observed.as_str()
+            ),
+            Self::TargetResourceMismatch { target, resource } => write!(
+                f,
+                "policy targets resource {target}, but rules were bound to {resource}"
+            ),
+            Self::TooManyConstraints {
+                constraints,
+                maximum,
+            } => write!(
+                f,
+                "resource policy contains {constraints} constraints; maximum is {maximum}"
+            ),
+            Self::GuardBinding(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for ResourcePolicyError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::GuardBinding(error) => Some(error),
+            Self::TargetKindMismatch { .. }
+            | Self::TargetResourceMismatch { .. }
+            | Self::TooManyConstraints { .. } => None,
+        }
+    }
+}
+
 /// Canonical policy identity construction errors.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PolicyIdentityError {
@@ -295,6 +415,90 @@ mod tests {
         assert_eq!(group.kind(), PolicyTargetKind::Group);
         assert_eq!(resource.to_string(), "resource:runtime");
         assert_eq!(group.to_string(), "group:runtime");
+    }
+
+    fn policy_header_for(resource: &str) -> PolicyHeader {
+        PolicyHeader::new(
+            PolicyIdentity::new(
+                PolicyId::new("runtime.policy").unwrap(),
+                PolicyVersion::new(1, 0, 0),
+            ),
+            PolicyTarget::resource(LogicalResourceId::new(resource).unwrap()),
+        )
+    }
+
+    fn resource(id: &str) -> ResourceSpec {
+        ResourceSpec::builder(
+            crate::resource::ResourceClassId::CONFIGURATIONAL,
+            LogicalResourceId::new(id).unwrap(),
+        )
+        .allow(crate::resource::DimensionId::CAPACITY)
+        .admit(crate::resource::AdmissibleTransition::new(
+            crate::TransitionMechanism::Reinterpret,
+            crate::resource::DimensionId::CAPACITY,
+        ))
+        .build()
+        .unwrap()
+    }
+
+    #[test]
+    fn resource_policy_reuses_guard_binding_authority() {
+        let key = crate::PredicateKey::new("elastic.policy", "capacity-ok").unwrap();
+        let registry = crate::PredicateRegistry::from_keys([key.clone()]).unwrap();
+        let predicate = registry.id(&key).unwrap();
+        let guard = BooleanGuard::requires(
+            crate::GuardScope::Transition {
+                mechanism: crate::TransitionMechanism::Reinterpret,
+                dimension: crate::resource::DimensionId::CAPACITY,
+            },
+            registry,
+            predicate,
+        )
+        .unwrap();
+        let policy = ResourcePolicySpec::new(
+            policy_header_for("ram"),
+            resource("ram"),
+            vec![guard],
+            Vec::new(),
+        )
+        .unwrap();
+        assert_eq!(policy.guarded_resource().guards().len(), 1);
+        assert_eq!(policy.header().target().as_str(), "ram");
+    }
+
+    #[test]
+    fn group_or_wrong_resource_target_fails_closed() {
+        let group_header = PolicyHeader::new(
+            PolicyIdentity::new(
+                PolicyId::new("runtime.policy").unwrap(),
+                PolicyVersion::new(1, 0, 0),
+            ),
+            PolicyTarget::group(ResourceGroupId::new("runtime").unwrap()),
+        );
+        assert!(matches!(
+            ResourcePolicySpec::new(group_header, resource("ram"), vec![], vec![]),
+            Err(ResourcePolicyError::TargetKindMismatch { .. })
+        ));
+        assert!(matches!(
+            ResourcePolicySpec::new(policy_header_for("other"), resource("ram"), vec![], vec![]),
+            Err(ResourcePolicyError::TargetResourceMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn resource_policy_constraint_count_is_bounded() {
+        let key = crate::PredicateKey::new("elastic.policy", "mode").unwrap();
+        let declaration =
+            crate::PseudoBooleanConstraintDeclaration::at_most_keys([key], 1).unwrap();
+        assert!(matches!(
+            ResourcePolicySpec::new(
+                policy_header_for("ram"),
+                resource("ram"),
+                vec![],
+                vec![declaration; MAX_RESOURCE_POLICY_CONSTRAINTS + 1]
+            ),
+            Err(ResourcePolicyError::TooManyConstraints { .. })
+        ));
     }
 
     #[test]

@@ -101,6 +101,7 @@ mod plan;
 mod planning_subset;
 mod policy;
 mod resource;
+mod resource_policy;
 mod validate;
 
 pub use constraint::{
@@ -129,6 +130,10 @@ pub use plan::{
 pub use planning_subset::PlanningSubsetError;
 pub use policy::{EirPolicyHeader, PolicyLoweringError, EIR_POLICY_HEADER_SCHEMA_VERSION};
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
+pub use resource_policy::{
+    lower_resource_policy, EirResourcePolicy, ResourcePolicyLoweringError,
+    EIR_RESOURCE_POLICY_SCHEMA_VERSION,
+};
 pub use validate::validate_resource_parts;
 
 /// Current EIR schema version produced by the legacy unguarded document crate.
