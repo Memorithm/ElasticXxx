@@ -106,7 +106,7 @@ pub use constraint::{
     EirPseudoBooleanTerm, EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION,
     MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
-pub use document::{lower, EirDocument, EirDocumentBuilder};
+pub use document::{lower, EirDocument, EirDocumentBuilder, MAX_EIR_DOCUMENT_RESOURCES};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
 pub use guard::{

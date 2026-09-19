@@ -1,4 +1,4 @@
-# Elastic Macro Guide v0.2
+# Elastic Macro Guide v0.3
 
 **Status:** normative for `#[derive(ElasticResource)]` and the single-resource
 `elastic! { ... }` embedded language surface in `crates/elastic-macros`, both
@@ -153,6 +153,44 @@ fingerprints. Trybuild coverage also locks the outer DSL diagnostics.
 
 The complete language-v0.1 grammar, default-identity rule and non-goals are in
 [`docs/language/ELASTIC-LANGUAGE-0.1.md`](../language/ELASTIC-LANGUAGE-0.1.md).
+
+### 5.1 Multi-resource `document` form
+
+The next syntax layer groups independently validated resources into the existing
+`EirDocument` model:
+
+```rust
+elastic! {
+    pub document inference_stack {
+        resource workers {
+            class(shared);
+            allow(parallelism);
+        }
+        resource cache {
+            class(representational);
+            allow(representation, residency);
+            preserve(contents);
+        }
+    }
+}
+
+let eir = inference_stack::document()?;
+```
+
+Each child is a public resource module with the same `resource_spec()` function
+as the standalone form. `document()` pushes those ordinary specs into the
+existing `EirDocumentBuilder`; uniqueness, normalization, sorting and the
+document fingerprint therefore remain EIR semantics rather than macro semantics.
+The EIR-level `MAX_EIR_DOCUMENT_RESOURCES` bound is also asserted by generated
+code rather than copied into the proc-macro crate.
+
+A document is only a declaration/IR container in this version. Co-membership
+does **not** imply a resource group, dependency edge, shared budget, actuation
+order, atomicity or rollback coupling. Those concepts require separate typed
+contracts before any corresponding DSL syntax is accepted.
+
+The full v0.2 contract is in
+[`docs/language/ELASTIC-LANGUAGE-0.2.md`](../language/ELASTIC-LANGUAGE-0.2.md).
 
 ## 6. Crate layout
 

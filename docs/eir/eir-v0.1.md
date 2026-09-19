@@ -36,7 +36,10 @@ Per resource node (`EirResource`):
 
 Documents (`EirDocument`) carry an explicit [`SchemaVersion`] and store
 resources sorted by logical identity, plus a document-level fingerprint over
-version and node fingerprints.
+version and node fingerprints. One document is structurally bounded to
+`MAX_EIR_DOCUMENT_RESOURCES = 256`; larger orchestration surfaces must partition
+ownership into multiple documents instead of constructing an unbounded EIR
+allocation.
 
 ## 3. Lowering and normalization
 
@@ -79,8 +82,9 @@ Every construction path validates:
 
 Validation is structural only: duplicates, empty elasticity, blank
 identifiers/labels, vacuous invariant scopes, transitions/capabilities beyond
-elastic dimensions, duplicate document identities, empty documents, and the
-EIR v0.1 normative rule that **every required capability must be grounded in
+elastic dimensions, duplicate document identities, empty documents, documents
+exceeding `MAX_EIR_DOCUMENT_RESOURCES`, and the EIR v0.1 normative rule that
+**every required capability must be grounded in
 at least one admitted transition** of the same resource. Invalid EIR cannot be
 constructed through public API; there is no unchecked constructor.
 

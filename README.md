@@ -82,7 +82,8 @@ The first executable slices live in dependency-light crates under `crates/`:
 - [`crates/elastic-eir`](crates/elastic-eir) — deterministic lowering of
   declarations into a validated, versioned intermediate representation.
 - [`crates/elastic-macros`](crates/elastic-macros) —
-  `#[derive(ElasticResource)]`, lowering attributes onto the same typed API.
+  `#[derive(ElasticResource)]` plus the embedded `elastic!` language, both
+  lowering onto the same typed resource/EIR semantics.
 - [`crates/elastic`](crates/elastic) — user-facing facade with a prelude.
 - [`crates/elastic-adapters`](crates/elastic-adapters) — concrete in-process
   actuation boundaries for RAM budgets and concurrency permits; adapters
@@ -101,11 +102,64 @@ The first executable slices live in dependency-light crates under `crates/`:
 All production crates are `#![forbid(unsafe_code)]`; the semantic core is
 dependency-free and introduces no OS, filesystem, or accelerator assumptions.
 
+## Embedded Rust language
+
+ElasticXxx now has an embedded declaration language over the same typed core. A
+single resource can be declared without a carrier struct:
+
+```rust
+use elastic::prelude::*;
+
+elastic! {
+    pub resource inference_budget {
+        class(configurational);
+        allow(concurrency, energy);
+        preserve(identity);
+        optimize(latency, energy);
+        observe(utilization, thermal_margin, energy_rate);
+    }
+}
+
+let spec = inference_budget::resource_spec()?;
+```
+
+Multiple independent resources can be assembled into the existing deterministic
+`EirDocument` model:
+
+```rust
+elastic! {
+    pub document inference_stack {
+        resource workers {
+            class(shared);
+            allow(parallelism);
+        }
+        resource cache {
+            class(representational);
+            allow(representation, residency);
+            preserve(contents);
+        }
+    }
+}
+
+let eir = inference_stack::document()?;
+```
+
+The language does not own a second runtime or validation model. Resource bodies
+reuse the derive/builder path, and multi-resource documents reuse
+`EirDocumentBuilder`. Co-membership in a document does not yet imply shared
+budgets, dependency ordering, atomic actuation or composite rollback; those
+semantics are separate language/runtime phases. See
+[language v0.1](docs/language/ELASTIC-LANGUAGE-0.1.md),
+[language v0.2](docs/language/ELASTIC-LANGUAGE-0.2.md), and the
+[normative macro guide](docs/surface/macro-guide.md).
+
 ```sh
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p memorithm-elastic --example manual_declaration
 cargo run -p memorithm-elastic --example macro_declaration
+cargo run -p memorithm-elastic --example elastic_language
+cargo run -p memorithm-elastic --example elastic_document
 cargo run -p memorithm-elastic --example worker_pool
 cargo run -p memorithm-elastic-kv --example kv_representation_flow
 ```
@@ -137,11 +191,13 @@ projection costs, and the distinction between original and projected identity.
 The BE0–BE15 roadmap remains the source of implementation priorities through
 [the agent bootstrap](AGENTS.md).
 
-BE0–BE14 are now qualified within their explicitly bounded scopes; BE15
-cross-repository promotion/productization is active. The BooleanLab exact-vector
-bridge is qualified, while the TDI-9.3 bridge remains representation-only and
-non-final: missing source predicates stay `Unknown` and cannot be turned into a
-TDI action or scientific authority. No Boolean speedup or completed end-to-end
+BE0–BE15 are qualified within their explicitly bounded prepublication scopes.
+The resulting 0.1.0 checkpoint is retained as an internal reproducible baseline;
+registry publication and mutation are explicitly suspended while the embedded
+language and multi-resource runtime continue to evolve. The BooleanLab bridge is
+exact-vector/test oriented, and the TDI-9.3 bridge remains representation-only
+and non-final: missing source predicates stay `Unknown` and cannot become a TDI
+action or scientific authority. No Boolean speedup or completed end-to-end
 production qualification is inferred from these integration slices.
 
 ## Research method
@@ -167,7 +223,10 @@ SLHAv2 is intended to be the first demanding reference environment. The core Ela
 
 ## Status
 
-Research prototype / specification work in progress.
+Active research/runtime/language development. A qualified 0.1.0 engineering
+baseline is retained internally, but public registry publication is suspended;
+current priority is the embedded Elastic language, multi-resource semantics and
+real ecosystem consumers.
 
 ## License
 
