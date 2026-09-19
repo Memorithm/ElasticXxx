@@ -1,0 +1,5 @@
+error: policy references undeclared predicate alias `missing`
+  --> tests/compile_fail/dsl_policy_unknown_constraint_alias.rs:14:39
+   |
+14 |             constraint at_most(1, ok, missing);
+   |                                       ^^^^^^^

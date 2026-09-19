@@ -266,7 +266,7 @@ pub use elastic_runtime::{
     CapacityAdmissionReportV1, CapacityAdmissionRequestV1, CapacityObservationV1, CapacityStateV1,
     RAM_CAPACITY_PREDICATE_NAME, RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
 };
-pub use language::{ElasticDocumentError, ElasticGroupDocumentError};
+pub use language::{ElasticDocumentError, ElasticGroupDocumentError, ElasticPolicyDocumentError};
 
 /// Operational runtime surface for users that prefer an explicit namespace.
 pub mod runtime {
@@ -297,7 +297,9 @@ pub mod adapters {
 pub mod prelude {
     pub use crate::boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
     pub use crate::elastic_guard;
-    pub use crate::language::{ElasticDocumentError, ElasticGroupDocumentError};
+    pub use crate::language::{
+        ElasticDocumentError, ElasticGroupDocumentError, ElasticPolicyDocumentError,
+    };
     pub use elastic_adapters::{
         model_execution_current_profile_rank_signal, model_execution_profile_dimension,
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionAdaptivePlannerV1,

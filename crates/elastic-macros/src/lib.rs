@@ -84,21 +84,40 @@ pub fn elastic(input: TokenStream) -> TokenStream {
 }
 
 mod kw {
+    syn::custom_keyword!(at_least);
+    syn::custom_keyword!(at_most);
     syn::custom_keyword!(budget);
+    syn::custom_keyword!(constraint);
     syn::custom_keyword!(contract);
     syn::custom_keyword!(depends);
+    syn::custom_keyword!(dimension);
     syn::custom_keyword!(document);
+    syn::custom_keyword!(equivalent);
+    syn::custom_keyword!(exactly);
     syn::custom_keyword!(group);
+    syn::custom_keyword!(guard);
+    syn::custom_keyword!(hint);
+    syn::custom_keyword!(id);
     syn::custom_keyword!(invariant);
     syn::custom_keyword!(maximum);
+    syn::custom_keyword!(maximize);
     syn::custom_keyword!(members);
+    syn::custom_keyword!(minimize);
+    syn::custom_keyword!(objective);
     syn::custom_keyword!(owner);
     syn::custom_keyword!(participants);
+    syn::custom_keyword!(policy);
     syn::custom_keyword!(predicate);
     syn::custom_keyword!(quantum);
+    syn::custom_keyword!(requires);
     syn::custom_keyword!(resource);
+    syn::custom_keyword!(scale);
+    syn::custom_keyword!(target);
     syn::custom_keyword!(term);
+    syn::custom_keyword!(transition);
     syn::custom_keyword!(unit);
+    syn::custom_keyword!(version);
+    syn::custom_keyword!(when);
 }
 
 struct ElasticResourceDsl {
@@ -146,11 +165,80 @@ struct ElasticGroupDsl {
     invariants: Vec<ElasticInvariantDsl>,
 }
 
+enum ElasticPolicyGuardScopeDsl {
+    Resource,
+    Dimension(TermRef),
+    Transition {
+        mechanism: &'static str,
+        dimension: TermRef,
+    },
+}
+
+struct ElasticPolicyPredicateDsl {
+    alias: Ident,
+    namespace: String,
+    name: String,
+}
+
+struct ElasticPolicyGuardDsl {
+    scope: ElasticPolicyGuardScopeDsl,
+    expression: proc_macro2::TokenStream,
+}
+
+enum ElasticPolicyConstraintDsl {
+    AtMost {
+        maximum: usize,
+        predicates: Vec<Ident>,
+    },
+    AtLeast {
+        minimum: usize,
+        predicates: Vec<Ident>,
+    },
+    Exactly {
+        exact: usize,
+        predicates: Vec<Ident>,
+    },
+    Requires {
+        feature: Ident,
+        required: Ident,
+    },
+    Equivalent {
+        left: Ident,
+        right: Ident,
+    },
+    Budget {
+        unit: String,
+        quantum: u64,
+        maximum: i128,
+        terms: Vec<(Ident, i128)>,
+    },
+}
+
+struct ElasticPolicyObjectiveDsl {
+    objective: TermRef,
+    direction: &'static str,
+    unit: String,
+    quantum: u64,
+}
+
+struct ElasticPolicyDsl {
+    name: Ident,
+    id: String,
+    version: (u32, u32, u32),
+    target: Ident,
+    predicates: Vec<ElasticPolicyPredicateDsl>,
+    guards: Vec<ElasticPolicyGuardDsl>,
+    constraints: Vec<ElasticPolicyConstraintDsl>,
+    objectives: Vec<ElasticPolicyObjectiveDsl>,
+    hints: Vec<(String, String)>,
+}
+
 struct ElasticDocumentDsl {
     visibility: Visibility,
     name: Ident,
     resources: Vec<ElasticDocumentResourceDsl>,
     groups: Vec<ElasticGroupDsl>,
+    policies: Vec<ElasticPolicyDsl>,
 }
 
 enum ElasticDslInput {
@@ -186,8 +274,10 @@ impl Parse for ElasticDslInput {
             braced!(content in input);
             let mut resources = Vec::new();
             let mut groups = Vec::new();
+            let mut policies = Vec::new();
             let mut resource_names = std::collections::BTreeSet::new();
             let mut group_names = std::collections::BTreeSet::new();
+            let mut policy_names = std::collections::BTreeSet::new();
             while !content.is_empty() {
                 if content.peek(kw::resource) {
                     content.parse::<kw::resource>()?;
@@ -220,11 +310,13 @@ impl Parse for ElasticDslInput {
                 }
                 if content.peek(kw::group) {
                     let group = parse_group_dsl(&content)?;
-                    if !group_names.insert(group.name.to_string()) {
+                    if resource_names.contains(&group.name.to_string())
+                        || !group_names.insert(group.name.to_string())
+                    {
                         return Err(syn::Error::new(
                             group.name.span(),
                             format!(
-                                "duplicate resource group `{}` in elastic! document",
+                                "duplicate or colliding resource group `{}` in elastic! document",
                                 group.name
                             ),
                         ));
@@ -232,9 +324,28 @@ impl Parse for ElasticDslInput {
                     groups.push(group);
                     continue;
                 }
+                if content.peek(kw::policy) {
+                    let policy = parse_policy_dsl(&content)?;
+                    let policy_name = policy.name.to_string();
+                    if matches!(policy_name.as_str(), "document" | "grouped_document")
+                        || resource_names.contains(&policy_name)
+                        || group_names.contains(&policy_name)
+                        || !policy_names.insert(policy_name.clone())
+                    {
+                        return Err(syn::Error::new(
+                            policy.name.span(),
+                            format!(
+                                "duplicate, reserved, or colliding policy module `{}` in elastic! document",
+                                policy.name
+                            ),
+                        ));
+                    }
+                    policies.push(policy);
+                    continue;
+                }
                 return Err(syn::Error::new(
                     content.span(),
-                    "elastic! document bodies accept only `resource NAME { ... }` and `group NAME { ... }` declarations",
+                    "elastic! document bodies accept only `resource NAME { ... }`, `group NAME { ... }`, and `policy NAME { ... }` declarations",
                 ));
             }
             if resources.is_empty() {
@@ -244,6 +355,7 @@ impl Parse for ElasticDslInput {
                 ));
             }
             validate_group_references(&groups, &resource_names)?;
+            validate_policy_references(&policies, &resource_names)?;
             if !input.is_empty() {
                 return Err(syn::Error::new(
                     input.span(),
@@ -255,6 +367,7 @@ impl Parse for ElasticDslInput {
                 name,
                 resources,
                 groups,
+                policies,
             }));
         }
         Err(syn::Error::new(
@@ -262,6 +375,486 @@ impl Parse for ElasticDslInput {
             "expected `resource NAME { ... }` or `document NAME { ... }` after optional visibility",
         ))
     }
+}
+
+fn parse_policy_dsl(input: ParseStream<'_>) -> syn::Result<ElasticPolicyDsl> {
+    input.parse::<kw::policy>()?;
+    let name: Ident = input.parse()?;
+    let content;
+    braced!(content in input);
+    let mut id = None;
+    let mut version = None;
+    let mut target = None;
+    let mut predicates = Vec::new();
+    let mut guards = Vec::new();
+    let mut constraints = Vec::new();
+    let mut objectives = Vec::new();
+    let mut hints = Vec::new();
+    let mut aliases = std::collections::BTreeSet::new();
+
+    while !content.is_empty() {
+        if content.peek(kw::id) {
+            let keyword: kw::id = content.parse()?;
+            if id.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "policy id(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let value: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "id")?;
+            content.parse::<Token![;]>()?;
+            id = Some(value.value());
+            continue;
+        }
+        if content.peek(kw::version) {
+            let keyword: kw::version = content.parse()?;
+            if version.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "policy version(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let major: LitInt = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            let minor: LitInt = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            let patch: LitInt = inner.parse()?;
+            expect_exhausted(&inner, "version")?;
+            content.parse::<Token![;]>()?;
+            version = Some((
+                major.base10_parse::<u32>()?,
+                minor.base10_parse::<u32>()?,
+                patch.base10_parse::<u32>()?,
+            ));
+            continue;
+        }
+        if content.peek(kw::target) {
+            let keyword: kw::target = content.parse()?;
+            if target.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "policy target(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let resource: Ident = inner.parse()?;
+            expect_exhausted(&inner, "target")?;
+            content.parse::<Token![;]>()?;
+            target = Some(resource);
+            continue;
+        }
+        if content.peek(kw::predicate) {
+            content.parse::<kw::predicate>()?;
+            let inner;
+            parenthesized!(inner in content);
+            let alias: Ident = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            let namespace: LitStr = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            let predicate_name: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "predicate")?;
+            content.parse::<Token![;]>()?;
+            if !aliases.insert(alias.to_string()) {
+                return Err(syn::Error::new(
+                    alias.span(),
+                    format!("duplicate policy predicate alias `{alias}`"),
+                ));
+            }
+            predicates.push(ElasticPolicyPredicateDsl {
+                alias,
+                namespace: namespace.value(),
+                name: predicate_name.value(),
+            });
+            continue;
+        }
+        if content.peek(kw::guard) {
+            content.parse::<kw::guard>()?;
+            let scope = if content.peek(kw::resource) {
+                content.parse::<kw::resource>()?;
+                ElasticPolicyGuardScopeDsl::Resource
+            } else if content.peek(kw::dimension) {
+                content.parse::<kw::dimension>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let dimension = parse_term(&inner, "dimension", DIMENSIONS)?;
+                expect_exhausted(&inner, "dimension")?;
+                ElasticPolicyGuardScopeDsl::Dimension(dimension)
+            } else if content.peek(kw::transition) {
+                content.parse::<kw::transition>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let mechanism = parse_mechanism(&inner)?;
+                inner.parse::<Token![@]>()?;
+                let dimension = parse_term(&inner, "dimension", DIMENSIONS)?;
+                expect_exhausted(&inner, "transition")?;
+                ElasticPolicyGuardScopeDsl::Transition {
+                    mechanism,
+                    dimension,
+                }
+            } else {
+                return Err(syn::Error::new(
+                    content.span(),
+                    "policy guard expects resource, dimension(...), or transition(<mechanism> @ <dimension>) scope",
+                ));
+            };
+            content.parse::<kw::when>()?;
+            let expression;
+            parenthesized!(expression in content);
+            let expression: proc_macro2::TokenStream = expression.parse()?;
+            if expression.is_empty() {
+                return Err(syn::Error::new(
+                    content.span(),
+                    "policy guard when(...) expression must not be empty",
+                ));
+            }
+            content.parse::<Token![;]>()?;
+            guards.push(ElasticPolicyGuardDsl { scope, expression });
+            continue;
+        }
+        if content.peek(kw::constraint) {
+            content.parse::<kw::constraint>()?;
+            constraints.push(parse_policy_constraint_dsl(&content)?);
+            continue;
+        }
+        if content.peek(kw::objective) {
+            content.parse::<kw::objective>()?;
+            let objective = parse_term(&content, "objective", OBJECTIVES)?;
+            let direction = if content.peek(kw::minimize) {
+                content.parse::<kw::minimize>()?;
+                "Minimize"
+            } else if content.peek(kw::maximize) {
+                content.parse::<kw::maximize>()?;
+                "Maximize"
+            } else {
+                return Err(syn::Error::new(
+                    content.span(),
+                    "policy objective expects minimize or maximize",
+                ));
+            };
+            content.parse::<kw::unit>()?;
+            let unit_inner;
+            parenthesized!(unit_inner in content);
+            let unit: LitStr = unit_inner.parse()?;
+            expect_exhausted(&unit_inner, "unit")?;
+            content.parse::<kw::quantum>()?;
+            let quantum_inner;
+            parenthesized!(quantum_inner in content);
+            let quantum: LitInt = quantum_inner.parse()?;
+            expect_exhausted(&quantum_inner, "quantum")?;
+            content.parse::<Token![;]>()?;
+            objectives.push(ElasticPolicyObjectiveDsl {
+                objective,
+                direction,
+                unit: unit.value(),
+                quantum: quantum.base10_parse::<u64>()?,
+            });
+            continue;
+        }
+        if content.peek(kw::hint) {
+            content.parse::<kw::hint>()?;
+            let inner;
+            parenthesized!(inner in content);
+            let key: LitStr = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            let value: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "hint")?;
+            content.parse::<Token![;]>()?;
+            hints.push((key.value(), value.value()));
+            continue;
+        }
+        return Err(syn::Error::new(
+            content.span(),
+            "unsupported policy declaration; expected id, version, target, predicate, guard, constraint, objective, or hint",
+        ));
+    }
+
+    let span = name.span();
+    let id = id.ok_or_else(|| syn::Error::new(span, "policy is missing mandatory id(\"...\")"))?;
+    let version = version.ok_or_else(|| {
+        syn::Error::new(
+            span,
+            "policy is missing mandatory version(major, minor, patch)",
+        )
+    })?;
+    let target = target.ok_or_else(|| {
+        syn::Error::new(span, "policy is missing mandatory target(resource_module)")
+    })?;
+    validate_policy_alias_references(&guards, &constraints, &aliases)?;
+    Ok(ElasticPolicyDsl {
+        name,
+        id,
+        version,
+        target,
+        predicates,
+        guards,
+        constraints,
+        objectives,
+        hints,
+    })
+}
+
+fn parse_policy_constraint_dsl(input: ParseStream<'_>) -> syn::Result<ElasticPolicyConstraintDsl> {
+    if input.peek(kw::at_most) || input.peek(kw::at_least) || input.peek(kw::exactly) {
+        enum Kind {
+            AtMost,
+            AtLeast,
+            Exactly,
+        }
+        let kind = if input.peek(kw::at_most) {
+            input.parse::<kw::at_most>()?;
+            Kind::AtMost
+        } else if input.peek(kw::at_least) {
+            input.parse::<kw::at_least>()?;
+            Kind::AtLeast
+        } else {
+            input.parse::<kw::exactly>()?;
+            Kind::Exactly
+        };
+        let inner;
+        parenthesized!(inner in input);
+        let threshold: LitInt = inner.parse()?;
+        let threshold = threshold.base10_parse::<usize>()?;
+        let mut predicates = Vec::new();
+        while !inner.is_empty() {
+            inner.parse::<Token![,]>()?;
+            predicates.push(inner.parse::<Ident>()?);
+        }
+        if predicates.is_empty() {
+            return Err(syn::Error::new(
+                inner.span(),
+                "cardinality constraint requires at least one predicate alias",
+            ));
+        }
+        input.parse::<Token![;]>()?;
+        return Ok(match kind {
+            Kind::AtMost => ElasticPolicyConstraintDsl::AtMost {
+                maximum: threshold,
+                predicates,
+            },
+            Kind::AtLeast => ElasticPolicyConstraintDsl::AtLeast {
+                minimum: threshold,
+                predicates,
+            },
+            Kind::Exactly => ElasticPolicyConstraintDsl::Exactly {
+                exact: threshold,
+                predicates,
+            },
+        });
+    }
+    if input.peek(kw::requires) || input.peek(kw::equivalent) {
+        let equivalent = input.peek(kw::equivalent);
+        if equivalent {
+            input.parse::<kw::equivalent>()?;
+        } else {
+            input.parse::<kw::requires>()?;
+        }
+        let inner;
+        parenthesized!(inner in input);
+        let left: Ident = inner.parse()?;
+        inner.parse::<Token![,]>()?;
+        let right: Ident = inner.parse()?;
+        expect_exhausted(&inner, if equivalent { "equivalent" } else { "requires" })?;
+        input.parse::<Token![;]>()?;
+        return Ok(if equivalent {
+            ElasticPolicyConstraintDsl::Equivalent { left, right }
+        } else {
+            ElasticPolicyConstraintDsl::Requires {
+                feature: left,
+                required: right,
+            }
+        });
+    }
+    if input.peek(kw::budget) {
+        input.parse::<kw::budget>()?;
+        let content;
+        braced!(content in input);
+        let mut unit = None;
+        let mut quantum = None;
+        let mut maximum = None;
+        let mut terms = Vec::new();
+        while !content.is_empty() {
+            if content.peek(kw::unit) {
+                content.parse::<kw::unit>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let value: LitStr = inner.parse()?;
+                expect_exhausted(&inner, "unit")?;
+                content.parse::<Token![;]>()?;
+                if unit.replace(value.value()).is_some() {
+                    return Err(syn::Error::new(
+                        value.span(),
+                        "constraint budget unit(...) declared more than once",
+                    ));
+                }
+                continue;
+            }
+            if content.peek(kw::quantum) {
+                content.parse::<kw::quantum>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let value: LitInt = inner.parse()?;
+                expect_exhausted(&inner, "quantum")?;
+                content.parse::<Token![;]>()?;
+                if quantum.replace(value.base10_parse::<u64>()?).is_some() {
+                    return Err(syn::Error::new(
+                        value.span(),
+                        "constraint budget quantum(...) declared more than once",
+                    ));
+                }
+                continue;
+            }
+            if content.peek(kw::maximum) {
+                content.parse::<kw::maximum>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let value = parse_signed_i128(&inner)?;
+                expect_exhausted(&inner, "maximum")?;
+                content.parse::<Token![;]>()?;
+                if maximum.replace(value).is_some() {
+                    return Err(syn::Error::new(
+                        content.span(),
+                        "constraint budget maximum(...) declared more than once",
+                    ));
+                }
+                continue;
+            }
+            if content.peek(kw::term) {
+                content.parse::<kw::term>()?;
+                let inner;
+                parenthesized!(inner in content);
+                let alias: Ident = inner.parse()?;
+                inner.parse::<Token![,]>()?;
+                let weight = parse_signed_i128(&inner)?;
+                expect_exhausted(&inner, "term")?;
+                content.parse::<Token![;]>()?;
+                terms.push((alias, weight));
+                continue;
+            }
+            return Err(syn::Error::new(
+                content.span(),
+                "constraint budget expects unit, quantum, maximum, or term",
+            ));
+        }
+        if input.peek(Token![;]) {
+            input.parse::<Token![;]>()?;
+        }
+        if terms.is_empty() {
+            return Err(syn::Error::new(
+                input.span(),
+                "constraint budget requires at least one term",
+            ));
+        }
+        return Ok(ElasticPolicyConstraintDsl::Budget {
+            unit: unit.ok_or_else(|| {
+                syn::Error::new(input.span(), "constraint budget is missing unit(...)")
+            })?,
+            quantum: quantum.ok_or_else(|| {
+                syn::Error::new(input.span(), "constraint budget is missing quantum(...)")
+            })?,
+            maximum: maximum.ok_or_else(|| {
+                syn::Error::new(input.span(), "constraint budget is missing maximum(...)")
+            })?,
+            terms,
+        });
+    }
+    Err(syn::Error::new(
+        input.span(),
+        "unsupported constraint; expected at_most, at_least, exactly, requires, equivalent, or budget",
+    ))
+}
+
+fn validate_policy_alias_references(
+    guards: &[ElasticPolicyGuardDsl],
+    constraints: &[ElasticPolicyConstraintDsl],
+    aliases: &std::collections::BTreeSet<String>,
+) -> syn::Result<()> {
+    for guard in guards {
+        validate_guard_expression_aliases(&guard.expression, aliases)?;
+    }
+    let check = |alias: &Ident| -> syn::Result<()> {
+        if aliases.contains(&alias.to_string()) {
+            Ok(())
+        } else {
+            Err(syn::Error::new(
+                alias.span(),
+                format!("policy references undeclared predicate alias `{alias}`"),
+            ))
+        }
+    };
+    for constraint in constraints {
+        match constraint {
+            ElasticPolicyConstraintDsl::AtMost { predicates, .. }
+            | ElasticPolicyConstraintDsl::AtLeast { predicates, .. }
+            | ElasticPolicyConstraintDsl::Exactly { predicates, .. } => {
+                for alias in predicates {
+                    check(alias)?;
+                }
+            }
+            ElasticPolicyConstraintDsl::Requires { feature, required } => {
+                check(feature)?;
+                check(required)?;
+            }
+            ElasticPolicyConstraintDsl::Equivalent { left, right } => {
+                check(left)?;
+                check(right)?;
+            }
+            ElasticPolicyConstraintDsl::Budget { terms, .. } => {
+                for (alias, _) in terms {
+                    check(alias)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_guard_expression_aliases(
+    expression: &proc_macro2::TokenStream,
+    aliases: &std::collections::BTreeSet<String>,
+) -> syn::Result<()> {
+    use proc_macro2::TokenTree;
+    for token in expression.clone() {
+        match token {
+            TokenTree::Ident(ident) => {
+                let name = ident.to_string();
+                if !aliases.contains(&name)
+                    && !matches!(name.as_str(), "true" | "false" | "implies")
+                {
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        format!("policy guard references undeclared predicate alias `{ident}`"),
+                    ));
+                }
+            }
+            TokenTree::Group(group) => validate_guard_expression_aliases(&group.stream(), aliases)?,
+            TokenTree::Punct(_) | TokenTree::Literal(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn validate_policy_references(
+    policies: &[ElasticPolicyDsl],
+    resources: &std::collections::BTreeSet<String>,
+) -> syn::Result<()> {
+    for policy in policies {
+        if !resources.contains(&policy.target.to_string()) {
+            return Err(syn::Error::new(
+                policy.target.span(),
+                format!(
+                    "policy `{}` targets unknown document resource `{}`",
+                    policy.name, policy.target
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn parse_group_dsl(input: ParseStream<'_>) -> syn::Result<ElasticGroupDsl> {
@@ -603,6 +1196,210 @@ fn expand_resource_module(
     })
 }
 
+fn expand_policy_module(policy: ElasticPolicyDsl) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ElasticPolicyDsl {
+        name,
+        id,
+        version: (major, minor, patch),
+        target,
+        predicates,
+        guards,
+        constraints,
+        objectives,
+        hints,
+    } = policy;
+    let id_lit = LitStr::new(&id, name.span());
+
+    let predicate_bindings = predicates.iter().map(|predicate| {
+        let alias = &predicate.alias;
+        let namespace = LitStr::new(&predicate.namespace, predicate.alias.span());
+        let predicate_name = LitStr::new(&predicate.name, predicate.alias.span());
+        quote! {
+            let #alias = ::elastic::PredicateKey::new(#namespace, #predicate_name)?;
+        }
+    });
+    let aliases = predicates
+        .iter()
+        .map(|predicate| predicate.alias.clone())
+        .collect::<Vec<_>>();
+    let predicate_registry = if aliases.is_empty() {
+        quote! { let __elastic_predicates = ::elastic::ElasticPredicates::empty(); }
+    } else {
+        quote! {
+            let __elastic_predicates = ::elastic::ElasticPredicates::new([
+                #(#aliases.clone()),*
+            ])?;
+        }
+    };
+
+    let guard_exprs = guards.into_iter().map(|guard| {
+        let scope = match guard.scope {
+            ElasticPolicyGuardScopeDsl::Resource => quote! { ::elastic::GuardScope::Resource },
+            ElasticPolicyGuardScopeDsl::Dimension(dimension) => {
+                let dimension = term_expr(&dimension, TermPath::Dimension);
+                quote! { ::elastic::GuardScope::Dimension(#dimension) }
+            }
+            ElasticPolicyGuardScopeDsl::Transition {
+                mechanism,
+                dimension,
+            } => {
+                let mechanism = Ident::new(mechanism, Span::call_site());
+                let dimension = term_expr(&dimension, TermPath::Dimension);
+                quote! {
+                    ::elastic::GuardScope::Transition {
+                        mechanism: ::elastic::TransitionMechanism::#mechanism,
+                        dimension: #dimension,
+                    }
+                }
+            }
+        };
+        let expression = guard.expression;
+        quote! {
+            ::elastic::elastic_guard! {
+                predicates: __elastic_predicates,
+                scope: #scope,
+                when: (#expression),
+            }?
+        }
+    });
+
+    let constraint_exprs = constraints.into_iter().map(|constraint| match constraint {
+        ElasticPolicyConstraintDsl::AtMost {
+            maximum,
+            predicates,
+        } => quote! {
+            ::elastic::PseudoBooleanConstraintDeclaration::at_most_keys(
+                [#(#predicates.clone()),*],
+                #maximum,
+            )?
+        },
+        ElasticPolicyConstraintDsl::AtLeast {
+            minimum,
+            predicates,
+        } => quote! {
+            ::elastic::PseudoBooleanConstraintDeclaration::at_least_keys(
+                [#(#predicates.clone()),*],
+                #minimum,
+            )?
+        },
+        ElasticPolicyConstraintDsl::Exactly { exact, predicates } => quote! {
+            ::elastic::PseudoBooleanConstraintDeclaration::exactly_keys(
+                [#(#predicates.clone()),*],
+                #exact,
+            )?
+        },
+        ElasticPolicyConstraintDsl::Requires { feature, required } => quote! {
+            ::elastic::PseudoBooleanConstraintDeclaration::requires_key(
+                #feature.clone(),
+                #required.clone(),
+            )?
+        },
+        ElasticPolicyConstraintDsl::Equivalent { left, right } => quote! {
+            ::elastic::PseudoBooleanConstraintDeclaration::equivalent_keys(
+                #left.clone(),
+                #right.clone(),
+            )?
+        },
+        ElasticPolicyConstraintDsl::Budget {
+            unit,
+            quantum,
+            maximum,
+            terms,
+        } => {
+            let unit = LitStr::new(&unit, name.span());
+            let terms = terms.into_iter().map(|(alias, weight)| {
+                quote! {
+                    ::elastic::WeightedPredicateKey::new(#alias.clone(), #weight)?
+                }
+            });
+            quote! {
+                ::elastic::PseudoBooleanConstraintDeclaration::capacity_budget(
+                    vec![#(#terms),*],
+                    #maximum,
+                    ::elastic::PseudoBooleanScale::new(#unit, #quantum)?,
+                )?
+            }
+        }
+    });
+
+    let objective_exprs = objectives.into_iter().map(|objective| {
+        let objective_term = term_expr(&objective.objective, TermPath::Objective);
+        let direction = Ident::new(objective.direction, Span::call_site());
+        let unit = LitStr::new(&objective.unit, name.span());
+        let quantum = objective.quantum;
+        quote! {
+            ::elastic::PolicyNumericObjective::new(
+                #objective_term,
+                ::elastic::PolicyObjectiveDirection::#direction,
+                ::elastic::PolicyMetricScale::new(#unit, #quantum)?,
+            )
+        }
+    });
+    let hint_exprs = hints.into_iter().map(|(key, value)| {
+        let key = LitStr::new(&key, name.span());
+        let value = LitStr::new(&value, name.span());
+        quote! {
+            ::elastic::PlannerHint::new(
+                ::elastic::PlannerHintKey::new(#key)?,
+                #value,
+            )?
+        }
+    });
+
+    Ok(quote! {
+        pub mod #name {
+            /// Build the typed ELANG5 resource policy declared by this module.
+            pub fn policy_spec()
+                -> ::core::result::Result<
+                    ::elastic::ResourcePolicyAdvisorySpec,
+                    ::elastic::ElasticPolicyDocumentError,
+                > {
+                let __elastic_resource = super::#target::resource_spec()
+                    .map_err(|source| {
+                        ::elastic::ElasticPolicyDocumentError::resource(
+                            stringify!(#target),
+                            source,
+                        )
+                    })?;
+                #(#predicate_bindings)*
+                #predicate_registry
+                let __elastic_header = ::elastic::PolicyHeader::new(
+                    ::elastic::PolicyIdentity::new(
+                        ::elastic::PolicyId::new(#id_lit)?,
+                        ::elastic::PolicyVersion::new(#major, #minor, #patch),
+                    ),
+                    ::elastic::PolicyTarget::resource(
+                        __elastic_resource.resource_id().clone(),
+                    ),
+                );
+                let __elastic_policy = ::elastic::ResourcePolicySpec::new(
+                    __elastic_header,
+                    __elastic_resource,
+                    vec![#(#guard_exprs),*],
+                    vec![#(#constraint_exprs),*],
+                )?;
+                ::elastic::ResourcePolicyAdvisorySpec::new(
+                    __elastic_policy,
+                    vec![#(#objective_exprs),*],
+                    vec![#(#hint_exprs),*],
+                )
+                .map_err(::core::convert::Into::into)
+            }
+
+            /// Lower the typed policy through the existing ELANG5 EIR authority.
+            pub fn policy_eir()
+                -> ::core::result::Result<
+                    ::elastic::EirResourcePolicyAdvisory,
+                    ::elastic::ElasticPolicyDocumentError,
+                > {
+                let policy = policy_spec()?;
+                ::elastic::lower_resource_policy_advisory(&policy)
+                    .map_err(::core::convert::Into::into)
+            }
+        }
+    })
+}
+
 fn expand_document_module(
     input: ElasticDocumentDsl,
 ) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -611,6 +1408,7 @@ fn expand_document_module(
         name,
         resources,
         groups,
+        policies,
     } = input;
     let resource_count = resources.len();
     let group_count = groups.len();
@@ -627,6 +1425,11 @@ fn expand_document_module(
             body: resource.body,
         })?);
         resource_names.push(resource_name);
+    }
+
+    let mut policy_modules = Vec::with_capacity(policies.len());
+    for policy in policies {
+        policy_modules.push(expand_policy_module(policy)?);
     }
 
     let grouped_function = if groups.is_empty() {
@@ -769,6 +1572,7 @@ fn expand_document_module(
             };
 
             #(#resource_modules)*
+            #(#policy_modules)*
 
             #[doc = concat!(
                 "Builds the validated multi-resource [`EirDocument`](::elastic::EirDocument) ",
