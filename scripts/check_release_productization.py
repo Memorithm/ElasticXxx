@@ -79,6 +79,8 @@ EXPECTED_PUBLICATION_BLOCKERS = {
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
     "release_versions_changelog_and_release_notes_not_frozen",
+    "package_archives_not_inspected_for_unintended_files_or_missing_documentation",
+    "exact_release_commit_required_ci_and_packageability_not_yet_successful",
 }
 
 
@@ -140,7 +142,11 @@ def self_test_pinned_declarations(data: dict[str, object]) -> None:
 
     rejected(move_authority)
     rejected(lambda d: d["required_release_documents"].remove("docs/release/MIGRATION-0.1.md"))
-    rejected(lambda d: d.__setitem__("publication_blockers", [f"arbitrary-{i}" for i in range(5)]))
+    rejected(
+        lambda d: d.__setitem__(
+            "publication_blockers", [f"arbitrary-{i}" for i in range(len(EXPECTED_PUBLICATION_BLOCKERS))]
+        )
+    )
 
 
 def main() -> None:
