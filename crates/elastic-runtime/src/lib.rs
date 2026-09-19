@@ -34,6 +34,7 @@ pub mod clock;
 pub mod commit;
 pub mod composite_plan;
 pub mod composite_prepare;
+pub mod composite_transaction;
 pub mod concurrency_boolean_admission;
 pub mod config;
 pub mod configured_controller;
@@ -107,6 +108,15 @@ pub use composite_prepare::{
     CompositePrepareCleanupOperation, CompositePrepareFailure, CompositePrepareRecoveryEntry,
     CompositePrepareRecoveryEnvelope, CompositePrepareStage, CompositePreparedEnvelope,
     CompositePreparedSubplan, COMPOSITE_PREPARE_SCHEMA_V1,
+};
+pub use composite_transaction::{
+    execute_composite_transaction, retry_composite_commit_cleanup,
+    retry_composite_transaction_recovery, CompositeCommitCleanupEntry,
+    CompositeCommitCleanupEnvelope, CompositeCommitReport, CompositeFailureDisposition,
+    CompositeRecoveryFailure, CompositeResourceCommit, CompositeTransactionBackend,
+    CompositeTransactionFailure, CompositeTransactionRecoveryAction,
+    CompositeTransactionRecoveryEntry, CompositeTransactionRecoveryEnvelope,
+    CompositeTransactionStage, COMPOSITE_TRANSACTION_SCHEMA_V1,
 };
 pub use concurrency_boolean_admission::{
     concurrency_headroom_predicate_key, BooleanConcurrencyEvidenceV1,
