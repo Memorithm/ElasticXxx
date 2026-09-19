@@ -1,4 +1,4 @@
-error: policy `bad` targets unknown document resource `missing`
+error: [ELX-LANG-0001] policy `bad` targets unknown document resource `missing`
   --> tests/compile_fail/dsl_policy_unknown_target.rs:12:20
    |
 12 |             target(missing);

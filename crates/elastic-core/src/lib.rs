@@ -24,6 +24,7 @@
 pub mod acceleration;
 pub mod canonical;
 pub mod control;
+pub mod diagnostic;
 pub mod exact_oracle;
 pub mod frontier;
 pub mod guard;
@@ -51,6 +52,7 @@ pub use control::{
     FreshnessSnapshot, ObservationEpoch, PlannerEpoch, RecommendationContext,
     RecommendationFreshnessError, ResourceGeneration,
 };
+pub use diagnostic::{ElasticDiagnosticCode, ELASTIC_DIAGNOSTIC_SCHEMA_V1};
 pub use exact_oracle::{
     ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
     ExactSatisfiabilityReport, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,

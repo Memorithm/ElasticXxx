@@ -1,4 +1,4 @@
-error: policy guard references undeclared predicate alias `missing`
+error: [ELX-LANG-0003] policy guard references undeclared predicate alias `missing`
   --> tests/compile_fail/dsl_policy_unknown_guard_alias.rs:14:39
    |
 14 |             guard resource when(ok && missing);

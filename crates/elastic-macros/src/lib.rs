@@ -42,6 +42,35 @@ use syn::{
 /// See the crate documentation for the supported attribute grammar. The
 /// attribute lowers to the ordinary `elastic-core` builder API; there is no
 /// second semantic implementation.
+#[derive(Clone, Copy)]
+enum ElasticDiagnosticCode {
+    UnknownReference,
+    DuplicateDeclaration,
+    UndeclaredPredicate,
+    MissingRequiredField,
+    MalformedDeclaration,
+}
+
+impl ElasticDiagnosticCode {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::UnknownReference => "ELX-LANG-0001",
+            Self::DuplicateDeclaration => "ELX-LANG-0002",
+            Self::UndeclaredPredicate => "ELX-LANG-0003",
+            Self::MissingRequiredField => "ELX-LANG-0004",
+            Self::MalformedDeclaration => "ELX-LANG-0005",
+        }
+    }
+}
+
+fn coded_error(
+    span: proc_macro2::Span,
+    code: ElasticDiagnosticCode,
+    message: impl core::fmt::Display,
+) -> syn::Error {
+    syn::Error::new(span, format!("[{}] {message}", code.as_str()))
+}
+
 #[proc_macro_derive(ElasticResource, attributes(elastic))]
 pub fn derive_elastic_resource(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
@@ -332,8 +361,9 @@ impl Parse for ElasticDslInput {
                         || group_names.contains(&policy_name)
                         || !policy_names.insert(policy_name.clone())
                     {
-                        return Err(syn::Error::new(
+                        return Err(coded_error(
                             policy.name.span(),
+                            ElasticDiagnosticCode::DuplicateDeclaration,
                             format!(
                                 "duplicate, reserved, or colliding policy module `{}` in elastic! document",
                                 policy.name
@@ -461,8 +491,9 @@ fn parse_policy_dsl(input: ParseStream<'_>) -> syn::Result<ElasticPolicyDsl> {
             expect_exhausted(&inner, "predicate")?;
             content.parse::<Token![;]>()?;
             if !aliases.insert(alias.to_string()) {
-                return Err(syn::Error::new(
+                return Err(coded_error(
                     alias.span(),
+                    ElasticDiagnosticCode::DuplicateDeclaration,
                     format!("duplicate policy predicate alias `{alias}`"),
                 ));
             }
@@ -568,22 +599,34 @@ fn parse_policy_dsl(input: ParseStream<'_>) -> syn::Result<ElasticPolicyDsl> {
             hints.push((key.value(), value.value()));
             continue;
         }
-        return Err(syn::Error::new(
+        return Err(coded_error(
             content.span(),
+            ElasticDiagnosticCode::MalformedDeclaration,
             "unsupported policy declaration; expected id, version, target, predicate, guard, constraint, objective, or hint",
         ));
     }
 
     let span = name.span();
-    let id = id.ok_or_else(|| syn::Error::new(span, "policy is missing mandatory id(\"...\")"))?;
-    let version = version.ok_or_else(|| {
-        syn::Error::new(
+    let id = id.ok_or_else(|| {
+        coded_error(
             span,
+            ElasticDiagnosticCode::MissingRequiredField,
+            "policy is missing mandatory id(\"...\")",
+        )
+    })?;
+    let version = version.ok_or_else(|| {
+        coded_error(
+            span,
+            ElasticDiagnosticCode::MissingRequiredField,
             "policy is missing mandatory version(major, minor, patch)",
         )
     })?;
     let target = target.ok_or_else(|| {
-        syn::Error::new(span, "policy is missing mandatory target(resource_module)")
+        coded_error(
+            span,
+            ElasticDiagnosticCode::MissingRequiredField,
+            "policy is missing mandatory target(resource_module)",
+        )
     })?;
     validate_policy_alias_references(&guards, &constraints, &aliases)?;
     Ok(ElasticPolicyDsl {
@@ -763,8 +806,9 @@ fn parse_policy_constraint_dsl(input: ParseStream<'_>) -> syn::Result<ElasticPol
             terms,
         });
     }
-    Err(syn::Error::new(
+    Err(coded_error(
         input.span(),
+        ElasticDiagnosticCode::MalformedDeclaration,
         "unsupported constraint; expected at_most, at_least, exactly, requires, equivalent, or budget",
     ))
 }
@@ -781,8 +825,9 @@ fn validate_policy_alias_references(
         if aliases.contains(&alias.to_string()) {
             Ok(())
         } else {
-            Err(syn::Error::new(
+            Err(coded_error(
                 alias.span(),
+                ElasticDiagnosticCode::UndeclaredPredicate,
                 format!("policy references undeclared predicate alias `{alias}`"),
             ))
         }
@@ -826,8 +871,9 @@ fn validate_guard_expression_aliases(
                 if !aliases.contains(&name)
                     && !matches!(name.as_str(), "true" | "false" | "implies")
                 {
-                    return Err(syn::Error::new(
+                    return Err(coded_error(
                         ident.span(),
+                        ElasticDiagnosticCode::UndeclaredPredicate,
                         format!("policy guard references undeclared predicate alias `{ident}`"),
                     ));
                 }
@@ -845,8 +891,9 @@ fn validate_policy_references(
 ) -> syn::Result<()> {
     for policy in policies {
         if !resources.contains(&policy.target.to_string()) {
-            return Err(syn::Error::new(
+            return Err(coded_error(
                 policy.target.span(),
+                ElasticDiagnosticCode::UnknownReference,
                 format!(
                     "policy `{}` targets unknown document resource `{}`",
                     policy.name, policy.target
