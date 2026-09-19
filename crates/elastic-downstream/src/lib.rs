@@ -218,6 +218,7 @@ struct DownstreamCompositePrepareBackend {
     backend_instance_id: String,
     checkpoint_active: bool,
     prepared: bool,
+    fail_release_once: bool,
 }
 
 impl DownstreamCompositePrepareBackend {
@@ -228,6 +229,7 @@ impl DownstreamCompositePrepareBackend {
             backend_instance_id: format!("downstream-instance-{resource}"),
             checkpoint_active: false,
             prepared: false,
+            fail_release_once: false,
         }
     }
 }
@@ -327,6 +329,12 @@ impl CompositePrepareBackend for DownstreamCompositePrepareBackend {
         &mut self,
         _checkpoint: &CompositePreActState,
     ) -> Result<(), RuntimeError> {
+        if self.fail_release_once {
+            self.fail_release_once = false;
+            return Err(RuntimeError::rollback(
+                "downstream one-shot release failure",
+            ));
+        }
         self.checkpoint_active = false;
         Ok(())
     }
@@ -376,6 +384,59 @@ pub fn public_composite_prepare_surface_smoke() {
     }
     assert!(!worker.prepared && !worker.checkpoint_active);
     assert!(!cache.prepared && !cache.checkpoint_active);
+}
+
+/// Semantic proof that ELANG4b cleanup recovery is nameable, retainable and
+/// retryable through only the public `elastic` facade.
+pub fn public_composite_prepare_recovery_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker_id = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache_id = LogicalResourceId::new("downstream-cache").unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("runtime-recovery").unwrap())
+        .members([worker_id.clone(), cache_id.clone()])
+        .dependency(ResourceDependency::new(cache_id, worker_id))
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let plans = ["downstream-cache", "downstream-worker-pool"]
+        .into_iter()
+        .map(|resource| {
+            let node = grouped
+                .group_resource("runtime-recovery", resource)
+                .unwrap();
+            Plan::new(
+                node.clone(),
+                PlanningContext::new(),
+                FirstGroundedPlanner.propose_transition(node),
+                format!("downstream recovery {resource}"),
+            )
+        })
+        .collect();
+    let envelope = CompositePlanEnvelope::new(&grouped, "runtime-recovery", plans).unwrap();
+    let mut worker = DownstreamCompositePrepareBackend::new("downstream-worker-pool");
+    let mut cache = DownstreamCompositePrepareBackend::new("downstream-cache");
+    cache.fail_release_once = true;
+
+    let prepared = {
+        let mut backends: [&mut dyn CompositePrepareBackend; 2] = [&mut cache, &mut worker];
+        prepare_composite_plan(&envelope, &mut backends).unwrap()
+    };
+    let failure = {
+        let mut backends: [&mut dyn CompositePrepareBackend; 2] = [&mut cache, &mut worker];
+        abort_composite_prepare(prepared, &mut backends, "downstream forced recovery").unwrap_err()
+    };
+    let recovery: CompositePrepareRecoveryEnvelope = failure
+        .into_recovery()
+        .expect("one-shot release failure must return recovery state");
+    let entries: &[CompositePrepareRecoveryEntry] = recovery.entries();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].resource_id(), "downstream-cache");
+    assert!(entries[0].actuation().is_none());
+
+    let mut retry_backends: [&mut dyn CompositePrepareBackend; 1] = [&mut cache];
+    retry_composite_prepare_cleanup(recovery, &mut retry_backends, "downstream retry").unwrap();
+    assert!(!cache.prepared && !cache.checkpoint_active);
+    assert!(!worker.prepared && !worker.checkpoint_active);
 }
 
 /// Compile-time proof that durable runtime evidence is available through only
@@ -570,6 +631,7 @@ mod tests {
         public_elastic_document_surface_smoke();
         public_composite_plan_surface_smoke();
         public_composite_prepare_surface_smoke();
+        public_composite_prepare_recovery_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }
