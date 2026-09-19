@@ -1,4 +1,4 @@
-error: resource module name `document` is reserved for the generated document() function
+error: resource module name is reserved by the generated document API
  --> tests/compile_fail/dsl_reserved_document_resource.rs:5:18
   |
 5 |         resource document {

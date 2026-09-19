@@ -1,0 +1,5 @@
+error: resource group must declare members(...)
+ --> tests/compile_fail/dsl_group_missing_members.rs:9:15
+  |
+9 |         group drone {
+  |               ^^^^^

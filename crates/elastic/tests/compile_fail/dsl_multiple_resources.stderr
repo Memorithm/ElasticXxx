@@ -1,4 +1,4 @@
-error: elastic! single-resource form accepts exactly one resource; use `document NAME { resource ... }` for multiple resources
+error: elastic! single-resource form accepts exactly one resource; use `document NAME { ... }` for multi-resource declarations
  --> tests/compile_fail/dsl_multiple_resources.rs:8:5
   |
 8 |     resource second {

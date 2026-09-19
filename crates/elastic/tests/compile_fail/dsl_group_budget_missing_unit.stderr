@@ -1,0 +1,5 @@
+error: shared budget is missing unit(...)
+  --> tests/compile_fail/dsl_group_budget_missing_unit.rs:15:20
+   |
+15 |             budget memory {
+   |                    ^^^^^^

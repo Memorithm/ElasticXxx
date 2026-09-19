@@ -64,9 +64,14 @@ pub use elastic_core::control::{
 pub use elastic_core::resource;
 pub use elastic_core::resource::{
     AdmissibleTransition, BuiltinDimension, BuiltinObjective, BuiltinObservationSignal,
-    BuiltinResourceClass, CapabilityRequirement, ContractId, DimensionId, Invariant, InvariantKind,
-    LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId, ResourceSpec,
-    ResourceSpecBuilder, ResourceSpecError,
+    BuiltinResourceClass, CapabilityRequirement, ContractId, CrossResourceInvariant,
+    CrossResourceInvariantError, DimensionId, Invariant, InvariantKind, LogicalResourceId,
+    ObjectiveId, ObservationSignalId, ResourceClassId, ResourceDependency, ResourceGroup,
+    ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, ResourceSpec, ResourceSpecBuilder,
+    ResourceSpecError, SharedBudget, SharedBudgetError, SharedBudgetId, SharedBudgetTerm,
+    MAX_RESOURCE_GROUP_CROSS_INVARIANTS, MAX_RESOURCE_GROUP_DEPENDENCIES,
+    MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
+    MAX_SHARED_BUDGET_ID_BYTES,
 };
 pub use elastic_core::{
     analyze_resource_policy, BoolExpr, BoolExprFingerprint, BooleanCpuArchitecture,
@@ -100,13 +105,15 @@ pub use elastic_core::{
 pub use elastic_eir::PlanningSubsetError;
 pub use elastic_eir::{
     evaluate_transition_guards, lower, lower_constrained, lower_guarded,
-    prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource, EirDocument,
-    EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint,
-    EirPseudoBooleanTerm, EirResource, Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome,
-    PlanOutcome, PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
+    prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource,
+    EirCrossResourceInvariant, EirDocument, EirDocumentBuilder, EirGroupedDocument, EirGuard,
+    EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
+    EirResource, EirResourceDependency, EirResourceGroup, EirSharedBudget, EirSharedBudgetTerm,
+    Fingerprint, FirstGroundedPlanner, GroupLoweringError, GuardedTransitionOutcome, PlanOutcome,
+    PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
     TransitionPruningReport, UnknownTransition, ValidationError, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
-    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, MAX_EIR_DOCUMENT_RESOURCES,
-    MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, EIR_RESOURCE_GROUP_SCHEMA_VERSION,
+    MAX_EIR_DOCUMENT_RESOURCES, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS, MAX_EIR_RESOURCE_GROUPS,
 };
 pub use elastic_macros::{elastic, ElasticResource};
 pub use elastic_runtime::{
@@ -236,7 +243,7 @@ pub use elastic_runtime::{
     REPRESENTATION_PRECISION_PREDICATE_NAMESPACE, REPRESENTATION_PRECISION_SOURCE_UNIT,
     THERMAL_MARGIN_SOURCE_UNIT,
 };
-pub use language::ElasticDocumentError;
+pub use language::{ElasticDocumentError, ElasticGroupDocumentError};
 
 /// Operational runtime surface for users that prefer an explicit namespace.
 pub mod runtime {
@@ -267,7 +274,7 @@ pub mod adapters {
 pub mod prelude {
     pub use crate::boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
     pub use crate::elastic_guard;
-    pub use crate::language::ElasticDocumentError;
+    pub use crate::language::{ElasticDocumentError, ElasticGroupDocumentError};
     pub use elastic_adapters::{
         model_execution_current_profile_rank_signal, model_execution_profile_dimension,
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionAdaptivePlannerV1,
@@ -285,9 +292,14 @@ pub mod prelude {
         TDI93_C3_PREDICATE_NAMESPACE_V1, TDI93_C3_SOURCE_COMMIT_V1,
     };
     pub use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, ContractId, DimensionId, Invariant,
-        InvariantKind, LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId,
-        ResourceSpec, ResourceSpecError,
+        AdmissibleTransition, CapabilityRequirement, ContractId, CrossResourceInvariant,
+        CrossResourceInvariantError, DimensionId, Invariant, InvariantKind, LogicalResourceId,
+        ObjectiveId, ObservationSignalId, ResourceClassId, ResourceDependency, ResourceGroup,
+        ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, ResourceSpec, ResourceSpecError,
+        SharedBudget, SharedBudgetError, SharedBudgetId, SharedBudgetTerm,
+        MAX_RESOURCE_GROUP_CROSS_INVARIANTS, MAX_RESOURCE_GROUP_DEPENDENCIES,
+        MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
+        MAX_SHARED_BUDGET_ID_BYTES,
     };
     pub use elastic_core::{
         analyze_resource_policy, BoolExpr, BooleanCpuArchitecture, BooleanCpuFeatures,
@@ -311,11 +323,13 @@ pub mod prelude {
     };
     pub use elastic_eir::{
         evaluate_transition_guards, lower, lower_constrained, lower_guarded,
-        prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource, EirDocument,
-        EirDocumentBuilder, EirGuardedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
-        EirResource, Fingerprint, FirstGroundedPlanner, PlanningContext, TransitionPlanner,
-        TransitionPruningReport, ValidationError, MAX_EIR_DOCUMENT_RESOURCES,
-        MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+        prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource,
+        EirCrossResourceInvariant, EirDocument, EirDocumentBuilder, EirGroupedDocument,
+        EirGuardedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm, EirResource,
+        EirResourceDependency, EirResourceGroup, EirSharedBudget, EirSharedBudgetTerm, Fingerprint,
+        FirstGroundedPlanner, GroupLoweringError, PlanningContext, TransitionPlanner,
+        TransitionPruningReport, ValidationError, EIR_RESOURCE_GROUP_SCHEMA_VERSION,
+        MAX_EIR_DOCUMENT_RESOURCES, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS, MAX_EIR_RESOURCE_GROUPS,
     };
     pub use elastic_macros::{elastic, ElasticResource};
     pub use elastic_runtime::{

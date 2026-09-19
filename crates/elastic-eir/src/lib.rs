@@ -94,6 +94,7 @@ mod constraint;
 mod document;
 mod error;
 mod fingerprint;
+mod group;
 mod guard;
 mod guard_plan;
 mod plan;
@@ -109,6 +110,11 @@ pub use constraint::{
 pub use document::{lower, EirDocument, EirDocumentBuilder, MAX_EIR_DOCUMENT_RESOURCES};
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
+pub use group::{
+    EirCrossResourceInvariant, EirGroupedDocument, EirResourceDependency, EirResourceGroup,
+    EirSharedBudget, EirSharedBudgetTerm, GroupLoweringError, EIR_RESOURCE_GROUP_SCHEMA_VERSION,
+    MAX_EIR_RESOURCE_GROUPS,
+};
 pub use guard::{
     lower_guarded, EirGuard, EirGuardedResource, EirPredicate, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
 };

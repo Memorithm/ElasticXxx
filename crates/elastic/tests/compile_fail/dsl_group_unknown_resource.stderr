@@ -1,0 +1,5 @@
+error: resource group references unknown document resource `missing`
+  --> tests/compile_fail/dsl_group_unknown_resource.rs:10:29
+   |
+10 |             members(flight, missing);
+   |                             ^^^^^^^

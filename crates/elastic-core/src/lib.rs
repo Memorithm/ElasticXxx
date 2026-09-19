@@ -96,9 +96,14 @@ pub use representation::{
 };
 pub use resource::{
     AdmissibleTransition, BuiltinDimension, BuiltinObjective, BuiltinObservationSignal,
-    BuiltinResourceClass, CapabilityRequirement, ContractId, DimensionId, Invariant, InvariantKind,
-    LogicalResourceId, ObjectiveId, ObservationSignalId, ResourceClassId, ResourceSpec,
-    ResourceSpecError,
+    BuiltinResourceClass, CapabilityRequirement, ContractId, CrossResourceInvariant,
+    CrossResourceInvariantError, DimensionId, Invariant, InvariantKind, LogicalResourceId,
+    ObjectiveId, ObservationSignalId, ResourceClassId, ResourceDependency, ResourceGroup,
+    ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, ResourceSpec, ResourceSpecError,
+    SharedBudget, SharedBudgetError, SharedBudgetId, SharedBudgetTerm,
+    MAX_RESOURCE_GROUP_CROSS_INVARIANTS, MAX_RESOURCE_GROUP_DEPENDENCIES,
+    MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
+    MAX_SHARED_BUDGET_ID_BYTES,
 };
 pub use resource_policy_analysis::{
     analyze_resource_policy, InvariantGuardDiagnostic, InvariantGuardStatus,

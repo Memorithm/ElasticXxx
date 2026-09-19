@@ -1,8 +1,9 @@
 # Elastic Macro Guide v0.3
 
-**Status:** normative for `#[derive(ElasticResource)]` and the single-resource
-`elastic! { ... }` embedded language surface in `crates/elastic-macros`, both
-re-exported by the `elastic` facade.
+**Status:** normative for `#[derive(ElasticResource)]` and the `elastic! { ... }`
+embedded language surface in `crates/elastic-macros`, including standalone
+resources, multi-resource documents and ELANG3 groups. All are re-exported by
+the `elastic` facade.
 
 ---
 
@@ -115,9 +116,9 @@ on non-struct.
 
 ## 5. Function-like `elastic! { … }` embedded DSL
 
-The function-like `elastic!` macro is now implemented for **one resource per
-invocation**. Its purpose is to let a resource-control declaration read as a
-resource declaration rather than requiring a carrier Rust struct:
+The function-like `elastic!` macro supports a standalone resource and a
+multi-resource `document` form. Its purpose is to let resource-control intent
+read as a declaration rather than requiring carrier Rust structs:
 
 ```rust
 elastic! {
@@ -141,11 +142,11 @@ delimiters. Each body fragment is parsed by the same declaration model as the
 derive surface, and expansion emits an internal `#[derive(ElasticResource)]`
 declaration. `ResourceSpecBuilder::build` therefore remains authoritative.
 
-The v0.1 language intentionally does not yet define resource groups, shared
-budgets, cross-resource invariants, policy blocks, implicit runtime startup, or
-composite transaction semantics. Those concepts must receive typed core/EIR
-semantics before the syntax grows. Multiple resources inside one invocation are
-therefore rejected in this slice rather than assigned guessed semantics.
+The standalone resource form still owns no group or runtime semantics. Group
+and shared-constraint syntax exists only inside the multi-resource document form
+and lowers through the typed ELANG3 core/EIR contracts described below. Policy
+blocks, implicit runtime startup and composite transaction semantics remain
+absent.
 
 `crates/elastic/tests/equivalence.rs` requires manual builder, derive macro and
 `elastic!` to produce equal `ResourceSpec`, equal lowered EIR and equal EIR
@@ -184,13 +185,51 @@ document fingerprint therefore remain EIR semantics rather than macro semantics.
 The EIR-level `MAX_EIR_DOCUMENT_RESOURCES` bound is also asserted by generated
 code rather than copied into the proc-macro crate.
 
-A document is only a declaration/IR container in this version. Co-membership
-does **not** imply a resource group, dependency edge, shared budget, actuation
-order, atomicity or rollback coupling. Those concepts require separate typed
-contracts before any corresponding DSL syntax is accepted.
+A plain document is still only a declaration/IR container: co-membership alone
+does **not** imply shared fate. ELANG3 adds explicit `group NAME { ... }` blocks
+when dependency/budget/invariant semantics are intended. `document()` continues
+to return the unchanged v0.2 `EirDocument`; a document with groups additionally
+exposes `grouped_document()` returning the separate `EirGroupedDocument`
+envelope.
 
-The full v0.2 contract is in
+The full v0.2 document contract is in
 [`docs/language/ELASTIC-LANGUAGE-0.2.md`](../language/ELASTIC-LANGUAGE-0.2.md).
+The ELANG3 group grammar and semantics are in
+[`docs/language/ELASTIC-LANGUAGE-0.3.md`](../language/ELASTIC-LANGUAGE-0.3.md).
+
+### 5.2 Resource groups, dependencies, budgets and invariants
+
+Inside an `elastic! document`, ELANG3 accepts explicit groups:
+
+```rust
+elastic! {
+    document drone {
+        resource flight { class(configurational); allow(capacity); }
+        resource inference { class(configurational); allow(capacity); }
+
+        group runtime {
+            members(flight, inference);
+            depends(inference -> flight);
+            budget memory {
+                unit("mib");
+                quantum(1);
+                maximum(4096);
+                term(inference, predicate("elastic.drone", "large-model"), 3072);
+            }
+            invariant(
+                contract("flight-priority"),
+                owner(flight),
+                participants(flight, inference)
+            );
+        }
+    }
+}
+```
+
+The proc macro validates resource-module references and grammar only. Dependency
+cycles, member legality, shared-budget semantics and invariant ownership remain
+`elastic-core` validation. Group lowering lives in `elastic-eir`, and no group
+syntax authorizes physical actuation or composite commit/rollback.
 
 ## 6. Crate layout
 
