@@ -1,6 +1,6 @@
 //! Compile-time guard for the advertised single-dependency contract.
 //!
-//! This crate deliberately depends **only** on [`elastic`]. It exercises both
+//! This crate deliberately depends **only** on [`mod@elastic`]. It exercises both
 //! declaration and operational runtime types so workspace CI catches accidental
 //! leaks of implementation-crate dependencies into downstream code.
 
@@ -20,6 +20,34 @@ use elastic::{ObservationEpoch, ResourceGeneration};
     capability(reencode @ representation)
 )]
 pub struct DownstreamKv;
+
+elastic! {
+    pub resource downstream_elastic_language {
+        class(configurational);
+        id("downstream-elastic-language");
+        allow(concurrency, energy);
+        preserve(identity);
+        optimize(latency);
+        observe(utilization, thermal_margin, energy_rate);
+        admit(reinterpret @ concurrency);
+        capability(reinterpret @ concurrency);
+    }
+}
+
+/// Compile-time proof that the embedded `elastic!` language is available from
+/// the single public facade dependency and lowers to ordinary `ResourceSpec`.
+pub fn public_elastic_language_surface_smoke() {
+    let spec = downstream_elastic_language::resource_spec().unwrap();
+    assert_eq!(spec.resource_id().as_str(), "downstream-elastic-language");
+    assert_eq!(spec.class(), &ResourceClassId::CONFIGURATIONAL);
+    assert!(spec.admits(TransitionMechanism::Reinterpret, &DimensionId::CONCURRENCY));
+    let eir = lower(&spec).unwrap();
+    assert!(eir
+        .resource("downstream-elastic-language")
+        .unwrap()
+        .transitions()[0]
+        .capability_grounded());
+}
 
 /// Proof that a downstream crate can build and execute a real configured,
 /// forecast-aware controller while depending only on `elastic`.
@@ -254,6 +282,7 @@ mod tests {
         public_guarded_planning_trace_surface_smoke();
         public_decision_trace_diff_surface_smoke();
         public_boolean_surface_smoke();
+        public_elastic_language_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

@@ -54,19 +54,77 @@ pub fn manual_session_kv() -> Result<ResourceSpec, ResourceSpecError> {
 )]
 struct SessionKv;
 
+elastic! {
+    pub resource session_kv_dsl {
+        class(representational);
+        id("session-kv");
+        allow(representation, residency);
+        preserve(contents);
+        preserve(contract("kv.reuse-contract") along representation);
+        optimize(latency, memory_footprint);
+        admit(reencode @ representation);
+        capability(reencode @ representation);
+        admit(reinterpret @ residency);
+        observe(free_capacity, queue_depth);
+        label("workload", "slha-v2");
+    }
+}
+
 #[test]
 fn macro_and_manual_api_agree() {
     let manual = manual_session_kv().unwrap();
     let generated = SessionKv::resource_spec().unwrap();
+    let dsl = session_kv_dsl::resource_spec().unwrap();
 
     assert_eq!(manual, generated);
+    assert_eq!(manual, dsl);
     assert_eq!(manual.to_string(), generated.to_string());
 
     // And both normalize to equivalent EIR.
     let manual_doc = elastic::lower(&manual).unwrap();
     let generated_doc = elastic::lower(&generated).unwrap();
+    let dsl_doc = elastic::lower(&dsl).unwrap();
     assert_eq!(manual_doc, generated_doc);
+    assert_eq!(manual_doc, dsl_doc);
     assert_eq!(manual_doc.fingerprint(), generated_doc.fingerprint());
+    assert_eq!(manual_doc.fingerprint(), dsl_doc.fingerprint());
+}
+
+#[test]
+fn elastic_dsl_defaults_identity_to_resource_module_name() {
+    elastic! {
+        resource worker_pool {
+            class(stateful);
+            allow(concurrency);
+        }
+    }
+
+    let spec = worker_pool::resource_spec().unwrap();
+    assert_eq!(spec.resource_id().as_str(), "worker_pool");
+    assert_eq!(spec.class(), &ResourceClassId::STATEFUL);
+    assert_eq!(spec.elastic_dimensions(), &[DimensionId::CONCURRENCY]);
+}
+
+#[test]
+fn elastic_dsl_custom_terms_lower_through_the_same_core() {
+    elastic! {
+        resource hot_set {
+            class(custom("agent-memory"));
+            allow(custom("thermal-envelope"), capacity);
+            preserve(contents along custom("thermal-envelope"));
+            optimize(custom("tail-latency-p99"));
+            observe(custom("page-fault-rate"));
+        }
+    }
+
+    let spec = hot_set::resource_spec().unwrap();
+    assert_eq!(spec.class().as_str(), "agent-memory");
+    let thermal = DimensionId::custom("thermal-envelope").unwrap();
+    assert_eq!(
+        spec.elastic_dimensions(),
+        &[DimensionId::CAPACITY, thermal.clone()]
+    );
+    assert_eq!(spec.invariants()[0].scope(), Some(&thermal));
 }
 
 #[test]

@@ -1,0 +1,5 @@
+error: missing mandatory `class(...)` declaration; expected one of stock, capacity-resource, rate, exclusive, shared, stateful, representational, configurational, or class(custom("..."))
+ --> tests/compile_fail/dsl_missing_class.rs:4:14
+  |
+4 |     resource worker_pool {
+  |              ^^^^^^^^^^^
