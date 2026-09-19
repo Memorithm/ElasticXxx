@@ -141,6 +141,13 @@ verified_current_facts:
   - BE13d_allocations_peak_memory_and_branch_misses_remain_explicitly_unmeasured
   - BE13d_measurement_stability_and_missing_counters_are_the_next_unblocked_work_before_BE13e
   - BE13e_architecture_specific_acceleration_remains_unauthorized
+  - BE15f_PR175_metadata_freeze_qualified_head_570f85f8dfb75db62e59afdd18b558300650f582_merge_3430a84b247f4aa3a82ebd3c4837789c4231bd10
+  - BE15f_PR176_release_consistency_and_trusted_ARM64_packageability_routing_qualified_head_0f3e62ac3a88fbbdf5904dc84eb28f1da6d127b6_merge_cdcfcb969105907bc62460c76fa0b7cac4805dd5
+  - BE15f_PR177_offline_release_candidate_gate_qualified_head_0766738e4d5188f44cecb679b75555eaa4413596_merge_01058ad907139e4bc21f181b63024b689a24f076
+  - BE15f_PR177_merge_commit_exact_checks_ci_35431038327_packageability_35431038403_prepublication_35431038316_all_success
+  - BE15f_PR178_exact_commit_blocker_close_qualified_head_fc3c842205bb7ea46ef402826da865717a5a323e_merge_914116cd531ded905a45547bee45c4bdefeeff43
+  - BE15f_PR178_merge_commit_exact_checks_ci_35431372505_packageability_35431372504_prepublication_35431372512_all_success
+  - BE15f_prepublication_functionality_complete_with_four_registry_dependent_blockers_and_no_publication_or_mutation_authority
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -595,7 +602,7 @@ roadmap:
 
   - id: EX9
     name: Stable Rust productization
-    status: active_pre_release
+    status: complete_prepublication_registry_actions_blocked
     completed_slices:
       - id: EX9a
         name: First-publish packageability gate
@@ -606,10 +613,10 @@ roadmap:
           - PR_76_merged_to_main_as_1d0fe19e4a10069600b2d75beca7249a69a01835
           - internal_publish_path_dependencies_are_versioned_while_retaining_local_workspace_paths
           - full_facade_chain_package_file_sets_are_checked_and_leaf_archives_are_built_without_publishing
-          - publication_remains_blocked_on_release_time_name_recheck_dependency_order_publish_non_leaf_archive_inspection_clean_registry_downstream_install_release_freeze_exact_release_gates_and_explicit_release_approval
+          - initial_packageability_slice_left_registry_and_release_gates_unresolved_later_EX9b_slices_closed_metadata_freeze_and_exact_commit_gates_without_authorizing_registry_mutation
       - id: EX9b
         name: Fail-closed productization and registry-name evidence
-        status: active_publication_blocked
+        status: complete_prepublication_registry_actions_blocked
         completion_evidence:
           - PR_168_merge_94483f02d271d90dd4c2697f4691f8c685d2d019_binds_independent_license_consumer_document_and_blocker_contracts
           - PR_169_exact_head_e5216a6d03ed19b02fc090557e36bdc1890b82ce_merge_ca8bbe4f9d610d23058daa57b20923c71c162c97
@@ -631,6 +638,17 @@ roadmap:
           - crates_io_elastic_and_elastic_macros_name_collisions_recorded_without_ownership_claim
           - five_other_name_404_observations_are_non_reserving_and_require_release_time_recheck
           - publication_remains_unauthorized
+          - PR_175_exact_head_570f85f8dfb75db62e59afdd18b558300650f582_merge_3430a84b247f4aa3a82ebd3c4837789c4231bd10_ci_35428667960_packageability_35428667861_success
+          - PR_176_exact_head_0f3e62ac3a88fbbdf5904dc84eb28f1da6d127b6_merge_cdcfcb969105907bc62460c76fa0b7cac4805dd5_ci_35430730269_packageability_35430730271_success
+          - packageability_routes_to_same_trusted_ARM64_Thor_runner_pool_as_main_CI_with_Rust_1_89_allowlist
+          - PR_177_exact_head_0766738e4d5188f44cecb679b75555eaa4413596_merge_01058ad907139e4bc21f181b63024b689a24f076_ci_35430909018_packageability_35430909032_prepublication_35430909078_success
+          - PR_177_merge_exact_checks_ci_35431038327_packageability_35431038403_prepublication_35431038316_success
+          - release_candidate_payload_digest_binds_Git_mode_path_content_and_exact_SHA_receipt_offline_without_registry_token_or_query
+          - PR_178_exact_head_fc3c842205bb7ea46ef402826da865717a5a323e_merge_914116cd531ded905a45547bee45c4bdefeeff43_ci_35431235301_packageability_35431235305_prepublication_35431235300_success
+          - PR_178_merge_exact_checks_ci_35431372505_packageability_35431372504_prepublication_35431372512_success
+          - exact_commit_qualification_is_a_recurring_required_gate_not_an_unresolved_blocker
+          - four_registry_dependent_blockers_remain_and_require_explicit_release_or_registry_authority
+          - registry_publication_authorized_false_registry_mutation_authorized_false
     goals:
       - define_semver_MSRV_and_compatibility_policy
       - stabilize_public_facade_extension_traits_and_command_contracts

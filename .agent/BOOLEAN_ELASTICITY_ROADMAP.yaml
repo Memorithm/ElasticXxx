@@ -1629,7 +1629,7 @@ phases:
 
   - id: BE15
     name: cross_repository_promotion_and_productization
-    status: active
+    status: complete_prepublication_registry_actions_blocked
     required_slices:
       - id: BE15a
         name: BooleanLab_oracle_and_benchmark_bridge
@@ -1753,16 +1753,19 @@ phases:
           - benchmark_real_consumer_effects_before_claims
       - id: BE15f
         name: release_productization
-        status: active_package_identities_applied_publication_blocked
+        status: complete_prepublication_registry_actions_blocked
         current_candidate: null
         latest_qualified_contract:
-          pr: 173
-          head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
-          merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
-          ci_run: 35427901405
-          packageability_run: 35427901345
-          hardening_run: 35427901327
-          state: exact_head_checks_success_three_material_P1_P2_findings_corrected_selected_package_identities_applied_no_publication_authority
+          pr: 178
+          head: fc3c842205bb7ea46ef402826da865717a5a323e
+          merge: 914116cd531ded905a45547bee45c4bdefeeff43
+          ci_run: 35431235301
+          packageability_run: 35431235305
+          prepublication_run: 35431235300
+          merge_ci_run: 35431372505
+          merge_packageability_run: 35431372504
+          merge_prepublication_run: 35431372512
+          state: exact_head_and_exact_merge_checks_success_release_candidate_payload_frozen_four_registry_dependent_blockers_remain_no_publication_authority
           scope:
             - fail_closed_machine_readable_pre_release_productization_contract
             - independently_pinned_SciRust_license_source_commit_and_SHA256
@@ -1782,6 +1785,13 @@ phases:
             - standalone_fuzz_dependencies_and_workflow_package_selectors_corrected_for_the_renamed_packages
             - elastic_cli_and_elastic_downstream_remain_non_renamed_workspace_packages
             - publish_flags_remain_false_and_registry_publication_authorized_remains_false
+            - PR175_freezes_0_1_0_changelog_release_notes_and_machine_readable_metadata_without_publication
+            - PR176_reconciles_package_naming_freeze_state_and_routes_packageability_to_trusted_ARM64_runners
+            - PR177_adds_offline_fail_closed_release_candidate_payload_digest_and_exact_SHA_receipt_gate
+            - release_candidate_digest_binds_Git_mode_path_and_content_while_manifest_self_reference_is_excluded_explicitly
+            - PR178_closes_only_the_exact_commit_qualification_blocker_after_exact_main_checks_succeeded
+            - required_exact_commit_checks_remain_ci_packageability_and_release_candidate_prepublication_for_every_changed_candidate
+            - four_registry_dependent_publication_blockers_remain_authoritative
           claims_forbidden:
             - registry_publication_readiness_until_all_recorded_blockers_are_cleared
             - crates_io_name_ownership_or_availability
@@ -1854,6 +1864,57 @@ phases:
             material_review_findings: P1_fuzz_package_aliases_P1_workflow_selectors_and_P2_nonrenamed_workspace_selectors_corrected_before_merge
             publication_authorized: false
             unresolved_publication_blockers_remain_authoritative: true
+          - pr: 175
+            head: 570f85f8dfb75db62e59afdd18b558300650f582
+            merge: 3430a84b247f4aa3a82ebd3c4837789c4231bd10
+            ci_run: 35428667960
+            packageability_run: 35428667861
+            result: success
+            scope: freeze_0_1_0_changelog_release_notes_and_productization_metadata
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 176
+            head: 0f3e62ac3a88fbbdf5904dc84eb28f1da6d127b6
+            merge: cdcfcb969105907bc62460c76fa0b7cac4805dd5
+            ci_run: 35430730269
+            packageability_run: 35430730271
+            result: success
+            scope: reconcile_package_naming_freeze_state_and_route_packageability_to_trusted_ARM64_runners
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 177
+            head: 0766738e4d5188f44cecb679b75555eaa4413596
+            merge: 01058ad907139e4bc21f181b63024b689a24f076
+            ci_run: 35430909018
+            packageability_run: 35430909032
+            prepublication_run: 35430909078
+            merge_ci_run: 35431038327
+            merge_packageability_run: 35431038403
+            merge_prepublication_run: 35431038316
+            result: success
+            scope: offline_fail_closed_release_candidate_freeze_exact_SHA_receipt_and_prepublication_gate
+            publication_authorized: false
+            registry_mutation_authorized: false
+            registry_network_queries_in_gate: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 178
+            head: fc3c842205bb7ea46ef402826da865717a5a323e
+            merge: 914116cd531ded905a45547bee45c4bdefeeff43
+            ci_run: 35431235301
+            packageability_run: 35431235305
+            prepublication_run: 35431235300
+            merge_ci_run: 35431372505
+            merge_packageability_run: 35431372504
+            merge_prepublication_run: 35431372512
+            result: success
+            scope: close_exact_commit_blocker_and_refreeze_candidate_with_four_registry_dependent_blockers
+            publication_authorized: false
+            registry_mutation_authorized: false
+            remaining_publication_blockers:
+              - crates_io_name_availability_must_be_rechecked_at_release_time
+              - full_dependency_order_registry_publish_not_executed
+              - clean_registry_downstream_install_not_yet_possible_without_first_publish
+              - non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish
     final_exit_criteria:
       - BE0_through_BE14_exit_criteria_are_satisfied
       - public_Boolean_guard_and_constraint_contracts_are_versioned_documented_and_tested
@@ -1929,21 +1990,24 @@ automation_contract:
     measured performance improvements.
 
 current_execution:
-  earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15f_release_candidate_freeze_and_fail_closed_prepublication_gate_without_registry_mutation
+  earliest_incomplete_phase: none_prepublication_roadmap_complete
+  immediate_next_slice: blocked_pending_explicit_registry_publication_authorization_and_release_time_name_recheck
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_open_candidate_package_identities_applied_publication_remains_fail_closed
-  verified_main: a65de96d3bc8046a3198d8e23c8759a3b86b6495
-  latest_qualified_slice: BE15f_selected_package_identities_applied
-  latest_qualified_pr: 173
-  latest_qualified_head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
-  latest_merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
-  latest_merged_progress_slice: BE15f_registry_visible_manifest_identity_application_and_selector_hardening
-  latest_merged_progress_pr: 173
-  latest_merged_progress_head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
-  latest_merged_progress_merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+  current_candidate_status: prepublication_roadmap_complete_four_registry_dependent_blockers_remain_no_registry_mutation_authority
+  verified_main: 914116cd531ded905a45547bee45c4bdefeeff43
+  latest_qualified_slice: BE15f_exact_commit_qualification_blocker_closed
+  latest_qualified_pr: 178
+  latest_qualified_head: fc3c842205bb7ea46ef402826da865717a5a323e
+  latest_merge: 914116cd531ded905a45547bee45c4bdefeeff43
+  latest_merged_progress_slice: BE15f_fail_closed_release_candidate_gate_and_exact_commit_qualification
+  latest_merged_progress_pr: 178
+  latest_merged_progress_head: fc3c842205bb7ea46ef402826da865717a5a323e
+  latest_merged_progress_merge: 914116cd531ded905a45547bee45c4bdefeeff43
+  remaining_publication_blocker_count: 4
+  registry_publication_authorized: false
+  registry_mutation_authorized: false
   registry_name_observations_are_reservations: false
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
