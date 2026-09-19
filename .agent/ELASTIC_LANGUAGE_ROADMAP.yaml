@@ -138,31 +138,44 @@ phases:
   - id: ELANG4
     name: composite_planning_and_transaction_semantics
     priority: P0
-    status: active_candidate
-    current_candidate:
-      pr: 183
-      head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
-      base: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
-      slice: ELANG4a_composite_plan_envelope
-    completed_in_candidate:
-      - exact_EirGroupedDocument_and_group_binding
-      - candidate_bearing_exact_EIR_subplan_validation
-      - duplicate_foreign_mismatched_undeclared_and_nonfinite_subplan_rejection
-      - required_before_dependent_topological_order_for_targeted_resources
-      - canonical_lexicographic_tie_breaking_for_independent_ready_resources
-      - reverse_structural_rollback_order_exposed_without_claiming_execution_authority
-      - semantic_fingerprint_binds_grouped_document_resource_candidate_magnitude_and_PlanningContext_bits
-      - diagnostic_Plan_reasoning_explicitly_excluded_from_semantic_fingerprint
-      - facade_only_downstream_contract_and_normative_documentation
-      - local_workspace_all_targets_clippy_rustdoc_internal_baseline_and_productization_gates_green
-    remaining:
-      - exact_head_CI_and_review_qualification_for_PR183
-      - explicit_prepare_boundary
-      - capture_pre_act_state_per_resource
-      - coordinated_verify_commit_or_rollback
-      - explicit_partial_failure_and_irrecoverable_fail_closed_state
-      - cancellation_and_shutdown_without_partial_commit
-      - differential_reference_tests_against_single_resource_transactions
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_183_exact_head_3883ff39d6737c7f9c3703db810c39cf88079de6_merged_as_2b51bd8230234c077954ea943fc4a45db94716f0
+      - PR183_exact_head_ci_packageability_hardening_prepublication_and_applicable_benchmark_gates_completed_success
+      - PR183_transitive_dependency_order_typed_builtin_custom_fingerprints_and_executed_facade_downstream_findings_closed_before_merge
+      - ElasticXxx_PR_184_exact_head_fc6d339df934e8dd84c4f5fe076b55f0efdf6a06_merged_as_427ddd271bc1c185bdaedad6c363302398f57cb1
+      - PR184_validate_all_capture_all_prepare_all_boundary_and_linear_prepare_recovery_qualified_on_exact_head
+      - PR184_post_merge_facade_recovery_finding_closed_by_PR185_and_thread_resolved
+      - ElasticXxx_PR_185_exact_head_32ee4f6c15754d7654591fa25a38a5a7a91529fd_merged_as_73469e740b26b2e1f1e4439fd46db326a4211200
+      - PR185_facade_only_partial_cleanup_recovery_retry_semantic_smoke_qualified
+      - ElasticXxx_PR_186_exact_head_86c050b5079f90c0dccdca0a79cc322583ac0c9b_merged_as_122ee0f796f0b910b679f2efddaf183c245b3a9d
+      - PR186_all_eight_exact_head_workflows_completed_success_with_zero_unresolved_review_threads
+      - PR186_coordinated_ACT_VERIFY_COMMIT_or_exact_checkpoint_restore_with_linear_RecoveryRequired_state_and_cancellation_qualified
+      - PR186_later_local_commit_failure_restores_earlier_successful_local_commit_before_global_success_is_reported
+      - PR186_post_global_commit_checkpoint_release_failure_is_cleanup_only_not_false_rollback
+      - ElasticXxx_PR_187_exact_head_1af57d411e66393d93a8ef825427060521d78549_merged_as_979406c05e5c28a93f7c6a23bade8468bca2463b
+      - PR187_single_resource_composite_vs_historical_runtime_differential_success_actuation_failure_verification_failure_and_commit_failure_all_match_final_semantics
+    completed_contract:
+      - CompositePlanEnvelope_binds_exact_EirGroupedDocument_group_and_candidate_bearing_subplans
+      - complete_group_topological_order_then_target_filter_preserves_transitive_required_before_dependent_order
+      - composite_plan_fingerprint_binds_typed_builtin_custom_dimensions_and_observation_signals
+      - ELANG4b_runs_all_trusted_validation_then_all_pre_actuation_capture_then_all_prepare_before_any_physical_actuation
+      - prepare_cleanup_is_reverse_order_linear_and_backend_instance_bound
+      - prepare_cleanup_failures_return_retryable_CompositePrepareRecoveryEnvelope_without_repeating_completed_cleanup
+      - CompositeTransactionBackend_requires_exact_checkpoint_restore_even_after_local_commit_until_checkpoint_release
+      - no_local_commit_starts_until_all_targeted_resources_have_actuated_and_verified
+      - actuation_errors_are_conservatively_treated_as_potential_partial_mutation_and_restored
+      - act_verify_commit_failure_or_cancellation_before_global_completion_triggers_reverse_coordinated_restore_or_abort
+      - incomplete_restore_yields_explicit_RecoveryRequired_linear_token_instead_of_false_success
+      - global_commit_report_is_emitted_only_after_every_local_commit_succeeds
+      - post_commit_checkpoint_release_failure_retains_cleanup_only_token_without_reverting_visible_global_commit
+      - facade_only_downstream_consumers_cover_prepare_recovery_and_successful_composite_transaction
+      - single_resource_differential_baseline_preserves_historical_transaction_final_state_semantics
+    explicit_non_goals:
+      - no_generic_distributed_ACID_claim
+      - no_cross_process_consensus_or_two_phase_commit_claim
+      - no_crash_recovery_persistence_claim_without_durable_backend_contract
+      - no_performance_claim
 
   - id: ELANG5
     name: policy_blocks_and_constraint_language
@@ -236,12 +249,12 @@ phases:
       - publication_name_recheck_only_at_actual_release_time
 
 current_execution:
-  verified_main: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
-  earliest_incomplete_phase: ELANG4
-  immediate_next_slice: qualify_and_merge_PR183_then_ELANG4b_checkpoint_and_prepare_boundary_before_any_composite_actuation
-  current_candidate_pr: 183
-  current_candidate_head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
-  current_candidate_status: exact_head_CI_pending_local_workspace_clippy_rustdoc_composite_tests_baseline_and_productization_gates_green
+  verified_main: 979406c05e5c28a93f7c6a23bade8468bca2463b
+  earliest_incomplete_phase: ELANG5
+  immediate_next_slice: ELANG5a_typed_policy_identity_versioning_and_target_binding
+  current_candidate_pr: null
+  current_candidate_head: null
+  current_candidate_status: ELANG4_complete_ELANG5a_local_candidate_in_progress
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none

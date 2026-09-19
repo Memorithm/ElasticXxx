@@ -665,11 +665,14 @@ post_prepublication_language_program:
     qualified_head: fc3c842205bb7ea46ef402826da865717a5a323e
     qualified_merge: 914116cd531ded905a45547bee45c4bdefeeff43
     publication_authorized: false
-  current_main_after_baseline_decoupling: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
+  current_main_after_baseline_decoupling: 979406c05e5c28a93f7c6a23bade8468bca2463b
+  latest_completed_language_phase: ELANG4
+  latest_language_completion_merge: 979406c05e5c28a93f7c6a23bade8468bca2463b
   current_language_candidate:
-    pr: 183
-    head: 0530ba9f2cf812065c89af8cdc64867124d2dc00
-    phase: ELANG4a_composite_plan_envelope
+    pr: null
+    head: null
+    phase: ELANG5a_typed_policy_identity_versioning_and_target_binding
+    status: local_candidate_in_progress
   rule: >-
     Language/runtime work has priority over registry publication. Read the
     dedicated language roadmap before macro, public-programming-model,
