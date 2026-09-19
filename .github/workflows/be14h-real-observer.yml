@@ -94,7 +94,7 @@ jobs:
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/be14h-real-observer.txt"
-          cargo +1.89.0 run -q -p elastic --example linux_thermal_energy -- \
+          cargo +1.89.0 run -q -p memorithm-elastic --example linux_thermal_energy -- \
             "$THERMAL_ZONE" "$POWER_INPUT" | tee "$output"
           python3 - "$output" <<'PY'
           import math

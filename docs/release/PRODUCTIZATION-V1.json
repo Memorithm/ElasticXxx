@@ -53,7 +53,6 @@
     "docs/release/PACKAGE-NAMING-V1.md"
   ],
   "publication_blockers": [
-    "selected_registry_package_names_not_yet_applied_to_cargo_manifests",
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
@@ -104,6 +103,6 @@
     ],
     "availability_observed_at": "2026-09-19T05:58:13Z",
     "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
-    "manifests_renamed": false
+    "manifests_renamed": true
   }
 }

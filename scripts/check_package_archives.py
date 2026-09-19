@@ -13,7 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = "0.1.0"
 MSRV = "1.89"
 REPOSITORY = "https://github.com/Memorithm/ElasticXxx"
-LEAVES = ("elastic-core", "elastic-macros")
+LEAVES = (
+    ("memorithm-elastic-core", "elastic-core", "elastic_core"),
+    ("memorithm-elastic-macros", "elastic-macros", "elastic_macros"),
+)
 MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 MAX_UNPACKED_BYTES = 32 * 1024 * 1024
 MAX_MEMBERS = 4096
@@ -65,7 +68,7 @@ def read_member(archive: tarfile.TarFile, member: str, max_bytes: int = 1024 * 1
     return value
 
 
-def validate_manifest(package: str, prefix: str, archive: tarfile.TarFile) -> None:
+def validate_manifest(package: str, crate_name: str, prefix: str, archive: tarfile.TarFile) -> None:
     manifest = tomllib.loads(read_member(archive, f"{prefix}/Cargo.toml").decode("utf-8"))
     metadata = manifest.get("package", {})
     expected = {
@@ -81,9 +84,11 @@ def validate_manifest(package: str, prefix: str, archive: tarfile.TarFile) -> No
             fail(f"{package} packaged Cargo.toml {key!r} drifted: {metadata.get(key)!r}")
     if not isinstance(metadata.get("description"), str) or not metadata["description"].strip():
         fail(f"{package} packaged Cargo.toml needs a non-empty description")
+    if manifest.get("lib", {}).get("name") != crate_name:
+        fail(f"{package} packaged Cargo.toml must preserve library crate name {crate_name!r}")
 
 
-def validate_archive(package: str) -> None:
+def validate_archive(package: str, source_dir: str, crate_name: str) -> None:
     prefix = f"{package}-{VERSION}"
     path = ROOT / "target/package" / f"{prefix}.crate"
     if not path.is_file() or path.stat().st_size > MAX_ARCHIVE_BYTES:
@@ -106,7 +111,7 @@ def validate_archive(package: str) -> None:
             fail(f"{package} archive file set differs from cargo --list; missing={missing!r} extra={extra!r}")
         if sum(member.size for member in members) > MAX_UNPACKED_BYTES:
             fail(f"{package} archive expands beyond the bounded size")
-        validate_manifest(package, prefix, archive)
+        validate_manifest(package, crate_name, prefix, archive)
         license_bytes = read_member(archive, f"{prefix}/LICENSE.md")
         if sha256(license_bytes) != sha256((ROOT / "LICENSE.md").read_bytes()):
             fail(f"{package} archive license differs from repository LICENSE.md")
@@ -115,14 +120,14 @@ def validate_archive(package: str) -> None:
             fail(f"{package} archive lacks crate-level rustdoc near src/lib.rs start")
         vcs = json.loads(read_member(archive, f"{prefix}/.cargo_vcs_info.json").decode("utf-8"))
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-        expected_vcs_path = f"crates/{package}"
+        expected_vcs_path = f"crates/{source_dir}"
         if vcs.get("git", {}).get("sha1") != head or vcs.get("path_in_vcs") != expected_vcs_path:
             fail(f"{package} archive VCS provenance does not match exact repository head")
 
 
 def main() -> None:
-    for package in LEAVES:
-        validate_archive(package)
+    for package, source_dir, crate_name in LEAVES:
+        validate_archive(package, source_dir, crate_name)
     print("package-archive: leaf archives match Cargo file sets and release metadata")
     print("package-archive: publication remains unauthorized")
 

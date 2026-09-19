@@ -104,10 +104,10 @@ dependency-free and introduces no OS, filesystem, or accelerator assumptions.
 ```sh
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p elastic --example manual_declaration
-cargo run -p elastic --example macro_declaration
-cargo run -p elastic --example worker_pool
-cargo run -p elastic-kv --example kv_representation_flow
+cargo run -p memorithm-elastic --example manual_declaration
+cargo run -p memorithm-elastic --example macro_declaration
+cargo run -p memorithm-elastic --example worker_pool
+cargo run -p memorithm-elastic-kv --example kv_representation_flow
 ```
 
 Hardening infrastructure lives outside the production workspace in `fuzz/`.

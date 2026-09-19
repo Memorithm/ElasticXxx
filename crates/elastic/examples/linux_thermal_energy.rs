@@ -1,7 +1,7 @@
 //! Read one Linux thermal margin and one direct hwmon power channel.
 //!
 //! Usage:
-//! `cargo run -p elastic --example linux_thermal_energy -- /sys/class/thermal/thermal_zoneN /sys/class/hwmon/hwmonN/power1_input`
+//! `cargo run -p memorithm-elastic --example linux_thermal_energy -- /sys/class/thermal/thermal_zoneN /sys/class/hwmon/hwmonN/power1_input`
 
 use std::process::ExitCode;
 

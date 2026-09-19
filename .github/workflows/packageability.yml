@@ -35,7 +35,16 @@ jobs:
 
           root = tomllib.loads(pathlib.Path("Cargo.toml").read_text())
           deps = root["workspace"]["dependencies"]
-          expected = {
+          registry_by_source = {
+              "elastic-core": "memorithm-elastic-core",
+              "elastic-macros": "memorithm-elastic-macros",
+              "elastic-eir": "memorithm-elastic-eir",
+              "elastic-adapters": "memorithm-elastic-adapters",
+              "elastic-runtime": "memorithm-elastic-runtime",
+              "elastic-kv": "memorithm-elastic-kv",
+              "elastic": "memorithm-elastic",
+          }
+          expected_paths = {
               "elastic-core": "crates/elastic-core",
               "elastic-eir": "crates/elastic-eir",
               "elastic-adapters": "crates/elastic-adapters",
@@ -43,11 +52,14 @@ jobs:
               "elastic-runtime": "crates/elastic-runtime",
               "elastic-kv": "crates/elastic-kv",
           }
-          for name, path in expected.items():
-              spec = deps.get(name)
-              assert isinstance(spec, dict), f"{name} must be a table dependency"
-              assert spec.get("version") == "0.1.0", f"{name} must pin version 0.1.0"
-              assert spec.get("path") == path, f"{name} must retain local path {path}"
+          for alias, path in expected_paths.items():
+              spec = deps.get(alias)
+              assert isinstance(spec, dict), f"{alias} must be a table dependency"
+              assert spec.get("package") == registry_by_source[alias], (
+                  f"{alias} must alias registry package {registry_by_source[alias]}"
+              )
+              assert spec.get("version") == "0.1.0", f"{alias} must pin version 0.1.0"
+              assert spec.get("path") == path, f"{alias} must retain local path {path}"
 
           declared_msrv = root["workspace"]["package"]["rust-version"]
           assert declared_msrv == "1.89", f"workspace MSRV drifted: {declared_msrv}"
@@ -70,20 +82,13 @@ jobs:
                   f"got {package['rust_version']}"
               )
 
-          documented_publish_chain = {
-              "elastic-core",
-              "elastic-macros",
-              "elastic-eir",
-              "elastic-adapters",
-              "elastic-runtime",
-              "elastic-kv",
-              "elastic",
-          }
+          documented_publish_chain = set(registry_by_source.values())
+          source_by_registry = {value: key for key, value in registry_by_source.items()}
 
           # Fail closed when the public facade acquires a new non-dev workspace
           # dependency that the release/packageability policy has not reviewed.
           publish_chain = set()
-          pending = ["elastic"]
+          pending = [registry_by_source["elastic"]]
           while pending:
               package_name = pending.pop()
               if package_name in publish_chain:
@@ -106,6 +111,7 @@ jobs:
 
           for package_name in publish_chain:
               package = packages[package_name]
+              source_name = source_by_registry[package_name]
               assert package["version"] == "0.1.0", (
                   f"{package_name} version drifted from pre-release line: "
                   f"{package['version']}"
@@ -115,11 +121,20 @@ jobs:
                   f"{package_name} must package the workspace LICENSE.md; "
                   f"resolved {license_file!r}"
               )
+              lib_targets = [
+                  target for target in package["targets"]
+                  if "lib" in target["kind"] or "proc-macro" in target["kind"]
+              ]
+              assert len(lib_targets) == 1 and lib_targets[0]["name"] == source_name.replace("-", "_"), (
+                  f"{package_name} must preserve source crate name {source_name.replace('-', '_')!r}"
+              )
               for dependency in package["dependencies"]:
-                  if (
-                      dependency["name"] in publish_chain
-                      and dependency["kind"] != "dev"
-                  ):
+                  if dependency["name"] in publish_chain and dependency["kind"] != "dev":
+                      expected_alias = source_by_registry[dependency["name"]]
+                      assert dependency.get("rename") == expected_alias, (
+                          f"{package_name} -> {dependency['name']} must retain alias {expected_alias!r}; "
+                          f"resolved {dependency.get('rename')!r}"
+                      )
                       assert dependency["req"] == "^0.1.0", (
                           f"{package_name} -> {dependency['name']} needs an explicit "
                           f"0.1.0 registry-compatible version requirement; "
@@ -131,13 +146,13 @@ jobs:
         run: |
           set -euo pipefail
           for crate in \
-            elastic-core \
-            elastic-macros \
-            elastic-eir \
-            elastic-adapters \
-            elastic-runtime \
-            elastic-kv \
-            elastic
+            memorithm-elastic-core \
+            memorithm-elastic-macros \
+            memorithm-elastic-eir \
+            memorithm-elastic-adapters \
+            memorithm-elastic-runtime \
+            memorithm-elastic-kv \
+            memorithm-elastic
           do
             cargo package -p "$crate" --allow-dirty --list >/dev/null
           done
@@ -145,7 +160,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo package -p elastic-core --allow-dirty --no-verify
-          cargo package -p elastic-macros --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-core --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-macros --allow-dirty --no-verify
       - name: Inspect first-publish leaf archives
         run: python3 scripts/check_package_archives.py

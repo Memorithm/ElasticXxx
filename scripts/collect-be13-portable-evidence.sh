@@ -284,7 +284,7 @@ if [[ -n "$EXPECTED_CODEGEN_PROFILE" && "$CODEGEN_PROFILE" != "$EXPECTED_CODEGEN
   exit 2
 fi
 
-if ! CARGO_TARGET_DIR="$TMP/cfg-target" cargo +1.89.0 rustc -p elastic-core --bench be13_portable -- \
+if ! CARGO_TARGET_DIR="$TMP/cfg-target" cargo +1.89.0 rustc -p memorithm-elastic-core --bench be13_portable -- \
   --print cfg >"$COMPILER_CFG" 2>"$TMP/compiler-cfg.stderr"; then
   cat "$TMP/compiler-cfg.stderr" >&2
   exit 4
@@ -294,7 +294,7 @@ CARGO_CONFIG_INVENTORY_SHA256=$(sha256sum "$CARGO_CONFIG_INVENTORY" | awk '{prin
 BUILD_ENV_INVENTORY_SHA256=$(sha256sum "$BUILD_ENV_INVENTORY" | awk '{print $1}')
 
 BUILD_JSON="$TMP/build.jsonl"
-if ! cargo +1.89.0 bench -p elastic-core --bench be13_portable --no-run \
+if ! cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable --no-run \
   --message-format=json >"$BUILD_JSON" 2>"$TMP/build.stderr"; then
   cat "$TMP/build.stderr" >&2
   exit 4

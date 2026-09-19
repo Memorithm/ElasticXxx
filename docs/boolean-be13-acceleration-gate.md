@@ -51,7 +51,7 @@ The corrected collector emits, before checksumming the run:
 - a collector-derived `codegen_profile`;
 - base64-encoded `RUSTFLAGS`, `CARGO_ENCODED_RUSTFLAGS`, and host-target
   `CARGO_TARGET_*_RUSTFLAGS`;
-- `compiler_cfg.txt`, produced by `cargo rustc -p elastic-core --bench
+- `compiler_cfg.txt`, produced by `cargo rustc -p memorithm-elastic-core --bench
   be13_portable -- --print cfg` under the same build environment;
 - `cargo_config_inventory.txt` and its SHA-256;
 - SHA-256 bindings for both files.
