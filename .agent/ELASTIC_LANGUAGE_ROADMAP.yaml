@@ -104,13 +104,20 @@ phases:
   - id: ELANG3
     name: resource_groups_dependencies_and_shared_constraints
     priority: P0
-    status: active_candidate
-    candidate:
-      pr: 182
-      head: 67a66ff198cd22657739f9efe15ed1b6f5926610
-      base: 22dd2ea37747df68364c63dd253de0cce6ca8fce
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_182
+      - PR182_exact_head_67a66ff198cd22657739f9efe15ed1b6f5926610
+      - PR182_ci_35451827818_completed_success_on_exact_head
+      - PR182_packageability_35451827792_completed_success_on_exact_head
+      - PR182_continuous_hardening_35451827810_completed_success_on_exact_head
+      - PR182_internal_baseline_gate_35451827806_completed_success_on_exact_head
+      - PR182_BE13_smoke_35451827799_completed_success_on_exact_head
+      - PR182_BE14h_real_observer_35451827822_completed_success_on_exact_head
+      - PR182_no_unresolved_review_threads_at_merge
+      - PR182_merged_as_4cb1bd808a75aff291c39cdcaff4cdab138d8bee
     rule: typed_semantics_before_DSL_spelling
-    completed_in_candidate:
+    completed_contract:
       - bounded_ResourceGroup_identity_canonical_membership_and_directed_dependencies
       - deterministic_precise_dependency_cycle_detection
       - SharedBudget_reuses_existing_PseudoBooleanConstraintDeclaration_capacity_budget_with_explicit_scale
@@ -123,9 +130,6 @@ phases:
       - facade_only_downstream_guard_and_runnable_elastic_groups_example
       - compile_fail_diagnostics_for_unknown_group_resource_missing_members_and_incomplete_budget
       - ELASTIC_LANGUAGE_0_3_and_macro_guide_documentation
-      - local_exact_head_workspace_all_targets_clippy_rustdoc_trybuild_internal_baseline_and_productization_gates_green
-    remaining:
-      - exact_head_required_CI_and_review_qualification
     non_goals:
       - dependency_edges_do_not_define_actuation_order
       - no_composite_plan_or_transaction_atomicity
@@ -134,7 +138,7 @@ phases:
   - id: ELANG4
     name: composite_planning_and_transaction_semantics
     priority: P0
-    status: planned
+    status: active
     tasks:
       - composite_plan_envelope
       - ordering_and_conflict_resolution_for_subplans
@@ -217,12 +221,12 @@ phases:
       - publication_name_recheck_only_at_actual_release_time
 
 current_execution:
-  verified_main: 22dd2ea37747df68364c63dd253de0cce6ca8fce
-  earliest_incomplete_phase: ELANG3
-  immediate_next_slice: qualify_and_merge_PR182_then_ELANG4_composite_planning_and_transaction_semantics
-  current_candidate_pr: 182
-  current_candidate_head: 67a66ff198cd22657739f9efe15ed1b6f5926610
-  current_candidate_status: exact_head_CI_pending_local_workspace_rustdoc_trybuild_clippy_group_equivalence_baseline_and_productization_gates_green
+  verified_main: 4cb1bd808a75aff291c39cdcaff4cdab138d8bee
+  earliest_incomplete_phase: ELANG4
+  immediate_next_slice: ELANG4a_composite_plan_envelope_topological_ordering_and_conflict_rejection_before_any_multi_resource_actuation
+  current_candidate_pr: null
+  current_candidate_head: null
+  current_candidate_status: ELANG3_merged_ELANG4_active_no_open_language_candidate
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none
