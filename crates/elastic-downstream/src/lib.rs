@@ -122,6 +122,56 @@ pub fn public_elastic_document_surface_smoke() {
     assert_eq!(MAX_EIR_DOCUMENT_RESOURCES, 256);
 }
 
+/// Compile-time proof that ELANG3 resource groups, dependencies, shared budgets,
+/// cross-resource invariants and grouped EIR are reachable through only the
+/// public `elastic` dependency.
+pub fn public_grouped_document_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache = LogicalResourceId::new("downstream-cache").unwrap();
+    let budget = SharedBudget::new(
+        SharedBudgetId::new("memory").unwrap(),
+        vec![
+            SharedBudgetTerm::new(
+                worker.clone(),
+                PredicateKey::new("elastic.downstream", "workers-expanded").unwrap(),
+                4,
+            )
+            .unwrap(),
+            SharedBudgetTerm::new(
+                cache.clone(),
+                PredicateKey::new("elastic.downstream", "cache-expanded").unwrap(),
+                6,
+            )
+            .unwrap(),
+        ],
+        8,
+        PseudoBooleanScale::new("units", 1).unwrap(),
+    )
+    .unwrap();
+    let invariant = CrossResourceInvariant::new(
+        ContractId::new("downstream-coherence").unwrap(),
+        worker.clone(),
+        vec![worker.clone(), cache.clone()],
+    )
+    .unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("downstream-stack").unwrap())
+        .members([worker.clone(), cache.clone()])
+        .dependency(ResourceDependency::new(cache, worker))
+        .shared_budget(budget)
+        .cross_invariant(invariant)
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+
+    assert_eq!(grouped.groups().len(), 1);
+    assert_eq!(grouped.groups()[0].shared_budgets().len(), 1);
+    assert_eq!(grouped.groups()[0].cross_invariants().len(), 1);
+    assert!(grouped
+        .group_resource("downstream-stack", "downstream-cache")
+        .is_some());
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {

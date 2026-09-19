@@ -41,12 +41,20 @@
 
 mod bridge;
 pub mod error;
+mod group;
 mod invariant;
 mod spec;
 mod terms;
 mod transition;
 
 pub use bridge::{DeclarationError, RepresentationalDeclaration};
+pub use group::{
+    CrossResourceInvariant, CrossResourceInvariantError, ResourceDependency, ResourceGroup,
+    ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, SharedBudget, SharedBudgetError,
+    SharedBudgetId, SharedBudgetTerm, MAX_RESOURCE_GROUP_CROSS_INVARIANTS,
+    MAX_RESOURCE_GROUP_DEPENDENCIES, MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS,
+    MAX_RESOURCE_GROUP_SHARED_BUDGETS, MAX_SHARED_BUDGET_ID_BYTES,
+};
 
 pub use error::{ResourceSpecError, TermKind};
 pub use invariant::{Invariant, InvariantKind};

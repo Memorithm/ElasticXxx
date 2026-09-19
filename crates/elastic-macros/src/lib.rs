@@ -28,13 +28,13 @@
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    braced, parenthesized, parse_macro_input, Attribute, Data, DeriveInput, Ident, LitStr, Token,
-    Visibility,
+    braced, parenthesized, parse_macro_input, Attribute, Data, DeriveInput, Ident, LitInt, LitStr,
+    Token, Visibility,
 };
 
 /// Declare an elastic resource.
@@ -54,9 +54,11 @@ pub fn derive_elastic_resource(input: TokenStream) -> TokenStream {
 ///
 /// A standalone `resource` produces one named resource module. A `document`
 /// groups multiple resource modules and lowers them through the existing
-/// `EirDocumentBuilder`. Resource bodies accept exactly the same declaration
-/// fragments as `#[derive(ElasticResource)]`, so the DSL owns no independent
-/// resource, planning, or runtime semantics.
+/// `EirDocumentBuilder`. ELANG3 `group` blocks add typed dependencies, shared
+/// pseudo-Boolean budgets and explicitly owned cross-resource invariants through
+/// the public core/EIR contracts. Resource bodies accept exactly the same
+/// declaration fragments as `#[derive(ElasticResource)]`, so the DSL owns no
+/// independent resource, planning, transaction, or runtime semantics.
 ///
 /// ```ignore
 /// elastic! {
@@ -82,8 +84,21 @@ pub fn elastic(input: TokenStream) -> TokenStream {
 }
 
 mod kw {
+    syn::custom_keyword!(budget);
+    syn::custom_keyword!(contract);
+    syn::custom_keyword!(depends);
     syn::custom_keyword!(document);
+    syn::custom_keyword!(group);
+    syn::custom_keyword!(invariant);
+    syn::custom_keyword!(maximum);
+    syn::custom_keyword!(members);
+    syn::custom_keyword!(owner);
+    syn::custom_keyword!(participants);
+    syn::custom_keyword!(predicate);
+    syn::custom_keyword!(quantum);
     syn::custom_keyword!(resource);
+    syn::custom_keyword!(term);
+    syn::custom_keyword!(unit);
 }
 
 struct ElasticResourceDsl {
@@ -97,10 +112,45 @@ struct ElasticDocumentResourceDsl {
     body: proc_macro2::TokenStream,
 }
 
+struct ElasticGroupDependencyDsl {
+    dependent: Ident,
+    required: Ident,
+}
+
+struct ElasticBudgetTermDsl {
+    resource: Ident,
+    predicate_namespace: String,
+    predicate_name: String,
+    weight: i128,
+}
+
+struct ElasticBudgetDsl {
+    name: Ident,
+    unit: String,
+    quantum: u64,
+    maximum: i128,
+    terms: Vec<ElasticBudgetTermDsl>,
+}
+
+struct ElasticInvariantDsl {
+    contract: String,
+    owner: Ident,
+    participants: Vec<Ident>,
+}
+
+struct ElasticGroupDsl {
+    name: Ident,
+    members: Vec<Ident>,
+    dependencies: Vec<ElasticGroupDependencyDsl>,
+    budgets: Vec<ElasticBudgetDsl>,
+    invariants: Vec<ElasticInvariantDsl>,
+}
+
 struct ElasticDocumentDsl {
     visibility: Visibility,
     name: Ident,
     resources: Vec<ElasticDocumentResourceDsl>,
+    groups: Vec<ElasticGroupDsl>,
 }
 
 enum ElasticDslInput {
@@ -120,7 +170,7 @@ impl Parse for ElasticDslInput {
             if !input.is_empty() {
                 return Err(syn::Error::new(
                     input.span(),
-                    "elastic! single-resource form accepts exactly one resource; use `document NAME { resource ... }` for multiple resources",
+                    "elastic! single-resource form accepts exactly one resource; use `document NAME { ... }` for multi-resource declarations",
                 ));
             }
             return Ok(Self::Resource(ElasticResourceDsl {
@@ -135,34 +185,57 @@ impl Parse for ElasticDslInput {
             let content;
             braced!(content in input);
             let mut resources = Vec::new();
-            let mut names = std::collections::BTreeSet::new();
+            let mut groups = Vec::new();
+            let mut resource_names = std::collections::BTreeSet::new();
+            let mut group_names = std::collections::BTreeSet::new();
             while !content.is_empty() {
-                content.parse::<kw::resource>().map_err(|_| {
-                    syn::Error::new(
-                        content.span(),
-                        "elastic! document bodies accept only `resource NAME { ... }` declarations in v0.2",
-                    )
-                })?;
-                let resource_name: Ident = content.parse()?;
-                if resource_name == "document" {
-                    return Err(syn::Error::new(
-                        resource_name.span(),
-                        "resource module name `document` is reserved for the generated document() function",
-                    ));
+                if content.peek(kw::resource) {
+                    content.parse::<kw::resource>()?;
+                    let resource_name: Ident = content.parse()?;
+                    if matches!(
+                        resource_name.to_string().as_str(),
+                        "document" | "grouped_document"
+                    ) {
+                        return Err(syn::Error::new(
+                            resource_name.span(),
+                            "resource module name is reserved by the generated document API",
+                        ));
+                    }
+                    if !resource_names.insert(resource_name.to_string()) {
+                        return Err(syn::Error::new(
+                            resource_name.span(),
+                            format!(
+                                "duplicate resource module `{resource_name}` in elastic! document"
+                            ),
+                        ));
+                    }
+                    let resource_content;
+                    braced!(resource_content in content);
+                    let body: proc_macro2::TokenStream = resource_content.parse()?;
+                    resources.push(ElasticDocumentResourceDsl {
+                        name: resource_name,
+                        body,
+                    });
+                    continue;
                 }
-                if !names.insert(resource_name.to_string()) {
-                    return Err(syn::Error::new(
-                        resource_name.span(),
-                        format!("duplicate resource module `{resource_name}` in elastic! document"),
-                    ));
+                if content.peek(kw::group) {
+                    let group = parse_group_dsl(&content)?;
+                    if !group_names.insert(group.name.to_string()) {
+                        return Err(syn::Error::new(
+                            group.name.span(),
+                            format!(
+                                "duplicate resource group `{}` in elastic! document",
+                                group.name
+                            ),
+                        ));
+                    }
+                    groups.push(group);
+                    continue;
                 }
-                let resource_content;
-                braced!(resource_content in content);
-                let body: proc_macro2::TokenStream = resource_content.parse()?;
-                resources.push(ElasticDocumentResourceDsl {
-                    name: resource_name,
-                    body,
-                });
+                return Err(syn::Error::new(
+                    content.span(),
+                    "elastic! document bodies accept only `resource NAME { ... }` and `group NAME { ... }` declarations",
+                ));
             }
             if resources.is_empty() {
                 return Err(syn::Error::new(
@@ -170,6 +243,7 @@ impl Parse for ElasticDslInput {
                     "elastic! document must contain at least one resource",
                 ));
             }
+            validate_group_references(&groups, &resource_names)?;
             if !input.is_empty() {
                 return Err(syn::Error::new(
                     input.span(),
@@ -180,13 +254,294 @@ impl Parse for ElasticDslInput {
                 visibility,
                 name,
                 resources,
+                groups,
             }));
         }
         Err(syn::Error::new(
             input.span(),
-            "expected `resource NAME { ... }` or `document NAME { resource ... }` after optional visibility",
+            "expected `resource NAME { ... }` or `document NAME { ... }` after optional visibility",
         ))
     }
+}
+
+fn parse_group_dsl(input: ParseStream<'_>) -> syn::Result<ElasticGroupDsl> {
+    input.parse::<kw::group>()?;
+    let name: Ident = input.parse()?;
+    let content;
+    braced!(content in input);
+    let mut members: Option<Vec<Ident>> = None;
+    let mut dependencies = Vec::new();
+    let mut budgets = Vec::new();
+    let mut invariants = Vec::new();
+    let mut budget_names = std::collections::BTreeSet::new();
+
+    while !content.is_empty() {
+        if content.peek(kw::members) {
+            let keyword: kw::members = content.parse()?;
+            if members.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "group members(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let parsed = Punctuated::<Ident, Token![,]>::parse_terminated(&inner)?;
+            if parsed.is_empty() {
+                return Err(syn::Error::new(
+                    inner.span(),
+                    "group members(...) must not be empty",
+                ));
+            }
+            content.parse::<Token![;]>()?;
+            members = Some(parsed.into_iter().collect());
+            continue;
+        }
+        if content.peek(kw::depends) {
+            content.parse::<kw::depends>()?;
+            let inner;
+            parenthesized!(inner in content);
+            let dependent: Ident = inner.parse()?;
+            inner.parse::<Token![->]>()?;
+            let required: Ident = inner.parse()?;
+            expect_exhausted(&inner, "depends")?;
+            content.parse::<Token![;]>()?;
+            dependencies.push(ElasticGroupDependencyDsl {
+                dependent,
+                required,
+            });
+            continue;
+        }
+        if content.peek(kw::budget) {
+            let budget = parse_budget_dsl(&content)?;
+            if !budget_names.insert(budget.name.to_string()) {
+                return Err(syn::Error::new(
+                    budget.name.span(),
+                    format!("duplicate budget `{}` in resource group", budget.name),
+                ));
+            }
+            budgets.push(budget);
+            continue;
+        }
+        if content.peek(kw::invariant) {
+            invariants.push(parse_invariant_dsl(&content)?);
+            continue;
+        }
+        return Err(syn::Error::new(
+            content.span(),
+            "expected members(...), depends(...), budget NAME { ... }, or invariant(...) in resource group",
+        ));
+    }
+
+    let members = members
+        .ok_or_else(|| syn::Error::new(name.span(), "resource group must declare members(...)"))?;
+    Ok(ElasticGroupDsl {
+        name,
+        members,
+        dependencies,
+        budgets,
+        invariants,
+    })
+}
+
+fn parse_budget_dsl(input: ParseStream<'_>) -> syn::Result<ElasticBudgetDsl> {
+    input.parse::<kw::budget>()?;
+    let name: Ident = input.parse()?;
+    let content;
+    braced!(content in input);
+    let mut unit = None;
+    let mut quantum = None;
+    let mut maximum = None;
+    let mut terms = Vec::new();
+    while !content.is_empty() {
+        if content.peek(kw::unit) {
+            let keyword: kw::unit = content.parse()?;
+            if unit.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "budget unit(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let value: LitStr = inner.parse()?;
+            expect_exhausted(&inner, "unit")?;
+            content.parse::<Token![;]>()?;
+            unit = Some(value.value());
+            continue;
+        }
+        if content.peek(kw::quantum) {
+            let keyword: kw::quantum = content.parse()?;
+            if quantum.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "budget quantum(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let value: LitInt = inner.parse()?;
+            expect_exhausted(&inner, "quantum")?;
+            content.parse::<Token![;]>()?;
+            quantum = Some(value.base10_parse::<u64>()?);
+            continue;
+        }
+        if content.peek(kw::maximum) {
+            let keyword: kw::maximum = content.parse()?;
+            if maximum.is_some() {
+                return Err(syn::Error::new(
+                    keyword.span(),
+                    "budget maximum(...) may be declared only once",
+                ));
+            }
+            let inner;
+            parenthesized!(inner in content);
+            let value = parse_signed_i128(&inner)?;
+            expect_exhausted(&inner, "maximum")?;
+            content.parse::<Token![;]>()?;
+            maximum = Some(value);
+            continue;
+        }
+        if content.peek(kw::term) {
+            content.parse::<kw::term>()?;
+            let inner;
+            parenthesized!(inner in content);
+            let resource: Ident = inner.parse()?;
+            inner.parse::<Token![,]>()?;
+            inner.parse::<kw::predicate>()?;
+            let predicate;
+            parenthesized!(predicate in inner);
+            let namespace: LitStr = predicate.parse()?;
+            predicate.parse::<Token![,]>()?;
+            let predicate_name: LitStr = predicate.parse()?;
+            expect_exhausted(&predicate, "predicate")?;
+            inner.parse::<Token![,]>()?;
+            let weight = parse_signed_i128(&inner)?;
+            expect_exhausted(&inner, "term")?;
+            content.parse::<Token![;]>()?;
+            terms.push(ElasticBudgetTermDsl {
+                resource,
+                predicate_namespace: namespace.value(),
+                predicate_name: predicate_name.value(),
+                weight,
+            });
+            continue;
+        }
+        return Err(syn::Error::new(
+            content.span(),
+            "expected unit(...), quantum(...), maximum(...), or term(...) in shared budget",
+        ));
+    }
+    if terms.is_empty() {
+        return Err(syn::Error::new(
+            name.span(),
+            "shared budget must contain at least one term(...)",
+        ));
+    }
+    if input.peek(Token![;]) {
+        input.parse::<Token![;]>()?;
+    }
+    let name_span = name.span();
+    Ok(ElasticBudgetDsl {
+        name,
+        unit: unit
+            .ok_or_else(|| syn::Error::new(name_span, "shared budget is missing unit(...)"))?,
+        quantum: quantum
+            .ok_or_else(|| syn::Error::new(name_span, "shared budget is missing quantum(...)"))?,
+        maximum: maximum
+            .ok_or_else(|| syn::Error::new(name_span, "shared budget is missing maximum(...)"))?,
+        terms,
+    })
+}
+
+fn parse_invariant_dsl(input: ParseStream<'_>) -> syn::Result<ElasticInvariantDsl> {
+    input.parse::<kw::invariant>()?;
+    let content;
+    parenthesized!(content in input);
+    content.parse::<kw::contract>()?;
+    let contract_inner;
+    parenthesized!(contract_inner in content);
+    let contract: LitStr = contract_inner.parse()?;
+    expect_exhausted(&contract_inner, "contract")?;
+    content.parse::<Token![,]>()?;
+    content.parse::<kw::owner>()?;
+    let owner_inner;
+    parenthesized!(owner_inner in content);
+    let owner: Ident = owner_inner.parse()?;
+    expect_exhausted(&owner_inner, "owner")?;
+    content.parse::<Token![,]>()?;
+    content.parse::<kw::participants>()?;
+    let participants_inner;
+    parenthesized!(participants_inner in content);
+    let participants = Punctuated::<Ident, Token![,]>::parse_terminated(&participants_inner)?;
+    if participants.is_empty() {
+        return Err(syn::Error::new(
+            participants_inner.span(),
+            "invariant participants(...) must not be empty",
+        ));
+    }
+    expect_exhausted(&content, "invariant")?;
+    input.parse::<Token![;]>()?;
+    Ok(ElasticInvariantDsl {
+        contract: contract.value(),
+        owner,
+        participants: participants.into_iter().collect(),
+    })
+}
+
+fn parse_signed_i128(input: ParseStream<'_>) -> syn::Result<i128> {
+    let negative = if input.peek(Token![-]) {
+        input.parse::<Token![-]>()?;
+        true
+    } else {
+        false
+    };
+    let value: LitInt = input.parse()?;
+    let magnitude = value.base10_parse::<i128>()?;
+    if negative {
+        magnitude
+            .checked_neg()
+            .ok_or_else(|| syn::Error::new(value.span(), "signed integer is outside i128 range"))
+    } else {
+        Ok(magnitude)
+    }
+}
+
+fn validate_group_references(
+    groups: &[ElasticGroupDsl],
+    resources: &std::collections::BTreeSet<String>,
+) -> syn::Result<()> {
+    let check = |ident: &Ident| {
+        if resources.contains(&ident.to_string()) {
+            Ok(())
+        } else {
+            Err(syn::Error::new(
+                ident.span(),
+                format!("resource group references unknown document resource `{ident}`"),
+            ))
+        }
+    };
+    for group in groups {
+        for member in &group.members {
+            check(member)?;
+        }
+        for dependency in &group.dependencies {
+            check(&dependency.dependent)?;
+            check(&dependency.required)?;
+        }
+        for budget in &group.budgets {
+            for term in &budget.terms {
+                check(&term.resource)?;
+            }
+        }
+        for invariant in &group.invariants {
+            check(&invariant.owner)?;
+            for participant in &invariant.participants {
+                check(participant)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn expand_elastic_dsl(input: ElasticDslInput) -> Result<proc_macro2::TokenStream, syn::Error> {
@@ -255,12 +610,17 @@ fn expand_document_module(
         visibility,
         name,
         resources,
+        groups,
     } = input;
     let resource_count = resources.len();
+    let group_count = groups.len();
     let mut resource_modules = Vec::with_capacity(resource_count);
     let mut resource_names = Vec::with_capacity(resource_count);
+    let mut resource_ids = std::collections::BTreeMap::new();
     for resource in resources {
         let resource_name = resource.name.clone();
+        let id_var = format_ident!("__elastic_id_{}", resource_name);
+        resource_ids.insert(resource_name.to_string(), id_var);
         resource_modules.push(expand_resource_module(ElasticResourceDsl {
             visibility: syn::parse_quote!(pub),
             name: resource.name,
@@ -269,12 +629,142 @@ fn expand_document_module(
         resource_names.push(resource_name);
     }
 
+    let grouped_function = if groups.is_empty() {
+        quote! {}
+    } else {
+        let id_bindings = resource_names.iter().map(|resource_name| {
+            let id_var = &resource_ids[&resource_name.to_string()];
+            quote! {
+                let #id_var = #resource_name::resource_spec()
+                    .map_err(|source| {
+                        ::elastic::ElasticGroupDocumentError::from(
+                            ::elastic::ElasticDocumentError::resource(
+                                stringify!(#resource_name),
+                                source,
+                            )
+                        )
+                    })?
+                    .resource_id()
+                    .clone();
+            }
+        });
+
+        let mut group_exprs = Vec::with_capacity(groups.len());
+        for group in groups {
+            let group_name = group.name.to_string();
+            let group_name_lit = LitStr::new(&group_name, group.name.span());
+            let member_vars = group
+                .members
+                .iter()
+                .map(|member| resource_ids[&member.to_string()].clone())
+                .collect::<Vec<_>>();
+            let dependency_suffixes = group.dependencies.iter().map(|dependency| {
+                let dependent = &resource_ids[&dependency.dependent.to_string()];
+                let required = &resource_ids[&dependency.required.to_string()];
+                quote! {
+                    .dependency(::elastic::ResourceDependency::new(
+                        #dependent.clone(),
+                        #required.clone(),
+                    ))
+                }
+            });
+
+            let mut budget_statements = Vec::with_capacity(group.budgets.len());
+            for budget in group.budgets {
+                let budget_name = LitStr::new(&budget.name.to_string(), budget.name.span());
+                let unit = LitStr::new(&budget.unit, budget.name.span());
+                let quantum = budget.quantum;
+                let maximum = budget.maximum;
+                let terms = budget.terms.iter().map(|term| {
+                    let resource = &resource_ids[&term.resource.to_string()];
+                    let namespace = LitStr::new(&term.predicate_namespace, term.resource.span());
+                    let predicate_name = LitStr::new(&term.predicate_name, term.resource.span());
+                    let weight = term.weight;
+                    quote! {
+                        ::elastic::SharedBudgetTerm::new(
+                            #resource.clone(),
+                            ::elastic::PredicateKey::new(#namespace, #predicate_name)?,
+                            #weight,
+                        )?
+                    }
+                });
+                budget_statements.push(quote! {
+                    __elastic_group_builder = __elastic_group_builder.shared_budget(
+                        ::elastic::SharedBudget::new(
+                            ::elastic::SharedBudgetId::new(#budget_name)?,
+                            vec![#(#terms),*],
+                            #maximum,
+                            ::elastic::PseudoBooleanScale::new(#unit, #quantum)?,
+                        )?
+                    );
+                });
+            }
+
+            let mut invariant_statements = Vec::with_capacity(group.invariants.len());
+            for invariant in group.invariants {
+                let contract = LitStr::new(&invariant.contract, invariant.owner.span());
+                let owner = &resource_ids[&invariant.owner.to_string()];
+                let participants = invariant
+                    .participants
+                    .iter()
+                    .map(|participant| resource_ids[&participant.to_string()].clone())
+                    .collect::<Vec<_>>();
+                invariant_statements.push(quote! {
+                    __elastic_group_builder = __elastic_group_builder.cross_invariant(
+                        ::elastic::CrossResourceInvariant::new(
+                            ::elastic::ContractId::new(#contract)?,
+                            #owner.clone(),
+                            vec![#(#participants.clone()),*],
+                        )?
+                    );
+                });
+            }
+
+            group_exprs.push(quote! {
+                {
+                    let mut __elastic_group_builder = ::elastic::ResourceGroupBuilder::new(
+                        ::elastic::ResourceGroupId::new(#group_name_lit)?,
+                    )
+                    .members(vec![#(#member_vars.clone()),*])
+                    #(#dependency_suffixes)*;
+                    #(#budget_statements)*
+                    #(#invariant_statements)*
+                    __elastic_group_builder.build()?
+                }
+            });
+        }
+
+        quote! {
+            #[doc = concat!(
+                "Builds the validated grouped [`EirGroupedDocument`](::elastic::EirGroupedDocument) ",
+                "declared by `elastic!` document `",
+                stringify!(#name),
+                "`."
+            )]
+            pub fn grouped_document()
+                -> ::core::result::Result<
+                    ::elastic::EirGroupedDocument,
+                    ::elastic::ElasticGroupDocumentError,
+                > {
+                let __elastic_document = document()?;
+                #(#id_bindings)*
+                let __elastic_groups = vec![#(#group_exprs),*];
+                ::elastic::EirGroupedDocument::new(__elastic_document, &__elastic_groups)
+                    .map_err(::core::convert::Into::into)
+            }
+        }
+    };
+
     Ok(quote! {
         #visibility mod #name {
             const _: () = {
                 assert!(
                     #resource_count <= ::elastic::MAX_EIR_DOCUMENT_RESOURCES,
                     "elastic! document exceeds MAX_EIR_DOCUMENT_RESOURCES",
+                );
+                assert!(
+                    #group_count <= ::elastic::MAX_EIR_RESOURCE_GROUPS,
+                    "elastic! document exceeds MAX_EIR_RESOURCE_GROUPS",
                 );
             };
 
@@ -303,6 +793,8 @@ fn expand_document_module(
                 )*
                 builder.finish().map_err(::core::convert::Into::into)
             }
+
+            #grouped_function
         }
     })
 }
