@@ -140,3 +140,26 @@ This contract intentionally does not yet add:
 
 Those require separate evidence and must not be inferred from the in-process
 reversible transaction contract.
+
+## Differential single-resource baseline
+
+ELANG4d retains an explicit differential baseline against the historical
+single-resource `Runtime` transaction path. A one-resource composite group is
+executed with the same logical resource, transition, backend semantics and
+failure injection as a normal runtime cycle.
+
+The retained tests require parity for:
+
+- successful commit: both paths leave the same committed visible state;
+- actuation error after partial mutation: both paths restore the source state;
+- verification failure: neither path commits and both restore the source state;
+- local commit failure: neither path leaves a committed state and both restore
+  the source state.
+
+The public result shapes are intentionally different — the composite API carries
+multi-resource recovery/disposition evidence — so parity is asserted on semantic
+outcome and visible backend state rather than on diagnostic strings or record
+layout.
+
+This baseline prevents the composite layer from silently redefining existing
+single-resource transaction semantics as ELANG4 evolves.
