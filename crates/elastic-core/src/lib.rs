@@ -79,7 +79,8 @@ pub use multiword_batch::{
 pub use multiword_guard::{MultiwordCompiledGuard, MultiwordGuardError, MultiwordGuardPath};
 pub use policy::{
     PolicyHeader, PolicyId, PolicyIdentity, PolicyIdentityError, PolicyTarget, PolicyTargetKind,
-    PolicyVersion, MAX_POLICY_ID_BYTES,
+    PolicyVersion, ResourcePolicyError, ResourcePolicySpec, MAX_POLICY_ID_BYTES,
+    MAX_RESOURCE_POLICY_CONSTRAINTS,
 };
 pub use predicate::{
     PredicateComponent, PredicateComponentError, PredicateKey, PredicateRegistry,
