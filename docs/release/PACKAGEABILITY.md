@@ -78,29 +78,26 @@ This gate does not:
 - promise semver stability beyond the declared pre-1.0 policy;
 - alter runtime, model-execution, representation or adapter semantics.
 
-## Exact release-candidate freeze
+## Retained qualified internal baseline
 
-The 0.1.0 candidate is additionally bound by
-`docs/release/RELEASE-CANDIDATE-V1.json` and
-`scripts/check_release_candidate.py`. The manifest records a deterministic
-SHA-256 over Git-style file mode, path, and content for every tracked repository
-file except the candidate manifest itself.
-Any tracked payload change therefore invalidates the candidate until an explicit
-reviewed refreeze updates that digest.
+The qualified 0.1.0 checkpoint is retained as an **internal baseline**, not as a
+freeze on future `main` development. `RELEASE-CANDIDATE-V1.json` records the
+exact PR #178 head `fc3c842205bb7ea46ef402826da865717a5a323e`, its Git tree,
+the three successful qualification workflow run IDs, and the deterministic
+payload digest computed from that historical Git tree.
 
-The checker emits a receipt naming the exact Git commit and tree on which it ran.
-The dedicated `release-candidate-prepublication` workflow asserts that the
-receipt commit equals the workflow head SHA. `ci` and `packageability` remain
-separate required exact-head checks; the candidate gate never treats its own
-success as proof that those sibling workflows passed.
+`scripts/check_release_candidate.py` verifies those immutable Git objects rather
+than requiring the current development `HEAD` to reproduce the same payload.
+This preserves a reproducible 0.1.0 engineering checkpoint while allowing the
+embedded language, multi-resource runtime, EIR and adapters to continue
+evolving. The current workspace is checked separately and every registry-visible
+package must still resolve `publish = false`.
 
-This gate is deliberately non-publishing: registry publication, registry
-mutation, and registry network queries are all unauthorized in the candidate
-manifest; `publish = false` remains mandatory for the seven registry-visible
-packages. No crates.io token is supplied to the prepublication workflow.
+The workflow name `release-candidate-prepublication` is retained for CI and
+branch-protection continuity. Its receipt now distinguishes the historical
+`baseline_source_commit` from the `current_head` under test. It performs no
+crates.io query and receives no registry token.
 
-A successful candidate gate therefore means only: **this exact commit contains
-the frozen reviewed release payload and remains fail-closed against publication**.
-It does not clear the independent release-time crates.io name recheck,
-dependency-order first publication, non-leaf archive inspection, or clean
-registry downstream-install blockers.
+Publication is explicitly suspended. Resuming it requires a new explicit
+decision, a fresh release-time name recheck and a newly qualified candidate. The
+retained baseline grants no registry publication or mutation authority.
