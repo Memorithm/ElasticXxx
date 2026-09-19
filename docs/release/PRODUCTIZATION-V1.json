@@ -49,16 +49,61 @@
     "docs/release/PACKAGEABILITY.md",
     "docs/release/MIGRATION-0.1.md",
     "docs/release/CROSS_REPO_COMPATIBILITY.md",
-    "docs/release/REGISTRY-NAME-AUDIT.md"
+    "docs/release/REGISTRY-NAME-AUDIT.md",
+    "docs/release/PACKAGE-NAMING-V1.md"
   ],
   "publication_blockers": [
-    "crates_io_current_name_collision_elastic_and_elastic_macros_requires_resolution",
+    "selected_registry_package_names_not_yet_applied_to_cargo_manifests",
     "crates_io_name_availability_must_be_rechecked_at_release_time",
-    "public_private_crate_topology_not_explicitly_authorized",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
     "release_versions_changelog_and_release_notes_not_frozen",
     "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish",
     "exact_release_commit_required_ci_and_packageability_not_yet_successful"
-  ]
+  ],
+  "public_package_topology": {
+    "registry": "crates.io",
+    "topology": "all-facade-dependencies-public-registry-visible",
+    "supported_user_boundary": "elastic",
+    "registry_packages": [
+      {
+        "workspace_package": "elastic-core",
+        "registry_package": "memorithm-elastic-core",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic-macros",
+        "registry_package": "memorithm-elastic-macros",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic-eir",
+        "registry_package": "memorithm-elastic-eir",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic-adapters",
+        "registry_package": "memorithm-elastic-adapters",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic-runtime",
+        "registry_package": "memorithm-elastic-runtime",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic-kv",
+        "registry_package": "memorithm-elastic-kv",
+        "role": "implementation-dependency"
+      },
+      {
+        "workspace_package": "elastic",
+        "registry_package": "memorithm-elastic",
+        "role": "public-facade"
+      }
+    ],
+    "availability_observed_at": "2026-09-19T05:58:13Z",
+    "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
+    "manifests_renamed": false
+  }
 }

@@ -26,7 +26,8 @@ PUBLIC_CHAIN = {
 EXPECTED_MANIFEST_KEYS = {
     "schema", "scope", "release_line", "workspace_version", "msrv",
     "registry_publication_authorized", "public_rust_boundary", "license_source",
-    "qualified_consumers_and_sources", "required_release_documents", "publication_blockers",
+    "public_package_topology", "qualified_consumers_and_sources",
+    "required_release_documents", "publication_blockers",
 }
 
 EXPECTED_LICENSE_SOURCE = {
@@ -73,13 +74,14 @@ EXPECTED_RELEASE_DOCUMENTS = {
     "docs/release/MIGRATION-0.1.md",
     "docs/release/CROSS_REPO_COMPATIBILITY.md",
     "docs/release/REGISTRY-NAME-AUDIT.md",
+    "docs/release/PACKAGE-NAMING-V1.md",
 }
 EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10ccb60654e0c42bcfecfc"
 
+EXPECTED_PACKAGE_NAMING_SHA256 = "319aae97f1496dfb58623e7ebbdd928d6049a98635c320ab3484a5b3690ae7de"
 EXPECTED_PUBLICATION_BLOCKERS = {
-    "crates_io_current_name_collision_elastic_and_elastic_macros_requires_resolution",
+    "selected_registry_package_names_not_yet_applied_to_cargo_manifests",
     "crates_io_name_availability_must_be_rechecked_at_release_time",
-    "public_private_crate_topology_not_explicitly_authorized",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
     "release_versions_changelog_and_release_notes_not_frozen",
@@ -87,6 +89,24 @@ EXPECTED_PUBLICATION_BLOCKERS = {
     "exact_release_commit_required_ci_and_packageability_not_yet_successful",
 }
 
+
+EXPECTED_PUBLIC_PACKAGE_TOPOLOGY = {
+    "registry": "crates.io",
+    "topology": "all-facade-dependencies-public-registry-visible",
+    "supported_user_boundary": "elastic",
+    "registry_packages": [
+        {"workspace_package": "elastic-core", "registry_package": "memorithm-elastic-core", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-macros", "registry_package": "memorithm-elastic-macros", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-eir", "registry_package": "memorithm-elastic-eir", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-adapters", "registry_package": "memorithm-elastic-adapters", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-runtime", "registry_package": "memorithm-elastic-runtime", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-kv", "registry_package": "memorithm-elastic-kv", "role": "implementation-dependency"},
+        {"workspace_package": "elastic", "registry_package": "memorithm-elastic", "role": "public-facade"},
+    ],
+    "availability_observed_at": "2026-09-19T05:58:13Z",
+    "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
+    "manifests_renamed": False,
+}
 
 def fail(message: str) -> None:
     raise SystemExit(f"release-productization: {message}")
@@ -97,6 +117,13 @@ def sha256(path: Path) -> str:
 
 
 def validate_pinned_declarations(data: dict[str, object]) -> None:
+    topology = data.get("public_package_topology")
+    if topology != EXPECTED_PUBLIC_PACKAGE_TOPOLOGY:
+        fail("public registry package naming/topology drifted from reviewed decision")
+    names = [entry["registry_package"] for entry in topology["registry_packages"]]
+    if len(names) != len(set(names)) or any(not name.startswith("memorithm-elastic") for name in names):
+        fail("selected registry package names must be unique and Memorithm-prefixed")
+
     source = data.get("license_source")
     if source != EXPECTED_LICENSE_SOURCE:
         fail("canonical SciRust license source commit/digest drifted")
@@ -138,6 +165,8 @@ def self_test_pinned_declarations(data: dict[str, object]) -> None:
         fail("self-test accepted tampered productization declarations")
 
     rejected(lambda d: d["license_source"].update(source_commit="0" * 40))
+    rejected(lambda d: d["public_package_topology"].update(manifests_renamed=True))
+    rejected(lambda d: d["public_package_topology"]["registry_packages"][0].update(registry_package="elastic-core"))
 
     def move_authority(d) -> None:
         entries = {entry["repository"]: entry for entry in d["qualified_consumers_and_sources"]}
@@ -220,6 +249,10 @@ def main() -> None:
     registry_audit_path = ROOT / "docs/release/REGISTRY-NAME-AUDIT.md"
     if sha256(registry_audit_path) != EXPECTED_REGISTRY_AUDIT_SHA256:
         fail("registry-name audit digest drifted from the reviewed seven-package evidence")
+    package_naming_path = ROOT / "docs/release/PACKAGE-NAMING-V1.md"
+    if sha256(package_naming_path) != EXPECTED_PACKAGE_NAMING_SHA256:
+        fail("package naming/topology decision digest drifted from reviewed evidence")
+
 
     # Bind two code/data consumers to the same exact-source identities recorded
     # by their actual destination-owned implementation/tests.
