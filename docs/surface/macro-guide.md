@@ -1,6 +1,7 @@
-# Elastic Macro Guide v0.1
+# Elastic Macro Guide v0.2
 
-**Status:** normative for `#[derive(ElasticResource)]` in `crates/elastic-macros`,
+**Status:** normative for `#[derive(ElasticResource)]` and the single-resource
+`elastic! { ... }` embedded language surface in `crates/elastic-macros`, both
 re-exported by the `elastic` facade.
 
 ---
@@ -112,25 +113,46 @@ mutually exclusive keys, missing class, missing elasticity, unknown
 dimension/objective identifiers, empty lists, malformed `mech @ dim`, derive
 on non-struct.
 
-## 5. Function-like `elastic! { … }` DSL — deferred (design note)
+## 5. Function-like `elastic! { … }` embedded DSL
 
-The whitepaper mentions an eventual function-like `elastic!` macro. It is
-**not implemented** in this phase, by deliberate decision against the five
-criteria:
+The function-like `elastic!` macro is now implemented for **one resource per
+invocation**. Its purpose is to let a resource-control declaration read as a
+resource declaration rather than requiring a carrier Rust struct:
 
-1. *no independent semantics* — satisfiable today, but only by duplicating
-   the whole attribute grammar in a second parser;
-2. *lowers to the typed model* — same as above;
-3. *significantly improves ergonomics* — not demonstrated: the attribute +
-   builder pair already covers every current need, and free-form syntax would
-   mainly add a third spelling of the same declarations;
-4. *understandable parsing* — a block language needs scoping/nesting rules
-   (resources within groups? transitions between resources?) that have no
-   semantics to lower onto yet;
-5. *equivalence tests* — trivially achievable but meaningless without (3).
+```rust
+elastic! {
+    pub resource session_kv {
+        class(representational);
+        id("session-kv");
+        allow(representation, residency);
+        preserve(contents);
+        optimize(latency);
+        admit(reencode @ representation);
+        capability(reencode @ representation);
+    }
+}
 
-Revisit when multi-resource declarations, group policies, or planner hints
-create real syntactic demand.
+let spec = session_kv::resource_spec()?;
+```
+
+This does **not** introduce a second semantic implementation. The outer DSL
+parser understands only `visibility? resource NAME { ... }` and semicolon
+delimiters. Each body fragment is parsed by the same declaration model as the
+derive surface, and expansion emits an internal `#[derive(ElasticResource)]`
+declaration. `ResourceSpecBuilder::build` therefore remains authoritative.
+
+The v0.1 language intentionally does not yet define resource groups, shared
+budgets, cross-resource invariants, policy blocks, implicit runtime startup, or
+composite transaction semantics. Those concepts must receive typed core/EIR
+semantics before the syntax grows. Multiple resources inside one invocation are
+therefore rejected in this slice rather than assigned guessed semantics.
+
+`crates/elastic/tests/equivalence.rs` requires manual builder, derive macro and
+`elastic!` to produce equal `ResourceSpec`, equal lowered EIR and equal EIR
+fingerprints. Trybuild coverage also locks the outer DSL diagnostics.
+
+The complete language-v0.1 grammar, default-identity rule and non-goals are in
+[`docs/language/ELASTIC-LANGUAGE-0.1.md`](../language/ELASTIC-LANGUAGE-0.1.md).
 
 ## 6. Crate layout
 

@@ -1,10 +1,11 @@
 //! Procedural macros for ElasticXxx.
 //!
-//! [`ElasticResource`] lowers a declarative attribute into exactly the same
-//! typed semantic structures a programmer could build by hand with
-//! `elastic_core::resource::ResourceSpec`. The macro contains **no**
-//! independent semantics: every fragment maps one-to-one onto a builder call,
-//! and all validation remains in the typed core (`ResourceSpecBuilder::build`).
+//! [`ElasticResource`] and the function-like [`elastic!`](elastic) language
+//! surface lower declarations into exactly the same typed semantic structures a
+//! programmer could build by hand with `elastic_core::resource::ResourceSpec`.
+//! The macros contain **no** independent runtime semantics: every resource body
+//! maps onto the same derive/builder path and validation remains in the typed
+//! core (`ResourceSpecBuilder::build`).
 //!
 //! ```ignore
 //! #[derive(ElasticResource)]
@@ -28,10 +29,13 @@
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::{parenthesized, parse_macro_input, Attribute, Data, DeriveInput, Ident, LitStr, Token};
+use syn::{
+    braced, parenthesized, parse_macro_input, Attribute, Data, DeriveInput, Ident, LitStr, Token,
+    Visibility,
+};
 
 /// Declare an elastic resource.
 ///
@@ -44,6 +48,152 @@ pub fn derive_elastic_resource(input: TokenStream) -> TokenStream {
     expand(&input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
+}
+
+/// Declare one Elastic resource with an embedded Rust DSL.
+///
+/// Version 0.1 deliberately supports one `resource` per invocation. The body
+/// accepts exactly the same declaration fragments as `#[derive(ElasticResource)]`
+/// and is lowered through that derive macro, so the DSL owns no independent
+/// validation or runtime semantics.
+///
+/// ```ignore
+/// elastic! {
+///     pub resource session_kv {
+///         class(representational);
+///         id("session-kv");
+///         allow(representation, residency);
+///         preserve(contents);
+///         optimize(latency);
+///         admit(reencode @ representation);
+///         capability(reencode @ representation);
+///     }
+/// }
+///
+/// let spec = session_kv::resource_spec()?;
+/// ```
+#[proc_macro]
+pub fn elastic(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as ElasticDslInput);
+    expand_elastic_dsl(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+mod kw {
+    syn::custom_keyword!(resource);
+}
+
+struct ElasticDslInput {
+    visibility: Visibility,
+    name: Ident,
+    body: proc_macro2::TokenStream,
+}
+
+impl Parse for ElasticDslInput {
+    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
+        let visibility: Visibility = input.parse()?;
+        input.parse::<kw::resource>()?;
+        let name: Ident = input.parse()?;
+        let content;
+        braced!(content in input);
+        let body: proc_macro2::TokenStream = content.parse()?;
+        if !input.is_empty() {
+            return Err(syn::Error::new(
+                input.span(),
+                "elastic! v0.1 accepts exactly one resource per invocation",
+            ));
+        }
+        Ok(Self {
+            visibility,
+            name,
+            body,
+        })
+    }
+}
+
+fn expand_elastic_dsl(input: ElasticDslInput) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ElasticDslInput {
+        visibility,
+        name,
+        body,
+    } = input;
+    let entries = split_dsl_entries(body)?;
+    if entries.is_empty() {
+        return Err(syn::Error::new(
+            name.span(),
+            "elastic! resource body must contain class(...) and at least one allow(...) declaration",
+        ));
+    }
+
+    let normalized = quote! { #(#entries),* };
+    let parsed = Punctuated::<Entry, Token![,]>::parse_terminated.parse2(normalized.clone())?;
+    let has_explicit_id = parsed
+        .iter()
+        .any(|entry| matches!(entry.kind, EntryKind::Id(_)));
+    analyze_entries(parsed, name.span())?;
+    let default_id = LitStr::new(&name.to_string(), name.span());
+    let helper_args = if has_explicit_id {
+        normalized
+    } else {
+        quote! { id(#default_id), #normalized }
+    };
+
+    Ok(quote! {
+        #visibility mod #name {
+            #[derive(::elastic::ElasticResource)]
+            #[elastic(#helper_args)]
+            struct __ElasticDeclaration;
+
+            #[doc = concat!(
+                "Returns the validated [`ResourceSpec`](::elastic::resource::ResourceSpec) ",
+                "declared by `elastic!` resource `",
+                stringify!(#name),
+                "`."
+            )]
+            pub fn resource_spec()
+                -> ::core::result::Result<
+                    ::elastic::resource::ResourceSpec,
+                    ::elastic::resource::ResourceSpecError,
+                > {
+                __ElasticDeclaration::resource_spec()
+            }
+        }
+    })
+}
+
+fn split_dsl_entries(
+    body: proc_macro2::TokenStream,
+) -> Result<Vec<proc_macro2::TokenStream>, syn::Error> {
+    use proc_macro2::{TokenStream as TokenStream2, TokenTree};
+
+    let mut entries = Vec::new();
+    let mut current = TokenStream2::new();
+    for tree in body {
+        match &tree {
+            TokenTree::Punct(punct) if punct.as_char() == ';' => {
+                if current.is_empty() {
+                    return Err(syn::Error::new(
+                        punct.span(),
+                        "empty elastic! declaration; remove the extra `;`",
+                    ));
+                }
+                entries.push(current);
+                current = TokenStream2::new();
+            }
+            TokenTree::Punct(punct) if punct.as_char() == ',' => {
+                return Err(syn::Error::new(
+                    punct.span(),
+                    "use `;` between elastic! resource declarations (commas remain valid inside (...) payloads)",
+                ));
+            }
+            _ => current.extend([tree]),
+        }
+    }
+    if !current.is_empty() {
+        entries.push(current);
+    }
+    Ok(entries)
 }
 
 // ---------------------------------------------------------------------------
@@ -174,6 +324,81 @@ enum EntryKind {
     Fragment(Fragment),
 }
 
+struct ParsedDeclaration {
+    class_ref: ClassRef,
+    id: Option<String>,
+    fragments: Vec<Fragment>,
+}
+
+fn analyze_entries(
+    entries: impl IntoIterator<Item = Entry>,
+    owner_span: Span,
+) -> Result<ParsedDeclaration, syn::Error> {
+    let mut class_ref: Option<ClassRef> = None;
+    let mut id: Option<String> = None;
+    let mut fragments: Vec<Fragment> = Vec::new();
+    let mut combined_error: Option<syn::Error> = None;
+
+    for entry in entries {
+        match entry.kind {
+            EntryKind::Class(class) => {
+                if class_ref.is_some() {
+                    combined_error = combine(
+                        combined_error,
+                        syn::Error::new(
+                            entry.span,
+                            "duplicate mutually exclusive key `class`; declare it once",
+                        ),
+                    );
+                } else {
+                    class_ref = Some(class);
+                }
+            }
+            EntryKind::Id(value) => {
+                if id.is_some() {
+                    combined_error = combine(
+                        combined_error,
+                        syn::Error::new(
+                            entry.span,
+                            "duplicate mutually exclusive key `id`; declare it once",
+                        ),
+                    );
+                } else {
+                    id = Some(value);
+                }
+            }
+            EntryKind::Fragment(fragment) => fragments.push(fragment),
+        }
+    }
+
+    if let Some(error) = combined_error {
+        return Err(error);
+    }
+    let class_ref = class_ref.ok_or_else(|| {
+        syn::Error::new(
+            owner_span,
+            "missing mandatory `class(...)` declaration; expected one of \
+             stock, capacity-resource, rate, exclusive, shared, stateful, \
+             representational, configurational, or class(custom(\"...\"))",
+        )
+    })?;
+    let has_elasticity = fragments
+        .iter()
+        .any(|fragment| matches!(fragment, Fragment::Allow(terms) if !terms.is_empty()));
+    if !has_elasticity {
+        return Err(syn::Error::new(
+            owner_span,
+            "missing mandatory elasticity: declare at least one allow(...) dimension",
+        ));
+    }
+
+    Ok(ParsedDeclaration {
+        class_ref,
+        id,
+        fragments,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Expansion
 // ---------------------------------------------------------------------------
@@ -199,67 +424,15 @@ fn expand(input: &DeriveInput) -> Result<proc_macro2::TokenStream, syn::Error> {
         ));
     }
 
-    let mut class_ref: Option<ClassRef> = None;
-    let mut id: Option<String> = None;
-    let mut fragments: Vec<Fragment> = Vec::new();
-    let mut combined_error: Option<syn::Error> = None;
-
+    let mut entries = Vec::new();
     for attr in &elastic_attrs {
-        let entries = attr.parse_args_with(Punctuated::<Entry, Token![,]>::parse_terminated)?;
-        for entry in entries {
-            match entry.kind {
-                EntryKind::Class(class) => {
-                    if class_ref.is_some() {
-                        combined_error = combine(
-                            combined_error,
-                            syn::Error::new(
-                                entry.span,
-                                "duplicate mutually exclusive key `class`; declare it once",
-                            ),
-                        );
-                    } else {
-                        class_ref = Some(class);
-                    }
-                }
-                EntryKind::Id(value) => {
-                    if id.is_some() {
-                        combined_error = combine(
-                            combined_error,
-                            syn::Error::new(
-                                entry.span,
-                                "duplicate mutually exclusive key `id`; declare it once",
-                            ),
-                        );
-                    } else {
-                        id = Some(value);
-                    }
-                }
-                EntryKind::Fragment(fragment) => fragments.push(fragment),
-            }
-        }
+        entries.extend(attr.parse_args_with(Punctuated::<Entry, Token![,]>::parse_terminated)?);
     }
-
-    if let Some(error) = combined_error {
-        return Err(error);
-    }
-
-    let class_ref = class_ref.ok_or_else(|| {
-        syn::Error::new(
-            ident.span(),
-            "missing mandatory `class(...)` declaration; expected one of \
-             stock, capacity-resource, rate, exclusive, shared, stateful, \
-             representational, configurational, or class(custom(\"...\"))",
-        )
-    })?;
-    let has_elasticity = fragments
-        .iter()
-        .any(|fragment| matches!(fragment, Fragment::Allow(terms) if !terms.is_empty()));
-    if !has_elasticity {
-        return Err(syn::Error::new(
-            ident.span(),
-            "missing mandatory elasticity: declare at least one allow(...) dimension",
-        ));
-    }
+    let ParsedDeclaration {
+        class_ref,
+        id,
+        fragments,
+    } = analyze_entries(entries, ident.span())?;
 
     let id_lit = match &id {
         Some(text) => LitStr::new(text, ident.span()),

@@ -1,0 +1,5 @@
+error: missing mandatory elasticity: declare at least one allow(...) dimension
+ --> tests/compile_fail/dsl_missing_allow.rs:4:14
+  |
+4 |     resource worker_pool {
+  |              ^^^^^^^^^^^

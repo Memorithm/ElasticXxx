@@ -1,0 +1,5 @@
+error: elastic! v0.1 accepts exactly one resource per invocation
+ --> tests/compile_fail/dsl_multiple_resources.rs:8:5
+  |
+8 |     resource second {
+  |     ^^^^^^^^

@@ -1,0 +1,5 @@
+error: use `;` between elastic! resource declarations (commas remain valid inside (...) payloads)
+ --> tests/compile_fail/dsl_comma_separator.rs:5:24
+  |
+5 |         class(stateful),
+  |                        ^

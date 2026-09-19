@@ -106,7 +106,7 @@ pub use elastic_eir::{
     TransitionPruningReport, UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
     EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
-pub use elastic_macros::ElasticResource;
+pub use elastic_macros::{elastic, ElasticResource};
 pub use elastic_runtime::{
     batch_device_capacity_predicate_key, BatchDeviceCandidateV1, BatchDeviceCapacitySampleV1,
     BatchDeviceCapacitySnapshotV1, BooleanBatchDeviceCandidateEvidenceV1,
@@ -312,7 +312,7 @@ pub mod prelude {
         Fingerprint, FirstGroundedPlanner, PlanningContext, TransitionPlanner,
         TransitionPruningReport, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
     };
-    pub use elastic_macros::ElasticResource;
+    pub use elastic_macros::{elastic, ElasticResource};
     pub use elastic_runtime::{
         capture_constrained_decision_trace, capture_decision_trace, capture_guarded_planning_trace,
         fact_snapshot_fingerprint, model_execution_envelope_predicate_key,
