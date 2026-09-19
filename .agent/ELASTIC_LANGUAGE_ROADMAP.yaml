@@ -75,24 +75,27 @@ phases:
   - id: ELANG2
     name: typed_multi_resource_document
     priority: P0
-    status: active_candidate
-    candidate:
-      pr: 181
-      head: 84c79490424f5decc18988cede19cf0a74c46ef1
-      base: cbc1901484c3a0037b3b3fc4d36f37779df06b66
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_181
+      - PR181_exact_head_84c79490424f5decc18988cede19cf0a74c46ef1
+      - PR181_ci_35444920357_completed_success_on_exact_head
+      - PR181_packageability_35444920334_completed_success_on_exact_head
+      - PR181_internal_baseline_gate_35444920358_completed_success_on_exact_head
+      - PR181_BE14h_real_observer_35444920320_completed_success_on_exact_head
+      - PR181_merged_as_22dd2ea37747df68364c63dd253de0cce6ca8fce
+      - no_unresolved_review_threads_at_merge
     audit_finding: >-
-      EirDocument_and_EirDocumentBuilder_already_provide_the_correct_typed_multi_resource_container_sorting_duplicate_identity_rejection_and_deterministic_fingerprinting_so_ELANG2_must_extend_that_existing_authority_not_add_a_parallel_ResourceSet.
-    completed_in_candidate:
+      EirDocument_and_EirDocumentBuilder_already_provide_the_correct_typed_multi_resource_container_sorting_duplicate_identity_rejection_and_deterministic_fingerprinting_so_ELANG2_extends_that_existing_authority_and_does_not_add_a_parallel_ResourceSet.
+    completed_contract:
       - bound_EirDocument_to_MAX_EIR_DOCUMENT_RESOURCES_256_on_all_public_construction_paths
-      - add_structured_ElasticDocumentError_preserving_child_core_or_EIR_errors
-      - add_elastic_document_syntax_with_public_child_resource_modules
+      - structured_ElasticDocumentError_preserves_child_core_or_EIR_errors
+      - elastic_document_syntax_with_public_child_resource_modules
       - manual_EIR_vs_language_document_equivalence_and_fingerprint_tests
       - syntax_order_independence_and_duplicate_logical_identity_tests
       - facade_only_downstream_and_runnable_example
-      - normative_README_macro_guide_language_and_EIR_documentation
+      - normative_macro_guide_language_and_EIR_documentation
     rule: core_and_EIR_before_syntax
-    remaining:
-      - exact_head_required_CI_and_review_qualification
     non_goals:
       - cross_resource_atomicity
       - shared_budget_semantics
@@ -101,17 +104,32 @@ phases:
   - id: ELANG3
     name: resource_groups_dependencies_and_shared_constraints
     priority: P0
-    status: planned
+    status: active_candidate
+    candidate:
+      pr: 182
+      head: 67a66ff198cd22657739f9efe15ed1b6f5926610
+      base: 22dd2ea37747df68364c63dd253de0cce6ca8fce
     rule: typed_semantics_before_DSL_spelling
-    tasks:
-      - ResourceGroup_identity_and_membership
-      - inter_resource_dependency_edges
-      - dependency_cycle_detection
-      - shared_budget_contracts_using_existing_pseudo_Boolean_and_numeric_units
-      - cross_resource_invariants_with_explicit_ownership
-      - deterministic_group_and_constraint_fingerprints
-      - EIR_group_lowering_and_source_mapping
-      - only_then_add_group_syntax_to_elastic_macro
+    completed_in_candidate:
+      - bounded_ResourceGroup_identity_canonical_membership_and_directed_dependencies
+      - deterministic_precise_dependency_cycle_detection
+      - SharedBudget_reuses_existing_PseudoBooleanConstraintDeclaration_capacity_budget_with_explicit_scale
+      - CrossResourceInvariant_records_external_contract_explicit_owner_and_canonical_participants_without_interpreting_domain_semantics
+      - EirGroupedDocument_extends_the_ELANG2_EirDocument_without_mutating_its_schema_or_fingerprint
+      - group_fingerprints_bind_member_dependency_budget_source_mapping_constraint_and_invariant_ownership
+      - group_resource_source_mapping_back_to_authoritative_EirResource
+      - elastic_document_group_syntax_references_child_modules_then_resolves_real_LogicalResourceId_values
+      - manual_typed_group_and_DSL_grouped_document_equivalence_and_fingerprint_tests
+      - facade_only_downstream_guard_and_runnable_elastic_groups_example
+      - compile_fail_diagnostics_for_unknown_group_resource_missing_members_and_incomplete_budget
+      - ELASTIC_LANGUAGE_0_3_and_macro_guide_documentation
+      - local_exact_head_workspace_all_targets_clippy_rustdoc_trybuild_internal_baseline_and_productization_gates_green
+    remaining:
+      - exact_head_required_CI_and_review_qualification
+    non_goals:
+      - dependency_edges_do_not_define_actuation_order
+      - no_composite_plan_or_transaction_atomicity
+      - no_partial_failure_or_composite_rollback_semantics
 
   - id: ELANG4
     name: composite_planning_and_transaction_semantics
@@ -199,12 +217,12 @@ phases:
       - publication_name_recheck_only_at_actual_release_time
 
 current_execution:
-  verified_main: cbc1901484c3a0037b3b3fc4d36f37779df06b66
-  earliest_incomplete_phase: ELANG2
-  immediate_next_slice: qualify_and_merge_PR181_then_ELANG3_typed_groups_dependencies_and_shared_constraints
-  current_candidate_pr: 181
-  current_candidate_head: 84c79490424f5decc18988cede19cf0a74c46ef1
-  current_candidate_status: exact_head_CI_pending_local_workspace_rustdoc_trybuild_clippy_equivalence_and_baseline_gates_green
+  verified_main: 22dd2ea37747df68364c63dd253de0cce6ca8fce
+  earliest_incomplete_phase: ELANG3
+  immediate_next_slice: qualify_and_merge_PR182_then_ELANG4_composite_planning_and_transaction_semantics
+  current_candidate_pr: 182
+  current_candidate_head: 67a66ff198cd22657739f9efe15ed1b6f5926610
+  current_candidate_status: exact_head_CI_pending_local_workspace_rustdoc_trybuild_clippy_group_equivalence_baseline_and_productization_gates_green
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none
