@@ -1,7 +1,7 @@
 schema_version: 3
 kind: elastic_boolean_decision_roadmap
 status: active
-last_updated: "2026-09-18"
+last_updated: "2026-09-19"
 canonical_owner: Memorithm/ElasticXxx
 source_branch: agent/ecosystem-roadmap
 merge_policy: never_merge_this_file_to_default_branch_unless_user_explicitly_requests
@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
+  main_sha: 94483f02d271d90dd4c2697f4691f8c685d2d019
   main_observed_at: "2026-09-19"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -354,6 +354,34 @@ current_verified_state:
       hardening_run: 35406195578
       result: success
       purpose: BE15d_max_depth_Forge_guard_decoder_hardening
+    - pr: 167
+      head: a9e58c389dd3cd4fdaa28a843a5a083f8350057c
+      merge: a64689e6d062895cbb7df25a88ab84b8e6b06963
+      ci_run: 35416237127
+      packageability_run: 35416237120
+      result: merged_exact_head_checks_success_post_merge_material_review_findings_required_follow_up
+      purpose: BE15f_pre_release_productization_contract_initial_binding
+      qualification_blockers_discovered_after_merge:
+        - canonical_SciRust_license_commit_and_digest_not_independently_pinned
+        - cross_repository_source_kind_and_authority_not_bound_per_repository
+        - canonical_release_document_set_not_enforced
+        - publication_blocker_identities_not_enforced
+      follow_up_pr: 168
+      follow_up_head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+      follow_up_merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+    - pr: 168
+      head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+      merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+      ci_run: 35417224327
+      packageability_run: 35417224315
+      result: success
+      purpose: BE15f_fail_closed_productization_provenance_and_blocker_hardening
+      corrected_material_findings:
+        - independent_SciRust_license_commit_and_SHA256_pin
+        - exact_per_repository_source_kind_authority_and_Elastic_pin_tuples
+        - exact_required_release_document_set
+        - exact_documented_publication_blocker_set_including_archive_inspection_and_exact_release_CI
+      publication_authorized: false
   later_supporting_work:
     - pr: 95
       purpose: verified_capacity_admission_and_shared_concurrency_permits
@@ -1725,17 +1753,21 @@ phases:
           - benchmark_real_consumer_effects_before_claims
       - id: BE15f
         name: release_productization
-        status: active
-        current_candidate:
-          pr: 167
-          head: a9e58c389dd3cd4fdaa28a843a5a083f8350057c
-          base: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
-          state: candidate_local_qualification_passed_exact_head_CI_and_review_pending
+        status: active_pre_release_contract_hardened_publication_blocked
+        current_candidate: null
+        latest_qualified_contract:
+          pr: 168
+          head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+          merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+          ci_run: 35417224327
+          packageability_run: 35417224315
+          state: exact_head_checks_success_material_findings_corrected_no_publication_authority
           scope:
             - fail_closed_machine_readable_pre_release_productization_contract
-            - SciRust_license_source_of_truth_exact_commit_and_SHA256_binding
+            - independently_pinned_SciRust_license_source_commit_and_SHA256
+            - exact_cross_repository_source_kind_and_authority_tuples
             - explicit_0_1_x_migration_contract
-            - exact_cross_repository_compatibility_matrix
+            - exact_required_release_document_and_publication_blocker_sets
             - packageability_gate_integration_without_publication_authority
           claims_forbidden:
             - registry_publication_readiness_until_all_recorded_blockers_are_cleared
@@ -1759,6 +1791,15 @@ phases:
             result: success
             scope: pre_1_0_semver_MSRV_registry_compatible_internal_dependency_closure_strict_rustdoc_and_packageability_hardening
             publication_authorized: false
+          - pr: 168
+            head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+            merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+            ci_run: 35417224327
+            packageability_run: 35417224315
+            result: success
+            scope: fail_closed_pre_release_productization_provenance_document_and_blocker_contract_hardening
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
     final_exit_criteria:
       - BE0_through_BE14_exit_criteria_are_satisfied
       - public_Boolean_guard_and_constraint_contracts_are_versioned_documented_and_tested
@@ -1835,20 +1876,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15f_release_productization
-  open_pull_requests_at_checkpoint: 1
-  current_candidate_pr: 167
-  current_candidate_head: a9e58c389dd3cd4fdaa28a843a5a083f8350057c
-  current_candidate_status: candidate_local_qualification_passed_exact_head_CI_and_review_pending
-  verified_main: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
-  latest_qualified_slice: BE15e_ExtremEngine_real_consumer_corrected_effect_evidence
-  latest_qualified_pr: ExtremEngine_39
-  latest_qualified_head: 4ef7732f29c81be292bdde87bd9623476ddacba1
-  latest_merge: ExtremEngine_51efeb57bd12ee6419cec7e9b530c3b0c485a7a6
-  latest_merged_progress_slice: BE15d_Forge_optional_search_bridge_depth_hardening
-  latest_merged_progress_pr: 165
-  latest_merged_progress_head: d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e
-  latest_merged_progress_merge: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
+  immediate_next_slice: BE15f_release_productization_blocker_resolution
+  open_pull_requests_at_checkpoint: 0
+  current_candidate_pr: null
+  current_candidate_head: null
+  current_candidate_status: no_open_candidate_pre_release_contract_hardened_publication_remains_blocked
+  verified_main: 94483f02d271d90dd4c2697f4691f8c685d2d019
+  latest_qualified_slice: BE15f_pre_release_productization_contract_hardened
+  latest_qualified_pr: 168
+  latest_qualified_head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+  latest_merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+  latest_merged_progress_slice: BE15f_fail_closed_productization_provenance_and_blocker_hardening
+  latest_merged_progress_pr: 168
+  latest_merged_progress_head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
+  latest_merged_progress_merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths
