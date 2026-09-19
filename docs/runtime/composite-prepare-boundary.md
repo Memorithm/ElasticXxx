@@ -67,8 +67,9 @@ the known producer rather than trusting the malformed token.
 - the source `CompositePlanEnvelope` fingerprint.
 
 A successful prepared envelope still grants **no physical actuation authority**.
-ELANG4c must independently define coordinated actuation, verification,
-commit/rollback and partial-failure semantics.
+ELANG4c independently defines coordinated actuation, verification,
+commit/restore and partial-failure semantics in
+[`composite-transaction.md`](composite-transaction.md).
 
 ## Failure cleanup
 

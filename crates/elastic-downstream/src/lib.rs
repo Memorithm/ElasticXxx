@@ -439,6 +439,209 @@ pub fn public_composite_prepare_recovery_surface_smoke() {
     assert!(!worker.prepared && !worker.checkpoint_active);
 }
 
+struct DownstreamCompositeTransactionBackend {
+    resource: String,
+    name: String,
+    instance: String,
+    visible: u64,
+    checkpoint_active: bool,
+    prepared: bool,
+    committed: bool,
+}
+
+impl DownstreamCompositeTransactionBackend {
+    fn new(resource: &str) -> Self {
+        Self {
+            resource: resource.to_owned(),
+            name: format!("downstream-tx-{resource}"),
+            instance: format!("downstream-tx-instance-{resource}"),
+            visible: 0,
+            checkpoint_active: false,
+            prepared: false,
+            committed: false,
+        }
+    }
+}
+
+impl TransactionalActuator for DownstreamCompositeTransactionBackend {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+        let Some(candidate) = plan.candidate() else {
+            return Err(RuntimeError::validation(
+                "composite transaction plan has no candidate",
+            ));
+        };
+        Ok(plan
+            .resource
+            .invariants()
+            .iter()
+            .filter(|invariant| {
+                invariant
+                    .scope()
+                    .is_none_or(|scope| scope == candidate.dimension())
+            })
+            .cloned()
+            .map(|invariant| {
+                InvariantCheck::new(invariant, true, Some("downstream composite tx".into()))
+            })
+            .collect())
+    }
+
+    fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
+        if !self.checkpoint_active {
+            return Err(RuntimeError::actuation(
+                "composite tx prepare requires checkpoint",
+            ));
+        }
+        self.prepared = true;
+        Ok(Actuation::new(plan.clone(), Some(1), self.name.clone()))
+    }
+
+    fn actuate(&mut self, actuation: &Actuation) -> Result<(), RuntimeError> {
+        self.visible = actuation.target.unwrap_or(1);
+        Ok(())
+    }
+
+    fn verify(&self, actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
+        if self.visible == actuation.target.unwrap_or(1) {
+            Ok(VerificationResult::Pass)
+        } else {
+            Ok(VerificationResult::Fail {
+                detail: "downstream composite visible state mismatch".into(),
+            })
+        }
+    }
+
+    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+        self.prepared = false;
+        self.committed = true;
+        Ok(CommitRecord::new(
+            self.resource.clone(),
+            "downstream composite commit",
+        ))
+    }
+
+    fn rollback(
+        &mut self,
+        _actuation: &Actuation,
+        _verification: &VerificationResult,
+    ) -> Result<RollbackRecord, RuntimeError> {
+        Err(RuntimeError::rollback(
+            "legacy rollback is not used by ELANG4c composite transaction",
+        ))
+    }
+}
+
+impl CompositePrepareBackend for DownstreamCompositeTransactionBackend {
+    fn resource_id(&self) -> &str {
+        &self.resource
+    }
+
+    fn backend_instance_id(&self) -> &str {
+        &self.instance
+    }
+
+    fn capture_pre_act_state(
+        &mut self,
+        _plan: &ValidatedPlan,
+    ) -> Result<CompositePreActState, RuntimeError> {
+        self.checkpoint_active = true;
+        Ok(CompositePreActState::new(
+            self.resource.clone(),
+            self.name.clone(),
+            self.instance.clone(),
+            self.visible,
+            self.visible ^ 0x44,
+        ))
+    }
+
+    fn abort_prepare(
+        &mut self,
+        _actuation: &Actuation,
+        _checkpoint: &CompositePreActState,
+        _reason: &str,
+    ) -> Result<(), RuntimeError> {
+        self.prepared = false;
+        Ok(())
+    }
+
+    fn release_pre_act_state(
+        &mut self,
+        _checkpoint: &CompositePreActState,
+    ) -> Result<(), RuntimeError> {
+        self.checkpoint_active = false;
+        Ok(())
+    }
+}
+
+impl CompositeTransactionBackend for DownstreamCompositeTransactionBackend {
+    fn restore_pre_act_state(
+        &mut self,
+        _actuation: &Actuation,
+        checkpoint: &CompositePreActState,
+        _reason: &str,
+    ) -> Result<RollbackRecord, RuntimeError> {
+        self.visible = checkpoint.generation();
+        self.prepared = false;
+        self.committed = false;
+        Ok(RollbackRecord::new(
+            self.resource.clone(),
+            "downstream exact checkpoint restore",
+            true,
+        ))
+    }
+}
+
+/// Semantic proof that ELANG4c composite ACT/VERIFY/COMMIT is usable through
+/// only the public `elastic` facade.
+pub fn public_composite_transaction_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker_id = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache_id = LogicalResourceId::new("downstream-cache").unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("runtime-transaction").unwrap())
+        .members([worker_id.clone(), cache_id.clone()])
+        .dependency(ResourceDependency::new(cache_id, worker_id))
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let plans = ["downstream-cache", "downstream-worker-pool"]
+        .into_iter()
+        .map(|resource| {
+            let node = grouped
+                .group_resource("runtime-transaction", resource)
+                .unwrap();
+            Plan::new(
+                node.clone(),
+                PlanningContext::new(),
+                FirstGroundedPlanner.propose_transition(node),
+                format!("downstream transaction {resource}"),
+            )
+        })
+        .collect();
+    let envelope = CompositePlanEnvelope::new(&grouped, "runtime-transaction", plans).unwrap();
+    let mut worker = DownstreamCompositeTransactionBackend::new("downstream-worker-pool");
+    let mut cache = DownstreamCompositeTransactionBackend::new("downstream-cache");
+    let prepared = {
+        let mut prepare_backends: [&mut dyn CompositePrepareBackend; 2] = [&mut cache, &mut worker];
+        prepare_composite_plan(&envelope, &mut prepare_backends).unwrap()
+    };
+    let report = {
+        let mut tx_backends: [&mut dyn CompositeTransactionBackend; 2] = [&mut cache, &mut worker];
+        execute_composite_transaction(prepared, &mut tx_backends, &CancellationToken::new())
+            .unwrap()
+    };
+
+    assert_eq!(report.schema_version(), COMPOSITE_TRANSACTION_SCHEMA_V1);
+    assert_eq!(report.commits().len(), 2);
+    assert!(report.checkpoint_cleanup().is_none());
+    assert_eq!((worker.visible, cache.visible), (1, 1));
+    assert!(worker.committed && cache.committed);
+    assert!(!worker.checkpoint_active && !cache.checkpoint_active);
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
@@ -632,6 +835,7 @@ mod tests {
         public_composite_plan_surface_smoke();
         public_composite_prepare_surface_smoke();
         public_composite_prepare_recovery_surface_smoke();
+        public_composite_transaction_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

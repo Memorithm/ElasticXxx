@@ -164,6 +164,26 @@ impl CompositePreparedSubplan {
     pub const fn actuation(&self) -> &Actuation {
         &self.actuation
     }
+
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        String,
+        String,
+        String,
+        ValidatedPlan,
+        CompositePreActState,
+        Actuation,
+    ) {
+        (
+            self.resource_id,
+            self.adapter_name,
+            self.backend_instance_id,
+            self.validated_plan,
+            self.checkpoint,
+            self.actuation,
+        )
+    }
 }
 
 /// Composite envelope after validation, checkpoint capture and prepare only.
@@ -200,6 +220,10 @@ impl CompositePreparedEnvelope {
     /// Prepared resources in reverse order for abort/rollback coordination.
     pub fn reverse_resources(&self) -> impl Iterator<Item = &str> {
         self.subplans.iter().rev().map(|entry| entry.resource_id())
+    }
+
+    pub(crate) fn into_parts(self) -> (String, Fingerprint, Vec<CompositePreparedSubplan>) {
+        (self.group_id, self.source_plan_fingerprint, self.subplans)
     }
 }
 
