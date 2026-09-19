@@ -206,7 +206,7 @@ entrypoint that consumes the frozen JSON without inventing observations:
 
 - library: `elastic_kv::stage_b` (`load_stage_b_preregistration`,
   `run_stage_b_dry_run`, partition/allocator authorization helpers);
-- example: `cargo run -p elastic-kv --example elastic_bit_allocation_stage_b_dry_run`;
+- example: `cargo run -p memorithm-elastic-kv --example elastic_bit_allocation_stage_b_dry_run`;
 - measurement schema identity:
   `elastic-bit-allocation-stage-b-measurement-v1`.
 

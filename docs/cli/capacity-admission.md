@@ -80,5 +80,5 @@ insufficient capacity, zero per-trial budget and saturating subtraction. Run:
 
 ```sh
 cargo test --locked -p memorithm-elastic-runtime capacity_admission
-cargo build --locked -p memorithm-elastic-cli
+cargo build --locked -p elastic-cli
 ```

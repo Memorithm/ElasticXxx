@@ -71,4 +71,4 @@ jobs:
         run: cargo +nightly miri setup
 
       - name: Interpret core and KV tests
-        run: cargo +nightly miri test -p elastic-core -p elastic-kv
+        run: cargo +nightly miri test -p memorithm-elastic-core -p memorithm-elastic-kv

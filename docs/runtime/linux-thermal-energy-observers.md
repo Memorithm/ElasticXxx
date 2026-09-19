@@ -69,7 +69,7 @@ reading is still usable.
 ## Example
 
 ```bash
-cargo run -p elastic --example linux_thermal_energy -- \
+cargo run -p memorithm-elastic --example linux_thermal_energy -- \
   /sys/class/thermal/thermal_zoneN \
   /sys/class/hwmon/hwmonN/power1_input
 ```

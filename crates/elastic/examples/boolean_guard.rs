@@ -1,4 +1,4 @@
-//! Run with `cargo run -p elastic --example boolean_guard`.
+//! Run with `cargo run -p memorithm-elastic --example boolean_guard`.
 //! This example constructs and evaluates policy data; it performs no actuation.
 
 use elastic::prelude::*;

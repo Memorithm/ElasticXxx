@@ -5,7 +5,7 @@ for issue #29. The executable implementation is
 `crates/elastic-kv/src/benchmark.rs`; generate the baseline records with:
 
 ```text
-cargo +1.89.0 run -p elastic-kv --example elastic_bit_allocation_baseline
+cargo +1.89.0 run -p memorithm-elastic-kv --example elastic_bit_allocation_baseline
 ```
 
 The command evaluates a closed list of fixed candidates. It does not search,
