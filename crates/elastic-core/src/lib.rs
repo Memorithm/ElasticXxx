@@ -78,8 +78,11 @@ pub use multiword_batch::{
 };
 pub use multiword_guard::{MultiwordCompiledGuard, MultiwordGuardError, MultiwordGuardPath};
 pub use policy::{
-    PolicyHeader, PolicyId, PolicyIdentity, PolicyIdentityError, PolicyTarget, PolicyTargetKind,
-    PolicyVersion, ResourcePolicyError, ResourcePolicySpec, MAX_POLICY_ID_BYTES,
+    PlannerHint, PlannerHintKey, PolicyAdvisoryError, PolicyHeader, PolicyId, PolicyIdentity,
+    PolicyIdentityError, PolicyMetricScale, PolicyNumericObjective, PolicyObjectiveDirection,
+    PolicyTarget, PolicyTargetKind, PolicyVersion, ResourcePolicyAdvisorySpec, ResourcePolicyError,
+    ResourcePolicySpec, MAX_PLANNER_HINTS, MAX_PLANNER_HINT_KEY_BYTES,
+    MAX_PLANNER_HINT_VALUE_BYTES, MAX_POLICY_ID_BYTES, MAX_POLICY_METRIC_UNIT_BYTES,
     MAX_RESOURCE_POLICY_CONSTRAINTS,
 };
 pub use predicate::{
