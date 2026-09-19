@@ -73,6 +73,7 @@ EXPECTED_RELEASE_DOCUMENTS = {
     "docs/release/MIGRATION-0.1.md",
     "docs/release/CROSS_REPO_COMPATIBILITY.md",
     "docs/release/REGISTRY-NAME-AUDIT.md",
+    "docs/release/PACKAGE-FILES-V1.json",
 }
 EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10ccb60654e0c42bcfecfc"
 

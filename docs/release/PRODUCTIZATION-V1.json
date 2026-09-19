@@ -49,7 +49,8 @@
     "docs/release/PACKAGEABILITY.md",
     "docs/release/MIGRATION-0.1.md",
     "docs/release/CROSS_REPO_COMPATIBILITY.md",
-    "docs/release/REGISTRY-NAME-AUDIT.md"
+    "docs/release/REGISTRY-NAME-AUDIT.md",
+    "docs/release/PACKAGE-FILES-V1.json"
   ],
   "publication_blockers": [
     "crates_io_current_name_collision_elastic_and_elastic_macros_requires_resolution",

@@ -14,6 +14,8 @@ VERSION = "0.1.0"
 MSRV = "1.89"
 REPOSITORY = "https://github.com/Memorithm/ElasticXxx"
 LEAVES = ("elastic-core", "elastic-macros")
+ALLOWLIST = ROOT / "docs/release/PACKAGE-FILES-V1.json"
+MAX_ALLOWLIST_BYTES = 64 * 1024
 MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 MAX_UNPACKED_BYTES = 32 * 1024 * 1024
 MAX_MEMBERS = 4096
@@ -52,6 +54,29 @@ def cargo_file_set(package: str, prefix: str) -> set[str]:
     return {f"{prefix}/{name}" for name in names}
 
 
+def reviewed_file_set(package: str, prefix: str) -> set[str]:
+    raw = ALLOWLIST.read_bytes()
+    if len(raw) > MAX_ALLOWLIST_BYTES:
+        fail("reviewed package-file allowlist exceeds 64 KiB")
+    data = json.loads(raw)
+    if not isinstance(data, dict) or set(data) != {"schema", "scope", "packages"}:
+        fail("reviewed package-file allowlist has unknown or missing fields")
+    if data["schema"] != 1 or data["scope"] != "elasticxxx-first-publish-leaf-files-v1":
+        fail("unsupported package-file allowlist schema/scope")
+    packages = data["packages"]
+    if not isinstance(packages, dict) or set(packages) != set(LEAVES):
+        fail("reviewed package-file allowlist must cover exactly the first-publish leaves")
+    names = packages.get(package)
+    if not isinstance(names, list) or not names or any(not isinstance(name, str) for name in names):
+        fail(f"invalid reviewed package-file allowlist for {package}")
+    if len(names) != len(set(names)) or len(names) > MAX_MEMBERS:
+        fail(f"duplicate or oversized reviewed package-file allowlist for {package}")
+    prefixed = {f"{prefix}/{name}" for name in names}
+    for name in prefixed:
+        safe_member_name(name, prefix)
+    return prefixed
+
+
 def read_member(archive: tarfile.TarFile, member: str, max_bytes: int = 1024 * 1024) -> bytes:
     info = archive.getmember(member)
     if not info.isfile() or info.size > max_bytes:
@@ -83,12 +108,44 @@ def validate_manifest(package: str, prefix: str, archive: tarfile.TarFile) -> No
         fail(f"{package} packaged Cargo.toml needs a non-empty description")
 
 
+def validate_crate_level_rustdoc(package: str, archived_lib: bytes) -> None:
+    source_lib = ROOT / "crates" / package / "src/lib.rs"
+    if source_lib.read_bytes() != archived_lib:
+        fail(f"{package} archived src/lib.rs differs from the exact source tree")
+    try:
+        subprocess.run(
+            [
+                "cargo",
+                "rustdoc",
+                "-p",
+                package,
+                "--lib",
+                "--quiet",
+                "--",
+                "-D",
+                "rustdoc::missing-crate-level-docs",
+            ],
+            cwd=ROOT,
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        fail(f"{package} failed syntax-aware crate-level rustdoc validation")
+
+
 def validate_archive(package: str) -> None:
     prefix = f"{package}-{VERSION}"
     path = ROOT / "target/package" / f"{prefix}.crate"
     if not path.is_file() or path.stat().st_size > MAX_ARCHIVE_BYTES:
         fail(f"missing or oversized archive: {path.relative_to(ROOT)}")
-    expected_files = cargo_file_set(package, prefix)
+    reviewed_files = reviewed_file_set(package, prefix)
+    cargo_files = cargo_file_set(package, prefix)
+    if cargo_files != reviewed_files:
+        missing = sorted(reviewed_files - cargo_files)
+        extra = sorted(cargo_files - reviewed_files)
+        fail(
+            f"{package} Cargo package file set drifted from reviewed allowlist; "
+            f"missing={missing!r} extra={extra!r}"
+        )
     with tarfile.open(path, mode="r:gz") as archive:
         members = archive.getmembers()
         if len(members) > MAX_MEMBERS:
@@ -100,10 +157,13 @@ def validate_archive(package: str) -> None:
             fail(f"{package} archive contains a non-regular member")
         for name in names:
             safe_member_name(name, prefix)
-        if set(names) != expected_files:
-            missing = sorted(expected_files - set(names))
-            extra = sorted(set(names) - expected_files)
-            fail(f"{package} archive file set differs from cargo --list; missing={missing!r} extra={extra!r}")
+        if set(names) != reviewed_files:
+            missing = sorted(reviewed_files - set(names))
+            extra = sorted(set(names) - reviewed_files)
+            fail(
+                f"{package} archive file set differs from reviewed allowlist; "
+                f"missing={missing!r} extra={extra!r}"
+            )
         if sum(member.size for member in members) > MAX_UNPACKED_BYTES:
             fail(f"{package} archive expands beyond the bounded size")
         validate_manifest(package, prefix, archive)
@@ -111,8 +171,7 @@ def validate_archive(package: str) -> None:
         if sha256(license_bytes) != sha256((ROOT / "LICENSE.md").read_bytes()):
             fail(f"{package} archive license differs from repository LICENSE.md")
         lib = read_member(archive, f"{prefix}/src/lib.rs")
-        if b"//!" not in lib[:4096]:
-            fail(f"{package} archive lacks crate-level rustdoc near src/lib.rs start")
+        validate_crate_level_rustdoc(package, lib)
         vcs = json.loads(read_member(archive, f"{prefix}/.cargo_vcs_info.json").decode("utf-8"))
         head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
         expected_vcs_path = f"crates/{package}"
