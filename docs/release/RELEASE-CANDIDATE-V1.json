@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "scope": "elasticxxx-release-candidate-freeze-v1",
+  "release_version": "0.1.0",
+  "release_line": "0.1.x",
+  "msrv": "1.89",
+  "payload_digest_algorithm": "sha256-git-mode-path-content-v1",
+  "payload_sha256": "43023aa348dd25bc4c39b4d7ab71355aac3115b8e170632a2748fecfa9c7da00",
+  "payload_exclusions": [
+    "docs/release/RELEASE-CANDIDATE-V1.json"
+  ],
+  "registry_publication_authorized": false,
+  "registry_mutation_authorized": false,
+  "network_registry_queries_authorized": false,
+  "required_exact_commit_checks": [
+    "ci",
+    "packageability",
+    "release-candidate-prepublication"
+  ],
+  "publication_blockers": [
+    "crates_io_name_availability_must_be_rechecked_at_release_time",
+    "full_dependency_order_registry_publish_not_executed",
+    "clean_registry_downstream_install_not_yet_possible_without_first_publish",
+    "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish",
+    "exact_release_commit_required_ci_and_packageability_not_yet_successful"
+  ]
+}
