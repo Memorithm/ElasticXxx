@@ -33,6 +33,8 @@ jobs:
           rustc +1.89.0 -Vv
       - name: Validate pre-release productization contract
         run: python3 scripts/check_release_productization.py
+      - name: Validate frozen release candidate without publication authority
+        run: python3 scripts/check_release_candidate.py
       - name: Validate internal publish-path dependency metadata
         shell: bash
         run: |

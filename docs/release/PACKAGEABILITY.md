@@ -68,3 +68,30 @@ This gate does not:
 - choose MIT, Apache-2.0 or any other license;
 - promise semver stability beyond the declared pre-1.0 policy;
 - alter runtime, model-execution, representation or adapter semantics.
+
+## Exact release-candidate freeze
+
+The 0.1.0 candidate is additionally bound by
+`docs/release/RELEASE-CANDIDATE-V1.json` and
+`scripts/check_release_candidate.py`. The manifest records a deterministic
+SHA-256 over Git-style file mode, path, and content for every tracked repository
+file except the candidate manifest itself.
+Any tracked payload change therefore invalidates the candidate until an explicit
+reviewed refreeze updates that digest.
+
+The checker emits a receipt naming the exact Git commit and tree on which it ran.
+The dedicated `release-candidate-prepublication` workflow asserts that the
+receipt commit equals the workflow head SHA. `ci` and `packageability` remain
+separate required exact-head checks; the candidate gate never treats its own
+success as proof that those sibling workflows passed.
+
+This gate is deliberately non-publishing: registry publication, registry
+mutation, and registry network queries are all unauthorized in the candidate
+manifest; `publish = false` remains mandatory for the seven registry-visible
+packages. No crates.io token is supplied to the prepublication workflow.
+
+A successful candidate gate therefore means only: **this exact commit contains
+the frozen reviewed release payload and remains fail-closed against publication**.
+It does not clear the independent release-time crates.io name recheck,
+dependency-order first publication, non-leaf archive inspection, or clean
+registry downstream-install blockers.
