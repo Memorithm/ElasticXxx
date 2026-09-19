@@ -48,10 +48,12 @@
     "docs/release/COMPATIBILITY.md",
     "docs/release/PACKAGEABILITY.md",
     "docs/release/MIGRATION-0.1.md",
-    "docs/release/CROSS_REPO_COMPATIBILITY.md"
+    "docs/release/CROSS_REPO_COMPATIBILITY.md",
+    "docs/release/REGISTRY-NAME-AUDIT.md"
   ],
   "publication_blockers": [
-    "registry_package_name_ownership_and_availability_not_verified_for_release_time",
+    "crates_io_current_name_collision_elastic_and_elastic_macros_requires_resolution",
+    "crates_io_name_availability_must_be_rechecked_at_release_time",
     "public_private_crate_topology_not_explicitly_authorized",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
