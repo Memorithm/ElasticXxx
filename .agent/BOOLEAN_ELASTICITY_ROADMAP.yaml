@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: 94483f02d271d90dd4c2697f4691f8c685d2d019
+  main_sha: ae2fa28427f62305c0360d4d50101034c21fb6d9
   main_observed_at: "2026-09-19"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1756,12 +1756,12 @@ phases:
         status: active_pre_release_registry_collisions_qualified_publication_blocked
         current_candidate: null
         latest_qualified_contract:
-          pr: 169
-          head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
-          merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
-          ci_run: 35419131750
-          packageability_run: 35419131755
-          state: exact_head_checks_success_material_P2_corrected_registry_collision_evidence_bound_no_publication_authority
+          pr: 170
+          head: 1a43f963b7e31dd9d0f76d444184e344d634065f
+          merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
+          ci_run: 35421434725
+          packageability_run: 35421434758
+          state: exact_head_checks_success_two_material_P2_findings_corrected_leaf_archive_inspection_qualified_no_publication_authority
           scope:
             - fail_closed_machine_readable_pre_release_productization_contract
             - independently_pinned_SciRust_license_source_commit_and_SHA256
@@ -1772,6 +1772,10 @@ phases:
             - read_only_seven_package_crates_io_name_audit_bound_by_reviewed_document_digest
             - current_collisions_recorded_for_elastic_and_elastic_macros_without_ownership_claim
             - five_404_observations_recorded_as_point_in_time_non_reservations
+            - elastic_core_and_elastic_macros_real_leaf_archives_checked_against_independent_reviewed_file_allowlists
+            - archived_source_bytes_release_metadata_license_and_exact_Git_head_VCS_provenance_checked_fail_closed
+            - crate_level_documentation_checked_with_rustdoc_missing_crate_level_docs_deny_gate
+            - non_leaf_archive_inspection_remains_explicitly_blocked_until_dependency_order_registry_publish
           claims_forbidden:
             - registry_publication_readiness_until_all_recorded_blockers_are_cleared
             - crates_io_name_ownership_or_availability
@@ -1811,6 +1815,16 @@ phases:
             result: success
             scope: point_in_time_crates_io_name_collision_audit_with_complete_document_digest_binding
             material_review_finding: P2_incomplete_row_binding_corrected_before_merge
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 170
+            head: 1a43f963b7e31dd9d0f76d444184e344d634065f
+            merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
+            ci_run: 35421434725
+            packageability_run: 35421434758
+            result: success
+            scope: first_publish_leaf_archive_content_provenance_and_crate_documentation_inspection
+            material_review_findings: P2_circular_Cargo_file_set_check_and_P2_byte_pattern_rustdoc_check_both_corrected_before_merge
             publication_authorized: false
             unresolved_publication_blockers_remain_authoritative: true
     final_exit_criteria:
@@ -1893,16 +1907,16 @@ current_execution:
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_open_candidate_registry_collisions_qualified_publication_remains_fail_closed
-  verified_main: ca8bbe4f9d610d23058daa57b20923c71c162c97
-  latest_qualified_slice: BE15f_crates_io_name_collision_audit
-  latest_qualified_pr: 169
-  latest_qualified_head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
-  latest_merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
-  latest_merged_progress_slice: BE15f_registry_name_collision_evidence_and_fail_closed_recheck
-  latest_merged_progress_pr: 169
-  latest_merged_progress_head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
-  latest_merged_progress_merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
+  current_candidate_status: no_open_candidate_leaf_archive_inspection_qualified_publication_remains_fail_closed
+  verified_main: ae2fa28427f62305c0360d4d50101034c21fb6d9
+  latest_qualified_slice: BE15f_first_publish_leaf_archive_inspection
+  latest_qualified_pr: 170
+  latest_qualified_head: 1a43f963b7e31dd9d0f76d444184e344d634065f
+  latest_merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
+  latest_merged_progress_slice: BE15f_leaf_archive_content_provenance_and_documentation_inspection
+  latest_merged_progress_pr: 170
+  latest_merged_progress_head: 1a43f963b7e31dd9d0f76d444184e344d634065f
+  latest_merged_progress_merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
   registry_name_observations_are_reservations: false
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
