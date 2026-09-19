@@ -99,6 +99,7 @@ mod guard;
 mod guard_plan;
 mod plan;
 mod planning_subset;
+mod policy;
 mod resource;
 mod validate;
 
@@ -126,6 +127,7 @@ pub use plan::{
     FirstGroundedPlanner, PlanOutcome, PlanningContext, TransitionCandidate, TransitionPlanner,
 };
 pub use planning_subset::PlanningSubsetError;
+pub use policy::{EirPolicyHeader, PolicyLoweringError, EIR_POLICY_HEADER_SCHEMA_VERSION};
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use validate::validate_resource_parts;
 
