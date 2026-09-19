@@ -1,9 +1,16 @@
+use std::collections::BTreeSet;
 use std::ffi::OsString;
+use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+use elastic::{
+    BoolExpr, ElasticDiagnosticCode, ExactKleeneOracle, ExactOracleLimits, FactSet, GuardConfigV1,
+    KleenePropertyReport, KleeneSatisfiabilityReport, PredicateId, PredicateRegistry, TruthValue,
+    DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES, MAX_GUARD_CONFIG_BYTES,
+};
 use serde_json::{json, Value};
 
 const DIAGNOSTIC_SCHEMA: &str = "elastic-diagnostics/v1";
@@ -33,6 +40,28 @@ enum CargoElasticCommand {
         #[arg(long)]
         all_targets: bool,
     },
+    /// Run bounded exact strong-Kleene analysis over a versioned guard configuration.
+    Analyze {
+        #[arg(long, value_name = "FILE")]
+        config: PathBuf,
+        #[arg(long, default_value_t = DEFAULT_EXACT_ORACLE_VARIABLES)]
+        max_variables: usize,
+        #[arg(long, default_value_t = DEFAULT_EXACT_ORACLE_ASSIGNMENTS)]
+        max_assignments: usize,
+    },
+    /// Emit the structural predicate-to-guard graph without evaluating any policy.
+    Graph {
+        #[arg(long, value_name = "FILE")]
+        config: PathBuf,
+        #[arg(long, value_enum, default_value_t = GraphFormat::Json)]
+        format: GraphFormat,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum GraphFormat {
+    Json,
+    Dot,
 }
 
 fn main() -> ExitCode {
@@ -59,6 +88,17 @@ fn main() -> ExitCode {
                 ExitCode::from(2)
             }
         },
+        CargoElasticCommand::Analyze {
+            config,
+            max_variables,
+            max_assignments,
+        } => tool_result(
+            run_analyze(&config, max_variables, max_assignments),
+            "analyze",
+        ),
+        CargoElasticCommand::Graph { config, format } => {
+            tool_result(run_graph(&config, format), "graph")
+        }
     }
 }
 
@@ -69,6 +109,323 @@ fn normalized_args(mut args: Vec<OsString>) -> Vec<OsString> {
         args.remove(1);
     }
     args
+}
+
+fn tool_result(result: Result<(), String>, command: &str) -> ExitCode {
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            println!(
+                "{}",
+                json!({
+                    "schema": "elastic-tool-error/v1",
+                    "command": command,
+                    "tool_error": error,
+                    "read_only": true,
+                    "actuation_authorized": false,
+                })
+            );
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn read_guard_config(path: &Path) -> Result<GuardConfigV1, String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("cannot stat guard config {}: {error}", path.display()))?;
+    let bytes = usize::try_from(metadata.len())
+        .map_err(|_| "guard config length does not fit usize".to_owned())?;
+    if bytes > MAX_GUARD_CONFIG_BYTES {
+        return Err(format!(
+            "guard config is {bytes} bytes; maximum is {MAX_GUARD_CONFIG_BYTES}"
+        ));
+    }
+    let raw = fs::read(path)
+        .map_err(|error| format!("cannot read guard config {}: {error}", path.display()))?;
+    GuardConfigV1::from_bounded_json(&raw).map_err(|error| error.to_string())
+}
+
+fn run_analyze(path: &Path, max_variables: usize, max_assignments: usize) -> Result<(), String> {
+    let config = read_guard_config(path)?;
+    let lowered = config.lower().map_err(|error| error.to_string())?;
+    let limits = ExactOracleLimits::new(max_variables, max_assignments)
+        .map_err(|error| error.to_string())?;
+    let oracle = ExactKleeneOracle::new(limits);
+    let mut diagnostics = Vec::new();
+    let mut guards = Vec::with_capacity(lowered.guards().len());
+
+    for (index, guard) in lowered.guards().iter().enumerate() {
+        let expression = guard.expression();
+        let sat = oracle
+            .satisfiability(expression)
+            .map_err(|error| error.to_string())?;
+        let dead = oracle
+            .contradiction(expression)
+            .map_err(|error| error.to_string())?;
+        let tautology = oracle
+            .tautology(expression)
+            .map_err(|error| error.to_string())?;
+        if dead.holds() {
+            diagnostics.push(analysis_diagnostic(
+                ElasticDiagnosticCode::AnalysisDeadGuard,
+                "warning",
+                format!("guard {index} can never evaluate explicitly true"),
+                json!({"guard": index}),
+            ));
+        }
+        if tautology.holds() {
+            diagnostics.push(analysis_diagnostic(
+                ElasticDiagnosticCode::AnalysisTautologicalGuard,
+                "warning",
+                format!("guard {index} is true for every strong-Kleene assignment"),
+                json!({"guard": index}),
+            ));
+        }
+        guards.push(json!({
+            "index": index,
+            "scope": guard.scope().to_string(),
+            "expression_fingerprint": guard.fingerprint().to_string(),
+            "satisfiability": render_kleene_satisfiability(sat, lowered.registry()),
+            "dead_guard": render_kleene_property(dead, lowered.registry()),
+            "tautology": render_kleene_property(tautology, lowered.registry()),
+        }));
+    }
+
+    let mut pairs = Vec::new();
+    for lhs in 0..lowered.guards().len() {
+        for rhs in (lhs + 1)..lowered.guards().len() {
+            let left = lowered.guards()[lhs].expression();
+            let right = lowered.guards()[rhs].expression();
+            let lr = oracle
+                .implication(left, right)
+                .map_err(|error| error.to_string())?;
+            let rl = oracle
+                .implication(right, left)
+                .map_err(|error| error.to_string())?;
+            let equivalent = oracle
+                .equivalence(left, right)
+                .map_err(|error| error.to_string())?;
+            let exclusive = oracle
+                .mutual_exclusion(left, right)
+                .map_err(|error| error.to_string())?;
+            if equivalent.holds() {
+                diagnostics.push(analysis_diagnostic(
+                    ElasticDiagnosticCode::AnalysisEquivalentGuards,
+                    "warning",
+                    format!("guards {lhs} and {rhs} are exactly equivalent"),
+                    json!({"lhs": lhs, "rhs": rhs}),
+                ));
+            } else {
+                if lr.holds() {
+                    diagnostics.push(analysis_diagnostic(
+                        ElasticDiagnosticCode::AnalysisGuardImplication,
+                        "info",
+                        format!("guard {lhs} explicit-true eligibility implies guard {rhs}"),
+                        json!({"lhs": lhs, "rhs": rhs}),
+                    ));
+                }
+                if rl.holds() {
+                    diagnostics.push(analysis_diagnostic(
+                        ElasticDiagnosticCode::AnalysisGuardImplication,
+                        "info",
+                        format!("guard {rhs} explicit-true eligibility implies guard {lhs}"),
+                        json!({"lhs": rhs, "rhs": lhs}),
+                    ));
+                }
+            }
+            if exclusive.holds() {
+                diagnostics.push(analysis_diagnostic(
+                    ElasticDiagnosticCode::AnalysisMutuallyExclusiveGuards,
+                    "info",
+                    format!("guards {lhs} and {rhs} are mutually exclusive"),
+                    json!({"lhs": lhs, "rhs": rhs}),
+                ));
+            }
+            pairs.push(json!({
+                "lhs": lhs,
+                "rhs": rhs,
+                "lhs_implies_rhs": render_kleene_property(lr, lowered.registry()),
+                "rhs_implies_lhs": render_kleene_property(rl, lowered.registry()),
+                "equivalent": render_kleene_property(equivalent, lowered.registry()),
+                "mutually_exclusive": render_kleene_property(exclusive, lowered.registry()),
+            }));
+        }
+    }
+
+    println!(
+        "{}",
+        json!({
+            "schema": "elastic-analysis/v1",
+            "command": "analyze",
+            "semantics": "strong-kleene-exact-v1",
+            "limits": {
+                "max_variables": limits.max_variables(),
+                "max_assignments": limits.max_assignments(),
+            },
+            "diagnostics": diagnostics,
+            "guards": guards,
+            "pairs": pairs,
+            "read_only": true,
+            "actuation_authorized": false,
+            "trusted_validation_performed": false,
+        })
+    );
+    Ok(())
+}
+
+fn run_graph(path: &Path, format: GraphFormat) -> Result<(), String> {
+    let config = read_guard_config(path)?;
+    let lowered = config.lower().map_err(|error| error.to_string())?;
+    let mut edges = BTreeSet::<(String, usize)>::new();
+    let mut guards = Vec::with_capacity(lowered.guards().len());
+    for (index, guard) in lowered.guards().iter().enumerate() {
+        let mut atoms = BTreeSet::new();
+        collect_atoms(guard.expression(), &mut atoms);
+        for atom in atoms {
+            let key = lowered.registry().key(atom).ok_or_else(|| {
+                format!(
+                    "guard {index} references unregistered predicate {}",
+                    atom.index()
+                )
+            })?;
+            edges.insert((key.to_string(), index));
+        }
+        guards.push(json!({
+            "index": index,
+            "scope": guard.scope().to_string(),
+            "expression_fingerprint": guard.fingerprint().to_string(),
+        }));
+    }
+    let predicates = lowered
+        .registry()
+        .iter()
+        .map(|(_, key)| key.to_string())
+        .collect::<Vec<_>>();
+    match format {
+        GraphFormat::Json => {
+            let edge_json = edges
+                .iter()
+                .map(|(predicate, guard)| json!({"predicate": predicate, "guard": guard}))
+                .collect::<Vec<_>>();
+            println!(
+                "{}",
+                json!({
+                    "schema": "elastic-guard-graph/v1",
+                    "command": "graph",
+                    "predicates": predicates,
+                    "guards": guards,
+                    "edges": edge_json,
+                    "read_only": true,
+                    "actuation_authorized": false,
+                })
+            );
+        }
+        GraphFormat::Dot => {
+            println!("digraph elastic_guards {{");
+            println!("  rankdir=LR;");
+            for predicate in &predicates {
+                println!(
+                    "  \"p:{}\" [shape=ellipse,label=\"{}\"];",
+                    dot_escape(predicate),
+                    dot_escape(predicate)
+                );
+            }
+            for (index, guard) in lowered.guards().iter().enumerate() {
+                let label = format!("guard {index}\n{}", guard.scope());
+                println!(
+                    "  \"g:{index}\" [shape=box,label=\"{}\"];",
+                    dot_escape(&label)
+                );
+            }
+            for (predicate, guard) in &edges {
+                println!("  \"p:{}\" -> \"g:{guard}\";", dot_escape(predicate));
+            }
+            println!("}}");
+        }
+    }
+    Ok(())
+}
+
+fn analysis_diagnostic(
+    code: ElasticDiagnosticCode,
+    level: &str,
+    message: String,
+    context: Value,
+) -> Value {
+    json!({
+        "code": code.as_str(),
+        "level": level,
+        "message": message,
+        "context": context,
+    })
+}
+
+fn render_kleene_satisfiability(
+    report: KleeneSatisfiabilityReport,
+    registry: &PredicateRegistry,
+) -> Value {
+    json!({
+        "satisfiable": report.is_satisfiable(),
+        "variables": report.variables(),
+        "assignment_space": report.assignment_space(),
+        "assignments_evaluated": report.assignments_evaluated(),
+        "witness": report.witness().map(|facts| render_kleene_facts(&facts, registry)),
+    })
+}
+
+fn render_kleene_property(report: KleenePropertyReport, registry: &PredicateRegistry) -> Value {
+    json!({
+        "holds": report.holds(),
+        "variables": report.variables(),
+        "assignment_space": report.assignment_space(),
+        "assignments_evaluated": report.assignments_evaluated(),
+        "counterexample": report.counterexample().map(|facts| render_kleene_facts(&facts, registry)),
+    })
+}
+
+fn render_kleene_facts(facts: &FactSet, registry: &PredicateRegistry) -> Value {
+    Value::Array(
+        registry
+            .iter()
+            .map(|(id, key)| {
+                let truth = facts.get(id).unwrap_or(TruthValue::Unknown);
+                json!({
+                    "predicate": key.to_string(),
+                    "truth": match truth {
+                        TruthValue::True => "true",
+                        TruthValue::False => "false",
+                        TruthValue::Unknown => "unknown",
+                    },
+                })
+            })
+            .collect(),
+    )
+}
+
+fn collect_atoms(expression: &BoolExpr, atoms: &mut BTreeSet<PredicateId>) {
+    match expression {
+        BoolExpr::Const(_) => {}
+        BoolExpr::Atom(id) => {
+            atoms.insert(*id);
+        }
+        BoolExpr::Not(inner) => collect_atoms(inner, atoms),
+        BoolExpr::All(expressions) | BoolExpr::Any(expressions) => {
+            for expression in expressions {
+                collect_atoms(expression, atoms);
+            }
+        }
+        BoolExpr::Xor(left, right) | BoolExpr::Implies(left, right) => {
+            collect_atoms(left, atoms);
+            collect_atoms(right, atoms);
+        }
+    }
+}
+
+fn dot_escape(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 fn run_check(

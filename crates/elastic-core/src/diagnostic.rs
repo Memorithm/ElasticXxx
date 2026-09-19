@@ -22,6 +22,16 @@ pub enum ElasticDiagnosticCode {
     LanguageMissingRequiredField,
     /// The declaration shape is unsupported or malformed.
     LanguageMalformedDeclaration,
+    /// A guard can never evaluate explicitly `True` under strong-Kleene semantics.
+    AnalysisDeadGuard,
+    /// A guard evaluates explicitly `True` for every strong-Kleene assignment.
+    AnalysisTautologicalGuard,
+    /// Two guard expressions are exactly equivalent including `Unknown`.
+    AnalysisEquivalentGuards,
+    /// One guard's explicit-True eligibility implies another guard is explicitly True.
+    AnalysisGuardImplication,
+    /// Two guards can never both evaluate explicitly `True`.
+    AnalysisMutuallyExclusiveGuards,
 }
 
 impl ElasticDiagnosticCode {
@@ -34,6 +44,11 @@ impl ElasticDiagnosticCode {
             Self::LanguageUndeclaredPredicate => "ELX-LANG-0003",
             Self::LanguageMissingRequiredField => "ELX-LANG-0004",
             Self::LanguageMalformedDeclaration => "ELX-LANG-0005",
+            Self::AnalysisDeadGuard => "ELX-ANALYZE-0001",
+            Self::AnalysisTautologicalGuard => "ELX-ANALYZE-0002",
+            Self::AnalysisEquivalentGuards => "ELX-ANALYZE-0003",
+            Self::AnalysisGuardImplication => "ELX-ANALYZE-0004",
+            Self::AnalysisMutuallyExclusiveGuards => "ELX-ANALYZE-0005",
         }
     }
 }
@@ -57,6 +72,11 @@ mod tests {
             ElasticDiagnosticCode::LanguageUndeclaredPredicate,
             ElasticDiagnosticCode::LanguageMissingRequiredField,
             ElasticDiagnosticCode::LanguageMalformedDeclaration,
+            ElasticDiagnosticCode::AnalysisDeadGuard,
+            ElasticDiagnosticCode::AnalysisTautologicalGuard,
+            ElasticDiagnosticCode::AnalysisEquivalentGuards,
+            ElasticDiagnosticCode::AnalysisGuardImplication,
+            ElasticDiagnosticCode::AnalysisMutuallyExclusiveGuards,
         ];
         let unique = codes
             .iter()
@@ -65,7 +85,7 @@ mod tests {
         assert_eq!(unique.len(), codes.len());
         assert!(unique
             .iter()
-            .all(|code| code.starts_with("ELX-LANG-") && code.len() == 13));
+            .all(|code| code.starts_with("ELX-") && code.len() <= 64));
     }
 }
 
