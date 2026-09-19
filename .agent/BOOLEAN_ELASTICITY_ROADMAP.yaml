@@ -1692,6 +1692,24 @@ phases:
           - executed_evidence_remains_authoritative
       - id: BE15e
         name: ExtremEngine_and_other_real_consumers
+        status: first_real_consumer_qualified_performance_claims_still_blocked
+        completion_evidence:
+          - ExtremEngine_PR_37
+          - ExtremEngine_PR37_exact_head_5a5894cfa38ba25dd4d8d9d804af8121557b768f
+          - ExtremEngine_PR37_merge_124c580839006dd9fdc0cba9cc68459b41f7a806
+          - ExtremEngine_PR37_CI_35411368357_completed_success_on_exact_head
+          - ExtremEngine_PR37_Elastic_Adaptive_Quality_35411368343_completed_success_on_exact_head
+          - ExtremEngine_PR37_Mesh_Qualification_35411368346_completed_success_on_exact_head
+          - ExtremEngine_PR37_Scene_Performance_35411368348_completed_success_on_exact_head
+          - ExtremEngine_PR37_Render_Extraction_Performance_35411368342_completed_success_on_exact_head
+          - ExtremEngine_PR37_Render_Graph_Performance_35411368345_completed_success_on_exact_head
+          - public_elastic_facade_pinned_to_ElasticXxx_8441991feea3a2aae19f62a8e51c89e7f0d6f969
+          - frame_time_is_embedding_supplied_and_missing_nonfinite_nonpositive_maps_to_Unknown
+          - hysteresis_cooldown_trusted_validation_verify_rollback_and_explicit_fault_latch_qualified
+          - material_P2_unverified_rollback_reuse_finding_corrected_and_resolved_before_merge
+          - cargo_deny_PolyForm_and_git_source_policy_scoped_to_exact_optional_Elastic_dependency_set
+          - no_performance_FPS_GPU_energy_visual_quality_or_scientific_claim
+          - real_consumer_effect_benchmark_remains_required_before_any_performance_claim
         tasks:
           - consume_guarded_adaptive_quality_or_resource_contract_only_when_metrics_exist
           - require_hysteresis_cooldown_and_rollback_where_stateful
