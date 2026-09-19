@@ -14,12 +14,15 @@ libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 
 [dependencies.elastic-core]
+package = "memorithm-elastic-core"
 path = "../crates/elastic-core"
 
 [dependencies.elastic-kv]
+package = "memorithm-elastic-kv"
 path = "../crates/elastic-kv"
 
 [dependencies.elastic-runtime]
+package = "memorithm-elastic-runtime"
 path = "../crates/elastic-runtime"
 
 [[bin]]
