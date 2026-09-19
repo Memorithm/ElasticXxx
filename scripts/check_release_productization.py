@@ -72,9 +72,11 @@ EXPECTED_RELEASE_DOCUMENTS = {
     "docs/release/PACKAGEABILITY.md",
     "docs/release/MIGRATION-0.1.md",
     "docs/release/CROSS_REPO_COMPATIBILITY.md",
+    "docs/release/REGISTRY-NAME-AUDIT.md",
 }
 EXPECTED_PUBLICATION_BLOCKERS = {
-    "registry_package_name_ownership_and_availability_not_verified_for_release_time",
+    "crates_io_current_name_collision_elastic_and_elastic_macros_requires_resolution",
+    "crates_io_name_availability_must_be_rechecked_at_release_time",
     "public_private_crate_topology_not_explicitly_authorized",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
@@ -212,6 +214,20 @@ def main() -> None:
         path = ROOT / rel
         if not path.is_file() or path.stat().st_size == 0:
             fail(f"required release document missing: {rel}")
+
+    registry_audit = (ROOT / "docs/release/REGISTRY-NAME-AUDIT.md").read_text()
+    required_registry_evidence = (
+        "2026-09-19T03:33:46Z",
+        "https://crates.io/api/v1/crates/elastic",
+        "elastic 0.21.0-pre.5",
+        "https://crates.io/api/v1/crates/elastic-macros",
+        "elastic_macros 0.0.0",
+        "https://github.com/elastic-rs/elastic",
+        "crates.io prevents differences of `-` vs `_`",
+    )
+    for marker in required_registry_evidence:
+        if marker not in registry_audit:
+            fail(f"registry-name audit evidence drifted or is incomplete: {marker}")
 
     # Bind two code/data consumers to the same exact-source identities recorded
     # by their actual destination-owned implementation/tests.

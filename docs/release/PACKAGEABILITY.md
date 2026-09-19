@@ -47,16 +47,16 @@ This records repository consistency only. It is not legal advice and does not as
 
 Real publication remains blocked until all of the following are resolved deliberately:
 
-- ownership/availability of every intended crates.io package name is verified at release time;
+- the observed crates.io collisions for `elastic` and `elastic-macros` are resolved by an explicitly approved naming or legitimate ownership path, and every intended package name is rechecked at release time;
 - the intended public/private crate topology is explicitly approved;
 - package archives are inspected for unintended files or missing documentation;
 - the exact release commit passes the normal required CI and the packageability workflow;
 - versions/changelog/release notes are frozen for that release;
 - a clean downstream sample can consume the published facade without workspace paths.
 
-No CI job may infer that an unavailable crate name, unapproved public/private topology, incomplete release evidence, or failed archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
+No CI job may infer that a colliding or unverified crate name, unapproved public/private topology, incomplete release evidence, or failed archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
-The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md). The machine-readable BE15f pre-release state, canonical SciRust license-source fingerprint, exact consumer/source pins and unresolved publication blockers are recorded in [PRODUCTIZATION-V1.json](PRODUCTIZATION-V1.json); CI validates that record with `scripts/check_release_productization.py`. Migration and cross-repository scope are documented in [MIGRATION-0.1.md](MIGRATION-0.1.md) and [CROSS_REPO_COMPATIBILITY.md](CROSS_REPO_COMPATIBILITY.md).
+The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md). The machine-readable BE15f pre-release state, canonical SciRust license-source fingerprint, exact consumer/source pins and unresolved publication blockers are recorded in [PRODUCTIZATION-V1.json](PRODUCTIZATION-V1.json); CI validates that record with `scripts/check_release_productization.py`. The point-in-time registry lookup and its non-reservation limits are recorded in [REGISTRY-NAME-AUDIT.md](REGISTRY-NAME-AUDIT.md). Migration and cross-repository scope are documented in [MIGRATION-0.1.md](MIGRATION-0.1.md) and [CROSS_REPO_COMPATIBILITY.md](CROSS_REPO_COMPATIBILITY.md).
 
 ## Non-goals
 
