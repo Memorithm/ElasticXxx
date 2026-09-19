@@ -657,6 +657,25 @@ roadmap:
       - document_failure_recovery_and_operational_limits
       - make_the_command_family_and_public_Rust_API_suitable_for_ordinary_Cargo_projects_without_internal_workspace_knowledge
 
+post_prepublication_language_program:
+  status: active
+  roadmap: .agent/ELASTIC_LANGUAGE_ROADMAP.yaml
+  publication_policy: suspended_by_user
+  retained_internal_baseline:
+    qualified_head: fc3c842205bb7ea46ef402826da865717a5a323e
+    qualified_merge: 914116cd531ded905a45547bee45c4bdefeeff43
+    publication_authorized: false
+  current_main_after_baseline_decoupling: b87e918cba27daf804a3d51565a8319580b8e182
+  current_language_candidate:
+    pr: 180
+    head: a420ab76500e1a3b204cdf94d18f7910725c4555
+    phase: ELANG1_single_resource_embedded_DSL
+  rule: >-
+    Language/runtime work has priority over registry publication. Read the
+    dedicated language roadmap before macro, public-programming-model,
+    multi-resource, resource-group, composite-transaction or cargo-frontend
+    changes.
+
 cross_repository_change_protocol:
   before_editing_another_repository:
     - read_that_repository_AGENTS_md

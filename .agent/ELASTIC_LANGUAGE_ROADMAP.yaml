@@ -1,0 +1,213 @@
+schema_version: 1
+kind: elasticxxx_embedded_language_agent_roadmap
+status: active
+last_updated: "2026-09-19"
+repository: Memorithm/ElasticXxx
+visibility_note: >-
+  Agent roadmap retained off default branch. Do not merge this file to main
+  unless the user explicitly requests it.
+
+mission:
+  primary: >-
+    Evolve ElasticXxx from a qualified adaptive-resource runtime into a coherent
+    resource-control language embedded in Rust, while keeping one typed semantic
+    implementation from syntax through EIR, trusted validation, physical
+    actuation, verification and rollback.
+  language_pipeline: >-
+    ELASTIC_SYNTAX -> PUBLIC_ELASTIC_API -> RESOURCE_MODEL -> EIR -> OBSERVE ->
+    FORECAST -> POLICY -> PLAN -> VALIDATE -> ACT -> VERIFY -> COMMIT_OR_ROLLBACK
+  publication_policy: suspended_by_user_until_product_is_materially_more_complete
+  retained_release_state: >-
+    The qualified 0.1.0 checkpoint is an internal reproducible baseline only.
+    Registry publication and registry mutation remain unauthorized and must not
+    block language/runtime development.
+
+hard_invariants:
+  - one_semantic_core_only_no_macro_specific_runtime_semantics
+  - DSL_builder_and_derive_equivalence_is_tested
+  - correctness_and_declared_invariants_dominate_optimization
+  - missing_or_stale_evidence_never_becomes_positive_authority
+  - trusted_validation_immediately_before_physical_actuation_remains_authoritative
+  - every_mutating_path_requires_verify_then_commit_or_rollback_fail_closed
+  - specialized_domain_semantics_remain_in_their_owning_repositories
+  - no_performance_or_scientific_novelty_claim_without_direct_reproducible_evidence
+  - public_convenience_surfaces_must_work_through_the_elastic_facade
+  - retained_internal_baseline_must_remain_verifiable_while_main_advances
+
+phases:
+  - id: ELANG0
+    name: language_direction_and_publication_decoupling
+    priority: P0
+    status: complete
+    completion_evidence:
+      - user_explicitly_suspended_publication_and_prioritized_product_completion
+      - ElasticXxx_PR_179_exact_head_8390f556f473d31c8c6ed6824cacd4605f1f64c0
+      - PR179_merged_as_b87e918cba27daf804a3d51565a8319580b8e182
+      - retained_0_1_0_baseline_is_verified_historically_instead_of_freezing_current_main
+      - registry_publication_and_mutation_remain_unauthorized
+
+  - id: ELANG1
+    name: single_resource_embedded_DSL
+    priority: P0
+    status: active_candidate
+    candidate:
+      pr: 180
+      head: a420ab76500e1a3b204cdf94d18f7910725c4555
+      base: b87e918cba27daf804a3d51565a8319580b8e182
+    contract:
+      syntax: 'elastic! { visibility? resource NAME { derive_fragment; ... } }'
+      lowering: function_like_macro_reuses_shared_declaration_analysis_and_ElasticResource_derive
+      output: named_Rust_module_with_resource_spec_function
+      semantic_authority: ResourceSpecBuilder_and_existing_typed_core
+    exit_criteria:
+      - manual_builder_derive_and_elastic_DSL_produce_equal_ResourceSpec
+      - equal_EIR_and_equal_fingerprint_for_equivalent_declarations
+      - public_facade_and_single_dependency_downstream_usage
+      - compile_fail_diagnostics_for_outer_DSL_and_shared_fragment_semantics
+      - rustdoc_and_example_are_green
+      - exact_head_required_CI_is_green_before_merge
+
+  - id: ELANG2
+    name: typed_multi_resource_document
+    priority: P0
+    status: planned_after_ELANG1
+    rule: core_and_EIR_before_syntax
+    tasks:
+      - define_public_bounded_multi_resource_declaration_container
+      - stable_resource_identity_and_duplicate_detection
+      - deterministic_resource_order_and_document_fingerprint
+      - lower_multiple_existing_ResourceSpec_values_without_new_resource_semantics
+      - expose_facade_only_construction_and_equivalence_tests
+      - extend_elastic_macro_to_multiple_resource_blocks_only_after_core_contract_is_green
+    non_goals:
+      - cross_resource_atomicity
+      - shared_budget_semantics
+      - policy_groups
+
+  - id: ELANG3
+    name: resource_groups_dependencies_and_shared_constraints
+    priority: P0
+    status: planned
+    rule: typed_semantics_before_DSL_spelling
+    tasks:
+      - ResourceGroup_identity_and_membership
+      - inter_resource_dependency_edges
+      - dependency_cycle_detection
+      - shared_budget_contracts_using_existing_pseudo_Boolean_and_numeric_units
+      - cross_resource_invariants_with_explicit_ownership
+      - deterministic_group_and_constraint_fingerprints
+      - EIR_group_lowering_and_source_mapping
+      - only_then_add_group_syntax_to_elastic_macro
+
+  - id: ELANG4
+    name: composite_planning_and_transaction_semantics
+    priority: P0
+    status: planned
+    tasks:
+      - composite_plan_envelope
+      - ordering_and_conflict_resolution_for_subplans
+      - explicit_prepare_boundary
+      - capture_pre_act_state_per_resource
+      - coordinated_verify_commit_or_rollback
+      - explicit_partial_failure_and_irrecoverable_fail_closed_state
+      - cancellation_and_shutdown_without_partial_commit
+      - differential_reference_tests_against_single_resource_transactions
+
+  - id: ELANG5
+    name: policy_blocks_and_constraint_language
+    priority: P1
+    status: planned
+    tasks:
+      - typed_policy_identity_and_versioning
+      - Boolean_guard_references_by_stable_predicate_key
+      - pseudo_Boolean_cardinality_and_weighted_budget_syntax
+      - numeric_objective_and_budget_units
+      - planner_hints_as_advisory_metadata_only
+      - static_rejection_of_hidden_or_undeclared_semantics
+      - DSL_manual_config_equivalence
+
+  - id: ELANG6
+    name: language_diagnostics_static_analysis_and_cargo_frontend
+    priority: P1
+    status: planned
+    tasks:
+      - stable_Elastic_diagnostic_codes
+      - precise_macro_spans_and_machine_readable_diagnostics
+      - cargo_elastic_check
+      - cargo_elastic_expand
+      - cargo_elastic_analyze
+      - cargo_elastic_graph
+      - contradiction_tautology_implication_equivalence_and_reachability_surfaces
+      - no_business_semantics_in_cargo_frontend
+
+  - id: ELANG7
+    name: embedded_edge_profile
+    priority: P1
+    status: planned
+    tasks:
+      - Linux_CPU_affinity_quota_and_pressure_observers
+      - RAM_and_storage_budget_contracts
+      - model_execution_profile_binding
+      - representation_precision_and_KV_contract_composition
+      - thermal_margin_and_energy_rate_policy_integration
+      - immutable_safety_critical_resource_reservations
+      - anti_thrashing_hysteresis_cooldown_and_rate_limits
+      - qualify_on_low_cost_CPU_only_reference_environment
+
+  - id: ELANG8
+    name: ecosystem_language_consumers
+    priority: P1
+    status: planned
+    sequence:
+      - SLHAv2_and_KV_consumers
+      - SciRust_representation_consumers
+      - NNIS_kernel_and_backend_consumers
+      - FLAT_ATTENTION_capability_consumers
+      - Forge_candidate_search
+      - ExtremEngine_adaptive_quality
+      - scirust_hub_orchestration
+    rules:
+      - versioned_contracts_only
+      - consumer_owns_domain_semantics
+      - ElasticXxx_revalidates_before_actuation
+      - benchmark_real_consumer_effects_before_claims
+
+  - id: ELANG9
+    name: language_productization_after_real_usage
+    priority: P2
+    status: blocked_until_language_and_consumers_are_mature
+    tasks:
+      - revisit_semver_and_publication_only_after_user_authorizes_it
+      - compatibility_and_migration_review_for_language_syntax
+      - fuzz_macro_parser_and_persisted_schemas
+      - Miri_where_applicable
+      - clean_external_Cargo_project_install_and_examples
+      - publication_name_recheck_only_at_actual_release_time
+
+current_execution:
+  verified_main: b87e918cba27daf804a3d51565a8319580b8e182
+  earliest_incomplete_phase: ELANG1
+  immediate_next_slice: qualify_and_merge_PR180_then_ELANG2_typed_multi_resource_document
+  current_candidate_pr: 180
+  current_candidate_head: a420ab76500e1a3b204cdf94d18f7910725c4555
+  current_candidate_status: exact_head_CI_pending_local_workspace_rustdoc_trybuild_clippy_and_equivalence_green
+  registry_publication_authorized: false
+  registry_mutation_authorized: false
+  performance_claims: none
+
+automation_contract:
+  task_name: Memorithm Research Autopilot
+  priority_until_language_goal:
+    - ELANG1
+    - ELANG2
+    - ELANG3
+    - ELANG4
+    - ELANG5
+    - ELANG6
+    - ELANG7
+    - ELANG8
+    - ELANG9
+  execution_rule: >-
+    Select the earliest unblocked language slice, preserve exact-head CI gates,
+    update this roadmap after material changes, and do not reactivate registry
+    publication work unless the user explicitly changes publication policy.
