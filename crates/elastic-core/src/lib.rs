@@ -33,6 +33,7 @@ pub mod logic;
 pub mod multiword;
 pub mod multiword_batch;
 pub mod multiword_guard;
+pub mod policy;
 pub mod predicate;
 pub mod pseudo_boolean;
 pub mod pseudo_boolean_oracle;
@@ -76,6 +77,10 @@ pub use multiword_batch::{
     MultiwordBatchError, MultiwordBatchScreen, MultiwordGuardBatch, MAX_MULTIWORD_GUARDS_PER_BATCH,
 };
 pub use multiword_guard::{MultiwordCompiledGuard, MultiwordGuardError, MultiwordGuardPath};
+pub use policy::{
+    PolicyHeader, PolicyId, PolicyIdentity, PolicyIdentityError, PolicyTarget, PolicyTargetKind,
+    PolicyVersion, MAX_POLICY_ID_BYTES,
+};
 pub use predicate::{
     PredicateComponent, PredicateComponentError, PredicateKey, PredicateRegistry,
     PredicateRegistryError, BOOLEAN_PREDICATE_SCHEMA_V1, MAX_PREDICATE_COMPONENT_BYTES,

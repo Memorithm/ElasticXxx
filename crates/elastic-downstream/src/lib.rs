@@ -642,6 +642,52 @@ pub fn public_composite_transaction_surface_smoke() {
     assert!(!worker.checkpoint_active && !cache.checkpoint_active);
 }
 
+/// Semantic proof that ELANG5a policy identity/version/target binding is
+/// available through only the public `elastic` dependency.
+pub fn public_policy_identity_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let resource_header = PolicyHeader::new(
+        PolicyIdentity::new(
+            PolicyId::new("downstream.runtime-balance").unwrap(),
+            PolicyVersion::new(1, 2, 0),
+        ),
+        PolicyTarget::resource(LogicalResourceId::new("downstream-cache").unwrap()),
+    );
+    let resource_policy = EirPolicyHeader::lower_resource(&resource_header, &document).unwrap();
+    assert_eq!(resource_policy.identity(), resource_header.identity());
+    assert_eq!(resource_policy.target().kind(), PolicyTargetKind::Resource);
+    assert_eq!(
+        resource_policy.target_fingerprint(),
+        document.resource("downstream-cache").unwrap().fingerprint()
+    );
+
+    let worker = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache = LogicalResourceId::new("downstream-cache").unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("downstream-policy-group").unwrap())
+        .members([worker, cache])
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let group_header = PolicyHeader::new(
+        PolicyIdentity::new(
+            PolicyId::new("downstream.runtime-balance").unwrap(),
+            PolicyVersion::new(1, 2, 0),
+        ),
+        PolicyTarget::group(ResourceGroupId::new("downstream-policy-group").unwrap()),
+    );
+    let group_policy = EirPolicyHeader::lower_group(&group_header, &grouped).unwrap();
+    assert_eq!(group_policy.target().kind(), PolicyTargetKind::Group);
+    assert_eq!(
+        group_policy.target_fingerprint(),
+        grouped
+            .group("downstream-policy-group")
+            .unwrap()
+            .fingerprint()
+    );
+    assert_ne!(resource_policy.fingerprint(), group_policy.fingerprint());
+    assert_eq!(EIR_POLICY_HEADER_SCHEMA_VERSION, 1);
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
@@ -836,6 +882,7 @@ mod tests {
         public_composite_prepare_surface_smoke();
         public_composite_prepare_recovery_surface_smoke();
         public_composite_transaction_surface_smoke();
+        public_policy_identity_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }
