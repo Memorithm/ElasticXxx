@@ -1,4 +1,4 @@
-error: duplicate policy predicate alias `ok`
+error: [ELX-LANG-0002] duplicate policy predicate alias `ok`
   --> tests/compile_fail/dsl_policy_duplicate_predicate_alias.rs:14:23
    |
 14 |             predicate(ok, "elastic.test", "b");

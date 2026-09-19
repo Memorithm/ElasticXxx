@@ -1,4 +1,4 @@
-error: policy is missing mandatory id("...")
+error: [ELX-LANG-0004] policy is missing mandatory id("...")
  --> tests/compile_fail/dsl_policy_missing_id.rs:9:16
   |
 9 |         policy bad {
