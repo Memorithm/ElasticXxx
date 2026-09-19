@@ -51,8 +51,9 @@ Real publication remains blocked until all of the following are resolved deliber
 - every intended organization-prefixed package name is rechecked at release time;
 - the remaining non-leaf package archives are built and inspected after dependency-order publication makes those registry-dependent archives constructible;
 - the exact release commit passes the normal required CI and the packageability workflow;
-- versions/changelog/release notes are frozen for that release;
 - a clean downstream sample can consume the published facade without workspace paths.
+
+The 0.1.0 version target, root changelog, and release-candidate notes are now frozen and digest-checked by the productization gate. This closes only the release-metadata freeze blocker; it does not authorize publication or satisfy any registry-dependent gate.
 
 The leaf-archive inspection closes only the archive-content/documentation check for `elastic-core` and `elastic-macros`; it does not make the registry-dependent non-leaf archives inspectable before their dependencies exist in the registry. The selected public topology keeps all facade dependencies registry-visible while designating only the facade as the supported user boundary. The Cargo package mapping is now applied, but it does not authorize publication. No CI job may infer that a colliding or unverified crate name, incomplete release evidence, or failed remaining archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
