@@ -40,6 +40,7 @@ elastic! {
             class(shared);
             id("downstream-worker-pool");
             allow(parallelism);
+            optimize(latency);
             admit(reinterpret @ parallelism);
             capability(reinterpret @ parallelism);
         }
@@ -50,6 +51,23 @@ elastic! {
             preserve(contents);
             admit(reencode @ representation);
             capability(reencode @ representation);
+        }
+        policy worker_policy {
+            id("downstream.worker-policy");
+            version(1, 0, 0);
+            target(worker_pool);
+            predicate(capacity_ok, "elastic.downstream", "capacity-ok");
+            predicate(burst_mode, "elastic.downstream", "burst-mode");
+            guard transition(reinterpret @ parallelism) when(capacity_ok && !burst_mode);
+            constraint at_most(1, capacity_ok, burst_mode);
+            constraint budget {
+                unit("workers");
+                quantum(1);
+                maximum(8);
+                term(burst_mode, 4);
+            }
+            objective latency minimize unit("microseconds") quantum(1);
+            hint("search.mode", "balanced");
         }
     }
 }
@@ -642,6 +660,29 @@ pub fn public_composite_transaction_surface_smoke() {
     assert!(!worker.checkpoint_active && !cache.checkpoint_active);
 }
 
+/// Semantic proof that ELANG5d policy blocks compile and lower through only
+/// the public `elastic` facade dependency.
+pub fn public_policy_dsl_surface_smoke() {
+    let policy = downstream_language_document::worker_policy::policy_spec().unwrap();
+    assert_eq!(
+        policy.policy().header().identity().id().as_str(),
+        "downstream.worker-policy"
+    );
+    assert_eq!(policy.policy().guarded_resource().guards().len(), 1);
+    assert_eq!(policy.policy().constraints().len(), 2);
+    assert_eq!(policy.numeric_objectives().len(), 1);
+    assert_eq!(policy.planner_hints().len(), 1);
+
+    let eir = downstream_language_document::worker_policy::policy_eir().unwrap();
+    assert_eq!(eir.policy().constrained_resource().constraints().len(), 2);
+    assert_eq!(
+        eir.numeric_objectives()[0].objective(),
+        &ObjectiveId::LATENCY
+    );
+    assert_eq!(eir.planner_hints()[0].key(), "search.mode");
+    assert_eq!(eir.planner_hints()[0].value(), "balanced");
+}
+
 /// Semantic proof that ELANG5a policy identity/version/target binding is
 /// available through only the public `elastic` dependency.
 pub fn public_policy_identity_surface_smoke() {
@@ -1022,6 +1063,7 @@ mod tests {
         public_policy_identity_surface_smoke();
         public_resource_policy_rules_surface_smoke();
         public_policy_advisory_surface_smoke();
+        public_policy_dsl_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

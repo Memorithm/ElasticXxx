@@ -7,11 +7,15 @@
 
 use std::fmt;
 
+use crate::ElasticGuardError;
 use elastic_core::resource::{
     CrossResourceInvariantError, ResourceGroupError, ResourceSpecError, SharedBudgetError,
 };
-use elastic_core::{PredicateRegistryError, PseudoBooleanError};
-use elastic_eir::{GroupLoweringError, ValidationError};
+use elastic_core::{
+    PolicyAdvisoryError, PolicyIdentityError, PredicateRegistryError, PseudoBooleanBindingError,
+    PseudoBooleanError, ResourcePolicyError,
+};
+use elastic_eir::{GroupLoweringError, PolicyAdvisoryLoweringError, ValidationError};
 
 /// Failure while materializing one multi-resource Elastic language document.
 #[derive(Debug)]
@@ -156,5 +160,117 @@ impl From<PseudoBooleanError> for ElasticGroupDocumentError {
 impl From<GroupLoweringError> for ElasticGroupDocumentError {
     fn from(value: GroupLoweringError) -> Self {
         Self::EirGroup(value)
+    }
+}
+
+/// Failure while materializing or lowering one ELANG5 resource policy declared
+/// inside an `elastic! document`.
+#[derive(Debug)]
+pub enum ElasticPolicyDocumentError {
+    Resource {
+        resource: &'static str,
+        source: ResourceSpecError,
+    },
+    Identity(PolicyIdentityError),
+    Predicate(PredicateRegistryError),
+    Guard(ElasticGuardError),
+    PseudoBooleanBinding(PseudoBooleanBindingError),
+    PseudoBoolean(PseudoBooleanError),
+    ResourcePolicy(ResourcePolicyError),
+    Advisory(PolicyAdvisoryError),
+    Lowering(PolicyAdvisoryLoweringError),
+}
+
+impl ElasticPolicyDocumentError {
+    #[must_use]
+    pub const fn resource(resource: &'static str, source: ResourceSpecError) -> Self {
+        Self::Resource { resource, source }
+    }
+}
+
+impl fmt::Display for ElasticPolicyDocumentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Resource { resource, source } => {
+                write!(
+                    f,
+                    "elastic policy target resource {resource} is invalid: {source}"
+                )
+            }
+            Self::Identity(error) => write!(f, "elastic policy identity is invalid: {error}"),
+            Self::Predicate(error) => write!(f, "elastic policy predicate is invalid: {error}"),
+            Self::Guard(error) => write!(f, "elastic policy guard is invalid: {error}"),
+            Self::PseudoBooleanBinding(error) => {
+                write!(f, "elastic policy constraint binding is invalid: {error}")
+            }
+            Self::PseudoBoolean(error) => {
+                write!(
+                    f,
+                    "elastic policy pseudo-Boolean metadata is invalid: {error}"
+                )
+            }
+            Self::ResourcePolicy(error) => write!(f, "elastic resource policy is invalid: {error}"),
+            Self::Advisory(error) => {
+                write!(f, "elastic policy advisory metadata is invalid: {error}")
+            }
+            Self::Lowering(error) => write!(f, "elastic policy EIR lowering failed: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for ElasticPolicyDocumentError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Resource { source, .. } => Some(source),
+            Self::Identity(error) => Some(error),
+            Self::Predicate(error) => Some(error),
+            Self::Guard(error) => Some(error),
+            Self::PseudoBooleanBinding(error) => Some(error),
+            Self::PseudoBoolean(error) => Some(error),
+            Self::ResourcePolicy(error) => Some(error),
+            Self::Advisory(error) => Some(error),
+            Self::Lowering(error) => Some(error),
+        }
+    }
+}
+
+impl From<PolicyIdentityError> for ElasticPolicyDocumentError {
+    fn from(value: PolicyIdentityError) -> Self {
+        Self::Identity(value)
+    }
+}
+impl From<PredicateRegistryError> for ElasticPolicyDocumentError {
+    fn from(value: PredicateRegistryError) -> Self {
+        Self::Predicate(value)
+    }
+}
+impl From<ElasticGuardError> for ElasticPolicyDocumentError {
+    fn from(value: ElasticGuardError) -> Self {
+        Self::Guard(value)
+    }
+}
+impl From<PseudoBooleanBindingError> for ElasticPolicyDocumentError {
+    fn from(value: PseudoBooleanBindingError) -> Self {
+        Self::PseudoBooleanBinding(value)
+    }
+}
+impl From<PseudoBooleanError> for ElasticPolicyDocumentError {
+    fn from(value: PseudoBooleanError) -> Self {
+        Self::PseudoBoolean(value)
+    }
+}
+impl From<ResourcePolicyError> for ElasticPolicyDocumentError {
+    fn from(value: ResourcePolicyError) -> Self {
+        Self::ResourcePolicy(value)
+    }
+}
+impl From<PolicyAdvisoryError> for ElasticPolicyDocumentError {
+    fn from(value: PolicyAdvisoryError) -> Self {
+        Self::Advisory(value)
+    }
+}
+impl From<PolicyAdvisoryLoweringError> for ElasticPolicyDocumentError {
+    fn from(value: PolicyAdvisoryLoweringError) -> Self {
+        Self::Lowering(value)
     }
 }
