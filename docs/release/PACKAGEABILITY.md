@@ -50,12 +50,21 @@ Real publication remains blocked until all of the following are resolved deliber
 
 - every intended organization-prefixed package name is rechecked at release time;
 - the remaining non-leaf package archives are built and inspected after dependency-order publication makes those registry-dependent archives constructible;
-- the exact release commit passes the normal required CI and the packageability workflow;
 - a clean downstream sample can consume the published facade without workspace paths.
 
 The 0.1.0 version target, root changelog, and release-candidate notes are now frozen and digest-checked by the productization gate. This closes only the release-metadata freeze blocker; it does not authorize publication or satisfy any registry-dependent gate.
 
 The leaf-archive inspection closes only the archive-content/documentation check for `elastic-core` and `elastic-macros`; it does not make the registry-dependent non-leaf archives inspectable before their dependencies exist in the registry. The selected public topology keeps all facade dependencies registry-visible while designating only the facade as the supported user boundary. The Cargo package mapping is now applied, but it does not authorize publication. No CI job may infer that a colliding or unverified crate name, incomplete release evidence, or failed remaining archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
+
+## Exact-commit qualification gate
+
+The exact-commit gate is now implemented as a recurring release-candidate invariant rather than an unresolved publication blocker. On main commit `01058ad907139e4bc21f181b63024b689a24f076`, the exact commit completed successfully in all three required workflows:
+
+- `ci`: run `35431038327`;
+- `packageability`: run `35431038403`;
+- `release-candidate-prepublication`: run `35431038316`.
+
+This evidence qualifies the gate mechanism and closes the prior exact-release-commit blocker. Every later candidate commit must still pass those same three checks on its own exact SHA before merge/release qualification; a previous successful SHA never grants authority to a changed payload. The remaining blockers are registry-dependent and remain fail-closed.
 
 The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md). The machine-readable BE15f pre-release state, canonical SciRust license-source fingerprint, exact consumer/source pins and unresolved publication blockers are recorded in [PRODUCTIZATION-V1.json](PRODUCTIZATION-V1.json); CI validates that record with `scripts/check_release_productization.py`. The point-in-time registry lookup and its non-reservation limits are recorded in [REGISTRY-NAME-AUDIT.md](REGISTRY-NAME-AUDIT.md). The explicit replacement package names and public dependency topology are recorded in [PACKAGE-NAMING-V1.md](PACKAGE-NAMING-V1.md). Migration and cross-repository scope are documented in [MIGRATION-0.1.md](MIGRATION-0.1.md) and [CROSS_REPO_COMPATIBILITY.md](CROSS_REPO_COMPATIBILITY.md).
 

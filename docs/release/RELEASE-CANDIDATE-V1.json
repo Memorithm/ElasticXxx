@@ -5,7 +5,7 @@
   "release_line": "0.1.x",
   "msrv": "1.89",
   "payload_digest_algorithm": "sha256-git-mode-path-content-v1",
-  "payload_sha256": "43023aa348dd25bc4c39b4d7ab71355aac3115b8e170632a2748fecfa9c7da00",
+  "payload_sha256": "a5b9494fa6f62692e4f1cc8127609b9fff91cb44a300e16a876884c3597f9ee4",
   "payload_exclusions": [
     "docs/release/RELEASE-CANDIDATE-V1.json"
   ],
@@ -21,7 +21,6 @@
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
-    "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish",
-    "exact_release_commit_required_ci_and_packageability_not_yet_successful"
+    "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish"
   ]
 }
