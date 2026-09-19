@@ -57,6 +57,7 @@ EXPECTED_BLOCKERS = [
 ]
 REGISTRY_VISIBLE_PACKAGES = {
     "memorithm-elastic-core",
+    "memorithm-elastic-language-syntax",
     "memorithm-elastic-macros",
     "memorithm-elastic-eir",
     "memorithm-elastic-adapters",

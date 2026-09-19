@@ -16,6 +16,7 @@ HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 REGISTRY_BY_SOURCE = {
     "elastic-core": "memorithm-elastic-core",
+    "elastic-language-syntax": "memorithm-elastic-language-syntax",
     "elastic-macros": "memorithm-elastic-macros",
     "elastic-eir": "memorithm-elastic-eir",
     "elastic-adapters": "memorithm-elastic-adapters",
@@ -82,7 +83,7 @@ EXPECTED_RELEASE_DOCUMENTS = {
 }
 EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10ccb60654e0c42bcfecfc"
 
-EXPECTED_PACKAGE_NAMING_SHA256 = "2aff9c09c6742b02668a5217c461bccc4c1e74d47d3e3b904e431b7251ebd983"
+EXPECTED_PACKAGE_NAMING_SHA256 = "ff1052c8c0302eef8b37ad747115b9d3970f9337e00fd692055bf6420f4d5bd4"
 EXPECTED_CHANGELOG_SHA256 = "7f6b7ddf4e25975c023b05c09d1970ef8e609db9d162c2f0cee3212b81ee4050"
 EXPECTED_RELEASE_NOTES_SHA256 = "54050102786c38c7f5e1ce281f657b5a95bac975c413e50d6d3ab9014957ebac"
 EXPECTED_PUBLICATION_BLOCKERS = {
@@ -99,6 +100,7 @@ EXPECTED_PUBLIC_PACKAGE_TOPOLOGY = {
     "supported_user_boundary": "elastic",
     "registry_packages": [
         {"workspace_package": "elastic-core", "registry_package": "memorithm-elastic-core", "role": "implementation-dependency"},
+        {"workspace_package": "elastic-language-syntax", "registry_package": "memorithm-elastic-language-syntax", "role": "implementation-dependency"},
         {"workspace_package": "elastic-macros", "registry_package": "memorithm-elastic-macros", "role": "implementation-dependency"},
         {"workspace_package": "elastic-eir", "registry_package": "memorithm-elastic-eir", "role": "implementation-dependency"},
         {"workspace_package": "elastic-adapters", "registry_package": "memorithm-elastic-adapters", "role": "implementation-dependency"},
@@ -107,7 +109,7 @@ EXPECTED_PUBLIC_PACKAGE_TOPOLOGY = {
         {"workspace_package": "elastic", "registry_package": "memorithm-elastic", "role": "public-facade"},
     ],
     "availability_observed_at": "2026-09-19T05:58:13Z",
-    "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
+    "availability_observation": "legacy-seven-selected-names-returned-404-language-syntax-name-unverified-release-time-recheck-required",
     "manifests_renamed": True,
 }
 

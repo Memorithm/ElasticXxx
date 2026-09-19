@@ -94,8 +94,11 @@ mod macro_contract_tests {
     use super::*;
 
     #[test]
-    fn proc_macro_private_codes_match_public_registry() {
+    fn shared_language_syntax_codes_match_public_registry() {
+        let syntax = include_str!("../../elastic-language-syntax/src/lib.rs");
         let macros = include_str!("../../elastic-macros/src/lib.rs");
+        assert!(macros.contains("elastic_language_syntax::expand_derive_tokens"));
+        assert!(macros.contains("elastic_language_syntax::expand_elastic_tokens"));
         let public = [
             ElasticDiagnosticCode::LanguageUnknownReference,
             ElasticDiagnosticCode::LanguageDuplicateDeclaration,
@@ -106,8 +109,8 @@ mod macro_contract_tests {
         for code in public {
             let needle = format!("=> \"{}\"", code.as_str());
             assert!(
-                macros.contains(&needle),
-                "proc-macro diagnostic registry drifted: missing {}",
+                syntax.contains(&needle),
+                "shared language diagnostic registry drifted: missing {}",
                 code.as_str()
             );
         }

@@ -9,12 +9,13 @@ This document defines reversible packageability checks for the first ElasticXxx 
 The user-facing source crate `elastic` is packaged as `memorithm-elastic`. Its registry-visible dependency chain is:
 
 1. `memorithm-elastic-core` (library crate `elastic_core`);
-2. `memorithm-elastic-macros` (library crate `elastic_macros`);
-3. `memorithm-elastic-eir` (`memorithm-elastic-core`);
-4. `memorithm-elastic-adapters` (`memorithm-elastic-core`, `memorithm-elastic-eir`);
-5. `memorithm-elastic-runtime` (`memorithm-elastic-core`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`);
-6. `memorithm-elastic-kv` (`memorithm-elastic-core`, `memorithm-elastic-eir`, `memorithm-elastic-runtime`);
-7. `memorithm-elastic` (the six implementation packages above).
+2. `memorithm-elastic-language-syntax` (library crate `elastic_language_syntax`);
+3. `memorithm-elastic-macros` (library crate `elastic_macros`, depends on `memorithm-elastic-language-syntax`);
+4. `memorithm-elastic-eir` (`memorithm-elastic-core`);
+5. `memorithm-elastic-adapters` (`memorithm-elastic-core`, `memorithm-elastic-eir`);
+6. `memorithm-elastic-runtime` (`memorithm-elastic-core`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`);
+7. `memorithm-elastic-kv` (`memorithm-elastic-core`, `memorithm-elastic-eir`, `memorithm-elastic-runtime`);
+8. `memorithm-elastic` (the seven implementation packages above).
 
 All internal publish-path dependencies carry a compatible version, a local `path`, and an explicit Cargo package alias preserving the existing source-level crate names. The path is used inside the workspace; Cargo removes it from a packaged manifest and retains the version/package identity for registry resolution.
 
@@ -30,11 +31,11 @@ The pre-release packageability workflow therefore proves only what can be proved
 - Cargo metadata resolves every non-dev internal dependency in the public facade chain to an explicit `^0.1.0` registry requirement rather than a path-only wildcard;
 - every workspace crate resolves the declared MSRV `rust-version = "1.89"`;
 - `cargo package --list` succeeds for the complete facade dependency chain, so Cargo can determine each package file set;
-- real `cargo package --no-verify` archives are built for the first-publish leaf packages `memorithm-elastic-core` and `memorithm-elastic-macros`;
+- real `cargo package --no-verify` archives are built for the first-publish leaf packages `memorithm-elastic-core` and `memorithm-elastic-language-syntax`;
 - those two leaf archives are inspected fail-closed against Cargo's exact `--list` file set, bounded archive/member sizes, safe package-relative paths, regular-file-only entries, exact packaged release metadata, repository `LICENSE.md`, crate-level rustdoc and exact Git-head VCS provenance;
 - normal workspace CI remains authoritative for compile, tests, Clippy, rustdoc and runtime semantics.
 
-This is intentionally weaker than claiming the full chain has already been upload-prepared. After a real registry contains the leaf packages, the same gate can advance one level at a time (`memorithm-elastic-eir`, then `memorithm-elastic-adapters`, then `memorithm-elastic-runtime`, then `memorithm-elastic-kv`, then `memorithm-elastic`).
+This is intentionally weaker than claiming the full chain has already been upload-prepared. After a real registry contains the leaf packages, the same gate can advance one level at a time (`memorithm-elastic-macros` and `memorithm-elastic-eir`, then `memorithm-elastic-adapters`, then `memorithm-elastic-runtime`, then `memorithm-elastic-kv`, then `memorithm-elastic`).
 
 No fake local registry or committed `[patch.crates-io]` is used to turn an unavailable dependency into a false positive.
 
@@ -54,7 +55,7 @@ Real publication remains blocked until all of the following are resolved deliber
 
 The 0.1.0 version target, root changelog, and release-candidate notes are now frozen and digest-checked by the productization gate. This closes only the release-metadata freeze blocker; it does not authorize publication or satisfy any registry-dependent gate.
 
-The leaf-archive inspection closes only the archive-content/documentation check for `elastic-core` and `elastic-macros`; it does not make the registry-dependent non-leaf archives inspectable before their dependencies exist in the registry. The selected public topology keeps all facade dependencies registry-visible while designating only the facade as the supported user boundary. The Cargo package mapping is now applied, but it does not authorize publication. No CI job may infer that a colliding or unverified crate name, incomplete release evidence, or failed remaining archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
+The leaf-archive inspection closes only the archive-content/documentation check for `elastic-core` and `elastic-language-syntax`; it does not make the registry-dependent non-leaf archives inspectable before their dependencies exist in the registry. The selected public topology keeps all facade dependencies registry-visible while designating only the facade as the supported user boundary. The Cargo package mapping is now applied, but it does not authorize publication. No CI job may infer that a colliding or unverified crate name, incomplete release evidence, or failed remaining archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
 ## Exact-commit qualification gate
 
