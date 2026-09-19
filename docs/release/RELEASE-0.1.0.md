@@ -20,7 +20,10 @@ The candidate is not publishable solely because these notes exist. The following
 1. recheck all selected crates.io names at release time;
 2. perform any dependency-order registry publication only after separate release approval;
 3. inspect non-leaf package archives once their registry dependencies make those archives constructible;
-4. verify a clean downstream project can consume the published facade without workspace paths;
-5. require the exact release commit to pass its applicable CI and packageability gates.
+4. verify a clean downstream project can consume the published facade without workspace paths.
+
+## Recurring exact-commit qualification
+
+The exact-commit gate is implemented and is no longer an unresolved publication blocker. Main commit `01058ad907139e4bc21f181b63024b689a24f076` passed `ci` (`35431038327`), `packageability` (`35431038403`), and `release-candidate-prepublication` (`35431038316`) on that exact SHA. Any later release-candidate payload must independently pass the same three checks on its own exact commit; this evidence is not transferable across payload changes.
 
 No performance, FPS, latency, memory-saving, energy, hardware, scientific novelty, registry-ownership, or compatibility-with-unpublished-artifacts claim is made by this document.

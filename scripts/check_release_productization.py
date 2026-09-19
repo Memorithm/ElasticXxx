@@ -84,13 +84,12 @@ EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10cc
 
 EXPECTED_PACKAGE_NAMING_SHA256 = "2aff9c09c6742b02668a5217c461bccc4c1e74d47d3e3b904e431b7251ebd983"
 EXPECTED_CHANGELOG_SHA256 = "7f6b7ddf4e25975c023b05c09d1970ef8e609db9d162c2f0cee3212b81ee4050"
-EXPECTED_RELEASE_NOTES_SHA256 = "382037edf9388eae3932d562123e54b48f4239a42e7aed135a6218aa50400b78"
+EXPECTED_RELEASE_NOTES_SHA256 = "54050102786c38c7f5e1ce281f657b5a95bac975c413e50d6d3ab9014957ebac"
 EXPECTED_PUBLICATION_BLOCKERS = {
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
     "clean_registry_downstream_install_not_yet_possible_without_first_publish",
     "non_leaf_package_archives_not_buildable_or_inspectable_until_dependency_order_publish",
-    "exact_release_commit_required_ci_and_packageability_not_yet_successful",
 }
 
 
