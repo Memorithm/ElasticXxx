@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - name: Require trusted persistent runner and pinned Rust
         shell: bash
@@ -38,7 +39,7 @@ jobs:
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
           rustc +1.89.0 -Vv
-      - name: Validate frozen release candidate without registry mutation
+      - name: Validate retained qualified baseline without registry mutation
         shell: bash
         run: |
           set -euo pipefail
@@ -51,26 +52,25 @@ jobs:
           import sys
 
           receipt = json.load(open(sys.argv[1], encoding='utf-8'))
-          expected = sys.argv[2]
-          assert receipt['source_commit'] == expected, (receipt['source_commit'], expected)
-          assert receipt['release_version'] == '0.1.0'
+          current = sys.argv[2]
+          assert receipt['baseline_source_commit'] == 'fc3c842205bb7ea46ef402826da865717a5a323e'
+          assert receipt['baseline_source_tree'] == '23d7ff90986cfd53c29c7eea1b2059b1d29d8054'
+          assert receipt['current_head'] == current, (receipt['current_head'], current)
+          assert receipt['publication_suspended'] is True
           assert receipt['registry_publication_authorized'] is False
           assert receipt['registry_mutation_authorized'] is False
           assert receipt['network_registry_queries_performed'] is False
-          assert receipt['required_exact_commit_checks'] == [
-              'ci', 'packageability', 'release-candidate-prepublication'
-          ]
           PY
       - name: Record exact-head receipt summary
         shell: bash
         run: |
           set -euo pipefail
           {
-            echo '### ElasticXxx 0.1.0 prepublication candidate'
+            echo '### ElasticXxx retained internal baseline'
             echo
-            echo "- exact commit: \`${{ github.event.pull_request.head.sha || github.sha }}\`"
-            echo '- registry publication: **unauthorized**'
+            echo '- qualified baseline head: `fc3c842205bb7ea46ef402826da865717a5a323e`'
+            echo "- current development head: \`${{ github.event.pull_request.head.sha || github.sha }}\`"
+            echo '- publication: **suspended / unauthorized**'
             echo '- registry mutation: **unauthorized**'
             echo '- registry network query in this gate: **none**'
-            echo '- sibling exact-head checks still required: `ci`, `packageability`'
           } >> "$GITHUB_STEP_SUMMARY"

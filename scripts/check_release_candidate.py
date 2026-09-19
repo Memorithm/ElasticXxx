@@ -1,42 +1,54 @@
 #!/usr/bin/env python3
-"""Fail-closed BE15f release-candidate freeze and prepublication gate.
+"""Verify the retained qualified 0.1.0 baseline without freezing development HEAD.
 
-This checker never mutates a registry. It binds one reviewed release payload to a
-stable path/content digest and emits a receipt that names the exact Git commit on
-which the check ran. Publication remains independently unauthorized.
+The baseline is a historical, exact-head qualified Git object. Current `main` may
+advance after that point. This checker proves that the baseline commit/tree and
+payload digest remain available and unchanged while separately requiring the
+current workspace to remain non-publishable. It never mutates or queries a
+package registry.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
-import os
-import stat
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
-CANDIDATE = ROOT / "docs/release/RELEASE-CANDIDATE-V1.json"
+BASELINE = ROOT / "docs/release/RELEASE-CANDIDATE-V1.json"
 PRODUCTIZATION = ROOT / "docs/release/PRODUCTIZATION-V1.json"
 EXCLUDED_PAYLOAD_PATHS = {"docs/release/RELEASE-CANDIDATE-V1.json"}
+HEX40 = re.compile(r"^[0-9a-f]{40}$")
 EXPECTED_TOP_LEVEL_KEYS = {
     "schema",
     "scope",
     "release_version",
     "release_line",
     "msrv",
+    "baseline_source_commit",
+    "baseline_source_tree",
     "payload_digest_algorithm",
     "payload_sha256",
     "payload_exclusions",
+    "baseline_qualification",
+    "publication_suspended",
     "registry_publication_authorized",
     "registry_mutation_authorized",
     "network_registry_queries_authorized",
-    "required_exact_commit_checks",
     "publication_blockers",
 }
-EXPECTED_CHECKS = ["ci", "packageability", "release-candidate-prepublication"]
+EXPECTED_QUALIFICATION = {
+    "pull_request": 178,
+    "exact_head": "fc3c842205bb7ea46ef402826da865717a5a323e",
+    "merge_commit": "914116cd531ded905a45547bee45c4bdefeeff43",
+    "ci_run": 35431235301,
+    "packageability_run": 35431235305,
+    "baseline_integrity_run": 35431235300,
+}
 EXPECTED_BLOCKERS = [
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
@@ -55,50 +67,13 @@ REGISTRY_VISIBLE_PACKAGES = {
 
 
 def fail(message: str) -> None:
-    raise SystemExit(f"release-candidate: {message}")
+    raise SystemExit(f"internal-baseline: {message}")
 
 
-def git(*args: str) -> str:
-    return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
-
-
-def tracked_paths() -> list[str]:
-    raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
-    paths = [item.decode("utf-8") for item in raw.split(b"\0") if item]
-    return sorted(path for path in paths if path not in EXCLUDED_PAYLOAD_PATHS)
-
-
-def working_tree_mode_and_bytes(path: Path, rel: str) -> tuple[str, bytes]:
-    try:
-        info = path.lstat()
-    except OSError as error:
-        fail(f"cannot stat tracked payload path {rel}: {error}")
-    if stat.S_ISLNK(info.st_mode):
-        try:
-            target = os.readlink(path)
-        except OSError as error:
-            fail(f"cannot read tracked symlink {rel}: {error}")
-        return "120000", os.fsencode(target)
-    if not stat.S_ISREG(info.st_mode):
-        fail(f"tracked payload path is neither a regular file nor symlink: {rel}")
-    mode = "100755" if info.st_mode & stat.S_IXUSR else "100644"
-    return mode, path.read_bytes()
-
-
-def payload_digest() -> tuple[str, int]:
-    digest = hashlib.sha256()
-    count = 0
-    for rel in tracked_paths():
-        mode, content = working_tree_mode_and_bytes(ROOT / rel, rel)
-        content_digest = hashlib.sha256(content).hexdigest()
-        digest.update(mode.encode("ascii"))
-        digest.update(b"\0")
-        digest.update(rel.encode("utf-8"))
-        digest.update(b"\0")
-        digest.update(content_digest.encode("ascii"))
-        digest.update(b"\0")
-        count += 1
-    return digest.hexdigest(), count
+def git(*args: str, binary: bool = False):
+    return subprocess.check_output(
+        ["git", *args], cwd=ROOT, text=not binary
+    ).strip() if not binary else subprocess.check_output(["git", *args], cwd=ROOT)
 
 
 def load_json(path: Path, label: str) -> dict[str, object]:
@@ -111,63 +86,99 @@ def load_json(path: Path, label: str) -> dict[str, object]:
     return data
 
 
-def validate_candidate(data: dict[str, object]) -> tuple[str, int]:
+def git_payload_digest(commit: str) -> tuple[str, int]:
+    raw = subprocess.check_output(["git", "ls-tree", "-r", "-z", commit], cwd=ROOT)
+    digest = hashlib.sha256()
+    count = 0
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        metadata, path_bytes = record.split(b"\t", 1)
+        mode, object_type, object_id = metadata.decode("ascii").split()
+        path = path_bytes.decode("utf-8")
+        if path in EXCLUDED_PAYLOAD_PATHS:
+            continue
+        if object_type != "blob":
+            fail(f"baseline payload contains non-blob tracked object {path!r}")
+        content = subprocess.check_output(["git", "cat-file", "blob", object_id], cwd=ROOT)
+        content_digest = hashlib.sha256(content).hexdigest()
+        digest.update(mode.encode("ascii"))
+        digest.update(b"\0")
+        digest.update(path_bytes)
+        digest.update(b"\0")
+        digest.update(content_digest.encode("ascii"))
+        digest.update(b"\0")
+        count += 1
+    return digest.hexdigest(), count
+
+
+def validate_baseline(data: dict[str, object]) -> tuple[str, int]:
     if set(data) != EXPECTED_TOP_LEVEL_KEYS:
-        fail("release-candidate manifest has unknown or missing top-level fields")
-    if data["schema"] != 1 or data["scope"] != "elasticxxx-release-candidate-freeze-v1":
-        fail("unsupported release-candidate schema/scope")
+        fail("baseline manifest has unknown or missing top-level fields")
+    if data["schema"] != 2 or data["scope"] != "elasticxxx-qualified-internal-baseline-v1":
+        fail("unsupported internal baseline schema/scope")
     if data["release_version"] != "0.1.0" or data["release_line"] != "0.1.x":
-        fail("unexpected release candidate version/line")
+        fail("unexpected retained baseline version/line")
     if data["msrv"] != "1.89":
-        fail("release candidate MSRV drifted")
+        fail("retained baseline MSRV drifted")
     if data["payload_digest_algorithm"] != "sha256-git-mode-path-content-v1":
-        fail("unsupported release payload digest algorithm")
+        fail("unsupported retained payload digest algorithm")
     if data["payload_exclusions"] != sorted(EXCLUDED_PAYLOAD_PATHS):
-        fail("release payload exclusions drifted")
+        fail("retained payload exclusions drifted")
+    if data["baseline_qualification"] != EXPECTED_QUALIFICATION:
+        fail("baseline exact-head qualification evidence drifted")
+    if data["publication_suspended"] is not True:
+        fail("publication must remain explicitly suspended")
     for field in (
         "registry_publication_authorized",
         "registry_mutation_authorized",
         "network_registry_queries_authorized",
     ):
         if data[field] is not False:
-            fail(f"{field} must remain false in the prepublication candidate")
-    if data["required_exact_commit_checks"] != EXPECTED_CHECKS:
-        fail("required exact-commit check set drifted")
+            fail(f"{field} must remain false")
     if data["publication_blockers"] != EXPECTED_BLOCKERS:
-        fail("release-candidate publication blockers drifted")
+        fail("publication blocker set drifted")
 
-    current_digest, count = payload_digest()
-    if data["payload_sha256"] != current_digest:
-        fail(
-            "release payload drifted from the frozen candidate digest; "
-            f"recorded={data['payload_sha256']} current={current_digest}"
+    commit = data["baseline_source_commit"]
+    tree = data["baseline_source_tree"]
+    if not isinstance(commit, str) or not HEX40.fullmatch(commit):
+        fail("invalid baseline source commit")
+    if not isinstance(tree, str) or not HEX40.fullmatch(tree):
+        fail("invalid baseline source tree")
+    if commit != EXPECTED_QUALIFICATION["exact_head"]:
+        fail("baseline source commit is not the qualified exact head")
+    try:
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+            cwd=ROOT,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
-    return current_digest, count
+    except subprocess.CalledProcessError:
+        fail("qualified baseline commit is unavailable; checkout must retain repository history")
+    actual_tree = git("rev-parse", f"{commit}^{{tree}}")
+    if actual_tree != tree:
+        fail(f"baseline tree mismatch: recorded={tree} actual={actual_tree}")
+    digest, count = git_payload_digest(commit)
+    if digest != data["payload_sha256"]:
+        fail(
+            "qualified baseline payload digest mismatch; "
+            f"recorded={data['payload_sha256']} actual={digest}"
+        )
+    return digest, count
 
 
-def validate_productization(candidate: dict[str, object]) -> None:
+def validate_current_nonpublication(data: dict[str, object]) -> None:
     productization = load_json(PRODUCTIZATION, "productization manifest")
-    if productization.get("workspace_version") != candidate["release_version"]:
-        fail("candidate version disagrees with productization manifest")
-    if productization.get("release_line") != candidate["release_line"]:
-        fail("candidate release line disagrees with productization manifest")
-    if productization.get("msrv") != candidate["msrv"]:
-        fail("candidate MSRV disagrees with productization manifest")
     if productization.get("registry_publication_authorized") is not False:
-        fail("productization manifest unexpectedly authorizes registry publication")
-    blockers = productization.get("publication_blockers")
-    if not isinstance(blockers, list):
-        fail("productization publication blockers are malformed")
-    if set(blockers) != set(EXPECTED_BLOCKERS):
-        fail("productization blocker set drifted from release-candidate expectations")
+        fail("current productization manifest unexpectedly authorizes publication")
+    if set(productization.get("publication_blockers", [])) != set(EXPECTED_BLOCKERS):
+        fail("current productization blocker set drifted")
 
-
-def validate_workspace(candidate: dict[str, object]) -> None:
     root = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
-    package = root["workspace"]["package"]
-    if package["rust-version"] != candidate["msrv"]:
-        fail("workspace MSRV disagrees with candidate")
-
+    if root["workspace"]["package"]["rust-version"] != data["msrv"]:
+        fail("current workspace MSRV drifted from retained baseline")
     metadata = json.loads(
         subprocess.check_output(
             [
@@ -185,47 +196,42 @@ def validate_workspace(candidate: dict[str, object]) -> None:
     )
     workspace_ids = set(metadata["workspace_members"])
     packages = {
-        p["name"]: p for p in metadata["packages"] if p["id"] in workspace_ids
+        package["name"]: package
+        for package in metadata["packages"]
+        if package["id"] in workspace_ids
     }
     missing = REGISTRY_VISIBLE_PACKAGES - packages.keys()
     if missing:
-        fail(f"registry-visible package set is incomplete: {sorted(missing)!r}")
+        fail(f"current registry-visible package set is incomplete: {sorted(missing)!r}")
     for package_name in sorted(REGISTRY_VISIBLE_PACKAGES):
         package = packages[package_name]
-        if package["version"] != candidate["release_version"]:
-            fail(f"{package_name} version disagrees with candidate")
-        if package["rust_version"] != candidate["msrv"]:
-            fail(f"{package_name} MSRV disagrees with candidate")
-        # Cargo metadata encodes `publish = false` as an empty allow-list.
         if package.get("publish") != []:
-            fail(f"{package_name} must remain publish=false")
+            fail(f"current package {package_name} must remain publish=false")
+        if package["rust_version"] != data["msrv"]:
+            fail(f"current package {package_name} MSRV drifted")
 
 
 def validate_clean_checkout(require_clean: bool) -> None:
     if not require_clean:
         return
-    status = git("status", "--porcelain=v1", "--untracked-files=all")
-    if status:
-        fail("exact-candidate check requires a clean Git checkout")
+    if git("status", "--porcelain=v1", "--untracked-files=all"):
+        fail("integrity check requires a clean current checkout")
 
 
-def receipt(payload: str, tracked_file_count: int) -> dict[str, object]:
-    head = git("rev-parse", "HEAD")
-    if len(head) != 40:
-        fail("cannot resolve exact candidate commit")
-    tree = git("rev-parse", "HEAD^{tree}")
+def receipt(data: dict[str, object], payload: str, count: int) -> dict[str, object]:
     return {
-        "schema": 1,
-        "scope": "elasticxxx-release-candidate-receipt-v1",
-        "source_commit": head,
-        "source_tree": tree,
-        "release_version": "0.1.0",
-        "payload_sha256": payload,
-        "tracked_payload_files": tracked_file_count,
+        "schema": 2,
+        "scope": "elasticxxx-qualified-internal-baseline-receipt-v1",
+        "baseline_source_commit": data["baseline_source_commit"],
+        "baseline_source_tree": data["baseline_source_tree"],
+        "baseline_payload_sha256": payload,
+        "baseline_tracked_payload_files": count,
+        "current_head": git("rev-parse", "HEAD"),
+        "current_tree": git("rev-parse", "HEAD^{tree}"),
+        "publication_suspended": True,
         "registry_publication_authorized": False,
         "registry_mutation_authorized": False,
         "network_registry_queries_performed": False,
-        "required_exact_commit_checks": EXPECTED_CHECKS,
     }
 
 
@@ -239,29 +245,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    data = load_json(BASELINE, "internal baseline manifest")
+    payload, count = validate_baseline(data)
     if args.print_payload_digest:
-        digest, count = payload_digest()
-        print(json.dumps({"payload_sha256": digest, "tracked_payload_files": count}, sort_keys=True))
+        print(json.dumps({"payload_sha256": payload, "tracked_payload_files": count}, sort_keys=True))
         return
-
-    candidate = load_json(CANDIDATE, "release-candidate manifest")
-    payload, count = validate_candidate(candidate)
-    validate_productization(candidate)
-    validate_workspace(candidate)
+    validate_current_nonpublication(data)
     validate_clean_checkout(args.require_clean)
 
-    # Reuse the stronger pre-release productization gate rather than creating a
-    # second interpretation of package topology/licensing/reviewed blockers.
-    offline_env = os.environ.copy()
-    offline_env["CARGO_NET_OFFLINE"] = "true"
-    subprocess.run(
-        [sys.executable, str(ROOT / "scripts/check_release_productization.py")],
-        cwd=ROOT,
-        env=offline_env,
-        check=True,
-    )
-
-    result = receipt(payload, count)
+    result = receipt(data, payload, count)
     if args.write_receipt is not None:
         output = args.write_receipt
         if not output.is_absolute():
@@ -269,7 +261,7 @@ def main() -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(result, sort_keys=True))
-    print("release-candidate: frozen payload valid; registry publication and mutation remain unauthorized")
+    print("internal-baseline: qualified 0.1.0 baseline intact; publication remains suspended")
 
 
 if __name__ == "__main__":

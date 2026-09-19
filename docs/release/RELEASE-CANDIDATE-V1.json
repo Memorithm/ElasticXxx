@@ -1,22 +1,28 @@
 {
-  "schema": 1,
-  "scope": "elasticxxx-release-candidate-freeze-v1",
+  "schema": 2,
+  "scope": "elasticxxx-qualified-internal-baseline-v1",
   "release_version": "0.1.0",
   "release_line": "0.1.x",
   "msrv": "1.89",
+  "baseline_source_commit": "fc3c842205bb7ea46ef402826da865717a5a323e",
+  "baseline_source_tree": "23d7ff90986cfd53c29c7eea1b2059b1d29d8054",
   "payload_digest_algorithm": "sha256-git-mode-path-content-v1",
   "payload_sha256": "a5b9494fa6f62692e4f1cc8127609b9fff91cb44a300e16a876884c3597f9ee4",
   "payload_exclusions": [
     "docs/release/RELEASE-CANDIDATE-V1.json"
   ],
+  "baseline_qualification": {
+    "pull_request": 178,
+    "exact_head": "fc3c842205bb7ea46ef402826da865717a5a323e",
+    "merge_commit": "914116cd531ded905a45547bee45c4bdefeeff43",
+    "ci_run": 35431235301,
+    "packageability_run": 35431235305,
+    "baseline_integrity_run": 35431235300
+  },
+  "publication_suspended": true,
   "registry_publication_authorized": false,
   "registry_mutation_authorized": false,
   "network_registry_queries_authorized": false,
-  "required_exact_commit_checks": [
-    "ci",
-    "packageability",
-    "release-candidate-prepublication"
-  ],
   "publication_blockers": [
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
