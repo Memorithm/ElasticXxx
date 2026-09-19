@@ -752,6 +752,79 @@ pub fn public_resource_policy_rules_surface_smoke() {
     );
 }
 
+/// Semantic proof that ELANG5c numeric objective metadata and planner hints are
+/// advisory and usable through only the public `elastic` dependency.
+pub fn public_policy_advisory_surface_smoke() {
+    let resource = ResourceSpec::builder(
+        ResourceClassId::CONFIGURATIONAL,
+        LogicalResourceId::new("downstream-advisory-resource").unwrap(),
+    )
+    .allow(DimensionId::CAPACITY)
+    .optimize(ObjectiveId::LATENCY)
+    .optimize(ObjectiveId::THROUGHPUT)
+    .build()
+    .unwrap();
+    let policy = ResourcePolicySpec::new(
+        PolicyHeader::new(
+            PolicyIdentity::new(
+                PolicyId::new("downstream.advisory").unwrap(),
+                PolicyVersion::new(1, 0, 0),
+            ),
+            PolicyTarget::resource(LogicalResourceId::new("downstream-advisory-resource").unwrap()),
+        ),
+        resource,
+        vec![],
+        vec![],
+    )
+    .unwrap();
+    let advisory = ResourcePolicyAdvisorySpec::new(
+        policy,
+        vec![
+            PolicyNumericObjective::new(
+                ObjectiveId::THROUGHPUT,
+                PolicyObjectiveDirection::Maximize,
+                PolicyMetricScale::new("ops-per-second", 1).unwrap(),
+            ),
+            PolicyNumericObjective::new(
+                ObjectiveId::LATENCY,
+                PolicyObjectiveDirection::Minimize,
+                PolicyMetricScale::new("microseconds", 1).unwrap(),
+            ),
+        ],
+        vec![
+            PlannerHint::new(PlannerHintKey::new("candidate.limit").unwrap(), "16").unwrap(),
+            PlannerHint::new(PlannerHintKey::new("search.mode").unwrap(), "balanced").unwrap(),
+        ],
+    )
+    .unwrap();
+    let lowered = lower_resource_policy_advisory(&advisory).unwrap();
+
+    assert_eq!(
+        lowered.numeric_objectives()[0].objective(),
+        &ObjectiveId::LATENCY
+    );
+    assert_eq!(lowered.numeric_objectives()[0].rank(), 0);
+    assert_eq!(lowered.numeric_objectives()[0].unit(), "microseconds");
+    assert_eq!(
+        lowered.numeric_objectives()[1].objective(),
+        &ObjectiveId::THROUGHPUT
+    );
+    assert_eq!(lowered.planner_hints()[0].key(), "candidate.limit");
+    assert_eq!(lowered.planner_hints()[1].key(), "search.mode");
+    assert_eq!(EIR_RESOURCE_POLICY_ADVISORY_SCHEMA_VERSION, 1);
+
+    let semantic = lowered.policy().fingerprint();
+    let changed_hint = ResourcePolicyAdvisorySpec::new(
+        advisory.policy().clone(),
+        advisory.numeric_objectives().to_vec(),
+        vec![PlannerHint::new(PlannerHintKey::new("search.mode").unwrap(), "exhaustive").unwrap()],
+    )
+    .unwrap();
+    let changed = lower_resource_policy_advisory(&changed_hint).unwrap();
+    assert_eq!(semantic, changed.policy().fingerprint());
+    assert_ne!(lowered.fingerprint(), changed.fingerprint());
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
@@ -948,6 +1021,7 @@ mod tests {
         public_composite_transaction_surface_smoke();
         public_policy_identity_surface_smoke();
         public_resource_policy_rules_surface_smoke();
+        public_policy_advisory_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

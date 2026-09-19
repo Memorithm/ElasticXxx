@@ -100,6 +100,7 @@ mod guard_plan;
 mod plan;
 mod planning_subset;
 mod policy;
+mod policy_advisory;
 mod resource;
 mod resource_policy;
 mod validate;
@@ -129,6 +130,11 @@ pub use plan::{
 };
 pub use planning_subset::PlanningSubsetError;
 pub use policy::{EirPolicyHeader, PolicyLoweringError, EIR_POLICY_HEADER_SCHEMA_VERSION};
+pub use policy_advisory::{
+    lower_resource_policy_advisory, EirPlannerHint, EirPolicyNumericObjective,
+    EirResourcePolicyAdvisory, PolicyAdvisoryLoweringError,
+    EIR_RESOURCE_POLICY_ADVISORY_SCHEMA_VERSION,
+};
 pub use resource::{AdmittedTransition, EirResource, EirResourceParts, ObjectiveRank};
 pub use resource_policy::{
     lower_resource_policy, EirResourcePolicy, ResourcePolicyLoweringError,
