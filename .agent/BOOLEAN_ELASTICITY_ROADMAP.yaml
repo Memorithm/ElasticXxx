@@ -14,7 +14,7 @@ mission: >-
   physical actuation authority by itself.
 
 current_verified_state:
-  main_sha: ae2fa28427f62305c0360d4d50101034c21fb6d9
+  main_sha: a65de96d3bc8046a3198d8e23c8759a3b86b6495
   main_observed_at: "2026-09-19"
   open_pull_requests: 0
   merged_boolean_prs:
@@ -1753,15 +1753,16 @@ phases:
           - benchmark_real_consumer_effects_before_claims
       - id: BE15f
         name: release_productization
-        status: active_pre_release_registry_collisions_qualified_publication_blocked
+        status: active_package_identities_applied_publication_blocked
         current_candidate: null
         latest_qualified_contract:
-          pr: 170
-          head: 1a43f963b7e31dd9d0f76d444184e344d634065f
-          merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
-          ci_run: 35421434725
-          packageability_run: 35421434758
-          state: exact_head_checks_success_two_material_P2_findings_corrected_leaf_archive_inspection_qualified_no_publication_authority
+          pr: 173
+          head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
+          merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+          ci_run: 35427901405
+          packageability_run: 35427901345
+          hardening_run: 35427901327
+          state: exact_head_checks_success_three_material_P1_P2_findings_corrected_selected_package_identities_applied_no_publication_authority
           scope:
             - fail_closed_machine_readable_pre_release_productization_contract
             - independently_pinned_SciRust_license_source_commit_and_SHA256
@@ -1776,6 +1777,11 @@ phases:
             - archived_source_bytes_release_metadata_license_and_exact_Git_head_VCS_provenance_checked_fail_closed
             - crate_level_documentation_checked_with_rustdoc_missing_crate_level_docs_deny_gate
             - non_leaf_archive_inspection_remains_explicitly_blocked_until_dependency_order_registry_publish
+            - Memorithm_prefixed_public_package_topology_selected_by_PR172_without_registry_reservation_claim
+            - seven_registry_visible_Cargo_packages_renamed_by_PR173_while_source_level_Rust_crate_names_remain_stable
+            - standalone_fuzz_dependencies_and_workflow_package_selectors_corrected_for_the_renamed_packages
+            - elastic_cli_and_elastic_downstream_remain_non_renamed_workspace_packages
+            - publish_flags_remain_false_and_registry_publication_authorized_remains_false
           claims_forbidden:
             - registry_publication_readiness_until_all_recorded_blockers_are_cleared
             - crates_io_name_ownership_or_availability
@@ -1825,6 +1831,27 @@ phases:
             result: success
             scope: first_publish_leaf_archive_content_provenance_and_crate_documentation_inspection
             material_review_findings: P2_circular_Cargo_file_set_check_and_P2_byte_pattern_rustdoc_check_both_corrected_before_merge
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 172
+            head: 29f611a24f7c81b4f8632aca2695c49e115c5341
+            merge: cd6f68430fd680e5a1b705480d42d481070d9f27
+            ci_run: 35425603782
+            packageability_run: 35425603547
+            result: success
+            scope: select_Memorithm_prefixed_public_package_names_and_all_public_registry_topology_without_publication
+            publication_authorized: false
+            registry_name_observations_are_reservations: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 173
+            head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
+            merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+            ci_run: 35427901405
+            packageability_run: 35427901345
+            hardening_run: 35427901327
+            result: success
+            scope: apply_selected_Memorithm_package_identities_and_preserve_source_level_crate_names
+            material_review_findings: P1_fuzz_package_aliases_P1_workflow_selectors_and_P2_nonrenamed_workspace_selectors_corrected_before_merge
             publication_authorized: false
             unresolved_publication_blockers_remain_authoritative: true
     final_exit_criteria:
@@ -1903,20 +1930,20 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15f_explicit_public_package_naming_and_topology_decision_then_remaining_release_blockers
+  immediate_next_slice: BE15f_release_candidate_freeze_and_fail_closed_prepublication_gate_without_registry_mutation
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_open_candidate_leaf_archive_inspection_qualified_publication_remains_fail_closed
-  verified_main: ae2fa28427f62305c0360d4d50101034c21fb6d9
-  latest_qualified_slice: BE15f_first_publish_leaf_archive_inspection
-  latest_qualified_pr: 170
-  latest_qualified_head: 1a43f963b7e31dd9d0f76d444184e344d634065f
-  latest_merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
-  latest_merged_progress_slice: BE15f_leaf_archive_content_provenance_and_documentation_inspection
-  latest_merged_progress_pr: 170
-  latest_merged_progress_head: 1a43f963b7e31dd9d0f76d444184e344d634065f
-  latest_merged_progress_merge: ae2fa28427f62305c0360d4d50101034c21fb6d9
+  current_candidate_status: no_open_candidate_package_identities_applied_publication_remains_fail_closed
+  verified_main: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+  latest_qualified_slice: BE15f_selected_package_identities_applied
+  latest_qualified_pr: 173
+  latest_qualified_head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
+  latest_merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
+  latest_merged_progress_slice: BE15f_registry_visible_manifest_identity_application_and_selector_hardening
+  latest_merged_progress_pr: 173
+  latest_merged_progress_head: 264021ab2d2cac22b35880e8920a1ae57ff36d6e
+  latest_merged_progress_merge: a65de96d3bc8046a3198d8e23c8759a3b86b6495
   registry_name_observations_are_reservations: false
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
