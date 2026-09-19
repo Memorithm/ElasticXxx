@@ -1725,6 +1725,23 @@ phases:
           - benchmark_real_consumer_effects_before_claims
       - id: BE15f
         name: release_productization
+        status: active
+        current_candidate:
+          pr: 167
+          head: a9e58c389dd3cd4fdaa28a843a5a083f8350057c
+          base: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
+          state: candidate_local_qualification_passed_exact_head_CI_and_review_pending
+          scope:
+            - fail_closed_machine_readable_pre_release_productization_contract
+            - SciRust_license_source_of_truth_exact_commit_and_SHA256_binding
+            - explicit_0_1_x_migration_contract
+            - exact_cross_repository_compatibility_matrix
+            - packageability_gate_integration_without_publication_authority
+          claims_forbidden:
+            - registry_publication_readiness_until_all_recorded_blockers_are_cleared
+            - crates_io_name_ownership_or_availability
+            - one_point_zero_stability
+            - performance_hardware_energy_or_scientific_results
         tasks:
           - semver_review
           - MSRV_review
@@ -1818,16 +1835,16 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15e_ExtremEngine_and_other_real_consumers
-  open_pull_requests_at_checkpoint: 0
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: none_BE15d_completed_after_follow_up_hardening
+  immediate_next_slice: BE15f_release_productization
+  open_pull_requests_at_checkpoint: 1
+  current_candidate_pr: 167
+  current_candidate_head: a9e58c389dd3cd4fdaa28a843a5a083f8350057c
+  current_candidate_status: candidate_local_qualification_passed_exact_head_CI_and_review_pending
   verified_main: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
-  latest_qualified_slice: BE15d_Forge_optional_search_bridge
-  latest_qualified_pr: 165
-  latest_qualified_head: d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e
-  latest_merge: 8441991feea3a2aae19f62a8e51c89e7f0d6f969
+  latest_qualified_slice: BE15e_ExtremEngine_real_consumer_corrected_effect_evidence
+  latest_qualified_pr: ExtremEngine_39
+  latest_qualified_head: 4ef7732f29c81be292bdde87bd9623476ddacba1
+  latest_merge: ExtremEngine_51efeb57bd12ee6419cec7e9b530c3b0c485a7a6
   latest_merged_progress_slice: BE15d_Forge_optional_search_bridge_depth_hardening
   latest_merged_progress_pr: 165
   latest_merged_progress_head: d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e
