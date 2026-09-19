@@ -212,6 +212,165 @@ pub fn public_composite_plan_surface_smoke() {
     );
 }
 
+struct DownstreamCompositePrepareBackend {
+    resource: String,
+    name: String,
+    checkpoint_active: bool,
+    prepared: bool,
+}
+
+impl DownstreamCompositePrepareBackend {
+    fn new(resource: &str) -> Self {
+        Self {
+            resource: resource.to_owned(),
+            name: format!("downstream-{resource}"),
+            checkpoint_active: false,
+            prepared: false,
+        }
+    }
+}
+
+impl TransactionalActuator for DownstreamCompositePrepareBackend {
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+        let Some(candidate) = plan.candidate() else {
+            return Err(RuntimeError::validation(
+                "composite downstream plan has no candidate",
+            ));
+        };
+        Ok(plan
+            .resource
+            .invariants()
+            .iter()
+            .filter(|invariant| {
+                invariant
+                    .scope()
+                    .is_none_or(|scope| scope == candidate.dimension())
+            })
+            .cloned()
+            .map(|invariant| {
+                InvariantCheck::new(invariant, true, Some("downstream test invariant".into()))
+            })
+            .collect())
+    }
+
+    fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
+        if !self.checkpoint_active {
+            return Err(RuntimeError::actuation(
+                "prepare requires captured checkpoint",
+            ));
+        }
+        self.prepared = true;
+        Ok(Actuation::new(plan.clone(), Some(1), self.name.clone()))
+    }
+
+    fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+        panic!("ELANG4b downstream smoke must not actuate")
+    }
+
+    fn verify(&self, _actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
+        panic!("ELANG4b downstream smoke must not verify")
+    }
+
+    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+        panic!("ELANG4b downstream smoke must not commit")
+    }
+
+    fn rollback(
+        &mut self,
+        _actuation: &Actuation,
+        _verification: &VerificationResult,
+    ) -> Result<RollbackRecord, RuntimeError> {
+        panic!("ELANG4b downstream smoke must not execute physical rollback")
+    }
+}
+
+impl CompositePrepareBackend for DownstreamCompositePrepareBackend {
+    fn resource_id(&self) -> &str {
+        &self.resource
+    }
+
+    fn capture_pre_act_state(
+        &mut self,
+        _plan: &ValidatedPlan,
+    ) -> Result<CompositePreActState, RuntimeError> {
+        self.checkpoint_active = true;
+        Ok(CompositePreActState::new(
+            self.resource.clone(),
+            self.name.clone(),
+            1,
+            self.resource.len() as u64,
+        ))
+    }
+
+    fn abort_prepare(
+        &mut self,
+        _actuation: &Actuation,
+        _checkpoint: &CompositePreActState,
+        _reason: &str,
+    ) -> Result<(), RuntimeError> {
+        self.prepared = false;
+        Ok(())
+    }
+
+    fn release_pre_act_state(
+        &mut self,
+        _checkpoint: &CompositePreActState,
+    ) -> Result<(), RuntimeError> {
+        self.checkpoint_active = false;
+        Ok(())
+    }
+}
+
+/// Semantic proof that ELANG4b validates, checkpoints and prepares all
+/// composite resources through only the public facade, then aborts cleanly
+/// without invoking any physical-actuation method.
+pub fn public_composite_prepare_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker_id = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache_id = LogicalResourceId::new("downstream-cache").unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("runtime-prepare").unwrap())
+        .members([worker_id.clone(), cache_id.clone()])
+        .dependency(ResourceDependency::new(cache_id, worker_id))
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let plans = ["downstream-cache", "downstream-worker-pool"]
+        .into_iter()
+        .map(|resource| {
+            let node = grouped.group_resource("runtime-prepare", resource).unwrap();
+            Plan::new(
+                node.clone(),
+                PlanningContext::new(),
+                FirstGroundedPlanner.propose_transition(node),
+                format!("downstream prepare {resource}"),
+            )
+        })
+        .collect();
+    let envelope = CompositePlanEnvelope::new(&grouped, "runtime-prepare", plans).unwrap();
+    let mut worker = DownstreamCompositePrepareBackend::new("downstream-worker-pool");
+    let mut cache = DownstreamCompositePrepareBackend::new("downstream-cache");
+    {
+        let mut backends: [&mut dyn CompositePrepareBackend; 2] = [&mut cache, &mut worker];
+        let prepared = prepare_composite_plan(&envelope, &mut backends).unwrap();
+        assert_eq!(prepared.schema_version(), COMPOSITE_PREPARE_SCHEMA_V1);
+        assert_eq!(
+            prepared
+                .subplans()
+                .iter()
+                .map(CompositePreparedSubplan::resource_id)
+                .collect::<Vec<_>>(),
+            vec!["downstream-worker-pool", "downstream-cache"]
+        );
+        abort_composite_prepare(prepared, &mut backends, "downstream smoke complete").unwrap();
+    }
+    assert!(!worker.prepared && !worker.checkpoint_active);
+    assert!(!cache.prepared && !cache.checkpoint_active);
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
@@ -403,6 +562,7 @@ mod tests {
         public_elastic_language_surface_smoke();
         public_elastic_document_surface_smoke();
         public_composite_plan_surface_smoke();
+        public_composite_prepare_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

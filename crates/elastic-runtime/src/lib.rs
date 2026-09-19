@@ -33,6 +33,7 @@ pub mod capacity_admission;
 pub mod clock;
 pub mod commit;
 pub mod composite_plan;
+pub mod composite_prepare;
 pub mod concurrency_boolean_admission;
 pub mod config;
 pub mod configured_controller;
@@ -99,6 +100,13 @@ pub use commit::{CommitRecord, RollbackRecord};
 pub use composite_plan::{
     CompositePlanEnvelope, CompositePlanError, COMPOSITE_PLAN_ENVELOPE_SCHEMA_V1,
     MAX_COMPOSITE_SUBPLANS,
+};
+pub use composite_prepare::{
+    abort_composite_prepare, prepare_composite_plan, retry_composite_prepare_cleanup,
+    CompositePreActState, CompositePrepareBackend, CompositePrepareCleanupFailure,
+    CompositePrepareCleanupOperation, CompositePrepareFailure, CompositePrepareRecoveryEntry,
+    CompositePrepareRecoveryEnvelope, CompositePrepareStage, CompositePreparedEnvelope,
+    CompositePreparedSubplan, COMPOSITE_PREPARE_SCHEMA_V1,
 };
 pub use concurrency_boolean_admission::{
     concurrency_headroom_predicate_key, BooleanConcurrencyEvidenceV1,
