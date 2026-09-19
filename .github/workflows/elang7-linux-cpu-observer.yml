@@ -1,0 +1,95 @@
+name: ELANG7 Linux CPU observer
+
+on:
+  pull_request:
+    paths:
+      - 'crates/elastic-runtime/src/observers.rs'
+      - 'crates/elastic-runtime/src/lib.rs'
+      - 'crates/elastic/src/lib.rs'
+      - 'crates/elastic/examples/linux_cpu_environment.rs'
+      - 'crates/elastic/tests/elang7_linux_cpu_observer_public.rs'
+      - 'docs/language/EMBEDDED-LINUX-CPU-0.1.md'
+      - '.github/workflows/elang7-linux-cpu-observer.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'crates/elastic-runtime/src/observers.rs'
+      - 'crates/elastic-runtime/src/lib.rs'
+      - 'crates/elastic/src/lib.rs'
+      - 'crates/elastic/examples/linux_cpu_environment.rs'
+      - 'crates/elastic/tests/elang7_linux_cpu_observer_public.rs'
+      - 'docs/language/EMBEDDED-LINUX-CPU-0.1.md'
+      - '.github/workflows/elang7-linux-cpu-observer.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  observe:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Require trusted Thor runner and Rust 1.89
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_NAME" in
+            tarek-scirust-arm64-01|tarek-scirust-arm64-02|tarek-scirust-arm64-03|tarek-scirust-arm64-04) ;;
+            *)
+              echo "::error::ELANG7 CPU-observer gate requires a trusted Thor runner; refusing $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          rustup toolchain list | grep -F '1.89.0' >/dev/null
+          rustc +1.89.0 -Vv
+      - name: Observe real Linux CPU environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/elang7-linux-cpu-observer.txt"
+          cargo +1.89.0 run -q -p memorithm-elastic --example linux_cpu_environment | tee "$output"
+          python3 - "$output" <<'PY'
+          import math
+          import re
+          import sys
+
+          lines = open(sys.argv[1], encoding='utf-8').read().splitlines()
+          values = {}
+          unsupported = set()
+          for line in lines:
+              match = re.search(r'signal=([^ ]+) value=([^ ]+)', line)
+              if match:
+                  values[match.group(1)] = float(match.group(2))
+                  continue
+              match = re.search(r'observation unsupported .* signal=([^ ]+) reason=', line)
+              if match:
+                  unsupported.add(match.group(1))
+
+          affinity = values.get('linux-cpu-affinity-allowed-cpus')
+          assert affinity is not None and math.isfinite(affinity) and affinity >= 1.0, (values, unsupported)
+
+          unlimited = values.get('linux-cpu-quota-unlimited')
+          assert unlimited in (0.0, 1.0), (values, unsupported)
+          quota = values.get('linux-cpu-quota-cores')
+          if unlimited == 0.0:
+              assert quota is not None and math.isfinite(quota) and quota >= 0.0, (values, unsupported)
+          else:
+              assert 'linux-cpu-quota-cores' in unsupported and quota is None, (values, unsupported)
+
+          for signal in ('linux-cpu-pressure-some-avg10', 'linux-cpu-pressure-full-avg10'):
+              if signal in values:
+                  assert math.isfinite(values[signal]) and 0.0 <= values[signal] <= 1.0, (values, unsupported)
+              else:
+                  assert signal in unsupported, (values, unsupported)
+
+          print('ELANG7 real CPU observer qualified:', {'values': values, 'unsupported': sorted(unsupported)})
+          PY
