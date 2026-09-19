@@ -1753,15 +1753,15 @@ phases:
           - benchmark_real_consumer_effects_before_claims
       - id: BE15f
         name: release_productization
-        status: active_pre_release_contract_hardened_publication_blocked
+        status: active_pre_release_registry_collisions_qualified_publication_blocked
         current_candidate: null
         latest_qualified_contract:
-          pr: 168
-          head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
-          merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
-          ci_run: 35417224327
-          packageability_run: 35417224315
-          state: exact_head_checks_success_material_findings_corrected_no_publication_authority
+          pr: 169
+          head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
+          merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
+          ci_run: 35419131750
+          packageability_run: 35419131755
+          state: exact_head_checks_success_material_P2_corrected_registry_collision_evidence_bound_no_publication_authority
           scope:
             - fail_closed_machine_readable_pre_release_productization_contract
             - independently_pinned_SciRust_license_source_commit_and_SHA256
@@ -1769,6 +1769,9 @@ phases:
             - explicit_0_1_x_migration_contract
             - exact_required_release_document_and_publication_blocker_sets
             - packageability_gate_integration_without_publication_authority
+            - read_only_seven_package_crates_io_name_audit_bound_by_reviewed_document_digest
+            - current_collisions_recorded_for_elastic_and_elastic_macros_without_ownership_claim
+            - five_404_observations_recorded_as_point_in_time_non_reservations
           claims_forbidden:
             - registry_publication_readiness_until_all_recorded_blockers_are_cleared
             - crates_io_name_ownership_or_availability
@@ -1798,6 +1801,16 @@ phases:
             packageability_run: 35417224315
             result: success
             scope: fail_closed_pre_release_productization_provenance_document_and_blocker_contract_hardening
+            publication_authorized: false
+            unresolved_publication_blockers_remain_authoritative: true
+          - pr: 169
+            head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
+            merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
+            ci_run: 35419131750
+            packageability_run: 35419131755
+            result: success
+            scope: point_in_time_crates_io_name_collision_audit_with_complete_document_digest_binding
+            material_review_finding: P2_incomplete_row_binding_corrected_before_merge
             publication_authorized: false
             unresolved_publication_blockers_remain_authoritative: true
     final_exit_criteria:
@@ -1876,20 +1889,21 @@ automation_contract:
 
 current_execution:
   earliest_incomplete_phase: BE15
-  immediate_next_slice: BE15f_release_productization_blocker_resolution
+  immediate_next_slice: BE15f_explicit_public_package_naming_and_topology_decision_then_remaining_release_blockers
   open_pull_requests_at_checkpoint: 0
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: no_open_candidate_pre_release_contract_hardened_publication_remains_blocked
-  verified_main: 94483f02d271d90dd4c2697f4691f8c685d2d019
-  latest_qualified_slice: BE15f_pre_release_productization_contract_hardened
-  latest_qualified_pr: 168
-  latest_qualified_head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
-  latest_merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
-  latest_merged_progress_slice: BE15f_fail_closed_productization_provenance_and_blocker_hardening
-  latest_merged_progress_pr: 168
-  latest_merged_progress_head: f3c48be80690c8a5f5f5ebe6171ae2dd7242e6aa
-  latest_merged_progress_merge: 94483f02d271d90dd4c2697f4691f8c685d2d019
+  current_candidate_status: no_open_candidate_registry_collisions_qualified_publication_remains_fail_closed
+  verified_main: ca8bbe4f9d610d23058daa57b20923c71c162c97
+  latest_qualified_slice: BE15f_crates_io_name_collision_audit
+  latest_qualified_pr: 169
+  latest_qualified_head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
+  latest_merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
+  latest_merged_progress_slice: BE15f_registry_name_collision_evidence_and_fail_closed_recheck
+  latest_merged_progress_pr: 169
+  latest_merged_progress_head: e5216a6d03ed19b02fc090557e36bdc1890b82ce
+  latest_merged_progress_merge: ca8bbe4f9d610d23058daa57b20923c71c162c97
+  registry_name_observations_are_reservations: false
   BE13e_authorized: false
   BE13e_authorization_scope: closed_conservatively_no_production_architecture_dispatch
   BE13e_block_reason: native_codegen_did_not_dominate_target_fast_paths

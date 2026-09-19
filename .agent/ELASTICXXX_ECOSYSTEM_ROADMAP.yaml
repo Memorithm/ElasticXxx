@@ -92,7 +92,11 @@ verified_current_facts:
   - BE15d_PR164_material_P2_JSON_array_nesting_depth_finding_was_corrected_by_PR_165_exact_head_d5fc51ccc7c8b64d28dd6f0dad6f9b9cc9c4e34e_merge_8441991feea3a2aae19f62a8e51c89e7f0d6f969
   - BE15d_follow_up_exact_head_ci_packageability_and_continuous_hardening_completed_success_and_review_had_no_material_findings
   - BE15d_completed_without_Forge_actuation_authority_runtime_dependency_performance_novelty_or_scientific_claim
-  - BE15e_ExtremEngine_and_other_real_consumers_is_the_next_unblocked_Boolean_productization_slice
+  - BE15e_ExtremEngine_real_consumer_qualified_through_ExtremEngine_PR_37_and_corrective_PR_39_without_performance_claim
+  - BE15f_pre_release_productization_contract_hardened_through_PR_168_merge_94483f02d271d90dd4c2697f4691f8c685d2d019_without_publication_authority
+  - BE15f_crates_io_name_audit_qualified_through_PR_169_exact_head_e5216a6d03ed19b02fc090557e36bdc1890b82ce_merge_ca8bbe4f9d610d23058daa57b20923c71c162c97
+  - BE15f_registry_audit_records_existing_elastic_and_elastic_macros_name_collisions_and_treats_404_results_as_non_reserving_point_in_time_observations
+  - BE15f_publication_remains_blocked_pending_explicit_package_naming_or_legitimate_ownership_resolution_public_private_topology_approval_and_remaining_release_gates
   - BE8b_deterministic_typed_decision_trace_comparison_completed_through_PR_98_merge_02ac7ab42f32c71d6ffb3bdbfb7653356935a23a
   - BE8c_integrated_guarded_planning_capture_completed_through_PR_100_merge_d2ae9d0cec83e33ce950a194b13023449e4b1005
   - BE8d_pure_guarded_replay_qualification_completed_through_PR_101_merge_203c2b10fa552e0940c2c043f779a0b04a378639
@@ -595,6 +599,17 @@ roadmap:
           - internal_publish_path_dependencies_are_versioned_while_retaining_local_workspace_paths
           - full_facade_chain_package_file_sets_are_checked_and_leaf_archives_are_built_without_publishing
           - publication_remains_blocked_on_license_registry_name_ownership_public_private_topology_and_release_approval
+      - id: EX9b
+        name: Fail-closed productization and registry-name evidence
+        status: active_publication_blocked
+        completion_evidence:
+          - PR_168_merge_94483f02d271d90dd4c2697f4691f8c685d2d019_binds_independent_license_consumer_document_and_blocker_contracts
+          - PR_169_exact_head_e5216a6d03ed19b02fc090557e36bdc1890b82ce_merge_ca8bbe4f9d610d23058daa57b20923c71c162c97
+          - PR_169_CI_35419131750_and_packageability_35419131755_completed_success_on_exact_head
+          - PR_169_material_P2_incomplete_registry_row_binding_corrected_by_whole_audit_document_SHA256_before_merge
+          - crates_io_elastic_and_elastic_macros_name_collisions_recorded_without_ownership_claim
+          - five_other_name_404_observations_are_non_reserving_and_require_release_time_recheck
+          - publication_remains_unauthorized
     goals:
       - define_semver_MSRV_and_compatibility_policy
       - stabilize_public_facade_extension_traits_and_command_contracts
