@@ -82,4 +82,7 @@ This slice does not yet provide:
 - cancellation during a composite transaction.
 
 Those contracts are deliberately separated so plan ordering cannot be mistaken
-for execution authority.
+for execution authority. The next boundary is documented in
+[`composite-prepare-boundary.md`](composite-prepare-boundary.md): ELANG4b performs
+trusted validation, captures every pre-actuation state and prepares every
+resource, but still stops before physical actuation.
