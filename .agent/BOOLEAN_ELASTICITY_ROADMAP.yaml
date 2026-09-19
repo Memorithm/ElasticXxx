@@ -1709,7 +1709,16 @@ phases:
           - material_P2_unverified_rollback_reuse_finding_corrected_and_resolved_before_merge
           - cargo_deny_PolyForm_and_git_source_policy_scoped_to_exact_optional_Elastic_dependency_set
           - no_performance_FPS_GPU_energy_visual_quality_or_scientific_claim
-          - real_consumer_effect_benchmark_remains_required_before_any_performance_claim
+          - ExtremEngine_PR38_structural_scheduler_effect_harness_merged_with_two_material_P2_review_findings
+          - ExtremEngine_PR39_corrects_both_PR38_P2_findings_without_rewriting_history
+          - ExtremEngine_PR39_exact_head_4ef7732f29c81be292bdde87bd9623476ddacba1
+          - ExtremEngine_PR39_merge_51efeb57bd12ee6419cec7e9b530c3b0c485a7a6
+          - ExtremEngine_PR39_all_11_applicable_GitHub_checks_completed_success_on_exact_head
+          - ExtremEngine_PR39_review_completed_without_material_findings_on_exact_head
+          - workload_invocation_counter_is_independent_of_scheduler_fixed_step_metadata_and_must_match_exactly
+          - effect_workflow_covers_all_workspace_crates_and_root_Cargo_manifest_changes
+          - structural_scheduler_effect_evidence_is_qualified_but_unequal_work_elapsed_time_cannot_support_a_performance_claim
+          - real_same_work_hardware_performance_evidence_remains_required_before_any_speedup_FPS_GPU_or_energy_claim
         tasks:
           - consume_guarded_adaptive_quality_or_resource_contract_only_when_metrics_exist
           - require_hysteresis_cooldown_and_rollback_where_stateful
