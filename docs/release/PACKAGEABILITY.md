@@ -56,7 +56,7 @@ Real publication remains blocked until all of the following are resolved deliber
 
 No CI job may infer that an unavailable crate name, unapproved public/private topology, incomplete release evidence, or failed archive/downstream inspection is acceptable. Those conditions remain unresolved release blockers until explicitly resolved.
 
-The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md).
+The compatibility and MSRV rules used by this gate are defined in [COMPATIBILITY.md](COMPATIBILITY.md). The machine-readable BE15f pre-release state, canonical SciRust license-source fingerprint, exact consumer/source pins and unresolved publication blockers are recorded in [PRODUCTIZATION-V1.json](PRODUCTIZATION-V1.json); CI validates that record with `scripts/check_release_productization.py`. Migration and cross-repository scope are documented in [MIGRATION-0.1.md](MIGRATION-0.1.md) and [CROSS_REPO_COMPATIBILITY.md](CROSS_REPO_COMPATIBILITY.md).
 
 ## Non-goals
 
