@@ -12,6 +12,7 @@ use elastic::{
     DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES, MAX_GUARD_CONFIG_BYTES,
 };
 use serde_json::{json, Value};
+use syn::visit::Visit;
 
 const DIAGNOSTIC_SCHEMA: &str = "elastic-diagnostics/v1";
 
@@ -56,12 +57,26 @@ enum CargoElasticCommand {
         #[arg(long, value_enum, default_value_t = GraphFormat::Json)]
         format: GraphFormat,
     },
+    /// Expand `elastic!` language invocations with the exact proc-macro expander on stable Rust.
+    Expand {
+        /// Rust source file containing one or more `elastic!` invocations.
+        #[arg(long, value_name = "FILE")]
+        source: PathBuf,
+        #[arg(long, value_enum, default_value_t = ExpandFormat::Rust)]
+        format: ExpandFormat,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
 enum GraphFormat {
     Json,
     Dot,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, ValueEnum)]
+enum ExpandFormat {
+    Rust,
+    Json,
 }
 
 fn main() -> ExitCode {
@@ -98,6 +113,9 @@ fn main() -> ExitCode {
         ),
         CargoElasticCommand::Graph { config, format } => {
             tool_result(run_graph(&config, format), "graph")
+        }
+        CargoElasticCommand::Expand { source, format } => {
+            tool_result(run_expand(&source, format), "expand")
         }
     }
 }
@@ -426,6 +444,89 @@ fn dot_escape(value: &str) -> String {
         .replace('\\', "\\\\")
         .replace('\"', "\\\"")
         .replace('\n', "\\n")
+}
+
+const MAX_EXPAND_SOURCE_BYTES: usize = 4 * 1024 * 1024;
+
+struct ElasticMacroCollector {
+    inputs: Vec<proc_macro2::TokenStream>,
+}
+
+impl<'ast> Visit<'ast> for ElasticMacroCollector {
+    fn visit_macro(&mut self, node: &'ast syn::Macro) {
+        if node
+            .path
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "elastic")
+        {
+            self.inputs.push(node.tokens.clone());
+            return;
+        }
+        syn::visit::visit_macro(self, node);
+    }
+}
+
+fn run_expand(path: &Path, format: ExpandFormat) -> Result<(), String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("cannot stat Rust source {}: {error}", path.display()))?;
+    let bytes = usize::try_from(metadata.len())
+        .map_err(|_| "Rust source length does not fit usize".to_owned())?;
+    if bytes > MAX_EXPAND_SOURCE_BYTES {
+        return Err(format!(
+            "Rust source is {bytes} bytes; expansion maximum is {MAX_EXPAND_SOURCE_BYTES}"
+        ));
+    }
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("cannot read Rust source {}: {error}", path.display()))?;
+    let file = syn::parse_file(&source)
+        .map_err(|error| format!("cannot parse Rust source {}: {error}", path.display()))?;
+    let mut collector = ElasticMacroCollector { inputs: Vec::new() };
+    collector.visit_file(&file);
+
+    let mut rendered = Vec::with_capacity(collector.inputs.len());
+    for (index, input) in collector.inputs.into_iter().enumerate() {
+        let expanded = elastic_language_syntax::expand_elastic_tokens(input)
+            .map_err(|error| format!("elastic! invocation {index} failed to expand: {error}"))?;
+        let expanded_file = syn::parse2::<syn::File>(expanded).map_err(|error| {
+            format!("elastic! invocation {index} generated invalid Rust: {error}")
+        })?;
+        rendered.push(prettyplease::unparse(&expanded_file));
+    }
+
+    match format {
+        ExpandFormat::Rust => {
+            for (index, expansion) in rendered.iter().enumerate() {
+                if index != 0 {
+                    println!();
+                }
+                println!("// elastic! expansion {index} from {}", path.display());
+                print!("{expansion}");
+            }
+        }
+        ExpandFormat::Json => {
+            let expansions = rendered
+                .iter()
+                .enumerate()
+                .map(|(index, rust)| json!({"index": index, "rust": rust}))
+                .collect::<Vec<_>>();
+            println!(
+                "{}",
+                json!({
+                    "schema": "elastic-expansion/v1",
+                    "command": "expand",
+                    "source": path.display().to_string(),
+                    "elastic_invocation_count": expansions.len(),
+                    "expansions": expansions,
+                    "expander": "shared-elastic-language-syntax",
+                    "rustc_nightly_required": false,
+                    "read_only": true,
+                    "actuation_authorized": false,
+                })
+            );
+        }
+    }
+    Ok(())
 }
 
 fn run_check(

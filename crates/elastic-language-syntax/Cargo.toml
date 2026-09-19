@@ -1,0 +1,17 @@
+[package]
+name = "memorithm-elastic-language-syntax"
+version = "0.1.0"
+license-file.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+publish = false
+description = "Shared parser and stable Rust expander for the Elastic embedded language"
+
+[lib]
+name = "elastic_language_syntax"
+
+[dependencies]
+quote = "1"
+syn = { version = "2", default-features = false, features = ["derive", "parsing", "printing", "proc-macro"] }
+proc-macro2 = "1"

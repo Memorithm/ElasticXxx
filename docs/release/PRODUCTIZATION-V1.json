@@ -71,6 +71,11 @@
         "role": "implementation-dependency"
       },
       {
+        "workspace_package": "elastic-language-syntax",
+        "registry_package": "memorithm-elastic-language-syntax",
+        "role": "implementation-dependency"
+      },
+      {
         "workspace_package": "elastic-macros",
         "registry_package": "memorithm-elastic-macros",
         "role": "implementation-dependency"
@@ -102,7 +107,7 @@
       }
     ],
     "availability_observed_at": "2026-09-19T05:58:13Z",
-    "availability_observation": "all-selected-names-returned-404-not-found-read-only-no-reservation",
+    "availability_observation": "legacy-seven-selected-names-returned-404-language-syntax-name-unverified-release-time-recheck-required",
     "manifests_renamed": true
   }
 }

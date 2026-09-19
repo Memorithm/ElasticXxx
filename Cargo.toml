@@ -9,6 +9,7 @@ members = [
     "crates/elastic-eir",
     "crates/elastic-kv",
     "crates/elastic-kernel",
+    "crates/elastic-language-syntax",
     "crates/elastic-macros",
     "crates/elastic-runtime",
 ]
@@ -21,6 +22,7 @@ license-file = "LICENSE.md"
 
 [workspace.dependencies]
 elastic-core = { package = "memorithm-elastic-core", version = "0.1.0", path = "crates/elastic-core" }
+elastic-language-syntax = { package = "memorithm-elastic-language-syntax", version = "0.1.0", path = "crates/elastic-language-syntax" }
 elastic-eir = { package = "memorithm-elastic-eir", version = "0.1.0", path = "crates/elastic-eir" }
 elastic-adapters = { package = "memorithm-elastic-adapters", version = "0.1.0", path = "crates/elastic-adapters" }
 elastic-macros = { package = "memorithm-elastic-macros", version = "0.1.0", path = "crates/elastic-macros" }

@@ -15,7 +15,7 @@ MSRV = "1.89"
 REPOSITORY = "https://github.com/Memorithm/ElasticXxx"
 LEAVES = (
     ("memorithm-elastic-core", "elastic-core", "elastic_core"),
-    ("memorithm-elastic-macros", "elastic-macros", "elastic_macros"),
+    ("memorithm-elastic-language-syntax", "elastic-language-syntax", "elastic_language_syntax"),
 )
 MAX_ARCHIVE_BYTES = 16 * 1024 * 1024
 MAX_UNPACKED_BYTES = 32 * 1024 * 1024

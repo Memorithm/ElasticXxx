@@ -50,6 +50,7 @@ jobs:
           deps = root["workspace"]["dependencies"]
           registry_by_source = {
               "elastic-core": "memorithm-elastic-core",
+              "elastic-language-syntax": "memorithm-elastic-language-syntax",
               "elastic-macros": "memorithm-elastic-macros",
               "elastic-eir": "memorithm-elastic-eir",
               "elastic-adapters": "memorithm-elastic-adapters",
@@ -59,6 +60,7 @@ jobs:
           }
           expected_paths = {
               "elastic-core": "crates/elastic-core",
+              "elastic-language-syntax": "crates/elastic-language-syntax",
               "elastic-eir": "crates/elastic-eir",
               "elastic-adapters": "crates/elastic-adapters",
               "elastic-macros": "crates/elastic-macros",
@@ -160,6 +162,7 @@ jobs:
           set -euo pipefail
           for crate in \
             memorithm-elastic-core \
+            memorithm-elastic-language-syntax \
             memorithm-elastic-macros \
             memorithm-elastic-eir \
             memorithm-elastic-adapters \
@@ -174,6 +177,6 @@ jobs:
         run: |
           set -euo pipefail
           cargo package -p memorithm-elastic-core --allow-dirty --no-verify
-          cargo package -p memorithm-elastic-macros --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-language-syntax --allow-dirty --no-verify
       - name: Inspect first-publish leaf archives
         run: python3 scripts/check_package_archives.py
