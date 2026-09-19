@@ -50,12 +50,13 @@ pub fn derive_elastic_resource(input: TokenStream) -> TokenStream {
         .into()
 }
 
-/// Declare one Elastic resource with an embedded Rust DSL.
+/// Declare Elastic resources with an embedded Rust DSL.
 ///
-/// Version 0.1 deliberately supports one `resource` per invocation. The body
-/// accepts exactly the same declaration fragments as `#[derive(ElasticResource)]`
-/// and is lowered through that derive macro, so the DSL owns no independent
-/// validation or runtime semantics.
+/// A standalone `resource` produces one named resource module. A `document`
+/// groups multiple resource modules and lowers them through the existing
+/// `EirDocumentBuilder`. Resource bodies accept exactly the same declaration
+/// fragments as `#[derive(ElasticResource)]`, so the DSL owns no independent
+/// resource, planning, or runtime semantics.
 ///
 /// ```ignore
 /// elastic! {
@@ -81,39 +82,124 @@ pub fn elastic(input: TokenStream) -> TokenStream {
 }
 
 mod kw {
+    syn::custom_keyword!(document);
     syn::custom_keyword!(resource);
 }
 
-struct ElasticDslInput {
+struct ElasticResourceDsl {
     visibility: Visibility,
     name: Ident,
     body: proc_macro2::TokenStream,
 }
 
+struct ElasticDocumentResourceDsl {
+    name: Ident,
+    body: proc_macro2::TokenStream,
+}
+
+struct ElasticDocumentDsl {
+    visibility: Visibility,
+    name: Ident,
+    resources: Vec<ElasticDocumentResourceDsl>,
+}
+
+enum ElasticDslInput {
+    Resource(ElasticResourceDsl),
+    Document(ElasticDocumentDsl),
+}
+
 impl Parse for ElasticDslInput {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let visibility: Visibility = input.parse()?;
-        input.parse::<kw::resource>()?;
-        let name: Ident = input.parse()?;
-        let content;
-        braced!(content in input);
-        let body: proc_macro2::TokenStream = content.parse()?;
-        if !input.is_empty() {
-            return Err(syn::Error::new(
-                input.span(),
-                "elastic! v0.1 accepts exactly one resource per invocation",
-            ));
+        if input.peek(kw::resource) {
+            input.parse::<kw::resource>()?;
+            let name: Ident = input.parse()?;
+            let content;
+            braced!(content in input);
+            let body: proc_macro2::TokenStream = content.parse()?;
+            if !input.is_empty() {
+                return Err(syn::Error::new(
+                    input.span(),
+                    "elastic! single-resource form accepts exactly one resource; use `document NAME { resource ... }` for multiple resources",
+                ));
+            }
+            return Ok(Self::Resource(ElasticResourceDsl {
+                visibility,
+                name,
+                body,
+            }));
         }
-        Ok(Self {
-            visibility,
-            name,
-            body,
-        })
+        if input.peek(kw::document) {
+            input.parse::<kw::document>()?;
+            let name: Ident = input.parse()?;
+            let content;
+            braced!(content in input);
+            let mut resources = Vec::new();
+            let mut names = std::collections::BTreeSet::new();
+            while !content.is_empty() {
+                content.parse::<kw::resource>().map_err(|_| {
+                    syn::Error::new(
+                        content.span(),
+                        "elastic! document bodies accept only `resource NAME { ... }` declarations in v0.2",
+                    )
+                })?;
+                let resource_name: Ident = content.parse()?;
+                if resource_name == "document" {
+                    return Err(syn::Error::new(
+                        resource_name.span(),
+                        "resource module name `document` is reserved for the generated document() function",
+                    ));
+                }
+                if !names.insert(resource_name.to_string()) {
+                    return Err(syn::Error::new(
+                        resource_name.span(),
+                        format!("duplicate resource module `{resource_name}` in elastic! document"),
+                    ));
+                }
+                let resource_content;
+                braced!(resource_content in content);
+                let body: proc_macro2::TokenStream = resource_content.parse()?;
+                resources.push(ElasticDocumentResourceDsl {
+                    name: resource_name,
+                    body,
+                });
+            }
+            if resources.is_empty() {
+                return Err(syn::Error::new(
+                    name.span(),
+                    "elastic! document must contain at least one resource",
+                ));
+            }
+            if !input.is_empty() {
+                return Err(syn::Error::new(
+                    input.span(),
+                    "unexpected tokens after elastic! document declaration",
+                ));
+            }
+            return Ok(Self::Document(ElasticDocumentDsl {
+                visibility,
+                name,
+                resources,
+            }));
+        }
+        Err(syn::Error::new(
+            input.span(),
+            "expected `resource NAME { ... }` or `document NAME { resource ... }` after optional visibility",
+        ))
     }
 }
 
 fn expand_elastic_dsl(input: ElasticDslInput) -> Result<proc_macro2::TokenStream, syn::Error> {
-    let ElasticDslInput {
+    match input {
+        ElasticDslInput::Resource(resource) => expand_resource_module(resource),
+        ElasticDslInput::Document(document) => expand_document_module(document),
+    }
+}
+
+fn expand_resource_module(
+    input: ElasticResourceDsl,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ElasticResourceDsl {
         visibility,
         name,
         body,
@@ -157,6 +243,65 @@ fn expand_elastic_dsl(input: ElasticDslInput) -> Result<proc_macro2::TokenStream
                     ::elastic::resource::ResourceSpecError,
                 > {
                 __ElasticDeclaration::resource_spec()
+            }
+        }
+    })
+}
+
+fn expand_document_module(
+    input: ElasticDocumentDsl,
+) -> Result<proc_macro2::TokenStream, syn::Error> {
+    let ElasticDocumentDsl {
+        visibility,
+        name,
+        resources,
+    } = input;
+    let resource_count = resources.len();
+    let mut resource_modules = Vec::with_capacity(resource_count);
+    let mut resource_names = Vec::with_capacity(resource_count);
+    for resource in resources {
+        let resource_name = resource.name.clone();
+        resource_modules.push(expand_resource_module(ElasticResourceDsl {
+            visibility: syn::parse_quote!(pub),
+            name: resource.name,
+            body: resource.body,
+        })?);
+        resource_names.push(resource_name);
+    }
+
+    Ok(quote! {
+        #visibility mod #name {
+            const _: () = {
+                assert!(
+                    #resource_count <= ::elastic::MAX_EIR_DOCUMENT_RESOURCES,
+                    "elastic! document exceeds MAX_EIR_DOCUMENT_RESOURCES",
+                );
+            };
+
+            #(#resource_modules)*
+
+            #[doc = concat!(
+                "Builds the validated multi-resource [`EirDocument`](::elastic::EirDocument) ",
+                "declared by `elastic!` document `",
+                stringify!(#name),
+                "`."
+            )]
+            pub fn document()
+                -> ::core::result::Result<
+                    ::elastic::EirDocument,
+                    ::elastic::ElasticDocumentError,
+                > {
+                let mut builder = ::elastic::EirDocumentBuilder::new();
+                #(
+                    let spec = #resource_names::resource_spec().map_err(|source| {
+                        ::elastic::ElasticDocumentError::resource(
+                            stringify!(#resource_names),
+                            source,
+                        )
+                    })?;
+                    builder.push(&spec)?;
+                )*
+                builder.finish().map_err(::core::convert::Into::into)
             }
         }
     })

@@ -1,0 +1,5 @@
+error: duplicate resource module `worker` in elastic! document
+ --> tests/compile_fail/dsl_duplicate_resource_module.rs:9:18
+  |
+9 |         resource worker {
+  |                  ^^^^^^

@@ -9,6 +9,7 @@
 
 pub mod boolean;
 mod guard_macro;
+pub mod language;
 
 /// Versioned KV-cache representation and transaction contracts.
 ///
@@ -103,8 +104,9 @@ pub use elastic_eir::{
     EirDocumentBuilder, EirGuard, EirGuardedResource, EirPredicate, EirPseudoBooleanConstraint,
     EirPseudoBooleanTerm, EirResource, Fingerprint, FirstGroundedPlanner, GuardedTransitionOutcome,
     PlanOutcome, PlanningContext, RejectedTransition, TransitionCandidate, TransitionPlanner,
-    TransitionPruningReport, UnknownTransition, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
-    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+    TransitionPruningReport, UnknownTransition, ValidationError, EIR_BOOLEAN_GUARD_SCHEMA_VERSION,
+    EIR_PSEUDO_BOOLEAN_CONSTRAINT_SCHEMA_VERSION, MAX_EIR_DOCUMENT_RESOURCES,
+    MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
 };
 pub use elastic_macros::{elastic, ElasticResource};
 pub use elastic_runtime::{
@@ -234,6 +236,7 @@ pub use elastic_runtime::{
     REPRESENTATION_PRECISION_PREDICATE_NAMESPACE, REPRESENTATION_PRECISION_SOURCE_UNIT,
     THERMAL_MARGIN_SOURCE_UNIT,
 };
+pub use language::ElasticDocumentError;
 
 /// Operational runtime surface for users that prefer an explicit namespace.
 pub mod runtime {
@@ -264,6 +267,7 @@ pub mod adapters {
 pub mod prelude {
     pub use crate::boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
     pub use crate::elastic_guard;
+    pub use crate::language::ElasticDocumentError;
     pub use elastic_adapters::{
         model_execution_current_profile_rank_signal, model_execution_profile_dimension,
         ConcurrencyPermits, HeadroomPlanner, ModelExecutionAdaptivePlannerV1,
@@ -308,9 +312,10 @@ pub mod prelude {
     pub use elastic_eir::{
         evaluate_transition_guards, lower, lower_constrained, lower_guarded,
         prune_transition_candidates, ConstraintLoweringError, EirConstrainedResource, EirDocument,
-        EirGuardedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm, EirResource,
-        Fingerprint, FirstGroundedPlanner, PlanningContext, TransitionPlanner,
-        TransitionPruningReport, MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
+        EirDocumentBuilder, EirGuardedResource, EirPseudoBooleanConstraint, EirPseudoBooleanTerm,
+        EirResource, Fingerprint, FirstGroundedPlanner, PlanningContext, TransitionPlanner,
+        TransitionPruningReport, ValidationError, MAX_EIR_DOCUMENT_RESOURCES,
+        MAX_EIR_PSEUDO_BOOLEAN_CONSTRAINTS,
     };
     pub use elastic_macros::{elastic, ElasticResource};
     pub use elastic_runtime::{

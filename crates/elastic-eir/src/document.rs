@@ -7,6 +7,14 @@ use crate::{SchemaVersion, EIR_SCHEMA_VERSION};
 use elastic_core::resource::ResourceSpec;
 use std::collections::BTreeSet;
 
+/// Maximum number of resources accepted in one EIR document.
+///
+/// This is a structural resource-exhaustion bound, not an orchestration limit.
+/// Systems controlling more resources should partition them into multiple
+/// documents with explicit higher-level ownership rather than silently growing
+/// one unbounded EIR allocation.
+pub const MAX_EIR_DOCUMENT_RESOURCES: usize = 256;
+
 /// A validated, versioned EIR document.
 ///
 /// Resources are stored sorted by identity text. Construction is only possible
@@ -44,6 +52,12 @@ impl EirDocument {
     /// Returns [`ValidationError`] for the first invalid part, duplicate
     /// identity, or an empty document.
     pub fn from_parts(parts: Vec<EirResourceParts>) -> Result<Self, ValidationError> {
+        if parts.len() > MAX_EIR_DOCUMENT_RESOURCES {
+            return Err(ValidationError::TooManyResources {
+                maximum: MAX_EIR_DOCUMENT_RESOURCES,
+                actual: parts.len(),
+            });
+        }
         let resources = parts
             .into_iter()
             .map(EirResource::from_parts)
@@ -54,6 +68,12 @@ impl EirDocument {
     pub(crate) fn assemble(mut resources: Vec<EirResource>) -> Result<Self, ValidationError> {
         if resources.is_empty() {
             return Err(ValidationError::EmptyDocument);
+        }
+        if resources.len() > MAX_EIR_DOCUMENT_RESOURCES {
+            return Err(ValidationError::TooManyResources {
+                maximum: MAX_EIR_DOCUMENT_RESOURCES,
+                actual: resources.len(),
+            });
         }
         let mut seen = BTreeSet::new();
         for resource in &resources {
@@ -137,6 +157,12 @@ impl EirDocumentBuilder {
     ///
     /// Returns [`ValidationError`] if lowering fails structural validation.
     pub fn push(&mut self, spec: &ResourceSpec) -> Result<(), ValidationError> {
+        if self.resources.len() >= MAX_EIR_DOCUMENT_RESOURCES {
+            return Err(ValidationError::TooManyResources {
+                maximum: MAX_EIR_DOCUMENT_RESOURCES,
+                actual: self.resources.len().saturating_add(1),
+            });
+        }
         let identity = spec.resource_id().as_str().to_owned();
         let class = spec.class().clone();
         let labels = spec
@@ -162,9 +188,10 @@ impl EirDocumentBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`ValidationError::EmptyDocument`] when nothing was pushed, or
-    /// [`ValidationError::DuplicateResourceIdentity`] when two resources share
-    /// one logical identity.
+    /// Returns [`ValidationError::EmptyDocument`] when nothing was pushed,
+    /// [`ValidationError::TooManyResources`] when the document exceeds the
+    /// structural bound, or [`ValidationError::DuplicateResourceIdentity`] when
+    /// two resources share one logical identity.
     pub fn finish(self) -> Result<EirDocument, ValidationError> {
         EirDocument::assemble(self.resources)
     }

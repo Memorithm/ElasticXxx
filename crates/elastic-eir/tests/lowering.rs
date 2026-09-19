@@ -238,6 +238,66 @@ fn multi_resource_documents_sort_by_identity_and_fingerprint_content() {
 }
 
 #[test]
+fn raw_parts_document_path_enforces_the_same_resource_bound() {
+    use elastic_eir::{EirDocument, EirResourceParts, ValidationError, MAX_EIR_DOCUMENT_RESOURCES};
+
+    let parts = EirResourceParts {
+        identity: "template".to_owned(),
+        class: ResourceClassId::SHARED,
+        dimensions: vec![DimensionId::CAPACITY],
+        invariants: Vec::new(),
+        objectives: Vec::new(),
+        transitions: Vec::new(),
+        capabilities: Vec::new(),
+        observations: Vec::new(),
+        labels: Default::default(),
+    };
+    let oversized = vec![parts; MAX_EIR_DOCUMENT_RESOURCES + 1];
+    assert_eq!(
+        EirDocument::from_parts(oversized),
+        Err(ValidationError::TooManyResources {
+            maximum: MAX_EIR_DOCUMENT_RESOURCES,
+            actual: MAX_EIR_DOCUMENT_RESOURCES + 1,
+        })
+    );
+}
+
+#[test]
+fn multi_resource_document_is_bounded_before_unbounded_growth() {
+    use elastic_eir::{EirDocumentBuilder, ValidationError, MAX_EIR_DOCUMENT_RESOURCES};
+
+    let mut builder = EirDocumentBuilder::new();
+    for index in 0..MAX_EIR_DOCUMENT_RESOURCES {
+        let spec = ResourceSpec::builder(
+            ResourceClassId::SHARED,
+            LogicalResourceId::new(format!("bounded-{index:03}")).unwrap(),
+        )
+        .allow(DimensionId::CAPACITY)
+        .build()
+        .unwrap();
+        builder.push(&spec).unwrap();
+    }
+    let at_limit = builder.clone().finish().unwrap();
+    assert_eq!(at_limit.resources().len(), MAX_EIR_DOCUMENT_RESOURCES);
+
+    let overflow = ResourceSpec::builder(
+        ResourceClassId::SHARED,
+        LogicalResourceId::new("bounded-overflow").unwrap(),
+    )
+    .allow(DimensionId::CAPACITY)
+    .build()
+    .unwrap();
+
+    assert_eq!(
+        builder.push(&overflow),
+        Err(ValidationError::TooManyResources {
+            maximum: MAX_EIR_DOCUMENT_RESOURCES,
+            actual: MAX_EIR_DOCUMENT_RESOURCES + 1,
+        })
+    );
+}
+
+#[test]
 fn schema_version_is_explicit_and_ordered() {
     let doc = lower(&kv_spec_a()).unwrap();
     assert_eq!(doc.schema_version(), elastic_eir::SchemaVersion::LATEST);

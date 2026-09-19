@@ -34,6 +34,24 @@ elastic! {
     }
 }
 
+elastic! {
+    pub document downstream_language_document {
+        resource worker_pool {
+            class(shared);
+            id("downstream-worker-pool");
+            allow(parallelism);
+            admit(reinterpret @ parallelism);
+            capability(reinterpret @ parallelism);
+        }
+        resource cache {
+            class(representational);
+            id("downstream-cache");
+            allow(representation);
+            preserve(contents);
+        }
+    }
+}
+
 /// Compile-time proof that the embedded `elastic!` language is available from
 /// the single public facade dependency and lowers to ordinary `ResourceSpec`.
 pub fn public_elastic_language_surface_smoke() {
@@ -92,6 +110,16 @@ pub fn public_surface_smoke() {
             committed_bytes: 2048
         }
     );
+}
+
+/// Compile-time proof that a multi-resource `elastic! document` lowers through
+/// the public EIR document surface with only the `elastic` dependency.
+pub fn public_elastic_document_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    assert_eq!(document.resources().len(), 2);
+    assert!(document.resource("downstream-worker-pool").is_some());
+    assert!(document.resource("downstream-cache").is_some());
+    assert_eq!(MAX_EIR_DOCUMENT_RESOURCES, 256);
 }
 
 /// Compile-time proof that durable runtime evidence is available through only
@@ -283,6 +311,7 @@ mod tests {
         public_decision_trace_diff_surface_smoke();
         public_boolean_surface_smoke();
         public_elastic_language_surface_smoke();
+        public_elastic_document_surface_smoke();
         public_thermal_energy_policy_surface_smoke();
         public_stable_guard_surface_smoke();
     }

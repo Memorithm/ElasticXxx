@@ -15,6 +15,13 @@ use std::fmt;
 pub enum ValidationError {
     /// The document contained no resources.
     EmptyDocument,
+    /// The document exceeded its bounded resource count.
+    TooManyResources {
+        /// Maximum resources accepted in one EIR document.
+        maximum: usize,
+        /// Resource count supplied or attempted.
+        actual: usize,
+    },
     /// Two resources in one document shared a logical identity.
     DuplicateResourceIdentity {
         /// The repeated identity text.
@@ -87,6 +94,10 @@ impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptyDocument => write!(f, "an EIR document must contain at least one resource"),
+            Self::TooManyResources { maximum, actual } => write!(
+                f,
+                "an EIR document may contain at most {maximum} resources; got {actual}"
+            ),
             Self::DuplicateResourceIdentity { identity } => write!(
                 f,
                 "logical resource identity {identity} appears more than once in one document"

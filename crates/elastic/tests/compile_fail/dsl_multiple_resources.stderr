@@ -1,4 +1,4 @@
-error: elastic! v0.1 accepts exactly one resource per invocation
+error: elastic! single-resource form accepts exactly one resource; use `document NAME { resource ... }` for multiple resources
  --> tests/compile_fail/dsl_multiple_resources.rs:8:5
   |
 8 |     resource second {
