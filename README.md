@@ -65,6 +65,8 @@ The model is intentionally provisional and will evolve as the literature review 
 - [Macro guide](docs/surface/macro-guide.md)
 - [Compatibility / MSRV policy](docs/release/COMPATIBILITY.md)
 - [Pre-release packageability gate](docs/release/PACKAGEABILITY.md)
+- [0.1.x migration contract](docs/release/MIGRATION-0.1.md)
+- [Cross-repository compatibility matrix](docs/release/CROSS_REPO_COMPATIBILITY.md)
 
 ## Implementation
 

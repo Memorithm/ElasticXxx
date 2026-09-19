@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "scope": "elasticxxx-pre-release-productization-v1",
+  "release_line": "0.1.x",
+  "workspace_version": "0.1.0",
+  "msrv": "1.89",
+  "registry_publication_authorized": false,
+  "public_rust_boundary": "elastic",
+  "license_source": {
+    "repository": "Memorithm/scirust",
+    "default_branch": "master",
+    "source_commit": "17d1a57f1b9333e1e9a86f4696a9db4a43178d31",
+    "path": "LICENSE.md",
+    "sha256": "7b3f5edd7c1538affb8477d6699265b5b1c7f7464be0fab113e4e06d031ed72c"
+  },
+  "qualified_consumers_and_sources": [
+    {
+      "name": "BooleanLab exact-vector bridge",
+      "repository": "Memorithm/BooleanLab",
+      "source_commit": "2646e7ca675d3dcde71abed10c7531e1d36c93b8",
+      "kind": "immutable-test-fixture",
+      "authority": "none"
+    },
+    {
+      "name": "TDI-9.3 non-final carrier bridge",
+      "repository": "Memorithm/TDI",
+      "source_commit": "7dab3bfa97e74eeff7965cefcada56c59b4322ab",
+      "kind": "non-final-representation-adapter",
+      "authority": "none"
+    },
+    {
+      "name": "Forge optional search bridge review source",
+      "repository": "Memorithm/Forge",
+      "source_commit": "da68e9703d7a523f5d3703ebedd3de85b39cb153",
+      "kind": "candidate-input-contract",
+      "authority": "none"
+    },
+    {
+      "name": "ExtremEngine adaptive-quality consumer",
+      "repository": "Memorithm/ExtremEngine",
+      "source_commit": "51efeb57bd12ee6419cec7e9b530c3b0c485a7a6",
+      "elastic_source_commit": "8441991feea3a2aae19f62a8e51c89e7f0d6f969",
+      "kind": "real-facade-consumer",
+      "authority": "consumer-owned-actuation-after-fresh-validation"
+    }
+  ],
+  "required_release_documents": [
+    "docs/release/COMPATIBILITY.md",
+    "docs/release/PACKAGEABILITY.md",
+    "docs/release/MIGRATION-0.1.md",
+    "docs/release/CROSS_REPO_COMPATIBILITY.md"
+  ],
+  "publication_blockers": [
+    "registry_package_name_ownership_and_availability_not_verified_for_release_time",
+    "public_private_crate_topology_not_explicitly_authorized",
+    "full_dependency_order_registry_publish_not_executed",
+    "clean_registry_downstream_install_not_yet_possible_without_first_publish",
+    "release_versions_changelog_and_release_notes_not_frozen"
+  ]
+}
