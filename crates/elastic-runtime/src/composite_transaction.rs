@@ -1010,7 +1010,11 @@ mod tests {
         fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
             self.event("prepare");
             self.prepared = true;
-            Ok(Actuation::new(plan.clone(), Some(1), self.name.clone()))
+            let target = plan
+                .plan
+                .candidate()
+                .and_then(|candidate| candidate.magnitude());
+            Ok(Actuation::new(plan.clone(), target, self.name.clone()))
         }
 
         fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
