@@ -64,14 +64,16 @@ pub use elastic_core::control::{
 pub use elastic_core::resource;
 pub use elastic_core::resource::{
     AdmissibleTransition, BuiltinDimension, BuiltinObjective, BuiltinObservationSignal,
-    BuiltinResourceClass, CapabilityRequirement, ContractId, CrossResourceInvariant,
+    BuiltinResourceClass, CapabilityRequirement, CapacityBudgetContract, CapacityBudgetError,
+    CapacityBudgetKind, CapacityBudgetTerm, ContractId, CrossResourceInvariant,
     CrossResourceInvariantError, DimensionId, Invariant, InvariantKind, LogicalResourceId,
     ObjectiveId, ObservationSignalId, ResourceClassId, ResourceDependency, ResourceGroup,
     ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, ResourceSpec, ResourceSpecBuilder,
     ResourceSpecError, SharedBudget, SharedBudgetError, SharedBudgetId, SharedBudgetTerm,
-    MAX_RESOURCE_GROUP_CROSS_INVARIANTS, MAX_RESOURCE_GROUP_DEPENDENCIES,
-    MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
-    MAX_SHARED_BUDGET_ID_BYTES,
+    CAPACITY_BUDGET_CONTRACT_SCHEMA_V1, MAX_RESOURCE_GROUP_CROSS_INVARIANTS,
+    MAX_RESOURCE_GROUP_DEPENDENCIES, MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS,
+    MAX_RESOURCE_GROUP_SHARED_BUDGETS, MAX_SHARED_BUDGET_ID_BYTES, RAM_CAPACITY_BUDGET_UNIT,
+    STORAGE_CAPACITY_BUDGET_UNIT,
 };
 pub use elastic_core::{
     analyze_resource_policy, BoolExpr, BoolExprFingerprint, BooleanCpuArchitecture,
@@ -320,14 +322,16 @@ pub mod prelude {
         TDI93_C3_PREDICATE_NAMESPACE_V1, TDI93_C3_SOURCE_COMMIT_V1,
     };
     pub use elastic_core::resource::{
-        AdmissibleTransition, CapabilityRequirement, ContractId, CrossResourceInvariant,
+        AdmissibleTransition, CapabilityRequirement, CapacityBudgetContract, CapacityBudgetError,
+        CapacityBudgetKind, CapacityBudgetTerm, ContractId, CrossResourceInvariant,
         CrossResourceInvariantError, DimensionId, Invariant, InvariantKind, LogicalResourceId,
         ObjectiveId, ObservationSignalId, ResourceClassId, ResourceDependency, ResourceGroup,
         ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, ResourceSpec, ResourceSpecError,
         SharedBudget, SharedBudgetError, SharedBudgetId, SharedBudgetTerm,
-        MAX_RESOURCE_GROUP_CROSS_INVARIANTS, MAX_RESOURCE_GROUP_DEPENDENCIES,
-        MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
-        MAX_SHARED_BUDGET_ID_BYTES,
+        CAPACITY_BUDGET_CONTRACT_SCHEMA_V1, MAX_RESOURCE_GROUP_CROSS_INVARIANTS,
+        MAX_RESOURCE_GROUP_DEPENDENCIES, MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS,
+        MAX_RESOURCE_GROUP_SHARED_BUDGETS, MAX_SHARED_BUDGET_ID_BYTES, RAM_CAPACITY_BUDGET_UNIT,
+        STORAGE_CAPACITY_BUDGET_UNIT,
     };
     pub use elastic_core::{
         analyze_resource_policy, BoolExpr, BooleanCpuArchitecture, BooleanCpuFeatures,
