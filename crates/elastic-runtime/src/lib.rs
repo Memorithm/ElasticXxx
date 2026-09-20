@@ -231,11 +231,16 @@ pub use observation::{Observation, ObservationSnapshot, ObservationSource, Obser
 pub use observers::{
     active_permits_signal, concurrency_capacity_signal, concurrency_width_signal,
     host_memory_available_bytes_signal, host_memory_total_bytes_signal,
-    host_memory_used_bytes_signal, host_memory_utilization_signal, ram_configured_max_bytes_signal,
+    host_memory_used_bytes_signal, host_memory_utilization_signal,
+    linux_cpu_affinity_allowed_cpus_signal, linux_cpu_pressure_full_avg10_signal,
+    linux_cpu_pressure_some_avg10_signal, linux_cpu_quota_cores_signal,
+    linux_cpu_quota_unlimited_signal, ram_configured_max_bytes_signal,
     ram_configured_min_bytes_signal, ram_in_use_bytes_signal, runtime_uptime_seconds_signal,
-    ConcurrencyPermitsObserver, HostMemoryObserver, LinuxHwmonPowerObserver,
-    LinuxThermalMarginObserver, ObserverSet, RamBudgetObserver, RuntimeTimingObserver,
-    ENERGY_RATE_SOURCE_UNIT, THERMAL_MARGIN_SOURCE_UNIT,
+    ConcurrencyPermitsObserver, HostMemoryObserver, LinuxCpuEnvironmentObserver,
+    LinuxHwmonPowerObserver, LinuxThermalMarginObserver, ObserverSet, RamBudgetObserver,
+    RuntimeTimingObserver, ENERGY_RATE_SOURCE_UNIT, LINUX_CPU_AFFINITY_SOURCE_UNIT,
+    LINUX_CPU_PRESSURE_SOURCE_UNIT, LINUX_CPU_QUOTA_SOURCE_UNIT,
+    LINUX_CPU_QUOTA_UNLIMITED_SOURCE_UNIT, THERMAL_MARGIN_SOURCE_UNIT,
 };
 pub use operator_config::{
     CadenceConfig, ControllerConfig, ExecutionModeConfig, ForecasterSelection, OperatorConfig,
