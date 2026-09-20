@@ -9,6 +9,7 @@
 
 pub mod benchmark;
 pub mod boolean_admission;
+pub mod representation_precision;
 pub mod stage_b;
 pub mod transaction;
 
@@ -16,6 +17,11 @@ pub use benchmark::{
     run_fixed_baseline, BenchmarkError, BenchmarkResult, BlockBenchmarkResult, CandidateId,
     ReconstructionMetrics, RepresentationFamily, SyntheticCorpus, BENCHMARK_PROTOCOL_VERSION,
     FIXED_CANDIDATES, RESIDENT_ALIGNMENT_BITS, SERIALIZED_ALIGNMENT_BITS,
+};
+
+pub use representation_precision::{
+    RepresentationPrecisionKvBindingError, RepresentationPrecisionKvBindingV1,
+    REPRESENTATION_PRECISION_KV_BINDING_V1,
 };
 
 pub use stage_b::{
