@@ -46,6 +46,26 @@ Versioned persisted contracts are fail-closed boundaries.
 - Strict readers are allowed to reject unknown fields; therefore adding a field to a strict v1 object is itself a compatibility decision and normally requires a new schema version.
 - Historical evidence remains explanatory unless a separate contract explicitly authorizes physical replay after current identity and capability revalidation.
 
+## Pre-1.0 parser and memory-safety hardening
+
+Persisted/untrusted decoding boundaries are part of the compatibility surface and
+must fail closed under malformed input. The continuous-hardening program therefore
+covers:
+
+- representation/issuer identifiers and transition-pipeline structure;
+- bounded `DecisionTrace` JSON decoding;
+- bounded `OperatorConfig` JSON decoding and semantic validation;
+- bounded runtime `EvidenceEnvelope` JSON decoding and semantic validation.
+
+Pull requests compile every cargo-fuzz target on nightly. Scheduled and manually
+dispatched hardening runs execute bounded fuzz campaigns; a green PR fuzz-build is
+therefore **not** reported as executed fuzz-time evidence.
+
+Miri remains a scheduled/manual gate. It interprets `elastic-core` and `elastic-kv`
+tests and additionally exercises the bounded operator-config and runtime-evidence
+decoder tests. This broadens interpreter coverage without implying that Miri proves
+the absence of all unsafe behavior in external dependencies or hardware backends.
+
 ## Release gate
 
 A release candidate must, on its exact commit:
