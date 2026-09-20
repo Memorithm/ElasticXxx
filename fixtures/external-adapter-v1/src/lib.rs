@@ -2,133 +2,131 @@
 //!
 //! This crate intentionally depends only on the public `elastic` facade.
 
-use elastic::external_adapter_v1::{
-    Actuation, CommitRecord, FirstGroundedPlanner, InvariantCheck, Observer, Plan, PlanningContext,
-    RollbackRecord, Runtime, RuntimeConfig, RuntimeError, RuntimeMode, TransactionalActuator,
-    ValidatedPlan, VerificationResult,
-};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum VerificationMode {
-    Pass,
-    Fail,
-}
-
-struct FixtureObserver;
-
-impl Observer for FixtureObserver {
-    fn observe(
-        &self,
-    ) -> (
-        PlanningContext,
-        Vec<elastic::external_adapter_v1::Observation>,
-    ) {
-        (PlanningContext::new(), Vec::new())
-    }
-}
-
-struct FixtureAdapter {
-    verification: VerificationMode,
-    fail_commit: bool,
-    misbind_name: bool,
-    actuation_calls: usize,
-    committed: bool,
-    rolled_back: bool,
-}
-
-impl FixtureAdapter {
-    fn passing() -> Self {
-        Self {
-            verification: VerificationMode::Pass,
-            fail_commit: false,
-            misbind_name: false,
-            actuation_calls: 0,
-            committed: false,
-            rolled_back: false,
-        }
-    }
-}
-
-impl TransactionalActuator for FixtureAdapter {
-    fn name(&self) -> &str {
-        "external-v1-fixture"
-    }
-
-    fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
-        Ok(plan
-            .resource
-            .invariants()
-            .iter()
-            .cloned()
-            .map(|invariant| {
-                InvariantCheck::new(
-                    invariant,
-                    true,
-                    Some("external fixture revalidated invariant".to_owned()),
-                )
-            })
-            .collect())
-    }
-
-    fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
-        let name = if self.misbind_name {
-            "foreign-adapter"
-        } else {
-            self.name()
-        };
-        Ok(Actuation::new(plan.clone(), None, name))
-    }
-
-    fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
-        self.actuation_calls = self.actuation_calls.saturating_add(1);
-        Ok(())
-    }
-
-    fn verify(&self, _actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
-        Ok(match self.verification {
-            VerificationMode::Pass => VerificationResult::Pass,
-            VerificationMode::Fail => VerificationResult::Fail {
-                detail: "injected external verification failure".to_owned(),
-            },
-        })
-    }
-
-    fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
-        if self.fail_commit {
-            return Err(RuntimeError::commit("injected external commit failure"));
-        }
-        self.committed = true;
-        Ok(CommitRecord::new(
-            self.name(),
-            "external fixture commit after verification",
-        ))
-    }
-
-    fn rollback(
-        &mut self,
-        _actuation: &Actuation,
-        _verification: &VerificationResult,
-    ) -> Result<RollbackRecord, RuntimeError> {
-        self.rolled_back = true;
-        Ok(RollbackRecord::new(
-            self.name(),
-            "external fixture restored pre-actuation state",
-            true,
-        ))
-    }
-}
-
-fn applying_runtime() -> Runtime {
-    Runtime::new(RuntimeConfig {
-        mode: RuntimeMode::Apply,
-        dry_run: false,
-        ..RuntimeConfig::default()
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use elastic::external_adapter_v1::{
+        Actuation, CommitRecord, FirstGroundedPlanner, InvariantCheck, Observer, Plan,
+        PlanningContext, RollbackRecord, Runtime, RuntimeConfig, RuntimeError, RuntimeMode,
+        TransactionalActuator, ValidatedPlan, VerificationResult,
+    };
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum VerificationMode {
+        Pass,
+        Fail,
+    }
+
+    struct FixtureObserver;
+
+    impl Observer for FixtureObserver {
+        fn observe(
+            &self,
+        ) -> (
+            PlanningContext,
+            Vec<elastic::external_adapter_v1::Observation>,
+        ) {
+            (PlanningContext::new(), Vec::new())
+        }
+    }
+
+    struct FixtureAdapter {
+        verification: VerificationMode,
+        fail_commit: bool,
+        misbind_name: bool,
+        actuation_calls: usize,
+        committed: bool,
+        rolled_back: bool,
+    }
+
+    impl FixtureAdapter {
+        fn passing() -> Self {
+            Self {
+                verification: VerificationMode::Pass,
+                fail_commit: false,
+                misbind_name: false,
+                actuation_calls: 0,
+                committed: false,
+                rolled_back: false,
+            }
+        }
+    }
+
+    impl TransactionalActuator for FixtureAdapter {
+        fn name(&self) -> &str {
+            "external-v1-fixture"
+        }
+
+        fn validate(&self, plan: &Plan) -> Result<Vec<InvariantCheck>, RuntimeError> {
+            Ok(plan
+                .resource
+                .invariants()
+                .iter()
+                .cloned()
+                .map(|invariant| {
+                    InvariantCheck::new(
+                        invariant,
+                        true,
+                        Some("external fixture revalidated invariant".to_owned()),
+                    )
+                })
+                .collect())
+        }
+
+        fn prepare(&mut self, plan: &ValidatedPlan) -> Result<Actuation, RuntimeError> {
+            let name = if self.misbind_name {
+                "foreign-adapter"
+            } else {
+                self.name()
+            };
+            Ok(Actuation::new(plan.clone(), None, name))
+        }
+
+        fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+            self.actuation_calls = self.actuation_calls.saturating_add(1);
+            Ok(())
+        }
+
+        fn verify(&self, _actuation: &Actuation) -> Result<VerificationResult, RuntimeError> {
+            Ok(match self.verification {
+                VerificationMode::Pass => VerificationResult::Pass,
+                VerificationMode::Fail => VerificationResult::Fail {
+                    detail: "injected external verification failure".to_owned(),
+                },
+            })
+        }
+
+        fn commit(&mut self, _actuation: &Actuation) -> Result<CommitRecord, RuntimeError> {
+            if self.fail_commit {
+                return Err(RuntimeError::commit("injected external commit failure"));
+            }
+            self.committed = true;
+            Ok(CommitRecord::new(
+                self.name(),
+                "external fixture commit after verification",
+            ))
+        }
+
+        fn rollback(
+            &mut self,
+            _actuation: &Actuation,
+            _verification: &VerificationResult,
+        ) -> Result<RollbackRecord, RuntimeError> {
+            self.rolled_back = true;
+            Ok(RollbackRecord::new(
+                self.name(),
+                "external fixture restored pre-actuation state",
+                true,
+            ))
+        }
+    }
+
+    fn applying_runtime() -> Runtime {
+        Runtime::new(RuntimeConfig {
+            mode: RuntimeMode::Apply,
+            dry_run: false,
+            ..RuntimeConfig::default()
+        })
+    }
 
     #[test]
     fn facade_only_external_adapter_commits_after_verification() {
