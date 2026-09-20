@@ -30,6 +30,7 @@ pub mod error;
 pub mod model_execution;
 pub mod model_execution_adaptive;
 pub mod model_execution_envelope;
+pub mod model_execution_policy;
 pub mod model_execution_profiles;
 pub mod model_execution_runtime;
 pub mod permits;
@@ -55,6 +56,11 @@ pub use model_execution_envelope::{
     ModelExecutionEnvelopeRuleWireV1, ModelExecutionHardwarePlannerV1,
     ModelExecutionHardwareSelectionV1, ModelExecutionResourceSnapshotV1,
     MODEL_EXECUTION_ENVELOPE_POLICY_MEDIA_TYPE_V1, MODEL_EXECUTION_ENVELOPE_POLICY_V1,
+};
+pub use model_execution_policy::{
+    ModelExecutionProfilePolicyBindingError, ModelExecutionProfilePolicyBindingV1,
+    ModelExecutionProfilePolicyEntryV1, MODEL_EXECUTION_PROFILE_POLICY_BINDING_V1,
+    MODEL_EXECUTION_PROFILE_PREDICATE_NAMESPACE_V1,
 };
 pub use model_execution_profiles::{
     ModelExecutionProfileEnvelopeV1, ModelExecutionProfileError, ModelExecutionProfilePlanV1,

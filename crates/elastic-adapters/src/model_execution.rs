@@ -437,44 +437,63 @@ impl ModelExecutionResourcePlanV1 {
         &self,
         resource_id: impl Into<String>,
     ) -> Result<ResourceSpec, ModelExecutionContractError> {
-        let resource_id = LogicalResourceId::new(resource_id.into())?;
-        let contract = ContractId::new(MODEL_EXECUTION_RESOURCE_PLAN_V1)?;
-        let active_experts = DimensionId::custom(MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION)?;
-        let expert_width = DimensionId::custom(MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION)?;
-        let activation_budget = DimensionId::custom(MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION)?;
-
-        let mut builder = ResourceSpec::builder(ResourceClassId::CONFIGURATIONAL, resource_id)
-            .preserve(Invariant::new(InvariantKind::PreserveIdentity))
-            .preserve(Invariant::new(InvariantKind::UpholdContract(contract)))
-            .observe(ObservationSignalId::FREE_CAPACITY)
-            .observe(ObservationSignalId::UTILIZATION)
-            .observe(ObservationSignalId::QUEUE_DEPTH)
-            .label("model-execution.contract", MODEL_EXECUTION_RESOURCE_PLAN_V1)
-            .label("model-execution.provider", self.provider_id.clone())
-            .label(
-                "model-execution.model-revision",
-                self.model_revision.clone(),
-            )
-            .label(
-                "model-execution.capability-fingerprint",
-                self.capability_fingerprint.to_string(),
-            );
-
-        for dimension in [active_experts, expert_width, activation_budget] {
-            builder = builder
-                .allow(dimension.clone())
-                .admit(AdmissibleTransition::new(
-                    TransitionMechanism::Reinterpret,
-                    dimension.clone(),
-                ))
-                .require_capability(CapabilityRequirement::new(
-                    TransitionMechanism::Reinterpret,
-                    dimension,
-                ));
-        }
-
-        Ok(builder.build()?)
+        model_execution_resource_spec(
+            &self.provider_id,
+            &self.model_revision,
+            self.capability_fingerprint,
+            None,
+            resource_id,
+        )
     }
+}
+
+pub(crate) fn model_execution_resource_spec(
+    provider_id: &str,
+    model_revision: &str,
+    capability_fingerprint: Fingerprint,
+    profile_set_fingerprint: Option<Fingerprint>,
+    resource_id: impl Into<String>,
+) -> Result<ResourceSpec, ModelExecutionContractError> {
+    let resource_id = LogicalResourceId::new(resource_id.into())?;
+    let contract = ContractId::new(MODEL_EXECUTION_RESOURCE_PLAN_V1)?;
+    let active_experts = DimensionId::custom(MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION)?;
+    let expert_width = DimensionId::custom(MODEL_EXECUTION_EXPERT_WIDTH_DIMENSION)?;
+    let activation_budget = DimensionId::custom(MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION)?;
+
+    let mut builder = ResourceSpec::builder(ResourceClassId::CONFIGURATIONAL, resource_id)
+        .preserve(Invariant::new(InvariantKind::PreserveIdentity))
+        .preserve(Invariant::new(InvariantKind::UpholdContract(contract)))
+        .observe(ObservationSignalId::FREE_CAPACITY)
+        .observe(ObservationSignalId::UTILIZATION)
+        .observe(ObservationSignalId::QUEUE_DEPTH)
+        .label("model-execution.contract", MODEL_EXECUTION_RESOURCE_PLAN_V1)
+        .label("model-execution.provider", provider_id)
+        .label("model-execution.model-revision", model_revision)
+        .label(
+            "model-execution.capability-fingerprint",
+            capability_fingerprint.to_string(),
+        );
+    if let Some(profile_set_fingerprint) = profile_set_fingerprint {
+        builder = builder.label(
+            "model-execution.profile-set-fingerprint",
+            profile_set_fingerprint.to_string(),
+        );
+    }
+
+    for dimension in [active_experts, expert_width, activation_budget] {
+        builder = builder
+            .allow(dimension.clone())
+            .admit(AdmissibleTransition::new(
+                TransitionMechanism::Reinterpret,
+                dimension.clone(),
+            ))
+            .require_capability(CapabilityRequirement::new(
+                TransitionMechanism::Reinterpret,
+                dimension,
+            ));
+    }
+
+    Ok(builder.build()?)
 }
 
 /// Fail-closed errors for the model-execution capability/plan boundary.

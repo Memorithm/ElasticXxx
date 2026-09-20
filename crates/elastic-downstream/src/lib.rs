@@ -933,6 +933,70 @@ pub fn public_policy_advisory_surface_smoke() {
     assert_ne!(lowered.fingerprint(), changed.fingerprint());
 }
 
+/// Semantic proof that an exact provider-owned model profile set can be bound
+/// to generic policy through only the public `elastic` facade.
+pub fn public_model_execution_profile_policy_binding_smoke() {
+    let capabilities = ModelExecutionCapabilitiesV1::new(
+        "downstream-nnis",
+        "model-r1",
+        4,
+        vec![1, 2, 4],
+        vec![2_500, 5_000, 10_000],
+        vec![2_500, 5_000, 10_000],
+    )
+    .unwrap();
+    let profiles = ModelExecutionProfileSetV1::new(
+        &capabilities,
+        vec![
+            ModelExecutionProfileV1::new("full", 0, 4, 10_000, 10_000).unwrap(),
+            ModelExecutionProfileV1::new("balanced", 10, 2, 5_000, 5_000).unwrap(),
+            ModelExecutionProfileV1::new("minimal", 20, 1, 2_500, 2_500).unwrap(),
+        ],
+    )
+    .unwrap();
+    let header = PolicyHeader::new(
+        PolicyIdentity::new(
+            PolicyId::new("downstream-model-profile").unwrap(),
+            PolicyVersion::new(1, 0, 0),
+        ),
+        PolicyTarget::resource(LogicalResourceId::new("downstream-inference").unwrap()),
+    );
+    let binding = ModelExecutionProfilePolicyBindingV1::new(header, &profiles).unwrap();
+    assert_eq!(binding.entries().len(), 3);
+    assert_eq!(binding.policy().constraints().len(), 1);
+    assert_eq!(
+        binding.predicate_for_profile("balanced").unwrap().name(),
+        "rank-10"
+    );
+
+    let selected = ModelExecutionProfileSelectorV1
+        .select(
+            &profiles,
+            ModelExecutionProfileEnvelopeV1::new(2, 5_000, 5_000).unwrap(),
+        )
+        .unwrap();
+    let ModelExecutionProfileSelectionV1::Selected(plan) = selected else {
+        panic!("downstream balanced model profile should be selected");
+    };
+    let predicate = binding.validate_plan(&plan).unwrap();
+    assert_eq!(
+        predicate,
+        binding.predicate_for_profile("balanced").unwrap()
+    );
+
+    let lowered = lower_resource_policy(binding.policy()).unwrap();
+    assert_eq!(lowered.constrained_resource().constraints().len(), 1);
+    let expected_profile_set_fingerprint = profiles.fingerprint().to_string();
+    assert_eq!(
+        lowered
+            .constrained_resource()
+            .guarded_resource()
+            .resource()
+            .label("model-execution.profile-set-fingerprint"),
+        Some(expected_profile_set_fingerprint.as_str())
+    );
+}
+
 /// Compile-time proof that durable runtime evidence is available through only
 /// the public `elastic` facade.
 pub fn public_evidence_surface_smoke() {
