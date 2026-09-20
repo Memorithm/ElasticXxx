@@ -277,6 +277,12 @@ pub use elastic_runtime::{
     CapacityAdmissionReportV1, CapacityAdmissionRequestV1, CapacityObservationV1, CapacityStateV1,
     RAM_CAPACITY_PREDICATE_NAME, RAM_CAPACITY_PREDICATE_NAMESPACE, RAM_CAPACITY_SOURCE_UNIT,
 };
+pub use elastic_runtime::{
+    HysteresisDirectionV1, HysteresisPolicyV1, TransitionRateLimitV1, TransitionStabilityError,
+    TransitionStabilityGateV1, TransitionStabilityPermitV1, TransitionStabilityPolicyV1,
+    TransitionStabilityReportV1, TransitionStabilityStatusV1, MAX_TRANSITION_RATE_LIMIT_COMMITS,
+    TRANSITION_STABILITY_SCHEMA_V1,
+};
 pub use language::{ElasticDocumentError, ElasticGroupDocumentError, ElasticPolicyDocumentError};
 
 /// Operational runtime surface for users that prefer an explicit namespace.
@@ -453,5 +459,11 @@ pub mod prelude {
     pub use elastic_runtime::{
         EvidenceCommand, EvidenceDiff, EvidenceEnvelope, EvidenceError, EvidenceEvent,
         EvidenceEventKind, EvidenceSchema, EvidenceSummary, EVIDENCE_SCHEMA_V1, MAX_EVIDENCE_BYTES,
+    };
+    pub use elastic_runtime::{
+        HysteresisDirectionV1, HysteresisPolicyV1, TransitionRateLimitV1, TransitionStabilityError,
+        TransitionStabilityGateV1, TransitionStabilityPermitV1, TransitionStabilityPolicyV1,
+        TransitionStabilityReportV1, TransitionStabilityStatusV1,
+        MAX_TRANSITION_RATE_LIMIT_COMMITS, TRANSITION_STABILITY_SCHEMA_V1,
     };
 }
