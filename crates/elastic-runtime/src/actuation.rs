@@ -5,8 +5,14 @@ use crate::plan::ValidatedPlan;
 /// Actuation ready for adapter execution.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Actuation {
+    /// Exact validated plan that authorized preparation.
     pub plan: ValidatedPlan,
+    /// Optional numeric magnitude of the selected candidate.
+    ///
+    /// This must equal `plan.plan.candidate().and_then(|candidate| candidate.magnitude())`.
+    /// Adapters may not substitute a second target at the prepare boundary.
     pub target: Option<u64>,
+    /// Identity of the adapter that prepared this actuation.
     pub adapter_name: String,
 }
 
