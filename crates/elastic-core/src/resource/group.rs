@@ -5,7 +5,7 @@
 //! allocate, plan, or actuate anything. Cross-resource execution semantics live
 //! in later layers.
 
-use super::{ContractId, LogicalResourceId};
+use super::{ContractId, LogicalResourceId, SafetyCapacityEnvelope};
 use crate::{
     PredicateKey, PseudoBooleanBindingError, PseudoBooleanConstraintDeclaration,
     PseudoBooleanScale, WeightedPredicateKey,
@@ -23,6 +23,8 @@ pub const MAX_RESOURCE_GROUP_DEPENDENCIES: usize = 1024;
 pub const MAX_RESOURCE_GROUP_SHARED_BUDGETS: usize = 64;
 /// Maximum number of cross-resource invariants in one group.
 pub const MAX_RESOURCE_GROUP_CROSS_INVARIANTS: usize = 64;
+/// Maximum number of immutable safety capacity envelopes in one group.
+pub const MAX_RESOURCE_GROUP_SAFETY_ENVELOPES: usize = 64;
 /// Maximum UTF-8 byte length of one shared-budget identity.
 pub const MAX_SHARED_BUDGET_ID_BYTES: usize = 256;
 
@@ -433,6 +435,7 @@ pub struct ResourceGroup {
     dependencies: Vec<ResourceDependency>,
     shared_budgets: Vec<SharedBudget>,
     cross_invariants: Vec<CrossResourceInvariant>,
+    safety_capacity_envelopes: Vec<SafetyCapacityEnvelope>,
 }
 
 impl ResourceGroup {
@@ -478,6 +481,12 @@ impl ResourceGroup {
         &self.cross_invariants
     }
 
+    /// Canonically ordered immutable safety capacity envelopes.
+    #[must_use]
+    pub fn safety_capacity_envelopes(&self) -> &[SafetyCapacityEnvelope] {
+        &self.safety_capacity_envelopes
+    }
+
     /// Whether this group contains a logical resource.
     #[must_use]
     pub fn contains(&self, resource: &LogicalResourceId) -> bool {
@@ -493,6 +502,7 @@ pub struct ResourceGroupBuilder {
     dependencies: Vec<ResourceDependency>,
     shared_budgets: Vec<SharedBudget>,
     cross_invariants: Vec<CrossResourceInvariant>,
+    safety_capacity_envelopes: Vec<SafetyCapacityEnvelope>,
 }
 
 impl ResourceGroupBuilder {
@@ -505,6 +515,7 @@ impl ResourceGroupBuilder {
             dependencies: Vec::new(),
             shared_budgets: Vec::new(),
             cross_invariants: Vec::new(),
+            safety_capacity_envelopes: Vec::new(),
         }
     }
 
@@ -553,6 +564,15 @@ impl ResourceGroupBuilder {
         self
     }
 
+    #[must_use]
+    pub(crate) fn safety_capacity_envelope_contract(
+        mut self,
+        envelope: SafetyCapacityEnvelope,
+    ) -> Self {
+        self.safety_capacity_envelopes.push(envelope);
+        self
+    }
+
     /// Validate and normalize the group.
     pub fn build(mut self) -> Result<ResourceGroup, ResourceGroupError> {
         if self.members.is_empty() {
@@ -587,6 +607,13 @@ impl ResourceGroupBuilder {
                 group: self.id.clone(),
                 invariants: self.cross_invariants.len(),
                 maximum: MAX_RESOURCE_GROUP_CROSS_INVARIANTS,
+            });
+        }
+        if self.safety_capacity_envelopes.len() > MAX_RESOURCE_GROUP_SAFETY_ENVELOPES {
+            return Err(ResourceGroupError::TooManySafetyCapacityEnvelopes {
+                group: self.id.clone(),
+                envelopes: self.safety_capacity_envelopes.len(),
+                maximum: MAX_RESOURCE_GROUP_SAFETY_ENVELOPES,
             });
         }
 
@@ -672,12 +699,38 @@ impl ResourceGroupBuilder {
             }
         }
 
+        self.safety_capacity_envelopes.sort_by(|left, right| {
+            left.adaptive_budget()
+                .id()
+                .cmp(right.adaptive_budget().id())
+        });
+        for pair in self.safety_capacity_envelopes.windows(2) {
+            if pair[0].adaptive_budget().id() == pair[1].adaptive_budget().id() {
+                return Err(ResourceGroupError::DuplicateSafetyCapacityEnvelope {
+                    group: self.id.clone(),
+                    budget: pair[0].adaptive_budget().id().clone(),
+                });
+            }
+        }
+        for envelope in &self.safety_capacity_envelopes {
+            for reservation in envelope.reservations() {
+                if !member_set.contains(reservation.resource()) {
+                    return Err(ResourceGroupError::UnknownSafetyReservationMember {
+                        group: self.id.clone(),
+                        reservation: reservation.id().to_string(),
+                        member: reservation.resource().clone(),
+                    });
+                }
+            }
+        }
+
         Ok(ResourceGroup {
             id: self.id,
             members: self.members,
             dependencies: self.dependencies,
             shared_budgets: self.shared_budgets,
             cross_invariants: self.cross_invariants,
+            safety_capacity_envelopes: self.safety_capacity_envelopes,
         })
     }
 }
@@ -839,6 +892,20 @@ pub enum ResourceGroupError {
         contract: ContractId,
         member: LogicalResourceId,
     },
+    TooManySafetyCapacityEnvelopes {
+        group: ResourceGroupId,
+        envelopes: usize,
+        maximum: usize,
+    },
+    DuplicateSafetyCapacityEnvelope {
+        group: ResourceGroupId,
+        budget: SharedBudgetId,
+    },
+    UnknownSafetyReservationMember {
+        group: ResourceGroupId,
+        reservation: String,
+        member: LogicalResourceId,
+    },
 }
 
 impl fmt::Display for ResourceGroupError {
@@ -901,6 +968,9 @@ impl fmt::Display for ResourceGroupError {
             Self::TooManyCrossInvariants { group, invariants, maximum } => write!(f, "resource group {group} contains {invariants} cross-resource invariants; maximum is {maximum}"),
             Self::DuplicateCrossInvariant { group, contract } => write!(f, "resource group {group} repeats cross-resource invariant {contract}"),
             Self::UnknownCrossInvariantMember { group, contract, member } => write!(f, "resource group {group} invariant {contract} references non-member {member}"),
+            Self::TooManySafetyCapacityEnvelopes { group, envelopes, maximum } => write!(f, "resource group {group} contains {envelopes} safety capacity envelopes; maximum is {maximum}"),
+            Self::DuplicateSafetyCapacityEnvelope { group, budget } => write!(f, "resource group {group} repeats safety capacity envelope for adaptive budget {budget}"),
+            Self::UnknownSafetyReservationMember { group, reservation, member } => write!(f, "resource group {group} safety reservation {reservation} references non-member {member}"),
         }
     }
 }

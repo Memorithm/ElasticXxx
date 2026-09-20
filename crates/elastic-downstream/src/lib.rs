@@ -259,6 +259,57 @@ pub fn public_capacity_budget_surface_smoke() {
     );
 }
 
+/// Semantic proof that immutable safety-critical capacity reservations and
+/// their remaining adaptive budget are usable through only the public facade.
+pub fn public_safety_capacity_reservation_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let protected = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let adaptive = LogicalResourceId::new("downstream-cache").unwrap();
+    let envelope = SafetyCapacityEnvelope::new(
+        CapacityBudgetKind::Ram,
+        SharedBudgetId::new("adaptive-after-safety").unwrap(),
+        16 * 1024,
+        vec![ImmutableCapacityReservation::new(
+            SafetyReservationId::new("control-plane").unwrap(),
+            CapacityBudgetKind::Ram,
+            protected.clone(),
+            ContractId::new("downstream.control-plane-safety").unwrap(),
+            4 * 1024,
+        )
+        .unwrap()],
+        vec![CapacityBudgetTerm::new(
+            adaptive.clone(),
+            PredicateKey::new("elastic.downstream", "cache-expanded-after-safety").unwrap(),
+            8 * 1024,
+        )
+        .unwrap()],
+    )
+    .unwrap();
+    assert_eq!(envelope.reserved_bytes(), 4 * 1024);
+    assert_eq!(envelope.adaptive_ceiling_bytes(), 12 * 1024);
+
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("safe-edge").unwrap())
+        .members([protected, adaptive])
+        .safety_capacity_envelope(envelope)
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let eir = grouped.group("safe-edge").unwrap();
+    assert_eq!(eir.safety_capacity_envelopes().len(), 1);
+    let safety = &eir.safety_capacity_envelopes()[0];
+    assert_eq!(safety.reserved_bytes(), 4 * 1024);
+    assert_eq!(safety.adaptive_ceiling_bytes(), 12 * 1024);
+    assert_eq!(
+        safety.reservations()[0].resource(),
+        "downstream-worker-pool"
+    );
+    assert_eq!(
+        safety.reservations()[0].contract(),
+        "downstream.control-plane-safety"
+    );
+    assert_eq!(safety.adaptive_budget_id(), "adaptive-after-safety");
+}
+
 /// Compile-time and semantic proof that ELANG4 composite-plan ordering is
 /// usable through only the public `elastic` dependency.
 pub fn public_composite_plan_surface_smoke() {

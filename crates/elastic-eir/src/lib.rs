@@ -114,8 +114,9 @@ pub use document::{lower, EirDocument, EirDocumentBuilder, MAX_EIR_DOCUMENT_RESO
 pub use error::ValidationError;
 pub use fingerprint::Fingerprint;
 pub use group::{
-    EirCrossResourceInvariant, EirGroupedDocument, EirResourceDependency, EirResourceGroup,
-    EirSharedBudget, EirSharedBudgetTerm, GroupLoweringError, EIR_RESOURCE_GROUP_SCHEMA_VERSION,
+    EirCrossResourceInvariant, EirGroupedDocument, EirImmutableCapacityReservation,
+    EirResourceDependency, EirResourceGroup, EirSafetyCapacityEnvelope, EirSharedBudget,
+    EirSharedBudgetTerm, GroupLoweringError, EIR_RESOURCE_GROUP_SCHEMA_VERSION,
     MAX_EIR_RESOURCE_GROUPS,
 };
 pub use guard::{

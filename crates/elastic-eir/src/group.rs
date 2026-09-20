@@ -7,7 +7,8 @@
 
 use crate::{EirDocument, EirPseudoBooleanConstraint, EirResource, Fingerprint};
 use elastic_core::resource::{
-    CrossResourceInvariant, ResourceDependency, ResourceGroup, SharedBudget, SharedBudgetTerm,
+    CapacityBudgetKind, CrossResourceInvariant, ImmutableCapacityReservation, ResourceDependency,
+    ResourceGroup, SafetyCapacityEnvelope, SharedBudget, SharedBudgetTerm,
 };
 use elastic_core::PredicateKey;
 use std::fmt;
@@ -191,6 +192,143 @@ impl EirCrossResourceInvariant {
     }
 }
 
+/// One immutable safety-critical capacity reservation retained in EIR.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EirImmutableCapacityReservation {
+    id: String,
+    kind: CapacityBudgetKind,
+    resource: String,
+    contract: String,
+    bytes: u64,
+    fingerprint: Fingerprint,
+}
+
+impl EirImmutableCapacityReservation {
+    fn lower(value: &ImmutableCapacityReservation) -> Self {
+        let fingerprint = Fingerprint::EMPTY
+            .text("eir-immutable-capacity-reservation")
+            .number(u64::from(EIR_RESOURCE_GROUP_SCHEMA_VERSION))
+            .text(value.id().as_str())
+            .text(value.kind().as_str())
+            .text(value.resource().as_str())
+            .text(value.contract().as_str())
+            .number(value.bytes());
+        Self {
+            id: value.id().as_str().to_owned(),
+            kind: value.kind(),
+            resource: value.resource().as_str().to_owned(),
+            contract: value.contract().as_str().to_owned(),
+            bytes: value.bytes(),
+            fingerprint,
+        }
+    }
+
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+    #[must_use]
+    pub const fn kind(&self) -> CapacityBudgetKind {
+        self.kind
+    }
+    #[must_use]
+    pub fn resource(&self) -> &str {
+        &self.resource
+    }
+    #[must_use]
+    pub fn contract(&self) -> &str {
+        &self.contract
+    }
+    #[must_use]
+    pub const fn bytes(&self) -> u64 {
+        self.bytes
+    }
+    #[must_use]
+    pub const fn fingerprint(&self) -> Fingerprint {
+        self.fingerprint
+    }
+}
+
+/// EIR representation of a static safety reservation envelope.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct EirSafetyCapacityEnvelope {
+    kind: CapacityBudgetKind,
+    total_policy_bytes: u64,
+    reserved_bytes: u64,
+    adaptive_ceiling_bytes: u64,
+    adaptive_budget_id: String,
+    adaptive_budget_fingerprint: Fingerprint,
+    reservations: Vec<EirImmutableCapacityReservation>,
+    fingerprint: Fingerprint,
+}
+
+impl EirSafetyCapacityEnvelope {
+    fn lower(value: &SafetyCapacityEnvelope) -> Self {
+        let reservations = value
+            .reservations()
+            .iter()
+            .map(EirImmutableCapacityReservation::lower)
+            .collect::<Vec<_>>();
+        let adaptive = EirSharedBudget::lower(value.adaptive_budget().shared_budget());
+        let mut fingerprint = Fingerprint::EMPTY
+            .text("eir-safety-capacity-envelope")
+            .number(u64::from(EIR_RESOURCE_GROUP_SCHEMA_VERSION))
+            .text(value.kind().as_str())
+            .number(value.total_policy_bytes())
+            .number(value.reserved_bytes())
+            .number(value.adaptive_ceiling_bytes())
+            .text(value.adaptive_budget().id().as_str())
+            .number(adaptive.fingerprint().bits())
+            .number(reservations.len() as u64);
+        for reservation in &reservations {
+            fingerprint = fingerprint.number(reservation.fingerprint().bits());
+        }
+        Self {
+            kind: value.kind(),
+            total_policy_bytes: value.total_policy_bytes(),
+            reserved_bytes: value.reserved_bytes(),
+            adaptive_ceiling_bytes: value.adaptive_ceiling_bytes(),
+            adaptive_budget_id: value.adaptive_budget().id().as_str().to_owned(),
+            adaptive_budget_fingerprint: adaptive.fingerprint(),
+            reservations,
+            fingerprint,
+        }
+    }
+
+    #[must_use]
+    pub const fn kind(&self) -> CapacityBudgetKind {
+        self.kind
+    }
+    #[must_use]
+    pub const fn total_policy_bytes(&self) -> u64 {
+        self.total_policy_bytes
+    }
+    #[must_use]
+    pub const fn reserved_bytes(&self) -> u64 {
+        self.reserved_bytes
+    }
+    #[must_use]
+    pub const fn adaptive_ceiling_bytes(&self) -> u64 {
+        self.adaptive_ceiling_bytes
+    }
+    #[must_use]
+    pub fn adaptive_budget_id(&self) -> &str {
+        &self.adaptive_budget_id
+    }
+    #[must_use]
+    pub const fn adaptive_budget_fingerprint(&self) -> Fingerprint {
+        self.adaptive_budget_fingerprint
+    }
+    #[must_use]
+    pub fn reservations(&self) -> &[EirImmutableCapacityReservation] {
+        &self.reservations
+    }
+    #[must_use]
+    pub const fn fingerprint(&self) -> Fingerprint {
+        self.fingerprint
+    }
+}
+
 /// One canonical resource group in EIR.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct EirResourceGroup {
@@ -199,6 +337,7 @@ pub struct EirResourceGroup {
     dependencies: Vec<EirResourceDependency>,
     shared_budgets: Vec<EirSharedBudget>,
     cross_invariants: Vec<EirCrossResourceInvariant>,
+    safety_capacity_envelopes: Vec<EirSafetyCapacityEnvelope>,
     fingerprint: Fingerprint,
 }
 
@@ -233,6 +372,11 @@ impl EirResourceGroup {
             .iter()
             .map(EirCrossResourceInvariant::lower)
             .collect::<Vec<_>>();
+        let safety_capacity_envelopes = group
+            .safety_capacity_envelopes()
+            .iter()
+            .map(EirSafetyCapacityEnvelope::lower)
+            .collect::<Vec<_>>();
         let mut fingerprint = Fingerprint::EMPTY
             .text("eir-resource-group")
             .number(u64::from(EIR_RESOURCE_GROUP_SCHEMA_VERSION))
@@ -255,6 +399,10 @@ impl EirResourceGroup {
         for invariant in &cross_invariants {
             fingerprint = fingerprint.number(invariant.fingerprint().bits());
         }
+        fingerprint = fingerprint.number(safety_capacity_envelopes.len() as u64);
+        for envelope in &safety_capacity_envelopes {
+            fingerprint = fingerprint.number(envelope.fingerprint().bits());
+        }
 
         Ok(Self {
             id: group.id().as_str().to_owned(),
@@ -262,6 +410,7 @@ impl EirResourceGroup {
             dependencies,
             shared_budgets,
             cross_invariants,
+            safety_capacity_envelopes,
             fingerprint,
         })
     }
@@ -294,6 +443,12 @@ impl EirResourceGroup {
     #[must_use]
     pub fn cross_invariants(&self) -> &[EirCrossResourceInvariant] {
         &self.cross_invariants
+    }
+
+    /// Immutable safety-critical capacity reservation envelopes.
+    #[must_use]
+    pub fn safety_capacity_envelopes(&self) -> &[EirSafetyCapacityEnvelope] {
+        &self.safety_capacity_envelopes
     }
 
     /// Structural group fingerprint.
@@ -444,9 +599,10 @@ mod tests {
     use super::*;
     use crate::EirDocumentBuilder;
     use elastic_core::resource::{
-        CapacityBudgetContract, CapacityBudgetTerm, ContractId, CrossResourceInvariant,
-        DimensionId, LogicalResourceId, ResourceClassId, ResourceDependency, ResourceGroup,
-        ResourceGroupBuilder, ResourceGroupId, ResourceSpec, SharedBudget, SharedBudgetId,
+        CapacityBudgetContract, CapacityBudgetKind, CapacityBudgetTerm, ContractId,
+        CrossResourceInvariant, DimensionId, ImmutableCapacityReservation, LogicalResourceId,
+        ResourceClassId, ResourceDependency, ResourceGroup, ResourceGroupBuilder, ResourceGroupId,
+        ResourceSpec, SafetyCapacityEnvelope, SafetyReservationId, SharedBudget, SharedBudgetId,
         SharedBudgetTerm,
     };
     use elastic_core::{PredicateKey, PseudoBooleanScale};
@@ -645,5 +801,65 @@ mod tests {
             storage_eir.groups()[0].shared_budgets()[0].fingerprint()
         );
         assert_ne!(ram_eir.fingerprint(), storage_eir.fingerprint());
+    }
+
+    fn safety_group(reserved: u64, contract: &str) -> ResourceGroup {
+        let envelope = SafetyCapacityEnvelope::new(
+            CapacityBudgetKind::Ram,
+            SharedBudgetId::new("adaptive-ram").unwrap(),
+            16_384,
+            vec![ImmutableCapacityReservation::new(
+                SafetyReservationId::new("flight-memory").unwrap(),
+                CapacityBudgetKind::Ram,
+                id("flight"),
+                ContractId::new(contract).unwrap(),
+                reserved,
+            )
+            .unwrap()],
+            vec![
+                CapacityBudgetTerm::new(id("inference"), predicate("inference-expanded"), 8_192)
+                    .unwrap(),
+            ],
+        )
+        .unwrap();
+        ResourceGroupBuilder::new(ResourceGroupId::new("safe-edge").unwrap())
+            .members([id("flight"), id("inference")])
+            .safety_capacity_envelope(envelope)
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn safety_capacity_envelope_is_retained_with_owner_contract_and_budget_binding() {
+        let grouped =
+            EirGroupedDocument::new(document(), &[safety_group(4_096, "flight.ram")]).unwrap();
+        let group = grouped.group("safe-edge").unwrap();
+        assert_eq!(group.safety_capacity_envelopes().len(), 1);
+        let envelope = &group.safety_capacity_envelopes()[0];
+        assert_eq!(envelope.kind(), CapacityBudgetKind::Ram);
+        assert_eq!(envelope.total_policy_bytes(), 16_384);
+        assert_eq!(envelope.reserved_bytes(), 4_096);
+        assert_eq!(envelope.adaptive_ceiling_bytes(), 12_288);
+        assert_eq!(envelope.adaptive_budget_id(), "adaptive-ram");
+        assert_eq!(envelope.reservations()[0].resource(), "flight");
+        assert_eq!(envelope.reservations()[0].contract(), "flight.ram");
+        assert_eq!(group.shared_budgets()[0].id(), "adaptive-ram");
+        assert_eq!(
+            envelope.adaptive_budget_fingerprint(),
+            group.shared_budgets()[0].fingerprint()
+        );
+    }
+
+    #[test]
+    fn reservation_amount_and_contract_change_group_identity() {
+        let base =
+            EirGroupedDocument::new(document(), &[safety_group(4_096, "flight.ram")]).unwrap();
+        let bytes =
+            EirGroupedDocument::new(document(), &[safety_group(8_192, "flight.ram")]).unwrap();
+        let contract =
+            EirGroupedDocument::new(document(), &[safety_group(4_096, "flight.ram.deadline-v2")])
+                .unwrap();
+        assert_ne!(base.fingerprint(), bytes.fingerprint());
+        assert_ne!(base.fingerprint(), contract.fingerprint());
     }
 }
