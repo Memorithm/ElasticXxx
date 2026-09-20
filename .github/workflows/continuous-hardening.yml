@@ -53,8 +53,16 @@ jobs:
         if: github.event_name != 'pull_request'
         run: cargo +nightly fuzz run decision_trace_decode -- -max_total_time=60 -max_len=1048577
 
+      - name: Fuzz operator config decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run operator_config_decode -- -max_total_time=60 -max_len=1048577
+
+      - name: Fuzz runtime evidence decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run evidence_decode -- -max_total_time=60 -max_len=1048577
+
   miri:
-    name: miri-core-kv
+    name: miri-core-kv-runtime
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -72,3 +80,10 @@ jobs:
 
       - name: Interpret core and KV tests
         run: cargo +nightly miri test -p memorithm-elastic-core -p memorithm-elastic-kv
+
+      - name: Interpret bounded persisted runtime decoders
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +nightly miri test -p memorithm-elastic-runtime operator_config::tests::bounded_decoder
+          cargo +nightly miri test -p memorithm-elastic-runtime evidence::tests::
