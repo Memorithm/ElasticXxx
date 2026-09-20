@@ -128,10 +128,16 @@ jobs:
           set -euo pipefail
           cargo +nightly miri setup
           cargo +nightly miri test -p memorithm-elastic-language-syntax
-          cargo +nightly miri test -p elastic-kernel boolean_admission::tests::
-          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::
-          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::
-          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::
+          cargo +nightly miri test -p elastic-kernel boolean_admission::tests::trace_decoder_rejects_unknown_duplicate_future_and_oversized_inputs
+          cargo +nightly miri test -p elastic-kernel boolean_admission::tests::traced_selected_decision_roundtrips_and_binds_exact_context
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::persisted_trace_preflight_rejects_untrusted_size_depth_collection_and_string_bounds
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::constrained_trace_decoder_rejects_future_schema_and_tampered_truth
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::constrained_trace_roundtrip_is_strict_and_replay_is_pure
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::decision_trace_decoder_rejects_unknown_duplicate_future_and_oversized_input
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::decision_trace_decoder_rejects_policy_and_reason_tampering
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::bounded_json_roundtrip_revalidates_candidate
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::semantic_and_raw_json_depth_limits_remain_fail_closed
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::future_schema_and_oversized_input_fail_closed
 
 
   miri:
@@ -165,6 +171,11 @@ jobs:
           cargo +nightly miri test -p memorithm-elastic-runtime evidence::tests::
           cargo +nightly miri test -p memorithm-elastic-runtime guard_config::tests::
           cargo +nightly miri test -p memorithm-elastic-runtime model_execution_contracts::tests::bounded_decoder
-          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::
-          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::
-          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::persisted_trace_preflight_rejects_untrusted_size_depth_collection_and_string_bounds
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::constrained_trace_decoder_rejects_future_schema_and_tampered_truth
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::constrained_trace_roundtrip_is_strict_and_replay_is_pure
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::decision_trace_decoder_rejects_unknown_duplicate_future_and_oversized_input
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::decision_trace_decoder_rejects_policy_and_reason_tampering
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::bounded_json_roundtrip_revalidates_candidate
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::semantic_and_raw_json_depth_limits_remain_fail_closed
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::future_schema_and_oversized_input_fail_closed
