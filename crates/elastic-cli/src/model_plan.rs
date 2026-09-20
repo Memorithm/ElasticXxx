@@ -1,7 +1,6 @@
 //! Non-actuating CLI frontend for qualified model-execution planning contracts.
 
 use std::error::Error;
-use std::fs;
 use std::io::{Error as IoError, ErrorKind};
 use std::path::Path;
 
@@ -14,6 +13,7 @@ use elastic::{
 use serde_json::{json, Value};
 
 use crate::evidence::print_json;
+use crate::model_contracts::read_bounded_contract_file;
 
 type CommandResult = Result<(), Box<dyn Error>>;
 
@@ -58,13 +58,13 @@ fn load_contracts(
         options.policy,
     ) {
         (Some(path), None, None, None) => {
-            let json = fs::read_to_string(path)?;
+            let json = read_bounded_contract_file(path)?;
             Ok(ModelExecutionControllerContractsV1::from_json(&json)?)
         }
         (None, Some(capabilities), Some(profiles), Some(policy)) => {
-            let capabilities = fs::read_to_string(capabilities)?;
-            let profiles = fs::read_to_string(profiles)?;
-            let policy = fs::read_to_string(policy)?;
+            let capabilities = read_bounded_contract_file(capabilities)?;
+            let profiles = read_bounded_contract_file(profiles)?;
+            let policy = read_bounded_contract_file(policy)?;
             validate_split_documents(&capabilities, &profiles, &policy)
         }
         _ => Err(IoError::new(
