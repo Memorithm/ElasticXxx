@@ -60,3 +60,10 @@ path = "fuzz_targets/evidence_decode.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "guard_config_decode"
+path = "fuzz_targets/guard_config_decode.rs"
+test = false
+doc = false
+bench = false
