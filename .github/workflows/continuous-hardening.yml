@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - "crates/elastic-core/**"
+      - "crates/elastic-kernel/**"
+      - "crates/elastic-language-syntax/**"
       - "crates/elastic-kv/**"
       - "crates/elastic-runtime/**"
       - "fuzz/**"
@@ -69,6 +71,26 @@ jobs:
         if: github.event_name != 'pull_request'
         run: cargo +nightly fuzz run model_execution_contracts_decode -- -max_total_time=60 -max_len=262145
 
+      - name: Fuzz Elastic language parser and expander
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run language_syntax_expand -- -max_total_time=60 -max_len=262145
+
+      - name: Fuzz constrained decision trace decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run constrained_decision_trace_decode -- -max_total_time=60 -max_len=1048577
+
+      - name: Fuzz Boolean kernel trace decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run boolean_kernel_trace_decode -- -max_total_time=60 -max_len=1048577
+
+      - name: Fuzz Boolean batch/device trace decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run boolean_batch_device_trace_decode -- -max_total_time=60 -max_len=1048577
+
+      - name: Fuzz Forge search candidate decoder
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run forge_search_candidate_decode -- -max_total_time=60 -max_len=393217
+
   miri:
     name: miri-core-kv-runtime
     if: github.event_name != 'pull_request'
@@ -86,8 +108,11 @@ jobs:
       - name: Build Miri sysroot
         run: cargo +nightly miri setup
 
-      - name: Interpret core and KV tests
-        run: cargo +nightly miri test -p memorithm-elastic-core -p memorithm-elastic-kv
+      - name: Interpret core, KV, language and kernel tests
+        run: |
+          cargo +nightly miri test -p memorithm-elastic-core -p memorithm-elastic-kv
+          cargo +nightly miri test -p memorithm-elastic-language-syntax
+          cargo +nightly miri test -p elastic-kernel boolean_admission::tests::
 
       - name: Interpret bounded persisted runtime decoders
         shell: bash
@@ -97,3 +122,6 @@ jobs:
           cargo +nightly miri test -p memorithm-elastic-runtime evidence::tests::
           cargo +nightly miri test -p memorithm-elastic-runtime guard_config::tests::
           cargo +nightly miri test -p memorithm-elastic-runtime model_execution_contracts::tests::bounded_decoder
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::

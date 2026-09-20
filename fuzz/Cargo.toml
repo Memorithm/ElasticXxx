@@ -13,6 +13,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
 serde_json = "1"
+proc-macro2 = "1"
 
 [dependencies.elastic-core]
 package = "memorithm-elastic-core"
@@ -25,6 +26,14 @@ path = "../crates/elastic-kv"
 [dependencies.elastic-runtime]
 package = "memorithm-elastic-runtime"
 path = "../crates/elastic-runtime"
+
+[dependencies.elastic-kernel]
+package = "elastic-kernel"
+path = "../crates/elastic-kernel"
+
+[dependencies.elastic-language-syntax]
+package = "memorithm-elastic-language-syntax"
+path = "../crates/elastic-language-syntax"
 
 [[bin]]
 name = "transition_pipeline"
@@ -71,6 +80,41 @@ bench = false
 [[bin]]
 name = "model_execution_contracts_decode"
 path = "fuzz_targets/model_execution_contracts_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "language_syntax_expand"
+path = "fuzz_targets/language_syntax_expand.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "constrained_decision_trace_decode"
+path = "fuzz_targets/constrained_decision_trace_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "boolean_kernel_trace_decode"
+path = "fuzz_targets/boolean_kernel_trace_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "boolean_batch_device_trace_decode"
+path = "fuzz_targets/boolean_batch_device_trace_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "forge_search_candidate_decode"
+path = "fuzz_targets/forge_search_candidate_decode.rs"
 test = false
 doc = false
 bench = false
