@@ -12,6 +12,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [dependencies.elastic-core]
 package = "memorithm-elastic-core"
@@ -42,6 +43,20 @@ bench = false
 [[bin]]
 name = "decision_trace_decode"
 path = "fuzz_targets/decision_trace_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "operator_config_decode"
+path = "fuzz_targets/operator_config_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "evidence_decode"
+path = "fuzz_targets/evidence_decode.rs"
 test = false
 doc = false
 bench = false
