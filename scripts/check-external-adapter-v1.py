@@ -29,6 +29,7 @@ REQUIRED_SYMBOLS = (
     "impl Observer for FixtureObserver",
     "impl TransactionalActuator for FixtureAdapter",
     "RuntimeError::Validation",
+    "misbind_target",
 )
 
 
