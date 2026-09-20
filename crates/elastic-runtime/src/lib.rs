@@ -200,6 +200,8 @@ pub use model_execution_boolean_controller::{
 };
 pub use model_execution_contracts::{
     ModelExecutionControllerContractsV1, ModelExecutionControllerContractsWireV1,
+    MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES,
+    MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_JSON_DEPTH,
     MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1, MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1,
 };
 pub use model_execution_controller::{
