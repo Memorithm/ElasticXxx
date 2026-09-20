@@ -73,6 +73,7 @@ pub mod runtime;
 pub mod thermal_energy_boolean_admission;
 pub mod thermal_energy_transaction;
 pub mod transaction;
+mod transition_stability;
 pub mod verification;
 
 pub use actuation::Actuation;
@@ -280,4 +281,10 @@ pub use thermal_energy_transaction::{
     ThermalEnergyTransactionStageV1, ThermalEnergyTransitionBackendV1,
 };
 pub use transaction::TransactionalActuator;
+pub use transition_stability::{
+    HysteresisDirectionV1, HysteresisPolicyV1, TransitionRateLimitV1, TransitionStabilityError,
+    TransitionStabilityGateV1, TransitionStabilityPermitV1, TransitionStabilityPolicyV1,
+    TransitionStabilityReportV1, TransitionStabilityStatusV1, MAX_TRANSITION_RATE_LIMIT_COMMITS,
+    TRANSITION_STABILITY_SCHEMA_V1,
+};
 pub use verification::VerificationResult;
