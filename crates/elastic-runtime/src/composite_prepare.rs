@@ -1129,6 +1129,7 @@ mod tests {
         fail_release: bool,
         mismatch_checkpoint: bool,
         mismatch_actuation_adapter: bool,
+        mismatch_actuation_target: bool,
     }
 
     impl TestBackend {
@@ -1146,6 +1147,7 @@ mod tests {
                 fail_release: false,
                 mismatch_checkpoint: false,
                 mismatch_actuation_adapter: false,
+                mismatch_actuation_target: false,
             }
         }
 
@@ -1179,6 +1181,11 @@ mod tests {
                     .plan
                     .candidate()
                     .and_then(|candidate| candidate.magnitude());
+                let target = if self.mismatch_actuation_target {
+                    Some(target.unwrap_or(0).saturating_add(1))
+                } else {
+                    target
+                };
                 Ok(Actuation::new(
                     plan.clone(),
                     target,
@@ -1513,6 +1520,37 @@ mod tests {
                 "release:worker",
                 "abort:base",
                 "release:base"
+            ]
+        );
+    }
+
+    #[test]
+    fn prepared_target_mismatch_is_cleaned_before_composite_actuation() {
+        let envelope = envelope();
+        let events = Rc::new(RefCell::new(Vec::new()));
+        let mut base = TestBackend::new("base", events.clone());
+        let mut worker = TestBackend::new("worker", events.clone());
+        worker.mismatch_actuation_target = true;
+        let mut backends: [&mut dyn CompositePrepareBackend; 2] = [&mut base, &mut worker];
+
+        let failure = prepare_composite_plan(&envelope, &mut backends).unwrap_err();
+        assert_eq!(failure.stage(), CompositePrepareStage::Prepare);
+        assert!(failure.detail().contains("plan/backend/target"));
+        assert!(failure.cleanup_failures().is_empty());
+        assert!(failure.recovery().is_none());
+        assert_eq!(
+            events.borrow().as_slice(),
+            [
+                "validate:base",
+                "validate:worker",
+                "capture:base",
+                "capture:worker",
+                "prepare:base",
+                "prepare:worker",
+                "abort:worker",
+                "abort:base",
+                "release:worker",
+                "release:base",
             ]
         );
     }
