@@ -91,6 +91,49 @@ jobs:
         if: github.event_name != 'pull_request'
         run: cargo +nightly fuzz run forge_search_candidate_decode -- -max_total_time=60 -max_len=393217
 
+
+  elang9-exact-head:
+    name: ELANG9 exact-head hardening
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Install Rust nightly with Miri
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: nightly
+          components: miri
+
+      - name: Install pinned cargo-fuzz
+        run: cargo +nightly install cargo-fuzz --locked --version 0.13.2
+
+      - name: Execute final ELANG9 fuzz surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +nightly fuzz run language_syntax_expand -- -max_total_time=15 -max_len=262145
+          cargo +nightly fuzz run constrained_decision_trace_decode -- -max_total_time=15 -max_len=1048577
+          cargo +nightly fuzz run boolean_kernel_trace_decode -- -max_total_time=15 -max_len=1048577
+          cargo +nightly fuzz run boolean_batch_device_trace_decode -- -max_total_time=15 -max_len=1048577
+          cargo +nightly fuzz run forge_search_candidate_decode -- -max_total_time=15 -max_len=393217
+
+      - name: Interpret final ELANG9 parser and decoder tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +nightly miri setup
+          cargo +nightly miri test -p memorithm-elastic-language-syntax
+          cargo +nightly miri test -p elastic-kernel boolean_admission::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime decision_trace::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime batch_device_boolean_admission::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime forge_search_bridge::tests::
+
+
   miri:
     name: miri-core-kv-runtime
     if: github.event_name != 'pull_request'
