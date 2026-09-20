@@ -118,6 +118,31 @@ The dedicated GitHub workflow builds and tests the fixture as a standalone Cargo
 on Rust 1.89.0. The normal workspace CI separately qualifies the runtime changes on the
 same exact pull-request head.
 
+## Clean external Git-source qualification
+
+In addition to the repository-local standalone fixture, CI creates a temporary
+Cargo project **outside** the ElasticXxx workspace and gives it exactly one
+direct dependency:
+
+```toml
+elastic = {
+    package = "memorithm-elastic",
+    git = "https://github.com/Memorithm/ElasticXxx.git",
+    rev = "<exact-qualified-source-sha>"
+}
+```
+
+The temporary project reuses the same external-adapter v1 implementation tests,
+then runs tests, Clippy with warnings denied, and rustdoc on Rust 1.89.0.
+`cargo metadata` must show every resolved `memorithm-elastic*` package as a
+Git-sourced package at that exact revision; a path/workspace resolution fails
+the gate.
+
+This proves that the facade chain can be consumed from a clean Cargo project
+without repository workspace membership or direct implementation-crate
+dependencies. It is still source qualification through Git, not a crates.io
+installation claim.
+
 ## External installation boundary
 
 The fixture currently uses a repository path dependency because all registry-visible
