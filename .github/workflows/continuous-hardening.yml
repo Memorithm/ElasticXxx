@@ -65,6 +65,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: cargo +nightly fuzz run guard_config_decode -- -max_total_time=60 -max_len=262145
 
+      - name: Fuzz model execution controller contracts
+        if: github.event_name != 'pull_request'
+        run: cargo +nightly fuzz run model_execution_contracts_decode -- -max_total_time=60 -max_len=262145
+
   miri:
     name: miri-core-kv-runtime
     if: github.event_name != 'pull_request'
@@ -92,3 +96,4 @@ jobs:
           cargo +nightly miri test -p memorithm-elastic-runtime operator_config::tests::bounded_decoder
           cargo +nightly miri test -p memorithm-elastic-runtime evidence::tests::
           cargo +nightly miri test -p memorithm-elastic-runtime guard_config::tests::
+          cargo +nightly miri test -p memorithm-elastic-runtime model_execution_contracts::tests::bounded_decoder
