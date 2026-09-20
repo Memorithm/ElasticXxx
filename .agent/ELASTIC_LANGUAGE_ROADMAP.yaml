@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_embedded_language_agent_roadmap
 status: active
-last_updated: "2026-09-19"
+last_updated: "2026-09-20"
 repository: Memorithm/ElasticXxx
 visibility_note: >-
   Agent roadmap retained off default branch. Do not merge this file to main
@@ -180,7 +180,14 @@ phases:
   - id: ELANG5
     name: policy_blocks_and_constraint_language
     priority: P1
-    status: planned
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_188_exact_head_62639105c9697dfb871e45f7e00e83cd4995f1be_merged_as_edaeac8412b11e8cb475c104fc984229d7d4c193
+      - ElasticXxx_PR_189_exact_head_834f3ecf532a752bf334ae89977fc9df8bc937c8_merged_as_8b2a3286f063a056a965e751a8bf8b066b6e2cca
+      - ElasticXxx_PR_190_exact_head_8f577d89ca7a5a962a7d491b7f515a3ff3298789_merged_as_55472c6a839dff0b934b635cd5a4a58a64fe2403
+      - ElasticXxx_PR_191_exact_head_01a79bc7d6b39cacae2f76ff198d62249201416c_merged_as_55114d3e8a1f264f49e66a402900dd597ff27e67
+      - typed_policy_identity_target_binding_guard_constraint_composition_numeric_objectives_planner_hints_and_declarative_policy_DSL_qualified
+      - public_facade_manual_and_DSL_policy_paths_reuse_existing_guard_pseudo_Boolean_and_EIR_authorities
     tasks:
       - typed_policy_identity_and_versioning
       - Boolean_guard_references_by_stable_predicate_key
@@ -193,7 +200,13 @@ phases:
   - id: ELANG6
     name: language_diagnostics_static_analysis_and_cargo_frontend
     priority: P1
-    status: planned
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_192_exact_head_806690bc1aebe1f593c94c3fdb173037a67f2f47_merged_as_0413fca5d507ce49aaf7f23585d4bff1d8593173
+      - ElasticXxx_PR_193_exact_head_e675dd5d4dd62feca12cc3562fb0866c5241a83c_merged_as_92f065aafe752b03a7a47b26fcb9b5316b2112b8
+      - ElasticXxx_PR_194_exact_head_27d9e3277941f1bd91b7b4a25857de8d389c854d_merged_as_7bf4dadde07427ccaff269a9264b5e5568fb6417
+      - cargo_elastic_check_analyze_graph_and_stable_shared_expand_are_implemented_without_nightly_or_RUSTC_BOOTSTRAP
+      - stable_diagnostic_codes_exact_Kleene_static_analysis_and_shared_proc_macro_CLI_expander_authority_qualified
     tasks:
       - stable_Elastic_diagnostic_codes
       - precise_macro_spans_and_machine_readable_diagnostics
@@ -207,7 +220,19 @@ phases:
   - id: ELANG7
     name: embedded_edge_profile
     priority: P1
-    status: planned
+    status: complete
+    completion_evidence:
+      - ElasticXxx_PR_195_exact_head_f7ca82a8a4d0adfe05be193fde797ae80c2c782b_merged_as_6f174d62627954ebb8387127e312a8df877a4aa1
+      - ElasticXxx_PR_196_exact_head_368339e187824ead3a8ac9a189e743d97d1d30e2_merged_as_a232d252ce7db0a3c045ddf73acad6103f71588c
+      - ElasticXxx_PR_197_exact_head_23f04a70c68bcff88869fd4d679dd3cf628c5d3a_merged_as_86865aba74db106db89865261499b60d81ac4639
+      - ElasticXxx_PR_198_exact_head_56fb6a7af344570fa018901d8976ad490a82b1c6_merged_as_51dc2dc7a198f8b7b263a71fbcf8d54c91ab5856
+      - BE14h_PR_157_real_Linux_thermal_power_observers_PR_158_source_bound_policy_PR_159_trusted_transaction_and_PR_160_portable_harness_are_merged
+      - ElasticXxx_PR_199_exact_head_35a2f2af274957385184f8968e6e3e307b0bdeeb_merged_as_b519798db1e32eb32f03008a65d1cfe8d510e774
+      - ElasticXxx_PR_200_exact_head_9e1d35897ec0ed3588a313f5d3649a01c1682184_merged_as_7836029db301836b67cf2e1e650f59ceba7ea156
+      - ElasticXxx_PR_201_exact_head_1e4d5d0c8d706310ffc3b8127a2d0cac89f67b02_merged_as_26cbcdc73cfd08121593cf1a034720ee93816fe9
+      - PR201_exact_source_bound_hosted_x86_64_CPU_only_reference_workflow_completed_success_with_real_Elastic_CPU_observation_and_BE13_semantic_smoke
+      - RAM_storage_budgets_model_profile_binding_representation_KV_composition_safety_reservations_and_transition_anti_thrashing_are_public_facade_qualified
+      - no_hardware_cost_or_performance_claim_is_inferred_from_the_hosted_CPU_only_reference
     tasks:
       - Linux_CPU_affinity_quota_and_pressure_observers
       - RAM_and_storage_budget_contracts
@@ -249,12 +274,12 @@ phases:
       - publication_name_recheck_only_at_actual_release_time
 
 current_execution:
-  verified_main: 979406c05e5c28a93f7c6a23bade8468bca2463b
-  earliest_incomplete_phase: ELANG5
-  immediate_next_slice: ELANG5a_typed_policy_identity_versioning_and_target_binding
+  verified_main: 26cbcdc73cfd08121593cf1a034720ee93816fe9
+  earliest_incomplete_phase: ELANG8
+  immediate_next_slice: ELANG8a_SLHAv2_and_KV_consumers
   current_candidate_pr: null
   current_candidate_head: null
-  current_candidate_status: ELANG4_complete_ELANG5a_local_candidate_in_progress
+  current_candidate_status: ELANG7_complete_ELANG8a_cross_repository_contract_audit_in_progress
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none
