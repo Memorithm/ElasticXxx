@@ -40,6 +40,7 @@
 //! construction order.
 
 mod bridge;
+mod budget;
 pub mod error;
 mod group;
 mod invariant;
@@ -48,6 +49,10 @@ mod terms;
 mod transition;
 
 pub use bridge::{DeclarationError, RepresentationalDeclaration};
+pub use budget::{
+    CapacityBudgetContract, CapacityBudgetError, CapacityBudgetKind, CapacityBudgetTerm,
+    CAPACITY_BUDGET_CONTRACT_SCHEMA_V1, RAM_CAPACITY_BUDGET_UNIT, STORAGE_CAPACITY_BUDGET_UNIT,
+};
 pub use group::{
     CrossResourceInvariant, CrossResourceInvariantError, ResourceDependency, ResourceGroup,
     ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, SharedBudget, SharedBudgetError,

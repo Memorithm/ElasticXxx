@@ -192,6 +192,73 @@ pub fn public_grouped_document_surface_smoke() {
         .is_some());
 }
 
+/// Compile-time and semantic proof that ELANG7 RAM/storage byte budgets lower
+/// through only the public `elastic` facade and remain semantically distinct.
+pub fn public_capacity_budget_surface_smoke() {
+    let document = downstream_language_document::document().unwrap();
+    let worker = LogicalResourceId::new("downstream-worker-pool").unwrap();
+    let cache = LogicalResourceId::new("downstream-cache").unwrap();
+    let ram = CapacityBudgetContract::ram(
+        SharedBudgetId::new("ram").unwrap(),
+        vec![
+            CapacityBudgetTerm::new(
+                worker.clone(),
+                PredicateKey::new("elastic.downstream", "workers-expanded").unwrap(),
+                4 * 1024,
+            )
+            .unwrap(),
+            CapacityBudgetTerm::new(
+                cache.clone(),
+                PredicateKey::new("elastic.downstream", "cache-expanded").unwrap(),
+                6 * 1024,
+            )
+            .unwrap(),
+        ],
+        8 * 1024,
+    )
+    .unwrap();
+    let storage = CapacityBudgetContract::storage(
+        SharedBudgetId::new("storage").unwrap(),
+        vec![CapacityBudgetTerm::new(
+            cache.clone(),
+            PredicateKey::new("elastic.downstream", "cache-persisted").unwrap(),
+            32 * 1024,
+        )
+        .unwrap()],
+        64 * 1024,
+    )
+    .unwrap();
+    let group = ResourceGroupBuilder::new(ResourceGroupId::new("edge-budget").unwrap())
+        .members([worker, cache])
+        .capacity_budget(ram)
+        .capacity_budget(storage)
+        .build()
+        .unwrap();
+    let grouped = EirGroupedDocument::new(document, &[group]).unwrap();
+    let budgets = grouped.group("edge-budget").unwrap().shared_budgets();
+    assert_eq!(budgets.len(), 2);
+    assert_eq!(
+        budgets
+            .iter()
+            .find(|budget| budget.id() == "ram")
+            .unwrap()
+            .constraint()
+            .scale()
+            .unit(),
+        RAM_CAPACITY_BUDGET_UNIT
+    );
+    assert_eq!(
+        budgets
+            .iter()
+            .find(|budget| budget.id() == "storage")
+            .unwrap()
+            .constraint()
+            .scale()
+            .unit(),
+        STORAGE_CAPACITY_BUDGET_UNIT
+    );
+}
+
 /// Compile-time and semantic proof that ELANG4 composite-plan ordering is
 /// usable through only the public `elastic` dependency.
 pub fn public_composite_plan_surface_smoke() {

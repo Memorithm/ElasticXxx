@@ -444,9 +444,10 @@ mod tests {
     use super::*;
     use crate::EirDocumentBuilder;
     use elastic_core::resource::{
-        ContractId, CrossResourceInvariant, DimensionId, LogicalResourceId, ResourceClassId,
-        ResourceDependency, ResourceGroup, ResourceGroupBuilder, ResourceGroupId, ResourceSpec,
-        SharedBudget, SharedBudgetId, SharedBudgetTerm,
+        CapacityBudgetContract, CapacityBudgetTerm, ContractId, CrossResourceInvariant,
+        DimensionId, LogicalResourceId, ResourceClassId, ResourceDependency, ResourceGroup,
+        ResourceGroupBuilder, ResourceGroupId, ResourceSpec, SharedBudget, SharedBudgetId,
+        SharedBudgetTerm,
     };
     use elastic_core::{PredicateKey, PseudoBooleanScale};
 
@@ -599,5 +600,50 @@ mod tests {
             right.groups()[0].fingerprint()
         );
         assert_ne!(left.fingerprint(), right.fingerprint());
+    }
+
+    #[test]
+    fn ram_and_storage_capacity_contracts_remain_distinct_in_grouped_eir() {
+        let term = CapacityBudgetTerm::new(id("inference"), predicate("expanded"), 4096).unwrap();
+        let ram = CapacityBudgetContract::ram(
+            SharedBudgetId::new("capacity").unwrap(),
+            vec![term.clone()],
+            8192,
+        )
+        .unwrap();
+        let storage = CapacityBudgetContract::storage(
+            SharedBudgetId::new("capacity").unwrap(),
+            vec![term],
+            8192,
+        )
+        .unwrap();
+        let group = |budget| {
+            ResourceGroupBuilder::new(ResourceGroupId::new("edge").unwrap())
+                .members([id("inference"), id("flight")])
+                .capacity_budget(budget)
+                .build()
+                .unwrap()
+        };
+        let ram_eir = EirGroupedDocument::new(document(), &[group(ram)]).unwrap();
+        let storage_eir = EirGroupedDocument::new(document(), &[group(storage)]).unwrap();
+        assert_eq!(
+            ram_eir.groups()[0].shared_budgets()[0]
+                .constraint()
+                .scale()
+                .unit(),
+            "ram-bytes"
+        );
+        assert_eq!(
+            storage_eir.groups()[0].shared_budgets()[0]
+                .constraint()
+                .scale()
+                .unit(),
+            "storage-bytes"
+        );
+        assert_ne!(
+            ram_eir.groups()[0].shared_budgets()[0].fingerprint(),
+            storage_eir.groups()[0].shared_budgets()[0].fingerprint()
+        );
+        assert_ne!(ram_eir.fingerprint(), storage_eir.fingerprint());
     }
 }
