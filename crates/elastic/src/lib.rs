@@ -290,6 +290,26 @@ pub mod runtime {
     pub use elastic_runtime::*;
 }
 
+/// Versioned public contract for third-party resource adapter implementers.
+///
+/// This namespace is intentionally narrower than the full facade. It identifies
+/// the v1 integration boundary that external adapters may implement and test
+/// without depending directly on ElasticXxx implementation crates.
+///
+/// The module version is a contract identifier for the pre-1.0 facade; it is
+/// not a promise that the whole crate has reached 1.0 semver stability.
+pub mod external_adapter_v1 {
+    /// External adapter contract schema version.
+    pub const CONTRACT_VERSION: u16 = 1;
+
+    pub use elastic_eir::{EirResource, FirstGroundedPlanner, PlanningContext, TransitionPlanner};
+    pub use elastic_runtime::{
+        Actuation, CommitRecord, Controller, CycleResult, InvariantCheck, Observation,
+        ObservationSource, Observer, Plan, RollbackRecord, Runtime, RuntimeConfig, RuntimeError,
+        RuntimeMode, TransactionalActuator, ValidatedPlan, VerificationResult,
+    };
+}
+
 /// Reference in-process adapters, planners, and reviewed ecosystem boundaries.
 pub mod adapters {
     pub use elastic_adapters::*;

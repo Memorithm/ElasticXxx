@@ -53,9 +53,12 @@ The exact backend set must equal the resources targeted by the composite plan:
 missing, duplicate or foreign bindings fail closed before trusted validation.
 Every prepared subplan separately retains the trusted adapter identity that
 actually produced it. Opaque checkpoint/actuation metadata is checked against
-that identity before a successful prepared envelope is returned. If a backend
-returns malformed metadata during capture/prepare, cleanup is still routed to
-the known producer rather than trusting the malformed token.
+that identity before a successful prepared envelope is returned. The prepared
+actuation must also retain the exact validated plan and its optional candidate
+magnitude as `Actuation.target`; a backend may not substitute a different
+numeric target during composite preparation. If a backend returns malformed
+metadata during capture/prepare, cleanup is still routed to the known producer
+rather than trusting the malformed token.
 
 ## Successful result
 
@@ -78,8 +81,9 @@ Checkpoint or prepare failures are fail-closed.
 - Capture failure releases every earlier checkpoint in reverse order.
 - Prepare failure aborts every successful earlier preparation in reverse order,
   then releases every checkpoint in reverse order.
-- A prepared actuation whose validated plan or adapter identity does not match
-  the expected binding is treated as a prepare failure and is unwound.
+- A prepared actuation whose validated plan, adapter identity, or optional
+  candidate-magnitude target does not match the expected binding is treated as
+  a prepare failure and is unwound.
 - Cleanup continues after an individual cleanup error; all failures are retained
   in `CompositePrepareFailure::cleanup_failures()`.
 

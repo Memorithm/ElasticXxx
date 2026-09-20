@@ -404,7 +404,11 @@ impl TransactionalActuator for DownstreamCompositePrepareBackend {
             ));
         }
         self.prepared = true;
-        Ok(Actuation::new(plan.clone(), Some(1), self.name.clone()))
+        let target = plan
+            .plan
+            .candidate()
+            .and_then(|candidate| candidate.magnitude());
+        Ok(Actuation::new(plan.clone(), target, self.name.clone()))
     }
 
     fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
@@ -633,7 +637,11 @@ impl TransactionalActuator for DownstreamCompositeTransactionBackend {
             ));
         }
         self.prepared = true;
-        Ok(Actuation::new(plan.clone(), Some(1), self.name.clone()))
+        let target = plan
+            .plan
+            .candidate()
+            .and_then(|candidate| candidate.magnitude());
+        Ok(Actuation::new(plan.clone(), target, self.name.clone()))
     }
 
     fn actuate(&mut self, actuation: &Actuation) -> Result<(), RuntimeError> {
