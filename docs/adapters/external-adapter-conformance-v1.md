@@ -46,14 +46,15 @@ checks keep the plan unvalidated.
 `prepare(&ValidatedPlan)` may construct an `Actuation`, but it must not apply the
 physical effect.
 
-The runtime now enforces two binding rules before `actuate` is called:
+The runtime now enforces three binding rules before `actuate` is called:
 
 1. `Actuation.plan` must equal the exact `ValidatedPlan` passed to `prepare`;
-2. `Actuation.adapter_name` must equal the active adapter's `name()`.
+2. `Actuation.adapter_name` must equal the active adapter's `name()`;
+3. `Actuation.target` must equal the validated candidate's optional magnitude exactly.
 
-A foreign plan or adapter identity is rejected as `RuntimeError::Validation` before
-physical actuation. These checks prevent a third-party implementation from accidentally
-substituting another already-valid plan at the prepare boundary.
+A foreign plan, adapter identity, or target is rejected as `RuntimeError::Validation`
+before physical actuation. These checks prevent a third-party implementation from
+substituting another already-valid plan or numeric target at the prepare boundary.
 
 ### actuate
 
@@ -99,12 +100,13 @@ elastic = { package = "memorithm-elastic", path = "../../crates/elastic" }
 ```
 
 The fixture implements an external observer and actuator using only
-`elastic::external_adapter_v1`. It proves four lifecycle cases:
+`elastic::external_adapter_v1`. It proves five lifecycle cases:
 
 1. verified actuation commits;
 2. failed verification rolls back without commit;
 3. failed commit rolls back;
-4. a misbound adapter identity is rejected before `actuate`.
+4. a misbound numeric target is rejected before `actuate`;
+5. a misbound adapter identity is rejected before `actuate`.
 
 `scripts/check-external-adapter-v1.py` rejects extra direct dependencies, direct imports
 of implementation crates, fixture publication, MSRV drift, or loss of the versioned
