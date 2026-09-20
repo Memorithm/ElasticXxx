@@ -17,7 +17,12 @@ enum VerificationMode {
 struct FixtureObserver;
 
 impl Observer for FixtureObserver {
-    fn observe(&self) -> (PlanningContext, Vec<elastic::external_adapter_v1::Observation>) {
+    fn observe(
+        &self,
+    ) -> (
+        PlanningContext,
+        Vec<elastic::external_adapter_v1::Observation>,
+    ) {
         (PlanningContext::new(), Vec::new())
     }
 }
@@ -133,7 +138,12 @@ mod tests {
         let mut adapter = FixtureAdapter::passing();
 
         let result = runtime
-            .cycle(&resource, &FirstGroundedPlanner, &FixtureObserver, &mut adapter)
+            .cycle(
+                &resource,
+                &FirstGroundedPlanner,
+                &FixtureObserver,
+                &mut adapter,
+            )
             .expect("conforming external adapter should commit");
 
         assert_eq!(adapter.actuation_calls, 1);
@@ -151,7 +161,12 @@ mod tests {
         adapter.verification = VerificationMode::Fail;
 
         let result = runtime
-            .cycle(&resource, &FirstGroundedPlanner, &FixtureObserver, &mut adapter)
+            .cycle(
+                &resource,
+                &FirstGroundedPlanner,
+                &FixtureObserver,
+                &mut adapter,
+            )
             .expect("failed verification with restored rollback should be recoverable");
 
         assert_eq!(adapter.actuation_calls, 1);
@@ -169,7 +184,12 @@ mod tests {
         adapter.fail_commit = true;
 
         let result = runtime
-            .cycle(&resource, &FirstGroundedPlanner, &FixtureObserver, &mut adapter)
+            .cycle(
+                &resource,
+                &FirstGroundedPlanner,
+                &FixtureObserver,
+                &mut adapter,
+            )
             .expect("commit failure with restored rollback should be recoverable");
 
         assert_eq!(adapter.actuation_calls, 1);
@@ -187,7 +207,12 @@ mod tests {
         adapter.misbind_name = true;
 
         let error = runtime
-            .cycle(&resource, &FirstGroundedPlanner, &FixtureObserver, &mut adapter)
+            .cycle(
+                &resource,
+                &FirstGroundedPlanner,
+                &FixtureObserver,
+                &mut adapter,
+            )
             .expect_err("misbound prepared actuation must fail closed");
 
         assert!(matches!(error, RuntimeError::Validation(_)));
