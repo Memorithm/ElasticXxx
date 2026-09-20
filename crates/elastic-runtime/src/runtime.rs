@@ -211,6 +211,18 @@ impl Runtime {
         }
 
         let actuation = actuator.prepare(&validated)?;
+        if actuation.plan != validated {
+            return Err(RuntimeError::validation(
+                "trusted actuator prepared an actuation for a different validated plan",
+            ));
+        }
+        if actuation.adapter_name != actuator.name() {
+            return Err(RuntimeError::validation(format!(
+                "trusted actuator identity mismatch: prepared by {:?}, active adapter is {:?}",
+                actuation.adapter_name,
+                actuator.name(),
+            )));
+        }
         if !actuation.is_valid() {
             return Err(RuntimeError::validation(
                 "trusted actuator prepared an invalid actuation",
@@ -619,7 +631,10 @@ mod tests {
         fail_commit: bool,
         fail_rollback: bool,
         restore_invariants: bool,
+        misbind_plan: bool,
+        misbind_adapter: bool,
         validation_calls: std::cell::Cell<usize>,
+        actuation_calls: std::cell::Cell<usize>,
         committed: bool,
         rolled_back: bool,
     }
@@ -632,7 +647,10 @@ mod tests {
                 fail_commit: false,
                 fail_rollback: false,
                 restore_invariants: true,
+                misbind_plan: false,
+                misbind_adapter: false,
                 validation_calls: std::cell::Cell::new(0),
+                actuation_calls: std::cell::Cell::new(0),
                 committed: false,
                 rolled_back: false,
             }
@@ -661,10 +679,24 @@ mod tests {
                 .plan
                 .candidate()
                 .and_then(|candidate| candidate.magnitude());
-            Ok(Actuation::new(plan.clone(), target, self.name()))
+            let mut prepared_plan = plan.clone();
+            if self.misbind_plan {
+                prepared_plan
+                    .plan
+                    .reasoning
+                    .push_str(" [foreign prepared plan]");
+            }
+            let adapter_name = if self.misbind_adapter {
+                "foreign-adapter"
+            } else {
+                self.name()
+            };
+            Ok(Actuation::new(prepared_plan, target, adapter_name))
         }
 
         fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
+            self.actuation_calls
+                .set(self.actuation_calls.get().saturating_add(1));
             if self.fail_actuation {
                 return Err(RuntimeError::actuation("mock actuation failure"));
             }
@@ -752,6 +784,40 @@ mod tests {
         assert!(!actuator.rolled_back);
         assert!(result.commit.is_some());
         assert!(result.rollback.is_none());
+    }
+
+    #[test]
+    fn prepared_actuation_must_match_the_validated_plan() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        actuator.misbind_plan = true;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("foreign prepared plan must fail before physical actuation");
+
+        assert!(matches!(error, RuntimeError::Validation(_)));
+        assert_eq!(actuator.actuation_calls.get(), 0);
+        assert!(!actuator.committed);
+        assert!(!actuator.rolled_back);
+    }
+
+    #[test]
+    fn prepared_actuation_must_match_the_active_adapter_identity() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        actuator.misbind_adapter = true;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("foreign adapter identity must fail before physical actuation");
+
+        assert!(matches!(error, RuntimeError::Validation(_)));
+        assert_eq!(actuator.actuation_calls.get(), 0);
+        assert!(!actuator.committed);
+        assert!(!actuator.rolled_back);
     }
 
     #[test]
