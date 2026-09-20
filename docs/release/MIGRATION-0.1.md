@@ -10,6 +10,23 @@ The selected future crates.io package name for that facade is `memorithm-elastic
 
 Persisted Boolean guards, operator configuration, decision traces, evidence envelopes, and other versioned wire contracts keep their declared schema identities. A reader must reject a future schema it does not implement. A strict v1 object must not be extended incompatibly under the same schema number.
 
+## Language syntax compatibility review
+
+The shared parser/expander package `memorithm-elastic-language-syntax` remains an
+implementation dependency; the supported downstream boundary is still the
+`elastic` facade and its `ElasticResource` / `elastic!` surfaces.
+
+For the 0.1.x line, accepted grammar documented through the facade is treated as
+part of the source-compatibility contract. Parser diagnostics may gain additional
+context, but existing stable diagnostic codes must not be silently reassigned to
+unrelated error classes. An intentional grammar removal, changed lowering
+semantics, or incompatible diagnostic-code reassignment requires a new pre-1.0
+minor line and migration notes.
+
+The parser and expander are covered by direct unit tests and the continuous
+hardening fuzz program. This review does not make the implementation crate an
+independent stable API and does not authorize crates.io publication.
+
 ## Rules for a future incompatible change
 
 An intentional incompatible public-facade change requires all of the following before merge or release:

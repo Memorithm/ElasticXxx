@@ -2376,3 +2376,88 @@ fn unknown_term_error(ident: &Ident, kind: &str, keys: Vec<&str>) -> syn::Error 
         ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{expand_derive_tokens, expand_elastic_tokens};
+
+    fn tokens(source: &str) -> proc_macro2::TokenStream {
+        source.parse().expect("test source must tokenize")
+    }
+
+    #[test]
+    fn elastic_dsl_valid_minimal_resource_expands() {
+        let input = tokens(
+            r#"
+            pub resource session_kv {
+                class(representational);
+                id("session-kv");
+                allow(representation, residency);
+                preserve(contents);
+                optimize(latency);
+                admit(reencode @ representation);
+                capability(reencode @ representation);
+            }
+            "#,
+        );
+
+        let expanded = expand_elastic_tokens(input).expect("valid DSL must expand");
+        let rendered = expanded.to_string();
+        assert!(rendered.contains("session_kv"));
+        assert!(rendered.contains("resource_spec"));
+    }
+
+    #[test]
+    fn elastic_dsl_rejects_unknown_resource_term() {
+        let input = tokens(
+            r#"
+            resource broken {
+                class(representational);
+                id("broken");
+                allow(definitely_not_a_dimension);
+            }
+            "#,
+        );
+
+        let error = expand_elastic_tokens(input).expect_err("unknown term must fail closed");
+        assert!(error.to_string().contains("unknown dimension"));
+    }
+
+    #[test]
+    fn derive_surface_valid_resource_expands() {
+        let input = tokens(
+            r#"
+            #[elastic(
+                class(representational),
+                id("session-kv"),
+                allow(representation, residency),
+                preserve(contents),
+                optimize(latency),
+                admit(reencode @ representation)
+            )]
+            struct SessionKv;
+            "#,
+        );
+
+        let expanded = expand_derive_tokens(input).expect("valid derive input must expand");
+        assert!(expanded.to_string().contains("resource_spec"));
+    }
+
+    #[test]
+    fn derive_surface_rejects_duplicate_id() {
+        let input = tokens(
+            r#"
+            #[elastic(
+                class(representational),
+                id("first"),
+                id("second"),
+                allow(representation)
+            )]
+            struct DuplicateId;
+            "#,
+        );
+
+        let error = expand_derive_tokens(input).expect_err("duplicate id must fail closed");
+        assert!(error.to_string().contains("duplicate"));
+    }
+}
