@@ -223,6 +223,16 @@ impl Runtime {
                 actuator.name(),
             )));
         }
+        let expected_target = validated
+            .plan
+            .candidate()
+            .and_then(|candidate| candidate.magnitude());
+        if actuation.target != expected_target {
+            return Err(RuntimeError::validation(format!(
+                "trusted actuator target mismatch: prepared target {:?}, validated candidate target {:?}",
+                actuation.target, expected_target,
+            )));
+        }
         if !actuation.is_valid() {
             return Err(RuntimeError::validation(
                 "trusted actuator prepared an invalid actuation",
@@ -633,6 +643,7 @@ mod tests {
         restore_invariants: bool,
         misbind_plan: bool,
         misbind_adapter: bool,
+        misbind_target: bool,
         validation_calls: std::cell::Cell<usize>,
         actuation_calls: std::cell::Cell<usize>,
         committed: bool,
@@ -649,6 +660,7 @@ mod tests {
                 restore_invariants: true,
                 misbind_plan: false,
                 misbind_adapter: false,
+                misbind_target: false,
                 validation_calls: std::cell::Cell::new(0),
                 actuation_calls: std::cell::Cell::new(0),
                 committed: false,
@@ -690,6 +702,11 @@ mod tests {
                 "foreign-adapter"
             } else {
                 self.name()
+            };
+            let target = if self.misbind_target {
+                Some(target.unwrap_or(0).saturating_add(1))
+            } else {
+                target
             };
             Ok(Actuation::new(prepared_plan, target, adapter_name))
         }
@@ -813,6 +830,23 @@ mod tests {
         let error = runtime
             .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
             .expect_err("foreign adapter identity must fail before physical actuation");
+
+        assert!(matches!(error, RuntimeError::Validation(_)));
+        assert_eq!(actuator.actuation_calls.get(), 0);
+        assert!(!actuator.committed);
+        assert!(!actuator.rolled_back);
+    }
+
+    #[test]
+    fn prepared_actuation_target_must_match_validated_candidate() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut actuator = MockActuator::new(VerificationResult::Pass);
+        actuator.misbind_target = true;
+
+        let error = runtime
+            .cycle(&resource, &FirstGroundedPlanner, &(), &mut actuator)
+            .expect_err("foreign prepared target must fail before physical actuation");
 
         assert!(matches!(error, RuntimeError::Validation(_)));
         assert_eq!(actuator.actuation_calls.get(), 0);
