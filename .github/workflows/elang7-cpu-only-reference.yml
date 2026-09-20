@@ -51,4 +51,6 @@ jobs:
 
       - name: Qualify ELANG7 on CPU-only hosted reference
         shell: bash
+        env:
+          ELANG7_EXPECTED_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: bash scripts/qualify-elang7-cpu-only-reference.sh
