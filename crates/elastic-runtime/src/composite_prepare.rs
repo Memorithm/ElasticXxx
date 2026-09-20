@@ -603,9 +603,14 @@ pub fn prepare_composite_plan(
                 .with_cleanup_result(cleanup));
             }
         };
+        let expected_target = validated_plan
+            .plan
+            .candidate()
+            .and_then(|candidate| candidate.magnitude());
         if !actuation.is_valid()
             || actuation.plan != validated_plan
             || actuation.adapter_name != backends[index].name()
+            || actuation.target != expected_target
         {
             let current = CompositePreparedSubplan {
                 resource_id: resource.clone(),
@@ -626,7 +631,7 @@ pub fn prepare_composite_plan(
             return Err(CompositePrepareFailure::new(
                 CompositePrepareStage::Prepare,
                 Some(resource),
-                "prepared actuation does not match the validated plan/backend",
+                "prepared actuation does not match the validated plan/backend/target",
             )
             .with_cleanup_result(cleanup));
         }
@@ -1170,9 +1175,13 @@ mod tests {
             if self.fail_prepare {
                 Err(RuntimeError::actuation("forced prepare failure"))
             } else {
+                let target = plan
+                    .plan
+                    .candidate()
+                    .and_then(|candidate| candidate.magnitude());
                 Ok(Actuation::new(
                     plan.clone(),
-                    Some(self.generation + 1),
+                    target,
                     if self.mismatch_actuation_adapter {
                         "wrong-adapter".to_owned()
                     } else {
