@@ -67,3 +67,10 @@ path = "fuzz_targets/guard_config_decode.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "model_execution_contracts_decode"
+path = "fuzz_targets/model_execution_contracts_decode.rs"
+test = false
+doc = false
+bench = false

@@ -56,6 +56,7 @@ covers:
 - bounded `DecisionTrace` JSON decoding;
 - bounded `OperatorConfig` JSON decoding and semantic validation;
 - bounded `GuardConfigV1` JSON decoding, stable-key validation and deterministic lowering;
+- bounded `ModelExecutionControllerContractsV1` JSON decoding and full provider/model/fingerprint revalidation;
 - bounded runtime `EvidenceEnvelope` JSON decoding and semantic validation.
 
 Pull requests compile every cargo-fuzz target on nightly. Scheduled and manually
@@ -63,8 +64,8 @@ dispatched hardening runs execute bounded fuzz campaigns; a green PR fuzz-build 
 therefore **not** reported as executed fuzz-time evidence.
 
 Miri remains a scheduled/manual gate. It interprets `elastic-core` and `elastic-kv`
-tests and additionally exercises the bounded operator-config, guard-config and
-runtime-evidence decoder tests. This broadens interpreter coverage without implying that Miri proves
+tests and additionally exercises the bounded operator-config, guard-config,
+model-execution-contract and runtime-evidence decoder tests. This broadens interpreter coverage without implying that Miri proves
 the absence of all unsafe behavior in external dependencies or hardware backends.
 
 ## Release gate

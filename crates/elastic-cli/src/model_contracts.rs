@@ -1,20 +1,44 @@
 //! CLI tooling for building and validating persisted model-execution controller contracts.
 
 use std::error::Error;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Error as IoError, ErrorKind, Read, Write};
 use std::path::Path;
 
 use elastic::{
     ModelExecutionCapabilitiesWireV1, ModelExecutionControllerContractsV1,
     ModelExecutionControllerContractsWireV1, ModelExecutionEnvelopePolicyWireV1,
-    ModelExecutionProfileSetWireV1,
+    ModelExecutionProfileSetWireV1, MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES,
 };
 use serde_json::{json, Value};
 
 use crate::evidence::print_json;
 
 type CommandResult = Result<(), Box<dyn Error>>;
+
+pub(crate) fn read_bounded_contract_file(path: &Path) -> Result<String, Box<dyn Error>> {
+    let file = File::open(path)?;
+    let mut bytes = Vec::new();
+    file.take((MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)?;
+    if bytes.len() > MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES {
+        return Err(IoError::new(
+            ErrorKind::InvalidData,
+            format!(
+                "model-execution contract input exceeds {} bytes",
+                MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES
+            ),
+        )
+        .into());
+    }
+    String::from_utf8(bytes).map_err(|error| {
+        IoError::new(
+            ErrorKind::InvalidData,
+            format!("model-execution contract input is not UTF-8: {error}"),
+        )
+        .into()
+    })
+}
 
 /// Build one strict aggregate controller-contract bundle from the historical
 /// three validated wire documents and materialize it as a new JSON file.
@@ -24,9 +48,9 @@ pub(crate) fn build_contracts(
     policy: &Path,
     output: &Path,
 ) -> CommandResult {
-    let capabilities = fs::read_to_string(capabilities)?;
-    let profiles = fs::read_to_string(profiles)?;
-    let policy = fs::read_to_string(policy)?;
+    let capabilities = read_bounded_contract_file(capabilities)?;
+    let profiles = read_bounded_contract_file(profiles)?;
+    let policy = read_bounded_contract_file(policy)?;
     let rendered = build_document(&capabilities, &profiles, &policy)?;
 
     let mut file = OpenOptions::new()
@@ -41,7 +65,7 @@ pub(crate) fn build_contracts(
 
 /// Revalidate one aggregate bundle and print a bounded, non-actuating summary.
 pub(crate) fn validate_contracts(input: &Path) -> CommandResult {
-    let json = fs::read_to_string(input)?;
+    let json = read_bounded_contract_file(input)?;
     print_json(validate_document(&json)?)
 }
 
@@ -132,6 +156,24 @@ mod tests {
             serde_json::to_string(&profiles.to_wire()).unwrap(),
             serde_json::to_string(&policy.to_wire()).unwrap(),
         )
+    }
+
+    #[test]
+    fn bounded_file_reader_rejects_oversized_input() {
+        let path = std::env::temp_dir().join(format!(
+            "elastic-model-contracts-oversized-{}-{}.json",
+            std::process::id(),
+            MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES
+        ));
+        std::fs::write(
+            &path,
+            vec![b' '; MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES + 1],
+        )
+        .unwrap();
+
+        let error = read_bounded_contract_file(&path).unwrap_err();
+        let _ = std::fs::remove_file(&path);
+        assert!(error.to_string().contains("exceeds"));
     }
 
     #[test]
