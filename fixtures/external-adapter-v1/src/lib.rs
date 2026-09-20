@@ -33,6 +33,7 @@ mod tests {
         verification: VerificationMode,
         fail_commit: bool,
         misbind_name: bool,
+        misbind_target: bool,
         actuation_calls: usize,
         committed: bool,
         rolled_back: bool,
@@ -44,6 +45,7 @@ mod tests {
                 verification: VerificationMode::Pass,
                 fail_commit: false,
                 misbind_name: false,
+                misbind_target: false,
                 actuation_calls: 0,
                 committed: false,
                 rolled_back: false,
@@ -78,7 +80,8 @@ mod tests {
             } else {
                 self.name()
             };
-            Ok(Actuation::new(plan.clone(), None, name))
+            let target = self.misbind_target.then_some(1);
+            Ok(Actuation::new(plan.clone(), target, name))
         }
 
         fn actuate(&mut self, _actuation: &Actuation) -> Result<(), RuntimeError> {
@@ -195,6 +198,28 @@ mod tests {
         assert!(adapter.rolled_back);
         assert!(result.commit.is_none());
         assert!(result.rollback.is_some());
+    }
+
+    #[test]
+    fn runtime_rejects_external_adapter_target_misbinding_before_actuation() {
+        let runtime = applying_runtime();
+        let resource = runtime.config().ir_resource.clone();
+        let mut adapter = FixtureAdapter::passing();
+        adapter.misbind_target = true;
+
+        let error = runtime
+            .cycle(
+                &resource,
+                &FirstGroundedPlanner,
+                &FixtureObserver,
+                &mut adapter,
+            )
+            .expect_err("misbound prepared target must fail closed");
+
+        assert!(matches!(error, RuntimeError::Validation(_)));
+        assert_eq!(adapter.actuation_calls, 0);
+        assert!(!adapter.committed);
+        assert!(!adapter.rolled_back);
     }
 
     #[test]
