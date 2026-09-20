@@ -21,6 +21,10 @@ pub const MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1: &str =
 /// JSON media type for [`MODEL_EXECUTION_CONTROLLER_CONTRACTS_V1`].
 pub const MODEL_EXECUTION_CONTROLLER_CONTRACTS_MEDIA_TYPE_V1: &str =
     "application/vnd.elastic.model-execution-controller-contracts.v1+json";
+/// Maximum encoded bytes accepted for one persisted controller-contract bundle.
+pub const MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES: usize = 256 * 1024;
+/// Maximum raw JSON container nesting accepted before bundle deserialization.
+pub const MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_JSON_DEPTH: usize = 32;
 
 /// Strict persisted form of one controller contract bundle.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -108,20 +112,29 @@ impl ModelExecutionControllerContractsV1 {
         Ok(Self { profiles, policy })
     }
 
-    /// Parse and fully revalidate a strict JSON bundle.
+    /// Parse and fully revalidate a strict JSON bundle through public
+    /// preallocation bounds.
     ///
     /// # Errors
     ///
-    /// Returns a configuration error for malformed JSON, unknown fields, an
-    /// unsupported bundle contract, or any nested semantic identity failure.
-    pub fn from_json(input: &str) -> Result<Self, RuntimeError> {
+    /// Returns a configuration error for an oversized/deep document, malformed
+    /// JSON, unknown fields, an unsupported bundle contract, or any nested
+    /// semantic identity failure.
+    pub fn from_bounded_json(input: &[u8]) -> Result<Self, RuntimeError> {
+        validate_json_preallocation_bounds(input)?;
         let wire: ModelExecutionControllerContractsWireV1 =
-            serde_json::from_str(input).map_err(|error| {
+            serde_json::from_slice(input).map_err(|error| {
                 RuntimeError::configuration(format!(
                     "invalid model-execution controller contracts JSON: {error}"
                 ))
             })?;
         wire.into_validated()
+    }
+
+    /// Backward-compatible string entry point routed through the same bounded
+    /// decoder as untrusted byte input.
+    pub fn from_json(input: &str) -> Result<Self, RuntimeError> {
+        Self::from_bounded_json(input.as_bytes())
     }
 
     /// Exact capabilities implied by the validated correlated profile set.
@@ -152,17 +165,32 @@ impl ModelExecutionControllerContractsV1 {
         )
     }
 
-    /// Serialize the strict aggregate envelope as pretty JSON.
-    ///
-    /// # Errors
-    ///
-    /// Returns a configuration error if serialization unexpectedly fails.
-    pub fn to_pretty_json(&self) -> Result<String, RuntimeError> {
-        serde_json::to_string_pretty(&self.to_wire()).map_err(|error| {
+    /// Serialize the strict aggregate envelope as compact bounded JSON.
+    pub fn to_bounded_json(&self) -> Result<String, RuntimeError> {
+        let encoded = serde_json::to_string(&self.to_wire()).map_err(|error| {
             RuntimeError::configuration(format!(
                 "could not serialize model-execution controller contracts: {error}"
             ))
-        })
+        })?;
+        validate_json_preallocation_bounds(encoded.as_bytes())?;
+        Ok(encoded)
+    }
+
+    /// Serialize the strict aggregate envelope as pretty JSON while preserving
+    /// the same persisted byte bound accepted by the decoder.
+    ///
+    /// # Errors
+    ///
+    /// Returns a configuration error if serialization unexpectedly fails or
+    /// the pretty document would exceed the public persisted-input bound.
+    pub fn to_pretty_json(&self) -> Result<String, RuntimeError> {
+        let encoded = serde_json::to_string_pretty(&self.to_wire()).map_err(|error| {
+            RuntimeError::configuration(format!(
+                "could not serialize model-execution controller contracts: {error}"
+            ))
+        })?;
+        validate_json_preallocation_bounds(encoded.as_bytes())?;
+        Ok(encoded)
     }
 
     /// Consume the bundle into the two validated declarations required by the
@@ -173,6 +201,46 @@ impl ModelExecutionControllerContractsV1 {
     ) -> (ModelExecutionProfileSetV1, ModelExecutionEnvelopePolicyV1) {
         (self.profiles, self.policy)
     }
+}
+
+fn validate_json_preallocation_bounds(input: &[u8]) -> Result<(), RuntimeError> {
+    if input.len() > MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES {
+        return Err(RuntimeError::configuration(format!(
+            "model-execution controller contracts JSON exceeds {} bytes",
+            MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES
+        )));
+    }
+
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for &byte in input {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if byte == b'\\' {
+                escaped = true;
+            } else if byte == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match byte {
+            b'"' => in_string = true,
+            b'{' | b'[' => {
+                depth = depth.saturating_add(1);
+                if depth > MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_JSON_DEPTH {
+                    return Err(RuntimeError::configuration(format!(
+                        "model-execution controller contracts JSON nesting exceeds {}",
+                        MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_JSON_DEPTH
+                    )));
+                }
+            }
+            b'}' | b']' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -225,6 +293,32 @@ mod tests {
         )
         .unwrap();
         ModelExecutionControllerContractsV1::new(profiles, policy).unwrap()
+    }
+
+    #[test]
+    fn bounded_decoder_round_trip_revalidates_identity_chain() {
+        let original = contracts("reference-backend");
+        let json = original.to_bounded_json().unwrap();
+        assert!(json.len() <= MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES);
+        let replayed =
+            ModelExecutionControllerContractsV1::from_bounded_json(json.as_bytes()).unwrap();
+        assert_eq!(replayed, original);
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_oversized_input_before_deserialization() {
+        let oversized = vec![b' '; MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES + 1];
+        let error = ModelExecutionControllerContractsV1::from_bounded_json(&oversized).unwrap_err();
+        assert!(error.to_string().contains("exceeds"));
+    }
+
+    #[test]
+    fn bounded_decoder_rejects_excessive_raw_json_depth() {
+        let depth = MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_JSON_DEPTH + 1;
+        let nested = format!("{}0{}", "[".repeat(depth), "]".repeat(depth));
+        let error =
+            ModelExecutionControllerContractsV1::from_bounded_json(nested.as_bytes()).unwrap_err();
+        assert!(error.to_string().contains("nesting exceeds"));
     }
 
     #[test]
