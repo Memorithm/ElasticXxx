@@ -52,9 +52,11 @@ The runtime now enforces three binding rules before `actuate` is called:
 2. `Actuation.adapter_name` must equal the active adapter's `name()`;
 3. `Actuation.target` must equal the validated candidate's optional magnitude exactly.
 
-A foreign plan, adapter identity, or target is rejected as `RuntimeError::Validation`
-before physical actuation. These checks prevent a third-party implementation from
-substituting another already-valid plan or numeric target at the prepare boundary.
+A foreign plan, adapter identity, or target is rejected before physical actuation.
+The single-resource runtime reports `RuntimeError::Validation`; the composite
+prepare boundary reports `CompositePrepareStage::Prepare` and unwinds prepared
+state/checkpoints. These checks prevent a third-party implementation from
+substituting another already-valid plan or numeric target at either prepare boundary.
 
 ### actuate
 
