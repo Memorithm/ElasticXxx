@@ -571,14 +571,18 @@ fn require_null(object: &Map<String, Value>, key: &str, where_: &str) -> Result<
 }
 
 /// Parse and fail-closed validate the frozen Stage B preregistration JSON.
+///
+/// Byte identity is checked before JSON deserialization because this contract
+/// admits exactly one frozen manifest. Arbitrary input must not allocate a JSON
+/// value tree merely to discover that its bytes can never be authorized.
 pub fn load_stage_b_preregistration(json: &str) -> Result<StageBPreregistration, StageBError> {
-    let root: Value =
-        serde_json::from_str(json).map_err(|error| StageBError::InvalidJson(error.to_string()))?;
     if json != FROZEN_STAGE_B_MANIFEST {
         return Err(StageBError::ProtocolViolation(
             "manifest bytes differ from the frozen issue #29 Stage B preregistration".into(),
         ));
     }
+    let root: Value =
+        serde_json::from_str(json).map_err(|error| StageBError::InvalidJson(error.to_string()))?;
     let root = require_object(&root, "root")?;
     require_exact_keys(
         root,
@@ -1116,6 +1120,16 @@ mod tests {
 
     const FROZEN_MANIFEST: &str =
         include_str!("../../../research/elastic-bit-allocation-stage-b-smollm2-v1.json");
+
+    #[test]
+    fn non_frozen_malformed_json_is_rejected_before_deserialization() {
+        let malformed = "[".repeat(4_096);
+        assert!(matches!(
+            load_stage_b_preregistration(&malformed),
+            Err(StageBError::ProtocolViolation(message))
+                if message.contains("manifest bytes differ")
+        ));
+    }
 
     #[test]
     fn any_frozen_manifest_byte_drift_fails_closed() {
