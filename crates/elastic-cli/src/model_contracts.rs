@@ -159,6 +159,24 @@ mod tests {
     }
 
     #[test]
+    fn bounded_file_reader_rejects_oversized_input() {
+        let path = std::env::temp_dir().join(format!(
+            "elastic-model-contracts-oversized-{}-{}.json",
+            std::process::id(),
+            MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES
+        ));
+        std::fs::write(
+            &path,
+            vec![b' '; MAX_MODEL_EXECUTION_CONTROLLER_CONTRACTS_BYTES + 1],
+        )
+        .unwrap();
+
+        let error = read_bounded_contract_file(&path).unwrap_err();
+        let _ = std::fs::remove_file(&path);
+        assert!(error.to_string().contains("exceeds"));
+    }
+
+    #[test]
     fn build_document_materializes_reusable_valid_bundle() {
         let (capabilities, profiles, policy) = split_documents();
         let built = build_document(&capabilities, &profiles, &policy).unwrap();
