@@ -51,14 +51,18 @@ mod transition;
 pub use bridge::{DeclarationError, RepresentationalDeclaration};
 pub use budget::{
     CapacityBudgetContract, CapacityBudgetError, CapacityBudgetKind, CapacityBudgetTerm,
-    CAPACITY_BUDGET_CONTRACT_SCHEMA_V1, RAM_CAPACITY_BUDGET_UNIT, STORAGE_CAPACITY_BUDGET_UNIT,
+    ImmutableCapacityReservation, SafetyCapacityEnvelope, SafetyCapacityEnvelopeError,
+    SafetyReservationId, CAPACITY_BUDGET_CONTRACT_SCHEMA_V1, MAX_SAFETY_RESERVATIONS_PER_ENVELOPE,
+    MAX_SAFETY_RESERVATION_ID_BYTES, RAM_CAPACITY_BUDGET_UNIT, SAFETY_CAPACITY_ENVELOPE_SCHEMA_V1,
+    STORAGE_CAPACITY_BUDGET_UNIT,
 };
 pub use group::{
     CrossResourceInvariant, CrossResourceInvariantError, ResourceDependency, ResourceGroup,
     ResourceGroupBuilder, ResourceGroupError, ResourceGroupId, SharedBudget, SharedBudgetError,
     SharedBudgetId, SharedBudgetTerm, MAX_RESOURCE_GROUP_CROSS_INVARIANTS,
     MAX_RESOURCE_GROUP_DEPENDENCIES, MAX_RESOURCE_GROUP_ID_BYTES, MAX_RESOURCE_GROUP_MEMBERS,
-    MAX_RESOURCE_GROUP_SHARED_BUDGETS, MAX_SHARED_BUDGET_ID_BYTES,
+    MAX_RESOURCE_GROUP_SAFETY_ENVELOPES, MAX_RESOURCE_GROUP_SHARED_BUDGETS,
+    MAX_SHARED_BUDGET_ID_BYTES,
 };
 
 pub use error::{ResourceSpecError, TermKind};
