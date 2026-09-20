@@ -70,6 +70,31 @@ EXPECTED_CONSUMERS = {
         "kind": "real-facade-consumer",
         "authority": "consumer-owned-actuation-after-fresh-validation",
     },
+    "Memorithm/SLHAv2": {
+        "name": "SLHAv2 physical KV consumer",
+        "repository": "Memorithm/SLHAv2",
+        "source_commit": "5fb53928ce2219d7659446a68f41a008eaa1124d",
+        "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+        "kind": "real-facade-kv-consumer",
+        "authority": "consumer-owned-physical-kv-actuation-after-elastic-validation",
+    },
+    "Memorithm/FLAT-ATTENTION": {
+        "name": "FLAT contextual kernel-selection bridge",
+        "repository": "Memorithm/FLAT-ATTENTION",
+        "source_commit": "7a5db9127bd9b76f6f4e58a47a371658f0c8f5e5",
+        "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+        "kind": "advisory-kernel-selection-bridge",
+        "authority": "none",
+    },
+    "Memorithm/scirust": {
+        "name": "SciRust contextual FLAT advisory consumer",
+        "repository": "Memorithm/scirust",
+        "source_commit": "00ed3be56685841c42fbdcaa4b5451b73b105b3a",
+        "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+        "flat_source_commit": "7a5db9127bd9b76f6f4e58a47a371658f0c8f5e5",
+        "kind": "host-only-contextual-advisory-consumer",
+        "authority": "none",
+    },
 }
 EXPECTED_RELEASE_DOCUMENTS = {
     "docs/release/COMPATIBILITY.md",
@@ -135,7 +160,7 @@ def validate_pinned_declarations(data: dict[str, object]) -> None:
 
     consumers = data.get("qualified_consumers_and_sources")
     if not isinstance(consumers, list) or len(consumers) != len(EXPECTED_CONSUMERS):
-        fail("expected four reviewed BE15 cross-repository entries")
+        fail(f"expected exactly {len(EXPECTED_CONSUMERS)} reviewed cross-repository entries")
     if any(not isinstance(entry, dict) for entry in consumers):
         fail("cross-repository entries must be objects")
     actual_by_repo = {entry.get("repository"): entry for entry in consumers}
@@ -268,6 +293,9 @@ def main() -> None:
         elastic_source = entry.get("elastic_source_commit")
         if elastic_source is not None and not HEX40.fullmatch(elastic_source):
             fail(f"invalid Elastic consumer source pin for {repository}")
+        flat_source = entry.get("flat_source_commit")
+        if flat_source is not None and not HEX40.fullmatch(flat_source):
+            fail(f"invalid FLAT consumer source pin for {repository}")
 
     docs = data["required_release_documents"]
     for rel in docs:

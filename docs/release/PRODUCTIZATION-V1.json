@@ -42,6 +42,31 @@
       "elastic_source_commit": "8441991feea3a2aae19f62a8e51c89e7f0d6f969",
       "kind": "real-facade-consumer",
       "authority": "consumer-owned-actuation-after-fresh-validation"
+    },
+    {
+      "name": "SLHAv2 physical KV consumer",
+      "repository": "Memorithm/SLHAv2",
+      "source_commit": "5fb53928ce2219d7659446a68f41a008eaa1124d",
+      "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+      "kind": "real-facade-kv-consumer",
+      "authority": "consumer-owned-physical-kv-actuation-after-elastic-validation"
+    },
+    {
+      "name": "FLAT contextual kernel-selection bridge",
+      "repository": "Memorithm/FLAT-ATTENTION",
+      "source_commit": "7a5db9127bd9b76f6f4e58a47a371658f0c8f5e5",
+      "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+      "kind": "advisory-kernel-selection-bridge",
+      "authority": "none"
+    },
+    {
+      "name": "SciRust contextual FLAT advisory consumer",
+      "repository": "Memorithm/scirust",
+      "source_commit": "00ed3be56685841c42fbdcaa4b5451b73b105b3a",
+      "elastic_source_commit": "354cfb372f568338b29a357b0671bf9315097b1d",
+      "flat_source_commit": "7a5db9127bd9b76f6f4e58a47a371658f0c8f5e5",
+      "kind": "host-only-contextual-advisory-consumer",
+      "authority": "none"
     }
   ],
   "required_release_documents": [
