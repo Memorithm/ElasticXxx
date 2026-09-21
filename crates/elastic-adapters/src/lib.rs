@@ -36,6 +36,7 @@ pub mod model_execution_runtime;
 pub mod permits;
 pub mod planners;
 pub mod ram;
+pub mod sml;
 pub mod soup;
 pub mod tdi93;
 
@@ -79,6 +80,14 @@ pub use model_execution_runtime::{
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
+pub use sml::{
+    SmlElasticWeightAdapterError, SmlElasticWeightPlanEnvelopeV1, SmlElasticWeightPlanFieldV1,
+    SmlElasticWeightPlanV1, SmlElasticWeightTransitionV1, SmlWeightPrecisionV1,
+    SmlWeightResidencyV1, SML_ELASTIC_WEIGHT_PLAN_V1, SML_ELASTIC_WEIGHT_SOURCE_COMMIT_V1,
+    SML_ELASTIC_WEIGHT_SOURCE_REPOSITORY_V1, SML_WEIGHT_BOOLEAN_REPRESENTATION_V1,
+    SML_WEIGHT_REPRESENTATION_SCHEMA_V1, SML_WEIGHT_RESIDUAL4_REPRESENTATION_V1,
+    SML_WEIGHT_TERNARY_REPRESENTATION_V1,
+};
 pub use soup::{
     SoupAutoBatchStrategy, SoupBatchSize, SoupBatchSizeWireV1, SoupContractError,
     SoupLayerStreamingV1, SoupLayerStreamingWireV1, SoupRunResourcePlanV1,
