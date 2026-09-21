@@ -17,8 +17,7 @@ pub const SML_ELASTIC_WEIGHT_PLAN_V1: &str = "sml.elastic-weight-plan@1.0.0";
 /// Repository that owns the source contract.
 pub const SML_ELASTIC_WEIGHT_SOURCE_REPOSITORY_V1: &str = "Memorithm/SML-GENIUS";
 /// Exact merged SML revision reviewed for this adapter.
-pub const SML_ELASTIC_WEIGHT_SOURCE_COMMIT_V1: &str =
-    "3e04239862c9d14cb369227f4abbe84b5c7e1d5e";
+pub const SML_ELASTIC_WEIGHT_SOURCE_COMMIT_V1: &str = "3e04239862c9d14cb369227f4abbe84b5c7e1d5e";
 /// Elastic representation contract version used for SML precision classes.
 pub const SML_WEIGHT_REPRESENTATION_SCHEMA_V1: u32 = 1;
 /// Boolean SML weight representation identity.
@@ -224,8 +223,7 @@ impl SmlElasticWeightPlanV1 {
                 });
             }
 
-            let expected_payload =
-                payload_bytes(transition.parameters, transition.to_precision)?;
+            let expected_payload = payload_bytes(transition.parameters, transition.to_precision)?;
             if transition.target_payload_bytes != expected_payload {
                 return Err(SmlElasticWeightAdapterError::PayloadBytes {
                     page_id: transition.page_id,
@@ -238,9 +236,11 @@ impl SmlElasticWeightPlanV1 {
                 transition
                     .from_representation_version
                     .checked_add(1)
-                    .ok_or(SmlElasticWeightAdapterError::RepresentationVersionOverflow {
-                        page_id: transition.page_id,
-                    })?
+                    .ok_or(
+                        SmlElasticWeightAdapterError::RepresentationVersionOverflow {
+                            page_id: transition.page_id,
+                        },
+                    )?
             } else {
                 transition.from_representation_version
             };
