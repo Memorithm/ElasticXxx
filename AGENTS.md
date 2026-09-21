@@ -91,3 +91,7 @@ Update the off-main ecosystem roadmap, Boolean roadmap, and ML overlay when appl
 Do not merge the roadmap or overlays themselves into the default branch unless the user explicitly requests it.
 
 This file is the mandatory bootstrap pointer and condensed execution contract. The off-main ecosystem roadmap, Boolean elasticity roadmap, and applicable ML overlay are the persistent sources of current strategy, ecosystem state, and implementation priorities.
+
+## Mandatory BANC v888 sparse-runtime elasticity bootstrap
+
+For any V888-derived sparse recurrent workload, event-window adaptation, active-edge/frontier telemetry, SML graph/page coordination, FLAT candidate-density switching, or CPU/WGPU placement work, also read [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). The V888 programme introduces no NVIDIA dependency and may adapt only between execution/representation states proven semantically admissible by the owning runtime/model contracts.
