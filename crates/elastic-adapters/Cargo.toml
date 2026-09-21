@@ -5,6 +5,10 @@ license-file.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/memorithm-elastic-adapters"
 publish = false
 description = "Concrete in-process Elastic resource adapters: RAM budgets and concurrency permits"
 

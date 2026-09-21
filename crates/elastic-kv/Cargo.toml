@@ -5,6 +5,10 @@ license-file.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/memorithm-elastic-kv"
 publish = false
 description = "KV-cache representation contracts for ElasticXxx"
 

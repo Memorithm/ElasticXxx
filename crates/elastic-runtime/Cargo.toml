@@ -5,6 +5,10 @@ license-file.workspace = true
 edition = "2021"
 rust-version = "1.89"
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/memorithm-elastic-runtime"
 publish = false
 description = "Operational observe-forecast-plan-validate-act-verify runtime for ElasticXxx"
 

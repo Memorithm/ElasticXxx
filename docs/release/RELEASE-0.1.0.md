@@ -2,7 +2,7 @@
 
 Status: **metadata frozen; publication not authorized**.
 
-The 0.1.0 line packages the existing ElasticXxx adaptive-resource runtime behind its supported Rust facade. The public source-level crate remains `elastic`; the selected registry package is `memorithm-elastic`. The registry-visible implementation dependency packages are `memorithm-elastic-core`, `memorithm-elastic-macros`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`, `memorithm-elastic-runtime`, and `memorithm-elastic-kv`. Direct use of those implementation packages is not the supported public API boundary.
+The 0.1.0 line packages the existing ElasticXxx adaptive-resource runtime behind its supported Rust facade. The public source-level crate remains `elastic`; the selected registry package is `memorithm-elastic`. The registry-visible implementation dependency packages are `memorithm-elastic-core`, `memorithm-elastic-language-syntax`, `memorithm-elastic-macros`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`, `memorithm-elastic-runtime`, and `memorithm-elastic-kv`. Direct use of those implementation packages is not the supported public API boundary.
 
 The release line declares Rust 1.89 as its MSRV and retains the repository PolyForm Noncommercial 1.0.0 license file. Commercial licensing is a separate written agreement as described in `LICENSING.md`.
 

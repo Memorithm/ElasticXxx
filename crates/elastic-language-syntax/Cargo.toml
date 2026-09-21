@@ -5,6 +5,10 @@ license-file.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/memorithm-elastic-language-syntax"
 publish = false
 description = "Shared parser and stable Rust expander for the Elastic embedded language"
 

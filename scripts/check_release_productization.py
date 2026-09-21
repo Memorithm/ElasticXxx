@@ -106,11 +106,11 @@ EXPECTED_RELEASE_DOCUMENTS = {
     "CHANGELOG.md",
     "docs/release/RELEASE-0.1.0.md",
 }
-EXPECTED_REGISTRY_AUDIT_SHA256 = "b6f5cec969229455db0832d4109acce5fa6e89a76c10ccb60654e0c42bcfecfc"
+EXPECTED_REGISTRY_AUDIT_SHA256 = "c304d3c487696dc7d6e0bfab00240fde00279900f437b637c67da4996d206f5d"
 
-EXPECTED_PACKAGE_NAMING_SHA256 = "ff1052c8c0302eef8b37ad747115b9d3970f9337e00fd692055bf6420f4d5bd4"
-EXPECTED_CHANGELOG_SHA256 = "7f6b7ddf4e25975c023b05c09d1970ef8e609db9d162c2f0cee3212b81ee4050"
-EXPECTED_RELEASE_NOTES_SHA256 = "54050102786c38c7f5e1ce281f657b5a95bac975c413e50d6d3ab9014957ebac"
+EXPECTED_PACKAGE_NAMING_SHA256 = "bf0a6194fd22eda90788d40fae7f345cf7d95e520b3c1e6af0e585cb9c6c4063"
+EXPECTED_CHANGELOG_SHA256 = "7190bd78f2747b69894ba3ef388e86716729434862c8cd063321271b650800b9"
+EXPECTED_RELEASE_NOTES_SHA256 = "64d053103a8b9d7c3c902d65f18a30e0e35a5f3bd390c42cf96fe78d6b966c6f"
 EXPECTED_PUBLICATION_BLOCKERS = {
     "crates_io_name_availability_must_be_rechecked_at_release_time",
     "full_dependency_order_registry_publish_not_executed",
@@ -133,8 +133,8 @@ EXPECTED_PUBLIC_PACKAGE_TOPOLOGY = {
         {"workspace_package": "elastic-kv", "registry_package": "memorithm-elastic-kv", "role": "implementation-dependency"},
         {"workspace_package": "elastic", "registry_package": "memorithm-elastic", "role": "public-facade"},
     ],
-    "availability_observed_at": "2026-09-19T05:58:13Z",
-    "availability_observation": "legacy-seven-selected-names-returned-404-language-syntax-name-unverified-release-time-recheck-required",
+    "availability_observed_at": "2026-09-21T13:34:02Z",
+    "availability_observation": "all-eight-selected-memorithm-elastic-names-returned-404-point-in-time-release-time-recheck-still-required",
     "manifests_renamed": True,
 }
 
@@ -305,7 +305,7 @@ def main() -> None:
 
     registry_audit_path = ROOT / "docs/release/REGISTRY-NAME-AUDIT.md"
     if sha256(registry_audit_path) != EXPECTED_REGISTRY_AUDIT_SHA256:
-        fail("registry-name audit digest drifted from the reviewed seven-package evidence")
+        fail("registry-name audit digest drifted from the reviewed eight-package recheck evidence")
     package_naming_path = ROOT / "docs/release/PACKAGE-NAMING-V1.md"
     if sha256(package_naming_path) != EXPECTED_PACKAGE_NAMING_SHA256:
         fail("package naming/topology decision digest drifted from reviewed evidence")
