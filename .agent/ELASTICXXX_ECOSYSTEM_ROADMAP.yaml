@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-19"
+last_updated: "2026-09-21"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -148,6 +148,9 @@ verified_current_facts:
   - BE15f_PR178_exact_commit_blocker_close_qualified_head_fc3c842205bb7ea46ef402826da865717a5a323e_merge_914116cd531ded905a45547bee45c4bdefeeff43
   - BE15f_PR178_merge_commit_exact_checks_ci_35431372505_packageability_35431372504_prepublication_35431372512_all_success
   - BE15f_prepublication_functionality_complete_with_four_registry_dependent_blockers_and_no_publication_or_mutation_authority
+  - ELANG9_completion_merged_through_PR_208_exact_head_bb0d03618e260d2bd5a06f9a1596842138856e89_merge_155acbf7ef13ba952a9b5076db62df130f8a74b0
+  - user_explicitly_prioritized_crates_io_productization_after_ELANG9_while_keeping_publication_unauthorized
+  - P0_crates_io_packaging_readiness_candidate_PR_209_exact_head_45772d8d201f881d9b6bb4ea54ae2349daca817a_publish_false_retained
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -658,26 +661,47 @@ roadmap:
       - make_the_command_family_and_public_Rust_API_suitable_for_ordinary_Cargo_projects_without_internal_workspace_knowledge
 
 post_prepublication_language_program:
-  status: active
+  status: language_program_complete_on_main_productization_active
   roadmap: .agent/ELASTIC_LANGUAGE_ROADMAP.yaml
-  publication_policy: suspended_by_user
+  publication_policy: user_directed_crates_io_productization_resume_publication_still_unauthorized
   retained_internal_baseline:
     qualified_head: fc3c842205bb7ea46ef402826da865717a5a323e
     qualified_merge: 914116cd531ded905a45547bee45c4bdefeeff43
     publication_authorized: false
-  current_main_after_baseline_decoupling: 979406c05e5c28a93f7c6a23bade8468bca2463b
-  latest_completed_language_phase: ELANG4
-  latest_language_completion_merge: 979406c05e5c28a93f7c6a23bade8468bca2463b
+  current_main_after_baseline_decoupling: 155acbf7ef13ba952a9b5076db62df130f8a74b0
+  latest_completed_language_phase: ELANG9
+  latest_language_completion_merge: 155acbf7ef13ba952a9b5076db62df130f8a74b0
+  elang9_completion:
+    pr: 208
+    exact_head: bb0d03618e260d2bd5a06f9a1596842138856e89
+    merge: 155acbf7ef13ba952a9b5076db62df130f8a74b0
+    note: engineering_completion_only_does_not_authorize_registry_publication
+  crates_io_productization_resume:
+    status: active_user_directed
+    publication_authorized: false
+    registry_mutation_authorized: false
+    p0_packaging_readiness:
+      pr: 209
+      exact_head: 45772d8d201f881d9b6bb4ea54ae2349daca817a
+      branch: packaging/crates-io-readiness
+      scope: facade_readme_cargo_metadata_root_readme_rehearsal_script_evidence_refresh
+      publish_flags: all_registry_visible_packages_remain_publish_false
+    remaining_p1_blockers:
+      - explicit_release_authority_to_flip_publish_and_run_cargo_publish
+      - release_time_crates_io_name_recheck
+      - dependency_order_registry_publication_of_eight_packages
+      - non_leaf_archive_inspection_after_dependencies_exist
+      - clean_registry_downstream_install_without_workspace_paths
   current_language_candidate:
     pr: null
     head: null
-    phase: ELANG5a_typed_policy_identity_versioning_and_target_binding
-    status: local_candidate_in_progress
+    phase: null
+    status: no_active_language_slice_ELANG9_complete
   rule: >-
-    Language/runtime work has priority over registry publication. Read the
-    dedicated language roadmap before macro, public-programming-model,
-    multi-resource, resource-group, composite-transaction or cargo-frontend
-    changes.
+    ELANG1-ELANG9 are complete on main. User has now prioritized crates.io
+    productization packaging work. Publication and registry mutation remain
+    unauthorized until a separate explicit release decision. Do not set
+    publish=true or run cargo publish without that authority.
 
 cross_repository_change_protocol:
   before_editing_another_repository:

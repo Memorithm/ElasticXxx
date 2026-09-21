@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_embedded_language_agent_roadmap
 status: active
-last_updated: "2026-09-20"
+last_updated: "2026-09-21"
 repository: Memorithm/ElasticXxx
 visibility_note: >-
   Agent roadmap retained off default branch. Do not merge this file to main
@@ -16,7 +16,7 @@ mission:
   language_pipeline: >-
     ELASTIC_SYNTAX -> PUBLIC_ELASTIC_API -> RESOURCE_MODEL -> EIR -> OBSERVE ->
     FORECAST -> POLICY -> PLAN -> VALIDATE -> ACT -> VERIFY -> COMMIT_OR_ROLLBACK
-  publication_policy: suspended_by_user_until_product_is_materially_more_complete
+  publication_policy: user_directed_crates_io_productization_resume_publication_still_unauthorized
   retained_release_state: >-
     The qualified 0.1.0 checkpoint is an internal reproducible baseline only.
     Registry publication and registry mutation remain unauthorized and must not
@@ -246,7 +246,10 @@ phases:
   - id: ELANG8
     name: ecosystem_language_consumers
     priority: P1
-    status: planned
+    status: complete
+    completion_evidence:
+      - completed_on_main_through_ELANG8_external_consumer_convergence_slices_before_ELANG9
+      - domain_semantics_remain_consumer_owned_facade_contracts_only
     sequence:
       - SLHAv2_and_KV_consumers
       - SciRust_representation_consumers
@@ -264,22 +267,24 @@ phases:
   - id: ELANG9
     name: language_productization_after_real_usage
     priority: P2
-    status: blocked_until_language_and_consumers_are_mature
-    tasks:
-      - revisit_semver_and_publication_only_after_user_authorizes_it
-      - compatibility_and_migration_review_for_language_syntax
-      - fuzz_macro_parser_and_persisted_schemas
-      - Miri_where_applicable
-      - clean_external_Cargo_project_install_and_examples
-      - publication_name_recheck_only_at_actual_release_time
+    status: complete
+    completion_evidence:
+      - PR_208_exact_head_bb0d03618e260d2bd5a06f9a1596842138856e89
+      - PR_208_merge_155acbf7ef13ba952a9b5076db62df130f8a74b0
+      - compatibility_malformed_input_hardening_clean_external_git_consumer_bounded_fuzz_and_targeted_Miri_qualified
+      - engineering_completion_does_not_authorize_crates_io_publication
+    follow_on:
+      - user_directed_crates_io_packaging_readiness_PR_209_exact_head_45772d8d201f881d9b6bb4ea54ae2349daca817a
+      - publication_authorized_false_until_explicit_release_decision
 
 current_execution:
-  verified_main: 26cbcdc73cfd08121593cf1a034720ee93816fe9
-  earliest_incomplete_phase: ELANG8
-  immediate_next_slice: ELANG8a_SLHAv2_and_KV_consumers
-  current_candidate_pr: null
-  current_candidate_head: null
-  current_candidate_status: ELANG7_complete_ELANG8a_cross_repository_contract_audit_in_progress
+  verified_main: 155acbf7ef13ba952a9b5076db62df130f8a74b0
+  earliest_incomplete_phase: null
+  language_program_status: ELANG0_through_ELANG9_complete_on_main
+  immediate_next_slice: crates_io_packaging_readiness_P0_then_authorized_publish_P1
+  current_candidate_pr: 209
+  current_candidate_head: 45772d8d201f881d9b6bb4ea54ae2349daca817a
+  current_candidate_status: P0_crates_io_packaging_readiness_open_publish_false
   registry_publication_authorized: false
   registry_mutation_authorized: false
   performance_claims: none
@@ -298,5 +303,6 @@ automation_contract:
     - ELANG9
   execution_rule: >-
     Select the earliest unblocked language slice, preserve exact-head CI gates,
-    update this roadmap after material changes, and do not reactivate registry
-    publication work unless the user explicitly changes publication policy.
+    update this roadmap after material changes. User has now directed crates.io
+    productization packaging work; still do not set publish=true or mutate the
+    registry without a separate explicit publication authorization.
