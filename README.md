@@ -1,12 +1,10 @@
 # ElasticXxx
 
-**ElasticXxx** is a research project exploring a general, type-safe programming model and runtime for **adaptive computational resources**, initially embedded in Rust and incubated through SLHAv2.
+**ElasticXxx** is a typed Rust programming model and runtime for **adaptive computational resources**: applications declare invariants, elastic dimensions, and objectives; the runtime runs a fail-closed control loop (`OBSERVE → FORECAST → PLAN → VALIDATE → ACT → VERIFY → COMMIT / ROLLBACK`).
 
-The project asks a deliberately broad systems/programming-languages question:
+The supported public Rust boundary is the [`elastic`](crates/elastic) facade (registry package name `memorithm-elastic`). Prefer that crate over implementation packages.
 
-> Can heterogeneous computational resources be represented as constrained adaptive state spaces, so that a runtime may change resource quantity, placement, representation, parallelism, and related properties while preserving explicit program invariants?
-
-ElasticXxx is currently in the **research and specification phase**. No claim of scientific novelty should be inferred before the literature review, formal model, implementation, and experimental evaluation are complete.
+The project still asks a deliberately broad systems question—whether heterogeneous resources can be treated as constrained adaptive state spaces—while shipping a usable 0.1.x library surface. No scientific novelty or production performance claim follows from the existence of that surface.
 
 ## Core idea
 
@@ -169,6 +167,20 @@ Relevant pull requests compile its fuzz targets, while the scheduled/manual
 `continuous-hardening` workflow runs bounded fuzzing and Miri over
 `elastic-core` and `elastic-kv`.
 
+## Using the facade (crates.io-oriented)
+
+Once publication is separately authorized, consumers will depend on
+`memorithm-elastic` and import `elastic`. Until then, use the workspace path:
+
+```toml
+[dependencies]
+elastic = { package = "memorithm-elastic", path = "crates/elastic" }
+```
+
+Crate-facing documentation lives in [`crates/elastic/README.md`](crates/elastic/README.md).
+Release packaging, naming, and compatibility contracts live under
+[`docs/release/`](docs/release/).
+
 ## Boolean elasticity programme
 
 Boolean logic is an eligibility layer around numerical resource planning, not a
@@ -223,10 +235,15 @@ SLHAv2 is intended to be the first demanding reference environment. The core Ela
 
 ## Status
 
-Active research/runtime/language development. A qualified 0.1.0 engineering
-baseline is retained internally, but public registry publication is suspended;
-current priority is the embedded Elastic language, multi-resource semantics and
-real ecosystem consumers.
+Shipable **0.1.x** product surface on the `elastic` facade, with ELANG language
+work and BE15f prepublication engineering complete on `main`. Registry
+publication is **not authorized**: every registry-visible package keeps
+`publish = false`, and crates.io release remains a separate decision after a
+fresh name recheck, dependency-order publish, non-leaf archive inspection, and
+clean downstream install. See [PACKAGEABILITY.md](docs/release/PACKAGEABILITY.md),
+[PRODUCTIZATION-V1.json](docs/release/PRODUCTIZATION-V1.json), and
+[`scripts/rehearse_crates_io_publish.sh`](scripts/rehearse_crates_io_publish.sh)
+for the packaging rehearsal (no `cargo publish`, no registry token).
 
 ## License
 

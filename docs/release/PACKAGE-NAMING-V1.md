@@ -23,9 +23,9 @@ No private-registry split is selected for the 0.1.x public release line. A mixed
 
 ## Point-in-time availability observation
 
-At `2026-09-19T05:58:13Z`, read-only GET requests to the crates.io API returned `404 Not Found` for the original seven selected names: `memorithm-elastic-core`, `memorithm-elastic-macros`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`, `memorithm-elastic-runtime`, `memorithm-elastic-kv`, and `memorithm-elastic`. The later ELANG6 refactor added `memorithm-elastic-language-syntax` as a required implementation dependency. That eighth name was **not** part of the retained seven-name audit and is deliberately recorded as unverified until the mandatory release-time registry recheck; no availability or ownership claim is made for it here.
+At `2026-09-19T05:58:13Z`, read-only GET requests to the crates.io API returned `404 Not Found` for seven selected names: `memorithm-elastic-core`, `memorithm-elastic-macros`, `memorithm-elastic-eir`, `memorithm-elastic-adapters`, `memorithm-elastic-runtime`, `memorithm-elastic-kv`, and `memorithm-elastic`. The later ELANG6 refactor added `memorithm-elastic-language-syntax` as a required eighth implementation dependency.
 
-The requests used the identifying user agent `Memorithm-release-audit/1.0 contact@checkupauto.fr`. These observations are not reservations or ownership proof. Every selected name must be rechecked immediately before any separately authorized publish operation. Registry mutation remains forbidden by the current productization contract.
+At `2026-09-21T13:34:02Z`, a packaging-readiness recheck with the same identifying user agent observed `404 Not Found` for **all eight** selected registry package names, including `memorithm-elastic-language-syntax`. Unrelated occupied names `elastic` and `elastic_macros` remained present (`HTTP 200`). These observations are not reservations or ownership proof. Every selected name must be rechecked again immediately before any separately authorized publish operation. Registry mutation remains forbidden by the current productization contract. See [REGISTRY-NAME-AUDIT.md](REGISTRY-NAME-AUDIT.md).
 
 ## Applied Cargo mapping
 

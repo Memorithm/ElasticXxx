@@ -131,8 +131,8 @@
         "role": "public-facade"
       }
     ],
-    "availability_observed_at": "2026-09-19T05:58:13Z",
-    "availability_observation": "legacy-seven-selected-names-returned-404-language-syntax-name-unverified-release-time-recheck-required",
+    "availability_observed_at": "2026-09-21T13:34:02Z",
+    "availability_observation": "all-eight-selected-memorithm-elastic-names-returned-404-point-in-time-release-time-recheck-still-required",
     "manifests_renamed": true
   }
 }

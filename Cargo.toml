@@ -18,7 +18,10 @@ members = [
 edition = "2021"
 rust-version = "1.89"
 repository = "https://github.com/Memorithm/ElasticXxx"
+homepage = "https://github.com/Memorithm/ElasticXxx"
 license-file = "LICENSE.md"
+keywords = ["adaptive", "resources", "runtime", "planning", "invariants"]
+categories = ["science", "development-tools", "concurrency"]
 
 [workspace.dependencies]
 elastic-core = { package = "memorithm-elastic-core", version = "0.1.0", path = "crates/elastic-core" }
