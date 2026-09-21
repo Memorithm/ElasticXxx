@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-13"
+last_updated: "2026-09-21"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -177,6 +177,18 @@ priority_program:
           - Boolean_True_cannot_bypass_authoritative_RepresentationTransition_validation
           - declared_bits_per_scalar_is_policy_metadata_not_a_numerical_error_or_model_quality_claim
           - this_slice_is_not_real_representation_actuation_policy_quality_or_performance_evidence
+      - id: EXML2e
+        name: SML elastic weight plan contract boundary
+        status: complete_validation_and_projection_no_physical_actuation
+        completion_evidence:
+          - SML_GENIUS_PR_10_merge_56e92129285e62b65c3d61651ed02935d534367b_introduced_transactional_elastic_precision_residency_activation_planning
+          - SML_GENIUS_PR_11_merge_3e04239862c9d14cb369227f4abbe84b5c7e1d5e_published_self_validating_sml_elastic_weight_plan_1_0_0
+          - ElasticXxx_PR_210_exact_head_7f4e3706b33228a99189d8f313db486e0545e83a_merge_5ed38b90e4e707a0b092747615ac5213b9e33838
+          - PR_210_checks_ci_35609218565_packageability_35609218496_release_candidate_prepublication_35609218481_and_ELANG7_CPU_reference_35609218569_all_completed_success_on_exact_head
+          - adapter_independently_revalidates_payload_bytes_representation_versions_RAM_VRAM_active_parameters_active_storage_movement_totals_and_precision_change_count
+          - precision_changes_project_to_existing_RepresentationTransition_and_require_caller_selected_Reencode_or_Recompute_with_generic_capability_and_attestation_validation
+          - Reinterpret_is_rejected_for_SML_precision_changes_and_residency_only_changes_are_not_misrepresented_as_representation_changes
+          - this_slice_has_no_physical_page_movement_codec_master_weight_reconstruction_GPU_transfer_post_actuation_quality_or_performance_claim
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
       - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters
