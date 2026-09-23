@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-21"
+last_updated: "2026-09-23"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -781,3 +781,51 @@ v888_sparse_runtime_program:
     - EX_V888_10_cross_repository_publication_gate
   nvidia_dependency_for_new_programme: false
   authoritative_main_document: docs/V888_CONNECTOME_BOOTSTRAP.md
+
+
+adaptive_repair_resource_program_2026_09_23:
+  status: active_planned_versioned_boundary
+  objective: >-
+    Extend ElasticXxx's generic OBSERVE-FORECAST-PLAN-VALIDATE-ACT-VERIFY-
+    COMMIT_OR_ROLLBACK loop to bounded adaptive-compute workloads such as FLAT
+    MAA-14 repair and SML recurrent/Delta-KV refinement, without importing their
+    numerical or memory semantics.
+  ownership:
+    ElasticXxx_owns:
+      - generic_compute_memory_latency_and_energy_budget_contracts
+      - bounded_round_or_work_expansion_planning
+      - forecast_freshness_and_resource_envelope_validation
+      - transactional_actuation_verification_and_rollback
+    ElasticXxx_does_not_own:
+      - FLAT_attention_correctness_repair_trigger_or_softmax_quality
+      - SML_Delta_KV_memory_semantics_interference_or_task_quality
+      - Forge_candidate_search_or_holdout_policy
+  required_resource_dimensions:
+    - maximum_adaptive_rounds
+    - maximum_rows_or_work_items_expanded_per_round
+    - maximum_total_active_candidates_or_pages
+    - RAM_and_VRAM_budget_when_physically_applicable
+    - controller_and_routing_overhead
+    - latency_budget_only_from_versioned_measurements_or_explicit_forecast
+    - energy_or_thermal_budget_only_when_real_observers_are_available
+  invariants:
+    - domain_owner_supplies_versioned_semantic_candidate_and_verification_contract
+    - an_Elastic_plan_cannot_turn_an_unqualified_domain_candidate_into_a_valid_one
+    - forecast_is_not_measurement
+    - resource_success_is_not_model_quality_or_numerical_correctness
+    - verification_failure_rolls_back_or_fails_closed
+    - no_hidden_dense_fallback_may_be_reported_as_sparse_or_adaptive_success
+  sequence:
+    - EX_AR_0_versioned_adaptive_workload_and_resource_signal_schema
+    - EX_AR_1_hard_budget_and_round_envelope_validation
+    - EX_AR_2_PLAN_for_bounded_progressive_work_expansion
+    - EX_AR_3_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
+    - EX_AR_4_replayable_evidence_and_fixed_policy_baselines
+    - EX_AR_5_FLAT_MAA14_and_SML_Delta_KV_adapters_only_after_source_contracts_are_qualified
+  initial_consumers:
+    Memorithm/FLAT-ATTENTION:
+      status: source_contract_in_development_MAA_14
+      integration_rule: FLAT_retains_repair_trigger_correctness_and_numerical_authority
+    Memorithm/SML-GENIUS:
+      status: source_contract_in_development_Delta_KV
+      integration_rule: SML_retains_recurrent_memory_and_task_quality_authority
