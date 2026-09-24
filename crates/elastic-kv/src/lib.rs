@@ -11,6 +11,7 @@ pub mod benchmark;
 pub mod boolean_admission;
 pub mod representation_precision;
 pub mod stage_b;
+pub mod storage_recompute;
 pub mod transaction;
 
 pub use benchmark::{
@@ -22,6 +23,12 @@ pub use benchmark::{
 pub use representation_precision::{
     RepresentationPrecisionKvBindingError, RepresentationPrecisionKvBindingV1,
     REPRESENTATION_PRECISION_KV_BINDING_V1,
+};
+
+pub use storage_recompute::{
+    ReplayContractV1, ReplayReconstructionV1, StorageRecomputeActionV1,
+    StorageRecomputeCandidateV1, StorageRecomputeContractError, MAX_STORAGE_RECOMPUTE_ID_BYTES,
+    STORAGE_RECOMPUTE_CANDIDATE_V1,
 };
 
 pub use stage_b::{
