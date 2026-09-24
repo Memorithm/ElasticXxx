@@ -95,3 +95,9 @@ This file is the mandatory bootstrap pointer and condensed execution contract. T
 ## Mandatory BANC v888 sparse-runtime elasticity bootstrap
 
 For any V888-derived sparse recurrent workload, event-window adaptation, active-edge/frontier telemetry, SML graph/page coordination, FLAT candidate-density switching, or CPU/WGPU placement work, also read [`docs/V888_CONNECTOME_BOOTSTRAP.md`](docs/V888_CONNECTOME_BOOTSTRAP.md). The V888 programme introduces no NVIDIA dependency and may adapt only between execution/representation states proven semantically admissible by the owning runtime/model contracts.
+
+## Mandatory storage-versus-recompute programme
+
+For any state-retention, cache, checkpoint, KV, replay, rematerialization, or recomputation policy, also read `deepseek_v41_storage_recompute_program_2026_09_24` in the off-main ecosystem roadmap.
+
+The generic action family is `KEEP | COMPRESS | OFFLOAD | DROP_AND_REPLAY`. Recomputation is a costed action, never a free fallback. Approximate reconstruction requires a domain-owned quality/semantic verifier; ElasticXxx cannot manufacture admissibility from lower byte cost. This programme generalizes beyond KV and must remain free of DeepSeek-, Transformer-, SLHAv2-, or NNIS-specific semantics in the core.
