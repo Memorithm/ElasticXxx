@@ -853,7 +853,7 @@ deepseek_v41_storage_recompute_program_2026_09_24:
     - quality_or_semantic_guard_from_domain_owner
     - freshness_and_source_identity
   ordered_sequence:
-    - EX_SR_0_versioned_storage_recompute_candidate_contract
+    - EX_SR_0_versioned_storage_recompute_candidate_contract_complete_PR_213_merge_4220d62c4c3de94ae90aab26d96df51e4b474e80
     - EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
     - EX_SR_2_PLAN_validation_for_KEEP_COMPRESS_OFFLOAD_DROP_AND_REPLAY
     - EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
@@ -866,3 +866,19 @@ deepseek_v41_storage_recompute_program_2026_09_24:
     - no_forecast_is_relabelled_as_measurement
     - failed_replay_or_quality_verification_rolls_back_or_fails_closed
 
+storage_recompute_contract_evidence_2026_09_25:
+  status: EX_SR_0_merged
+  pull_request: https://github.com/Memorithm/ElasticXxx/pull/213
+  merge_revision: 4220d62c4c3de94ae90aab26d96df51e4b474e80
+  scope:
+    - versioned_KEEP_COMPRESS_OFFLOAD_DROP_AND_REPLAY_candidate_contract
+    - explicit_nonzero_replay_window
+    - exact_or_approximate_reconstruction_class
+    - approximate_replay_requires_domain_verifier_identity
+    - deterministic_source_generation_and_target_state_fingerprint
+  exclusions:
+    - no_cost_vector_yet
+    - no_planner_or_actuation
+    - no_domain_KV_semantics
+    - no_quality_memory_latency_or_performance_claim
+  next: EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
