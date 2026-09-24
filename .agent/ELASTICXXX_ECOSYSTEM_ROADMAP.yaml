@@ -829,3 +829,40 @@ adaptive_repair_resource_program_2026_09_23:
     Memorithm/SML-GENIUS:
       status: source_contract_in_development_Delta_KV
       integration_rule: SML_retains_recurrent_memory_and_task_quality_authority
+deepseek_v41_storage_recompute_program_2026_09_24:
+  status: active_generic_runtime_extension
+  source:
+    title: "DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression"
+    organization: DeepSeek-AI
+    reviewed_on: 2026-09-24
+    evidence_rule: source_mechanisms_are_inputs_to_design_not_runtime_evidence
+  objective: >-
+    Make storage-versus-recomputation a first-class generic elastic resource
+    decision so domain runtimes can choose among keeping, compressing, offloading,
+    or dropping state for bounded replay under explicit invariants.
+  generic_action_family:
+    - KEEP
+    - COMPRESS
+    - OFFLOAD
+    - DROP_AND_REPLAY
+  required_observations:
+    - physical_resident_bytes_when_available
+    - transfer_bytes_and_transfer_latency
+    - replay_window_size
+    - measured_or_declared_recompute_cost
+    - quality_or_semantic_guard_from_domain_owner
+    - freshness_and_source_identity
+  ordered_sequence:
+    - EX_SR_0_versioned_storage_recompute_candidate_contract
+    - EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
+    - EX_SR_2_PLAN_validation_for_KEEP_COMPRESS_OFFLOAD_DROP_AND_REPLAY
+    - EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
+    - EX_SR_4_SLHAv2_replay_adapter_after_source_contract_qualification
+    - EX_SR_5_NNIS_runtime_adapter_after_portable_runtime_contract_qualification
+  invariants:
+    - recomputation_is_not_free_and_must_enter_the_cost_vector
+    - approximate_domain_reconstruction_requires_domain_owned_quality_verification
+    - ElasticXxx_never_invents_KV_attention_or_model_semantics
+    - no_forecast_is_relabelled_as_measurement
+    - failed_replay_or_quality_verification_rolls_back_or_fails_closed
+
