@@ -9,8 +9,7 @@ use elastic_eir::Fingerprint;
 use std::fmt;
 
 /// Stable schema identity for the first storage/recompute candidate contract.
-pub const STORAGE_RECOMPUTE_CANDIDATE_V1: &str =
-    "elastic.kv.storage-recompute-candidate@1.0.0";
+pub const STORAGE_RECOMPUTE_CANDIDATE_V1: &str = "elastic.kv.storage-recompute-candidate@1.0.0";
 
 /// Maximum UTF-8 bytes accepted for opaque contract identifiers.
 pub const MAX_STORAGE_RECOMPUTE_ID_BYTES: usize = 128;
@@ -57,9 +56,7 @@ impl ReplayContractV1 {
         if let Some(verifier) = verifier_id.as_deref() {
             validate_id("verifier_id", verifier)?;
         }
-        if matches!(reconstruction, ReplayReconstructionV1::Approximate)
-            && verifier_id.is_none()
-        {
+        if matches!(reconstruction, ReplayReconstructionV1::Approximate) && verifier_id.is_none() {
             return Err(StorageRecomputeContractError::ApproximateReplayMissingVerifier);
         }
         Ok(Self {
@@ -290,15 +287,9 @@ mod tests {
             ("compress", StorageRecomputeActionV1::Compress),
             ("offload", StorageRecomputeActionV1::Offload),
         ] {
-            let candidate = StorageRecomputeCandidateV1::new(
-                id,
-                "kv.semantic.v1",
-                7,
-                "target",
-                action,
-                None,
-            )
-            .unwrap();
+            let candidate =
+                StorageRecomputeCandidateV1::new(id, "kv.semantic.v1", 7, "target", action, None)
+                    .unwrap();
             assert_eq!(candidate.action(), action);
             assert!(candidate.replay().is_none());
         }
