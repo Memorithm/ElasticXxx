@@ -12,8 +12,7 @@ use crate::storage_recompute::{
 };
 
 /// Stable schema identity for the first storage/recompute cost vector.
-pub const STORAGE_RECOMPUTE_COST_VECTOR_V1: &str =
-    "elastic.kv.storage-recompute-cost-vector@1.0.0";
+pub const STORAGE_RECOMPUTE_COST_VECTOR_V1: &str = "elastic.kv.storage-recompute-cost-vector@1.0.0";
 
 /// Maximum UTF-8 bytes accepted for evidence and verifier identifiers.
 pub const MAX_STORAGE_RECOMPUTE_EVIDENCE_ID_BYTES: usize = 128;
