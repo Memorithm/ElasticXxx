@@ -349,9 +349,7 @@ mod tests {
     use super::*;
     use crate::storage_recompute::{ReplayContractV1, ReplayReconstructionV1};
 
-    fn replay_candidate(
-        reconstruction: ReplayReconstructionV1,
-    ) -> StorageRecomputeCandidateV1 {
+    fn replay_candidate(reconstruction: ReplayReconstructionV1) -> StorageRecomputeCandidateV1 {
         let verifier = matches!(reconstruction, ReplayReconstructionV1::Approximate)
             .then(|| "slha.replay-quality.v1".to_string());
         StorageRecomputeCandidateV1::new(
