@@ -56,8 +56,7 @@ pub use control::{
 pub use diagnostic::{ElasticDiagnosticCode, ELASTIC_DIAGNOSTIC_SCHEMA_V1};
 pub use elastic_word::{
     ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthTransitionV1, ElasticWordWidthV1,
-    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES,
-    ELASTIC_WORD_WIDTH_V1,
+    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES, ELASTIC_WORD_WIDTH_V1,
 };
 pub use exact_oracle::{
     ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
