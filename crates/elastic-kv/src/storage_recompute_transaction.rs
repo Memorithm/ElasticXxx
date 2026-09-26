@@ -120,24 +120,81 @@ impl StorageRecomputeTransactionBindingV1 {
     }
 }
 
+/// Backend-issued ownership token retained from ACT through COMMIT/ROLLBACK.
+///
+/// A backend sequence must never be reused for the same backend instance. The
+/// backend must invalidate the token before permitting a later writer.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageRecomputeTransactionTokenV1 {
+    binding_fingerprint: Fingerprint,
+    plan_fingerprint: Fingerprint,
+    backend_sequence: u64,
+    fingerprint: Fingerprint,
+}
+
+impl StorageRecomputeTransactionTokenV1 {
+    #[must_use]
+    pub fn new(
+        binding: &StorageRecomputeTransactionBindingV1,
+        plan: &StorageRecomputePlanV1,
+        backend_sequence: u64,
+    ) -> Self {
+        let binding_fingerprint = binding.fingerprint();
+        let plan_fingerprint = plan.fingerprint();
+        let fingerprint = Fingerprint::EMPTY
+            .text(STORAGE_RECOMPUTE_TRANSACTION_V1)
+            .text("ownership-token")
+            .number(binding_fingerprint.bits())
+            .number(plan_fingerprint.bits())
+            .number(backend_sequence);
+        Self {
+            binding_fingerprint,
+            plan_fingerprint,
+            backend_sequence,
+            fingerprint,
+        }
+    }
+
+    #[must_use]
+    pub const fn binding_fingerprint(&self) -> Fingerprint {
+        self.binding_fingerprint
+    }
+
+    #[must_use]
+    pub const fn plan_fingerprint(&self) -> Fingerprint {
+        self.plan_fingerprint
+    }
+
+    #[must_use]
+    pub const fn backend_sequence(&self) -> u64 {
+        self.backend_sequence
+    }
+
+    #[must_use]
+    pub const fn fingerprint(&self) -> Fingerprint {
+        self.fingerprint
+    }
+}
+
 /// Failure classification for the atomic compare-and-apply boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum StorageRecomputeApplyErrorV1 {
     /// The source comparison failed before mutation. Rollback would be unsafe
-    /// because it could overwrite the concurrent authoritative writer.
+    /// because it could overwrite the concurrent authoritative writer. The
+    /// backend must invalidate the supplied ownership token before returning
+    /// this variant.
     SourceMismatch(String),
-    /// The exact target was installed atomically before a later actuation
-    /// failure. Rollback may restore the source only while that target remains
-    /// authoritative.
-    TargetApplied(String),
+    /// Mutation may have begun while the transaction ownership token remains
+    /// active. Rollback is allowed only while that token is still authoritative.
+    MutationMayHaveOccurred(String),
 }
 
 impl StorageRecomputeApplyErrorV1 {
     #[must_use]
     pub fn reason(&self) -> &str {
         match self {
-            Self::SourceMismatch(reason) | Self::TargetApplied(reason) => reason,
+            Self::SourceMismatch(reason) | Self::MutationMayHaveOccurred(reason) => reason,
         }
     }
 }
@@ -151,8 +208,8 @@ impl fmt::Display for StorageRecomputeApplyErrorV1 {
 /// Trusted backend boundary for one already-authorized local storage surface.
 ///
 /// `apply_if_source` must compare `source` and perform any mutation under the
-/// same backend concurrency boundary. It must distinguish a clean comparison
-/// failure from an error after the exact target was installed.
+/// same backend concurrency boundary. A backend-issued ownership token fences
+/// ACT through COMMIT/ROLLBACK, including partial mutations and KEEP.
 pub trait StorageRecomputeTransactionBackendV1 {
     /// Read the current authoritative state.
     fn read_state(&self) -> Result<StorageRecomputeBackendStateV1, String>;
@@ -167,9 +224,19 @@ pub trait StorageRecomputeTransactionBackendV1 {
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), String>;
 
+    /// Atomically compare the source and acquire exclusive local ownership.
+    fn acquire_transaction(
+        &mut self,
+        binding: &StorageRecomputeTransactionBindingV1,
+        candidate: &StorageRecomputeCandidateV1,
+        plan: &StorageRecomputePlanV1,
+        source: &StorageRecomputeBackendStateV1,
+    ) -> Result<StorageRecomputeTransactionTokenV1, String>;
+
     /// Atomically compare the authoritative source and apply the declared action.
     fn apply_if_source(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         candidate: &StorageRecomputeCandidateV1,
         plan: &StorageRecomputePlanV1,
         source: &StorageRecomputeBackendStateV1,
@@ -179,6 +246,7 @@ pub trait StorageRecomputeTransactionBackendV1 {
     /// Verify the physical result plus domain-owned semantic/quality invariants.
     fn verify_action(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         candidate: &StorageRecomputeCandidateV1,
         plan: &StorageRecomputePlanV1,
         target: &StorageRecomputeBackendStateV1,
@@ -187,19 +255,20 @@ pub trait StorageRecomputeTransactionBackendV1 {
     /// Publish the already-verified target as authoritative.
     fn commit_action(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         candidate: &StorageRecomputeCandidateV1,
         plan: &StorageRecomputePlanV1,
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), String>;
 
-    /// Restore the source only if the exact transaction target is still current.
+    /// Restore the source only if this transaction still owns the backend.
     ///
-    /// `Ok(false)` means another writer replaced the target; implementations
-    /// must preserve that authoritative concurrent state.
-    fn rollback_if_target(
+    /// `Ok(false)` means ownership was invalidated by another writer;
+    /// implementations must preserve that authoritative concurrent state.
+    fn rollback_if_owned(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         candidate: &StorageRecomputeCandidateV1,
-        target: &StorageRecomputeBackendStateV1,
         source: &StorageRecomputeBackendStateV1,
         reason: &str,
     ) -> Result<bool, String>;
@@ -233,6 +302,7 @@ impl StorageRecomputeTransactionStageV1 {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommittedStorageRecomputeTransactionV1 {
     binding_fingerprint: Fingerprint,
+    token_fingerprint: Fingerprint,
     candidate_fingerprint: Fingerprint,
     cost_fingerprint: Fingerprint,
     plan_fingerprint: Fingerprint,
@@ -246,6 +316,11 @@ impl CommittedStorageRecomputeTransactionV1 {
     #[must_use]
     pub const fn binding_fingerprint(&self) -> Fingerprint {
         self.binding_fingerprint
+    }
+
+    #[must_use]
+    pub const fn token_fingerprint(&self) -> Fingerprint {
+        self.token_fingerprint
     }
 
     #[must_use]
@@ -395,14 +470,14 @@ fn bound_failure_without_rollback(
 
 fn fail_after_possible_mutation<B: StorageRecomputeTransactionBackendV1>(
     backend: &mut B,
+    token: &StorageRecomputeTransactionTokenV1,
     candidate: &StorageRecomputeCandidateV1,
     plan: &StorageRecomputePlanV1,
     source: &StorageRecomputeBackendStateV1,
-    target: &StorageRecomputeBackendStateV1,
     stage: StorageRecomputeTransactionStageV1,
     reason: String,
 ) -> StorageRecomputeTransactionFailureV1 {
-    let rollback_result = backend.rollback_if_target(candidate, target, source, &reason);
+    let rollback_result = backend.rollback_if_owned(token, candidate, source, &reason);
     let backend_rollback_error = rollback_result.as_ref().err().cloned();
     let rollback_restored_source = rollback_result.is_ok_and(|restored| restored)
         && backend.read_state().is_ok_and(|current| current == *source);
@@ -494,6 +569,7 @@ fn derive_target(
 }
 
 fn commit_record(
+    token: &StorageRecomputeTransactionTokenV1,
     binding: &StorageRecomputeTransactionBindingV1,
     candidate: &StorageRecomputeCandidateV1,
     costs: &StorageRecomputeCostVectorV1,
@@ -504,6 +580,7 @@ fn commit_record(
     let fingerprint = Fingerprint::EMPTY
         .text(STORAGE_RECOMPUTE_TRANSACTION_V1)
         .number(binding.fingerprint().bits())
+        .number(token.fingerprint().bits())
         .number(candidate.fingerprint().bits())
         .number(costs.fingerprint().bits())
         .number(plan.fingerprint().bits())
@@ -511,6 +588,7 @@ fn commit_record(
         .number(target.fingerprint().bits());
     CommittedStorageRecomputeTransactionV1 {
         binding_fingerprint: binding.fingerprint(),
+        token_fingerprint: token.fingerprint(),
         candidate_fingerprint: candidate.fingerprint(),
         cost_fingerprint: costs.fingerprint(),
         plan_fingerprint: plan.fingerprint(),
@@ -526,8 +604,8 @@ fn commit_record(
 /// The plan is re-derived from the supplied candidate and action-time cost
 /// evidence before any backend method. The explicit transaction binding must
 /// match both the candidate and the exact authoritative source fingerprint.
-/// Only failures after the exact target was installed attempt conditional
-/// rollback, which preserves any later authoritative writer.
+/// The backend then acquires an ownership token before ACT. Any possibly
+/// mutating failure rolls back only while that token remains authoritative.
 pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBackendV1>(
     binding: &StorageRecomputeTransactionBindingV1,
     candidate: &StorageRecomputeCandidateV1,
@@ -594,9 +672,8 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
         ));
     }
 
-    // Re-read after validation and immediately before the first possibly
-    // mutating call. The backend must repeat this comparison atomically inside
-    // `apply_if_source`.
+    // Re-read after validation and immediately before ownership acquisition.
+    // The backend repeats the comparison atomically while acquiring the token.
     let current = backend.read_state().map_err(|error| {
         bound_failure_without_rollback(
             candidate,
@@ -616,7 +693,19 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
         ));
     }
 
-    if let Err(error) = backend.apply_if_source(candidate, plan, &source, &target) {
+    let token = backend
+        .acquire_transaction(binding, candidate, plan, &source)
+        .map_err(|error| {
+            bound_failure_without_rollback(
+                candidate,
+                plan,
+                Some(&source),
+                StorageRecomputeTransactionStageV1::Act,
+                format!("transaction ownership acquisition failed: {error}"),
+            )
+        })?;
+
+    if let Err(error) = backend.apply_if_source(&token, candidate, plan, &source, &target) {
         return Err(match error {
             StorageRecomputeApplyErrorV1::SourceMismatch(reason) => bound_failure_without_rollback(
                 candidate,
@@ -625,25 +714,27 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
                 StorageRecomputeTransactionStageV1::Act,
                 format!("backend source comparison failed before mutation: {reason}"),
             ),
-            StorageRecomputeApplyErrorV1::TargetApplied(reason) => fail_after_possible_mutation(
-                backend,
-                candidate,
-                plan,
-                &source,
-                &target,
-                StorageRecomputeTransactionStageV1::Act,
-                format!("backend actuation failed after installing the target: {reason}"),
-            ),
+            StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(reason) => {
+                fail_after_possible_mutation(
+                    backend,
+                    &token,
+                    candidate,
+                    plan,
+                    &source,
+                    StorageRecomputeTransactionStageV1::Act,
+                    format!("backend actuation failed after mutation may have begun: {reason}"),
+                )
+            }
         });
     }
 
     let observed = backend.read_state().map_err(|error| {
         fail_after_possible_mutation(
             backend,
+            &token,
             candidate,
             plan,
             &source,
-            &target,
             StorageRecomputeTransactionStageV1::Verify,
             format!("post-actuation state read failed: {error}"),
         )
@@ -651,40 +742,40 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
     if observed != target {
         return Err(fail_after_possible_mutation(
             backend,
+            &token,
             candidate,
             plan,
             &source,
-            &target,
             StorageRecomputeTransactionStageV1::Verify,
             "post-actuation state differs from the bound target".to_owned(),
         ));
     }
-    if let Err(error) = backend.verify_action(candidate, plan, &target) {
+    if let Err(error) = backend.verify_action(&token, candidate, plan, &target) {
         return Err(fail_after_possible_mutation(
             backend,
+            &token,
             candidate,
             plan,
             &source,
-            &target,
             StorageRecomputeTransactionStageV1::Verify,
             format!("backend verification failed: {error}"),
         ));
     }
 
-    if let Err(error) = backend.commit_action(candidate, plan, &target) {
+    if let Err(error) = backend.commit_action(&token, candidate, plan, &target) {
         return Err(fail_after_possible_mutation(
             backend,
+            &token,
             candidate,
             plan,
             &source,
-            &target,
             StorageRecomputeTransactionStageV1::Commit,
             format!("backend commit failed: {error}"),
         ));
     }
 
     Ok(commit_record(
-        binding, candidate, costs, plan, source, target,
+        &token, binding, candidate, costs, plan, source, target,
     ))
 }
 
@@ -697,6 +788,8 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
 pub struct ReferenceStorageRecomputeBackendV1 {
     state: StorageRecomputeBackendStateV1,
     committed_fingerprint: Option<Fingerprint>,
+    active_token: Option<Fingerprint>,
+    next_sequence: u64,
 }
 
 impl ReferenceStorageRecomputeBackendV1 {
@@ -705,6 +798,8 @@ impl ReferenceStorageRecomputeBackendV1 {
         Self {
             state,
             committed_fingerprint: None,
+            active_token: None,
+            next_sequence: 0,
         }
     }
 
@@ -716,6 +811,10 @@ impl ReferenceStorageRecomputeBackendV1 {
     #[must_use]
     pub const fn committed_fingerprint(&self) -> Option<Fingerprint> {
         self.committed_fingerprint
+    }
+
+    fn owns(&self, token: &StorageRecomputeTransactionTokenV1) -> bool {
+        self.active_token == Some(token.fingerprint())
     }
 }
 
@@ -746,14 +845,50 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
         Ok(())
     }
 
+    fn acquire_transaction(
+        &mut self,
+        binding: &StorageRecomputeTransactionBindingV1,
+        candidate: &StorageRecomputeCandidateV1,
+        plan: &StorageRecomputePlanV1,
+        source: &StorageRecomputeBackendStateV1,
+    ) -> Result<StorageRecomputeTransactionTokenV1, String> {
+        if self.state != *source {
+            return Err("reference source drifted before ownership acquisition".into());
+        }
+        if self.active_token.is_some() {
+            return Err("reference backend already has an active transaction".into());
+        }
+        if binding.candidate_fingerprint() != candidate.fingerprint()
+            || binding.source_fingerprint() != source.fingerprint()
+            || plan.candidate_fingerprint() != candidate.fingerprint()
+        {
+            return Err("reference ownership binding mismatch".into());
+        }
+        let sequence = self.next_sequence;
+        self.next_sequence = self
+            .next_sequence
+            .checked_add(1)
+            .ok_or_else(|| "reference transaction sequence exhausted".to_owned())?;
+        let token = StorageRecomputeTransactionTokenV1::new(binding, plan, sequence);
+        self.active_token = Some(token.fingerprint());
+        Ok(token)
+    }
+
     fn apply_if_source(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         _candidate: &StorageRecomputeCandidateV1,
         _plan: &StorageRecomputePlanV1,
         source: &StorageRecomputeBackendStateV1,
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), StorageRecomputeApplyErrorV1> {
+        if !self.owns(token) {
+            return Err(StorageRecomputeApplyErrorV1::SourceMismatch(
+                "reference transaction ownership is not active".into(),
+            ));
+        }
         if self.state != *source {
+            self.active_token = None;
             return Err(StorageRecomputeApplyErrorV1::SourceMismatch(
                 "reference source comparison failed".into(),
             ));
@@ -764,10 +899,14 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
 
     fn verify_action(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         _candidate: &StorageRecomputeCandidateV1,
         _plan: &StorageRecomputePlanV1,
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), String> {
+        if !self.owns(token) {
+            return Err("reference transaction ownership was lost".into());
+        }
         (self.state == *target)
             .then_some(())
             .ok_or_else(|| "reference target verification failed".into())
@@ -775,29 +914,35 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
 
     fn commit_action(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         _candidate: &StorageRecomputeCandidateV1,
         plan: &StorageRecomputePlanV1,
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), String> {
+        if !self.owns(token) {
+            return Err("reference transaction ownership was lost".into());
+        }
         if self.state != *target {
             return Err("reference commit target mismatch".into());
         }
         self.committed_fingerprint = Some(plan.fingerprint());
+        self.active_token = None;
         Ok(())
     }
 
-    fn rollback_if_target(
+    fn rollback_if_owned(
         &mut self,
+        token: &StorageRecomputeTransactionTokenV1,
         _candidate: &StorageRecomputeCandidateV1,
-        target: &StorageRecomputeBackendStateV1,
         source: &StorageRecomputeBackendStateV1,
         _reason: &str,
     ) -> Result<bool, String> {
-        if self.state != *target {
+        if !self.owns(token) {
             return Ok(false);
         }
         self.state = source.clone();
         self.committed_fingerprint = None;
+        self.active_token = None;
         Ok(true)
     }
 }
@@ -905,6 +1050,7 @@ mod tests {
 
             assert_eq!(committed.action(), action);
             assert_eq!(committed.source(), &source);
+            assert_ne!(committed.token_fingerprint(), Fingerprint::EMPTY);
             assert_eq!(committed.plan_fingerprint(), plan.fingerprint());
             assert_eq!(backend.state(), committed.target());
             assert_eq!(backend.committed_fingerprint(), Some(plan.fingerprint()));
@@ -983,6 +1129,7 @@ mod tests {
         Validate,
         ConcurrentSourceMismatch,
         ConcurrentAfterAct,
+        PartialAct,
         Act,
         Verify,
         Commit,
@@ -1014,8 +1161,20 @@ mod tests {
                 .validate_action(candidate, costs, plan, source, target)
         }
 
+        fn acquire_transaction(
+            &mut self,
+            binding: &StorageRecomputeTransactionBindingV1,
+            candidate: &StorageRecomputeCandidateV1,
+            plan: &StorageRecomputePlanV1,
+            source: &StorageRecomputeBackendStateV1,
+        ) -> Result<StorageRecomputeTransactionTokenV1, String> {
+            self.inner
+                .acquire_transaction(binding, candidate, plan, source)
+        }
+
         fn apply_if_source(
             &mut self,
+            token: &StorageRecomputeTransactionTokenV1,
             candidate: &StorageRecomputeCandidateV1,
             plan: &StorageRecomputePlanV1,
             source: &StorageRecomputeBackendStateV1,
@@ -1028,14 +1187,26 @@ mod tests {
                     "concurrent-writer",
                 )
                 .unwrap();
+                self.inner.active_token = None;
                 return Err(StorageRecomputeApplyErrorV1::SourceMismatch(
                     "injected concurrent writer".into(),
                 ));
             }
+            if self.fail_at == FailAt::PartialAct {
+                self.inner.state = StorageRecomputeBackendStateV1::new(
+                    source.semantic_contract_id(),
+                    source.generation() + 1,
+                    "partial-actuation",
+                )
+                .unwrap();
+                return Err(StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(
+                    "injected partial actuation failure".into(),
+                ));
+            }
             self.inner
-                .apply_if_source(candidate, plan, source, target)?;
+                .apply_if_source(token, candidate, plan, source, target)?;
             if self.fail_at == FailAt::Act {
-                return Err(StorageRecomputeApplyErrorV1::TargetApplied(
+                return Err(StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(
                     "injected post-mutation actuation failure".into(),
                 ));
             }
@@ -1044,6 +1215,7 @@ mod tests {
 
         fn verify_action(
             &mut self,
+            token: &StorageRecomputeTransactionTokenV1,
             candidate: &StorageRecomputeCandidateV1,
             plan: &StorageRecomputePlanV1,
             target: &StorageRecomputeBackendStateV1,
@@ -1055,16 +1227,18 @@ mod tests {
                     "concurrent-after-act",
                 )
                 .unwrap();
+                self.inner.active_token = None;
                 return Err("injected concurrent writer after actuation".into());
             }
             if self.fail_at == FailAt::Verify {
                 return Err("injected verification failure".into());
             }
-            self.inner.verify_action(candidate, plan, target)
+            self.inner.verify_action(token, candidate, plan, target)
         }
 
         fn commit_action(
             &mut self,
+            token: &StorageRecomputeTransactionTokenV1,
             candidate: &StorageRecomputeCandidateV1,
             plan: &StorageRecomputePlanV1,
             target: &StorageRecomputeBackendStateV1,
@@ -1072,13 +1246,13 @@ mod tests {
             if self.fail_at == FailAt::Commit {
                 return Err("injected commit failure".into());
             }
-            self.inner.commit_action(candidate, plan, target)
+            self.inner.commit_action(token, candidate, plan, target)
         }
 
-        fn rollback_if_target(
+        fn rollback_if_owned(
             &mut self,
+            token: &StorageRecomputeTransactionTokenV1,
             candidate: &StorageRecomputeCandidateV1,
-            target: &StorageRecomputeBackendStateV1,
             source: &StorageRecomputeBackendStateV1,
             reason: &str,
         ) -> Result<bool, String> {
@@ -1086,7 +1260,7 @@ mod tests {
                 return Err("injected rollback failure".into());
             }
             self.inner
-                .rollback_if_target(candidate, target, source, reason)
+                .rollback_if_owned(token, candidate, source, reason)
         }
     }
 
@@ -1126,22 +1300,33 @@ mod tests {
 
     #[test]
     fn conditional_rollback_preserves_a_writer_after_actuation() {
-        let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
-        let mut backend = fault_backend(source.clone(), FailAt::ConcurrentAfterAct);
+        for action in [
+            StorageRecomputeActionV1::Keep,
+            StorageRecomputeActionV1::Compress,
+        ] {
+            let (candidate, costs, plan, source) = fixture(action);
+            let mut backend = fault_backend(source.clone(), FailAt::ConcurrentAfterAct);
 
-        let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
+            let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
 
-        assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Verify);
-        assert!(failure.rollback_attempted());
-        assert!(!failure.rollback_restored_source());
-        assert_eq!(backend.inner.state().generation(), source.generation() + 2);
-        assert_eq!(backend.inner.state().state_id(), "concurrent-after-act");
-        assert_eq!(failure.backend_rollback_error(), None);
+            assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Verify);
+            assert!(failure.rollback_attempted());
+            assert!(!failure.rollback_restored_source());
+            let target_generation = if action == StorageRecomputeActionV1::Keep {
+                source.generation()
+            } else {
+                source.generation() + 1
+            };
+            assert_eq!(backend.inner.state().generation(), target_generation + 1);
+            assert_eq!(backend.inner.state().state_id(), "concurrent-after-act");
+            assert_eq!(failure.backend_rollback_error(), None);
+        }
     }
 
     #[test]
     fn every_post_mutation_failure_rolls_back_and_verifies_source() {
         for (fail_at, expected_stage) in [
+            (FailAt::PartialAct, StorageRecomputeTransactionStageV1::Act),
             (FailAt::Act, StorageRecomputeTransactionStageV1::Act),
             (FailAt::Verify, StorageRecomputeTransactionStageV1::Verify),
             (FailAt::Commit, StorageRecomputeTransactionStageV1::Commit),
@@ -1166,14 +1351,18 @@ mod tests {
         assert!(failure.rollback_restored_source());
 
         let mut backend = fault_backend(source.clone(), FailAt::Rollback);
-        let target = StorageRecomputeBackendStateV1::new("domain.state.v1", 8, "mutated").unwrap();
-        backend.inner.state = target.clone();
+        let binding = StorageRecomputeTransactionBindingV1::new(&candidate, &source);
+        let token = backend
+            .acquire_transaction(&binding, &candidate, &plan, &source)
+            .unwrap();
+        backend.inner.state =
+            StorageRecomputeBackendStateV1::new("domain.state.v1", 8, "mutated").unwrap();
         let failure = fail_after_possible_mutation(
             &mut backend,
+            &token,
             &candidate,
             &plan,
             &source,
-            &target,
             StorageRecomputeTransactionStageV1::Verify,
             "injected".into(),
         );
