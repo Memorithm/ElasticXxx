@@ -14,6 +14,7 @@ pub mod stage_b;
 pub mod storage_recompute;
 pub mod storage_recompute_cost;
 pub mod storage_recompute_plan;
+pub mod storage_recompute_transaction;
 pub mod transaction;
 
 pub use benchmark::{
@@ -36,6 +37,13 @@ pub use storage_recompute_cost::{
 pub use storage_recompute_plan::{
     StorageRecomputePlanError, StorageRecomputePlanLimitsV1, StorageRecomputePlanV1,
     STORAGE_RECOMPUTE_PLAN_V1,
+};
+
+pub use storage_recompute_transaction::{
+    execute_storage_recompute_transaction, CommittedStorageRecomputeTransactionV1,
+    ReferenceStorageRecomputeBackendV1, StorageRecomputeBackendStateV1,
+    StorageRecomputeTransactionBackendV1, StorageRecomputeTransactionFailureV1,
+    StorageRecomputeTransactionStageV1, STORAGE_RECOMPUTE_TRANSACTION_V1,
 };
 
 pub use storage_recompute::{
