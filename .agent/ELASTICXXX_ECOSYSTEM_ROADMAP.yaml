@@ -859,7 +859,7 @@ deepseek_v41_storage_recompute_program_2026_09_24:
     - EX_SR_0_versioned_storage_recompute_candidate_contract_complete_PR_213_merge_4220d62c4c3de94ae90aab26d96df51e4b474e80
     - EX_SR_1_cost_vector_complete_PR_214_merge_84e04df2cd1e8a9762cb052d7447ae64c3c7f32f
     - EX_SR_2_PLAN_validation_complete_PR_215_exact_head_2b679a10d01040fcc1bd93e492be1feb90666055_merge_c021531e8003f375c057806bd4fdef15093250af
-    - EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
+    - EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend_complete_PR_217_exact_head_39f7c01cea49fe0ca972a0f57d5966778b7bbeb4_merge_845c8c7f7ecbf354b5e6ed10d8edb75d710fe3bf
     - EX_SR_4_SLHAv2_replay_adapter_after_source_contract_qualification
     - EX_SR_5_NNIS_runtime_adapter_after_portable_runtime_contract_qualification
   invariants:
@@ -917,3 +917,38 @@ storage_recompute_cost_and_plan_evidence_2026_09_26:
     - no_COMMIT_or_ROLLBACK_backend
     - no_performance_or_quality_claim
   next: EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
+
+
+storage_recompute_transaction_evidence_2026_09_26:
+  status: EX_SR_3_merged_after_corrective_exact_head_qualification
+  initial_pull_request:
+    pull_request: https://github.com/Memorithm/ElasticXxx/pull/216
+    merged_head_revision: 7253eb91bcb26cf0000ec2f6078e2262d31b3271
+    merge_revision: 6928d397eff7f358d6bf227e200dc1bd9e013fe0
+    qualification_note: auto_merged_before_two_material_exact_head_review_findings_were_corrected
+  corrective_pull_request:
+    pull_request: https://github.com/Memorithm/ElasticXxx/pull/217
+    qualified_head_revision: 39f7c01cea49fe0ca972a0f57d5966778b7bbeb4
+    merge_revision: 845c8c7f7ecbf354b5e6ed10d8edb75d710fe3bf
+    exact_head_checks:
+      - ci_run_728_success_including_format_clippy_tests_and_rustdoc
+      - packageability_run_422_success
+      - release_candidate_prepublication_run_133_success
+      - ELANG7_CPU_reference_run_56_success
+      - continuous_hardening_run_189_success
+    exact_head_review: completed_without_material_findings
+  corrected_material_findings:
+    - partial_physical_mutation_before_target_identity_now_has_MutationMayHaveOccurred_and_owned_rollback
+    - KEEP_uses_a_distinct_backend_transaction_token_instead_of_source_target_identity
+    - later_writer_invalidates_token_and_is_preserved_by_rollback_if_owned
+  scope:
+    - exact_candidate_plan_and_source_binding
+    - backend_issued_local_transaction_ownership_token
+    - VALIDATE_ACT_VERIFY_COMMIT_or_conditional_ROLLBACK_reference_backend
+    - partial_ACT_verify_commit_and_rollback_negative_tests
+    - KEEP_COMPRESS_OFFLOAD_and_DROP_AND_REPLAY_contract_coverage
+  exclusions:
+    - no_Hub_or_distributed_lease_implementation
+    - no_real_codec_KV_device_network_or_model_runtime
+    - no_performance_storage_efficiency_quality_or_production_readiness_claim
+  next: EX_SR_4_SLHAv2_replay_adapter_only_after_source_contract_qualification
