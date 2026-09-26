@@ -178,6 +178,9 @@ pub struct StorageRecomputeCostVectorV1 {
     transfer_bytes: Option<ByteCostEvidenceV1>,
     transfer_latency: Option<DurationCostEvidenceV1>,
     recompute_latency: Option<DurationCostEvidenceV1>,
+    // Controller-owned elapsed action time. This includes action work that has
+    // no dedicated duration field (notably KEEP and COMPRESS), while transfer
+    // and replay time remain in their dedicated fields.
     controller_latency: Option<DurationCostEvidenceV1>,
     quality_guard: QualityGuardEvidenceV1,
     fingerprint: Fingerprint,
@@ -189,6 +192,10 @@ impl StorageRecomputeCostVectorV1 {
     /// A drop-and-replay candidate must include recompute-duration evidence.
     /// Approximate replay must carry the exact verifier identity declared by
     /// the EX-SR-0 replay contract, though that verifier may still be pending.
+    /// `controller_latency` is the elapsed controller-owned action duration and
+    /// must include action work without another duration field, including KEEP
+    /// and COMPRESS execution. It must exclude separately reported transfer
+    /// and replay durations so aggregate planning cannot double count them.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         candidate: &StorageRecomputeCandidateV1,
@@ -290,6 +297,10 @@ impl StorageRecomputeCostVectorV1 {
     }
 
     #[must_use]
+    /// Elapsed controller-owned action duration.
+    ///
+    /// This includes KEEP/COMPRESS action work, but excludes transfer and
+    /// replay durations represented by their dedicated evidence fields.
     pub const fn controller_latency(&self) -> Option<&DurationCostEvidenceV1> {
         self.controller_latency.as_ref()
     }
