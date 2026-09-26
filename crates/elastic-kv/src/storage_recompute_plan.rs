@@ -96,7 +96,7 @@ impl StorageRecomputePlanV1 {
             }
         }
 
-        if limits.max_total_latency_ns.is_some() && costs.controller_latency().is_none() {
+        if costs.controller_latency().is_none() {
             return Err(StorageRecomputePlanError::MissingControllerLatency);
         }
 
@@ -358,7 +358,7 @@ impl fmt::Display for StorageRecomputePlanError {
                 output.write_str("replay candidate is missing recompute latency")
             }
             Self::MissingControllerLatency => {
-                output.write_str("latency-bounded plan is missing controller latency")
+                output.write_str("storage/recompute plan is missing controller latency")
             }
             Self::ApproximateReplayVerifierMissing => {
                 output.write_str("approximate replay contract is missing its verifier")
@@ -601,7 +601,7 @@ mod tests {
             None,
             None,
             None,
-            None,
+            Some(duration(0, CostEvidenceBasisV1::Measured)),
             QualityGuardEvidenceV1::NotAttached,
         )
         .unwrap();
@@ -637,7 +637,7 @@ mod tests {
     }
 
     #[test]
-    fn latency_budget_requires_controller_duration_evidence() {
+    fn every_plan_requires_controller_duration_evidence() {
         let compress = candidate("compress", StorageRecomputeActionV1::Compress, None);
         let costs = StorageRecomputeCostVectorV1::new(
             &compress,
