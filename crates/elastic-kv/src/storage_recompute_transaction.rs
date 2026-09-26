@@ -71,11 +71,86 @@ impl StorageRecomputeBackendStateV1 {
     }
 }
 
+/// Explicit action-time binding between a screened candidate and its exact
+/// planned source state.
+///
+/// Generation and semantic contract are insufficient when multiple resources
+/// share them. The source fingerprint includes the concrete state identity and
+/// prevents applying a candidate planned for one resource to another.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageRecomputeTransactionBindingV1 {
+    candidate_fingerprint: Fingerprint,
+    source_fingerprint: Fingerprint,
+    fingerprint: Fingerprint,
+}
+
+impl StorageRecomputeTransactionBindingV1 {
+    #[must_use]
+    pub fn new(
+        candidate: &StorageRecomputeCandidateV1,
+        source: &StorageRecomputeBackendStateV1,
+    ) -> Self {
+        let candidate_fingerprint = candidate.fingerprint();
+        let source_fingerprint = source.fingerprint();
+        let fingerprint = Fingerprint::EMPTY
+            .text(STORAGE_RECOMPUTE_TRANSACTION_V1)
+            .text("binding")
+            .number(candidate_fingerprint.bits())
+            .number(source_fingerprint.bits());
+        Self {
+            candidate_fingerprint,
+            source_fingerprint,
+            fingerprint,
+        }
+    }
+
+    #[must_use]
+    pub const fn candidate_fingerprint(&self) -> Fingerprint {
+        self.candidate_fingerprint
+    }
+
+    #[must_use]
+    pub const fn source_fingerprint(&self) -> Fingerprint {
+        self.source_fingerprint
+    }
+
+    #[must_use]
+    pub const fn fingerprint(&self) -> Fingerprint {
+        self.fingerprint
+    }
+}
+
+/// Failure classification for the atomic compare-and-apply boundary.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum StorageRecomputeApplyErrorV1 {
+    /// The source comparison failed before mutation. Rollback would be unsafe
+    /// because it could overwrite the concurrent authoritative writer.
+    SourceMismatch(String),
+    /// Mutation may have happened; the bound source must be restored.
+    MutationMayHaveOccurred(String),
+}
+
+impl StorageRecomputeApplyErrorV1 {
+    #[must_use]
+    pub fn reason(&self) -> &str {
+        match self {
+            Self::SourceMismatch(reason) | Self::MutationMayHaveOccurred(reason) => reason,
+        }
+    }
+}
+
+impl fmt::Display for StorageRecomputeApplyErrorV1 {
+    fn fmt(&self, output: &mut fmt::Formatter<'_>) -> fmt::Result {
+        output.write_str(self.reason())
+    }
+}
+
 /// Trusted backend boundary for one already-authorized local storage surface.
 ///
 /// `apply_if_source` must compare `source` and perform any mutation under the
-/// same backend concurrency boundary. An error is treated as possibly mutating
-/// and therefore triggers rollback.
+/// same backend concurrency boundary. It must distinguish a clean comparison
+/// failure from an error after mutation may have begun.
 pub trait StorageRecomputeTransactionBackendV1 {
     /// Read the current authoritative state.
     fn read_state(&self) -> Result<StorageRecomputeBackendStateV1, String>;
@@ -97,7 +172,7 @@ pub trait StorageRecomputeTransactionBackendV1 {
         plan: &StorageRecomputePlanV1,
         source: &StorageRecomputeBackendStateV1,
         target: &StorageRecomputeBackendStateV1,
-    ) -> Result<(), String>;
+    ) -> Result<(), StorageRecomputeApplyErrorV1>;
 
     /// Verify the physical result plus domain-owned semantic/quality invariants.
     fn verify_action(
@@ -151,6 +226,7 @@ impl StorageRecomputeTransactionStageV1 {
 /// Evidence for one verified and committed storage/recompute transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CommittedStorageRecomputeTransactionV1 {
+    binding_fingerprint: Fingerprint,
     candidate_fingerprint: Fingerprint,
     cost_fingerprint: Fingerprint,
     plan_fingerprint: Fingerprint,
@@ -161,6 +237,11 @@ pub struct CommittedStorageRecomputeTransactionV1 {
 }
 
 impl CommittedStorageRecomputeTransactionV1 {
+    #[must_use]
+    pub const fn binding_fingerprint(&self) -> Fingerprint {
+        self.binding_fingerprint
+    }
+
     #[must_use]
     pub const fn candidate_fingerprint(&self) -> Fingerprint {
         self.candidate_fingerprint
@@ -405,6 +486,7 @@ fn derive_target(
 }
 
 fn commit_record(
+    binding: &StorageRecomputeTransactionBindingV1,
     candidate: &StorageRecomputeCandidateV1,
     costs: &StorageRecomputeCostVectorV1,
     plan: &StorageRecomputePlanV1,
@@ -413,12 +495,14 @@ fn commit_record(
 ) -> CommittedStorageRecomputeTransactionV1 {
     let fingerprint = Fingerprint::EMPTY
         .text(STORAGE_RECOMPUTE_TRANSACTION_V1)
+        .number(binding.fingerprint().bits())
         .number(candidate.fingerprint().bits())
         .number(costs.fingerprint().bits())
         .number(plan.fingerprint().bits())
         .number(source.fingerprint().bits())
         .number(target.fingerprint().bits());
     CommittedStorageRecomputeTransactionV1 {
+        binding_fingerprint: binding.fingerprint(),
         candidate_fingerprint: candidate.fingerprint(),
         cost_fingerprint: costs.fingerprint(),
         plan_fingerprint: plan.fingerprint(),
@@ -432,15 +516,25 @@ fn commit_record(
 /// Execute one exact screened candidate through the trusted backend lifecycle.
 ///
 /// The plan is re-derived from the supplied candidate and action-time cost
-/// evidence before any backend method. Source generation and semantic contract
-/// are then rebound to authoritative backend state. Failures after the first
-/// possibly mutating call always attempt rollback and verify source restoration.
+/// evidence before any backend method. The explicit transaction binding must
+/// match both the candidate and the exact authoritative source fingerprint.
+/// Only failures after mutation may have begun attempt rollback.
 pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBackendV1>(
+    binding: &StorageRecomputeTransactionBindingV1,
     candidate: &StorageRecomputeCandidateV1,
     costs: &StorageRecomputeCostVectorV1,
     plan: &StorageRecomputePlanV1,
     backend: &mut B,
 ) -> Result<CommittedStorageRecomputeTransactionV1, StorageRecomputeTransactionFailureV1> {
+    if binding.candidate_fingerprint() != candidate.fingerprint() {
+        return Err(bound_failure_without_rollback(
+            candidate,
+            plan,
+            None,
+            StorageRecomputeTransactionStageV1::Bind,
+            "transaction binding belongs to a different candidate",
+        ));
+    }
     let authoritative_plan = StorageRecomputePlanV1::screen(candidate, costs, plan.limits())
         .map_err(|error| {
             bound_failure_without_rollback(
@@ -470,6 +564,15 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
             format!("authoritative source read failed: {error}"),
         )
     })?;
+    if binding.source_fingerprint() != source.fingerprint() {
+        return Err(bound_failure_without_rollback(
+            candidate,
+            plan,
+            Some(&source),
+            StorageRecomputeTransactionStageV1::Bind,
+            "transaction binding differs from the exact authoritative source state",
+        ));
+    }
     let target = derive_target(candidate, plan, &source)?;
 
     if let Err(error) = backend.validate_action(candidate, costs, plan, &source, &target) {
@@ -505,14 +608,27 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
     }
 
     if let Err(error) = backend.apply_if_source(candidate, plan, &source, &target) {
-        return Err(fail_after_possible_mutation(
-            backend,
-            candidate,
-            plan,
-            &source,
-            StorageRecomputeTransactionStageV1::Act,
-            format!("backend actuation failed: {error}"),
-        ));
+        return Err(match error {
+            StorageRecomputeApplyErrorV1::SourceMismatch(reason) => {
+                bound_failure_without_rollback(
+                    candidate,
+                    plan,
+                    Some(&source),
+                    StorageRecomputeTransactionStageV1::Act,
+                    format!("backend source comparison failed before mutation: {reason}"),
+                )
+            }
+            StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(reason) => {
+                fail_after_possible_mutation(
+                    backend,
+                    candidate,
+                    plan,
+                    &source,
+                    StorageRecomputeTransactionStageV1::Act,
+                    format!("backend actuation failed after mutation may have begun: {reason}"),
+                )
+            }
+        });
     }
 
     let observed = backend.read_state().map_err(|error| {
@@ -557,7 +673,9 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
         ));
     }
 
-    Ok(commit_record(candidate, costs, plan, source, target))
+    Ok(commit_record(
+        binding, candidate, costs, plan, source, target,
+    ))
 }
 
 /// Deterministic in-memory reference backend.
@@ -624,9 +742,11 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
         _plan: &StorageRecomputePlanV1,
         source: &StorageRecomputeBackendStateV1,
         target: &StorageRecomputeBackendStateV1,
-    ) -> Result<(), String> {
+    ) -> Result<(), StorageRecomputeApplyErrorV1> {
         if self.state != *source {
-            return Err("reference source comparison failed".into());
+            return Err(StorageRecomputeApplyErrorV1::SourceMismatch(
+                "reference source comparison failed".into(),
+            ));
         }
         self.state = target.clone();
         Ok(())
@@ -746,6 +866,17 @@ mod tests {
         (candidate, costs, plan, source)
     }
 
+    fn execute<B: StorageRecomputeTransactionBackendV1>(
+        candidate: &StorageRecomputeCandidateV1,
+        costs: &StorageRecomputeCostVectorV1,
+        plan: &StorageRecomputePlanV1,
+        source: &StorageRecomputeBackendStateV1,
+        backend: &mut B,
+    ) -> Result<CommittedStorageRecomputeTransactionV1, StorageRecomputeTransactionFailureV1> {
+        let binding = StorageRecomputeTransactionBindingV1::new(candidate, source);
+        execute_storage_recompute_transaction(&binding, candidate, costs, plan, backend)
+    }
+
     #[test]
     fn reference_backend_commits_every_declared_action_family_member() {
         for action in [
@@ -756,9 +887,7 @@ mod tests {
         ] {
             let (candidate, costs, plan, source) = fixture(action);
             let mut backend = ReferenceStorageRecomputeBackendV1::new(source.clone());
-            let committed =
-                execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-                    .unwrap();
+            let committed = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap();
 
             assert_eq!(committed.action(), action);
             assert_eq!(committed.source(), &source);
@@ -780,12 +909,35 @@ mod tests {
         let stale = StorageRecomputeBackendStateV1::new("domain.state.v1", 8, "source").unwrap();
         let mut backend = ReferenceStorageRecomputeBackendV1::new(stale.clone());
 
-        let failure =
-            execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-                .unwrap_err();
+        let binding_source =
+            StorageRecomputeBackendStateV1::new("domain.state.v1", 7, "source").unwrap();
+        let failure = execute(&candidate, &costs, &plan, &binding_source, &mut backend).unwrap_err();
         assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Bind);
         assert!(!failure.rollback_attempted());
         assert_eq!(backend.state(), &stale);
+    }
+
+    #[test]
+    fn binding_rejects_a_different_source_identity_with_same_contract_and_generation() {
+        let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
+        let other =
+            StorageRecomputeBackendStateV1::new("domain.state.v1", 7, "other-source").unwrap();
+        let binding = StorageRecomputeTransactionBindingV1::new(&candidate, &source);
+        let mut backend = ReferenceStorageRecomputeBackendV1::new(other.clone());
+
+        let failure = execute_storage_recompute_transaction(
+            &binding,
+            &candidate,
+            &costs,
+            &plan,
+            &mut backend,
+        )
+        .unwrap_err();
+
+        assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Bind);
+        assert!(failure.reason().contains("exact authoritative source"));
+        assert!(!failure.rollback_attempted());
+        assert_eq!(backend.state(), &other);
     }
 
     #[test]
@@ -803,9 +955,7 @@ mod tests {
         .unwrap();
         let mut backend = ReferenceStorageRecomputeBackendV1::new(source.clone());
 
-        let failure =
-            execute_storage_recompute_transaction(&candidate, &changed, &plan, &mut backend)
-                .unwrap_err();
+        let failure = execute(&candidate, &changed, &plan, &source, &mut backend).unwrap_err();
         assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Bind);
         assert!(failure.reason().contains("differs"));
         assert_eq!(backend.state(), &source);
@@ -816,6 +966,7 @@ mod tests {
     enum FailAt {
         None,
         Validate,
+        ConcurrentSourceMismatch,
         Act,
         Verify,
         Commit,
@@ -853,11 +1004,24 @@ mod tests {
             plan: &StorageRecomputePlanV1,
             source: &StorageRecomputeBackendStateV1,
             target: &StorageRecomputeBackendStateV1,
-        ) -> Result<(), String> {
+        ) -> Result<(), StorageRecomputeApplyErrorV1> {
+            if self.fail_at == FailAt::ConcurrentSourceMismatch {
+                self.inner.state = StorageRecomputeBackendStateV1::new(
+                    source.semantic_contract_id(),
+                    source.generation() + 1,
+                    "concurrent-writer",
+                )
+                .unwrap();
+                return Err(StorageRecomputeApplyErrorV1::SourceMismatch(
+                    "injected concurrent writer".into(),
+                ));
+            }
             self.inner
                 .apply_if_source(candidate, plan, source, target)?;
             if self.fail_at == FailAt::Act {
-                return Err("injected post-mutation actuation failure".into());
+                return Err(StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(
+                    "injected post-mutation actuation failure".into(),
+                ));
             }
             Ok(())
         }
@@ -910,9 +1074,7 @@ mod tests {
     fn validation_failure_never_attempts_rollback() {
         let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
         let mut backend = fault_backend(source.clone(), FailAt::Validate);
-        let failure =
-            execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-                .unwrap_err();
+        let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
 
         assert_eq!(
             failure.stage(),
@@ -920,6 +1082,19 @@ mod tests {
         );
         assert!(!failure.rollback_attempted());
         assert_eq!(backend.inner.state(), &source);
+    }
+
+    #[test]
+    fn clean_atomic_source_mismatch_preserves_the_concurrent_writer() {
+        let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
+        let mut backend = fault_backend(source.clone(), FailAt::ConcurrentSourceMismatch);
+
+        let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
+
+        assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Act);
+        assert!(!failure.rollback_attempted());
+        assert_eq!(backend.inner.state().generation(), source.generation() + 1);
+        assert_eq!(backend.inner.state().state_id(), "concurrent-writer");
     }
 
     #[test]
@@ -931,9 +1106,7 @@ mod tests {
         ] {
             let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
             let mut backend = fault_backend(source.clone(), fail_at);
-            let failure =
-                execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-                    .unwrap_err();
+            let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
 
             assert_eq!(failure.stage(), expected_stage);
             assert!(failure.rollback_attempted());
@@ -947,9 +1120,7 @@ mod tests {
         let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
         let mut backend = fault_backend(source.clone(), FailAt::Rollback);
         backend.fail_at = FailAt::Act;
-        let failure =
-            execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-                .unwrap_err();
+        let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
         assert!(failure.rollback_restored_source());
 
         let mut backend = fault_backend(source.clone(), FailAt::Rollback);
@@ -974,9 +1145,7 @@ mod tests {
     #[test]
     fn no_fault_mode_remains_available_for_test_backends() {
         let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
-        let mut backend = fault_backend(source, FailAt::None);
-        assert!(
-            execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend).is_ok()
-        );
+        let mut backend = fault_backend(source.clone(), FailAt::None);
+        assert!(execute(&candidate, &costs, &plan, &source, &mut backend).is_ok());
     }
 }
