@@ -26,8 +26,7 @@ pub use benchmark::{
 
 pub use elastic_word::{
     ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthTransitionV1, ElasticWordWidthV1,
-    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES,
-    ELASTIC_WORD_WIDTH_V1,
+    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES, ELASTIC_WORD_WIDTH_V1,
 };
 
 pub use representation_precision::{
