@@ -657,7 +657,11 @@ mod tests {
 
     #[test]
     fn compression_action_duration_is_included_in_latency_budget() {
-        let compress = candidate("compress-duration", StorageRecomputeActionV1::Compress, None);
+        let compress = candidate(
+            "compress-duration",
+            StorageRecomputeActionV1::Compress,
+            None,
+        );
         let costs = StorageRecomputeCostVectorV1::new(
             &compress,
             Some(bytes(10)),
