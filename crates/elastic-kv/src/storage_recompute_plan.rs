@@ -84,20 +84,14 @@ impl StorageRecomputePlanV1 {
                 .ok_or(StorageRecomputePlanError::MissingResidentBytes)?
                 .bytes();
             if observed > limit {
-                return Err(StorageRecomputePlanError::ResidentBytesExceeded {
-                    observed,
-                    limit,
-                });
+                return Err(StorageRecomputePlanError::ResidentBytesExceeded { observed, limit });
             }
         }
 
         if let Some(limit) = limits.max_transfer_bytes {
             let observed = costs.transfer_bytes().map_or(0, |value| value.bytes());
             if observed > limit {
-                return Err(StorageRecomputePlanError::TransferBytesExceeded {
-                    observed,
-                    limit,
-                });
+                return Err(StorageRecomputePlanError::TransferBytesExceeded { observed, limit });
             }
         }
 
@@ -308,20 +302,47 @@ pub enum StorageRecomputePlanError {
 impl fmt::Display for StorageRecomputePlanError {
     fn fmt(&self, output: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::UnboundedPolicy => output.write_str("storage/recompute planning policy is unbounded"),
-            Self::CandidateFingerprintMismatch => output.write_str("cost vector belongs to another candidate"),
-            Self::MissingResidentBytes => output.write_str("candidate is missing resident-byte evidence"),
-            Self::MissingTransferBytes => output.write_str("candidate is missing transfer-byte evidence"),
-            Self::MissingTransferLatency => output.write_str("offload candidate is missing transfer latency"),
-            Self::MissingRecomputeLatency => output.write_str("replay candidate is missing recompute latency"),
-            Self::ApproximateReplayVerifierMissing => output.write_str("approximate replay contract is missing its verifier"),
-            Self::QualityEvidenceNotVerified => output.write_str("approximate replay quality evidence is not verified"),
-            Self::QualityVerifierMismatch => output.write_str("quality verifier does not match the replay contract"),
-            Self::ForecastEvidenceForbidden => output.write_str("planning policy forbids forecast evidence"),
-            Self::ResidentBytesExceeded { observed, limit } => write!(output, "resident bytes {observed} exceed limit {limit}"),
-            Self::TransferBytesExceeded { observed, limit } => write!(output, "transfer bytes {observed} exceed limit {limit}"),
+            Self::UnboundedPolicy => {
+                output.write_str("storage/recompute planning policy is unbounded")
+            }
+            Self::CandidateFingerprintMismatch => {
+                output.write_str("cost vector belongs to another candidate")
+            }
+            Self::MissingResidentBytes => {
+                output.write_str("candidate is missing resident-byte evidence")
+            }
+            Self::MissingTransferBytes => {
+                output.write_str("candidate is missing transfer-byte evidence")
+            }
+            Self::MissingTransferLatency => {
+                output.write_str("offload candidate is missing transfer latency")
+            }
+            Self::MissingRecomputeLatency => {
+                output.write_str("replay candidate is missing recompute latency")
+            }
+            Self::ApproximateReplayVerifierMissing => {
+                output.write_str("approximate replay contract is missing its verifier")
+            }
+            Self::QualityEvidenceNotVerified => {
+                output.write_str("approximate replay quality evidence is not verified")
+            }
+            Self::QualityVerifierMismatch => {
+                output.write_str("quality verifier does not match the replay contract")
+            }
+            Self::ForecastEvidenceForbidden => {
+                output.write_str("planning policy forbids forecast evidence")
+            }
+            Self::ResidentBytesExceeded { observed, limit } => {
+                write!(output, "resident bytes {observed} exceed limit {limit}")
+            }
+            Self::TransferBytesExceeded { observed, limit } => {
+                write!(output, "transfer bytes {observed} exceed limit {limit}")
+            }
             Self::LatencyOverflow => output.write_str("aggregate latency overflowed u64"),
-            Self::LatencyExceeded { observed, limit } => write!(output, "aggregate latency {observed} ns exceeds limit {limit} ns"),
+            Self::LatencyExceeded { observed, limit } => write!(
+                output,
+                "aggregate latency {observed} ns exceeds limit {limit} ns"
+            ),
         }
     }
 }
@@ -333,8 +354,7 @@ mod tests {
     use super::*;
     use crate::storage_recompute::ReplayContractV1;
     use crate::storage_recompute_cost::{
-        ByteCostEvidenceV1, ByteEvidenceScopeV1, DurationCostEvidenceV1,
-        StorageRecomputeCostError,
+        ByteCostEvidenceV1, ByteEvidenceScopeV1, DurationCostEvidenceV1, StorageRecomputeCostError,
     };
 
     fn bytes(value: u64) -> ByteCostEvidenceV1 {
