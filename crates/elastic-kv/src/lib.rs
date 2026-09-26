@@ -41,8 +41,9 @@ pub use storage_recompute_plan::{
 
 pub use storage_recompute_transaction::{
     execute_storage_recompute_transaction, CommittedStorageRecomputeTransactionV1,
-    ReferenceStorageRecomputeBackendV1, StorageRecomputeBackendStateV1,
-    StorageRecomputeTransactionBackendV1, StorageRecomputeTransactionFailureV1,
+    ReferenceStorageRecomputeBackendV1, StorageRecomputeApplyErrorV1,
+    StorageRecomputeBackendStateV1, StorageRecomputeTransactionBackendV1,
+    StorageRecomputeTransactionBindingV1, StorageRecomputeTransactionFailureV1,
     StorageRecomputeTransactionStageV1, STORAGE_RECOMPUTE_TRANSACTION_V1,
 };
 
