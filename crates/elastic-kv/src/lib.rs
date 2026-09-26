@@ -9,6 +9,7 @@
 
 pub mod benchmark;
 pub mod boolean_admission;
+pub mod elastic_word;
 pub mod representation_precision;
 pub mod stage_b;
 pub mod storage_recompute;
@@ -21,6 +22,12 @@ pub use benchmark::{
     run_fixed_baseline, BenchmarkError, BenchmarkResult, BlockBenchmarkResult, CandidateId,
     ReconstructionMetrics, RepresentationFamily, SyntheticCorpus, BENCHMARK_PROTOCOL_VERSION,
     FIXED_CANDIDATES, RESIDENT_ALIGNMENT_BITS, SERIALIZED_ALIGNMENT_BITS,
+};
+
+pub use elastic_word::{
+    ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthTransitionV1, ElasticWordWidthV1,
+    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES,
+    ELASTIC_WORD_WIDTH_V1,
 };
 
 pub use representation_precision::{
