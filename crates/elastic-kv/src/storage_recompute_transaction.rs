@@ -625,17 +625,15 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
                 StorageRecomputeTransactionStageV1::Act,
                 format!("backend source comparison failed before mutation: {reason}"),
             ),
-            StorageRecomputeApplyErrorV1::TargetApplied(reason) => {
-                fail_after_possible_mutation(
-                    backend,
-                    candidate,
-                    plan,
-                    &source,
-                    &target,
-                    StorageRecomputeTransactionStageV1::Act,
-                    format!("backend actuation failed after installing the target: {reason}"),
-                )
-            }
+            StorageRecomputeApplyErrorV1::TargetApplied(reason) => fail_after_possible_mutation(
+                backend,
+                candidate,
+                plan,
+                &source,
+                &target,
+                StorageRecomputeTransactionStageV1::Act,
+                format!("backend actuation failed after installing the target: {reason}"),
+            ),
         });
     }
 
