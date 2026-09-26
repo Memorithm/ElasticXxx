@@ -1167,7 +1167,7 @@ mod tests {
 
         let mut backend = fault_backend(source.clone(), FailAt::Rollback);
         let target = StorageRecomputeBackendStateV1::new("domain.state.v1", 8, "mutated").unwrap();
-        backend.inner.state = target;
+        backend.inner.state = target.clone();
         let failure = fail_after_possible_mutation(
             &mut backend,
             &candidate,
