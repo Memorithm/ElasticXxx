@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-21"
+last_updated: "2026-09-26"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -189,6 +189,18 @@ priority_program:
           - precision_changes_project_to_existing_RepresentationTransition_and_require_caller_selected_Reencode_or_Recompute_with_generic_capability_and_attestation_validation
           - Reinterpret_is_rejected_for_SML_precision_changes_and_residency_only_changes_are_not_misrepresented_as_representation_changes
           - this_slice_has_no_physical_page_movement_codec_master_weight_reconstruction_GPU_transfer_post_actuation_quality_or_performance_claim
+      - id: EXML2f
+        name: Elastic multi-lane control-plane word width contract
+        status: complete_structural_contract_no_physical_actuation
+        completion_evidence:
+          - ElasticXxx_PR_218_exact_head_18a1564c4d3452ba5ec22b85968cffc59df54089_merge_45de2aa3dd5928d9c0188feb95933b354effb342
+          - exact_head_ci_packageability_release_candidate_ELANG7_and_continuous_hardening_completed_success_before_merge
+          - elastic_kv_exposes_one_flat_u64_lane_plane_contract_with_width_state_carried_once_per_plane
+          - admitted_v1_widths_are_64_128_256_512_1024_and_2048_bits_as_power_of_two_u64_lane_counts
+          - width_changes_reject_Reinterpret_and_require_materializing_transition_semantics
+          - reference_contraction_fails_closed_when_nonzero_high_lanes_would_be_discarded
+          - KVLab_PR_136_PR_137_and_PR_138_supply_preregistration_flat_oracle_and_fixed_width_measurement_harness_without_runtime_promotion
+          - this_slice_has_no_live_KV_page_table_replacement_GPU_actuation_memory_saving_latency_bandwidth_or_model_quality_claim
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
       - integrate_SLHAv2_HOT_WARM_COLD_and_TurboQuant_descriptors_through_adapters
