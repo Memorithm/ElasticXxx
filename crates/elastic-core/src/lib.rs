@@ -25,6 +25,7 @@ pub mod acceleration;
 pub mod canonical;
 pub mod control;
 pub mod diagnostic;
+pub mod elastic_word;
 pub mod exact_oracle;
 pub mod frontier;
 pub mod guard;
@@ -53,6 +54,10 @@ pub use control::{
     RecommendationFreshnessError, ResourceGeneration,
 };
 pub use diagnostic::{ElasticDiagnosticCode, ELASTIC_DIAGNOSTIC_SCHEMA_V1};
+pub use elastic_word::{
+    ElasticWordError, ElasticWordPlaneV1, ElasticWordWidthTransitionV1, ElasticWordWidthV1,
+    ELASTIC_WORD_LANE_BITS, ELASTIC_WORD_MAX_LANES, ELASTIC_WORD_MIN_LANES, ELASTIC_WORD_WIDTH_V1,
+};
 pub use exact_oracle::{
     ExactBooleanOracle, ExactOracleError, ExactOracleLimits, ExactPropertyReport,
     ExactSatisfiabilityReport, DEFAULT_EXACT_ORACLE_ASSIGNMENTS, DEFAULT_EXACT_ORACLE_VARIABLES,
