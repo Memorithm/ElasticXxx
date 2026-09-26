@@ -100,6 +100,9 @@ impl StorageRecomputePlanV1 {
             return Err(StorageRecomputePlanError::MissingControllerLatency);
         }
 
+        // `controller_latency` includes action work without a dedicated
+        // duration field (KEEP/COMPRESS). Transfer and replay durations are
+        // separately represented and added exactly once here.
         let total_latency_ns = [
             costs.transfer_latency(),
             costs.recompute_latency(),
@@ -649,6 +652,30 @@ mod tests {
         assert_eq!(
             StorageRecomputePlanV1::screen(&compress, &costs, limits(false)),
             Err(StorageRecomputePlanError::MissingControllerLatency)
+        );
+    }
+
+    #[test]
+    fn compression_action_duration_is_included_in_latency_budget() {
+        let compress = candidate("compress-duration", StorageRecomputeActionV1::Compress, None);
+        let costs = StorageRecomputeCostVectorV1::new(
+            &compress,
+            Some(bytes(10)),
+            None,
+            None,
+            None,
+            Some(duration(50_000_000, CostEvidenceBasisV1::Measured)),
+            QualityGuardEvidenceV1::NotAttached,
+        )
+        .unwrap();
+        let one_millisecond =
+            StorageRecomputePlanLimitsV1::new(None, None, Some(1_000_000), false).unwrap();
+        assert_eq!(
+            StorageRecomputePlanV1::screen(&compress, &costs, one_millisecond),
+            Err(StorageRecomputePlanError::LatencyExceeded {
+                observed: 50_000_000,
+                limit: 1_000_000,
+            })
         );
     }
 
