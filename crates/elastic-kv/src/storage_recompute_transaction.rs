@@ -15,8 +15,7 @@ use crate::{
 };
 
 /// Stable schema identity for EX-SR-3 transaction evidence.
-pub const STORAGE_RECOMPUTE_TRANSACTION_V1: &str =
-    "elastic.kv.storage-recompute-transaction@1.0.0";
+pub const STORAGE_RECOMPUTE_TRANSACTION_V1: &str = "elastic.kv.storage-recompute-transaction@1.0.0";
 
 /// Authoritative backend state identity at a transaction boundary.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -317,9 +316,7 @@ fn fail_after_possible_mutation<B: StorageRecomputeTransactionBackendV1>(
 ) -> StorageRecomputeTransactionFailureV1 {
     let backend_rollback_error = backend.rollback_action(candidate, source, &reason).err();
     let rollback_restored_source = backend_rollback_error.is_none()
-        && backend
-            .read_state()
-            .is_ok_and(|current| current == *source);
+        && backend.read_state().is_ok_and(|current| current == *source);
     StorageRecomputeTransactionFailureV1 {
         stage,
         reason,
@@ -675,9 +672,9 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
 mod tests {
     use super::*;
     use crate::{
-        ByteCostEvidenceV1, ByteEvidenceScopeV1, CostEvidenceBasisV1,
-        DurationCostEvidenceV1, QualityGuardEvidenceV1, ReplayContractV1,
-        ReplayReconstructionV1, StorageRecomputePlanLimitsV1,
+        ByteCostEvidenceV1, ByteEvidenceScopeV1, CostEvidenceBasisV1, DurationCostEvidenceV1,
+        QualityGuardEvidenceV1, ReplayContractV1, ReplayReconstructionV1,
+        StorageRecomputePlanLimitsV1,
     };
 
     fn bytes(value: u64) -> ByteCostEvidenceV1 {
@@ -691,8 +688,7 @@ mod tests {
     }
 
     fn duration(value: u64) -> DurationCostEvidenceV1 {
-        DurationCostEvidenceV1::new(value, CostEvidenceBasisV1::Measured, "duration-1")
-            .unwrap()
+        DurationCostEvidenceV1::new(value, CostEvidenceBasisV1::Measured, "duration-1").unwrap()
     }
 
     fn fixture(
@@ -707,9 +703,7 @@ mod tests {
             StorageRecomputeActionV1::Keep => ("source", None),
             StorageRecomputeActionV1::DropAndReplay => (
                 "replayed",
-                Some(
-                    ReplayContractV1::new(8, ReplayReconstructionV1::Exact, None).unwrap(),
-                ),
+                Some(ReplayContractV1::new(8, ReplayReconstructionV1::Exact, None).unwrap()),
             ),
             StorageRecomputeActionV1::Compress => ("compressed", None),
             StorageRecomputeActionV1::Offload => ("offloaded", None),
@@ -724,9 +718,7 @@ mod tests {
         )
         .unwrap();
         let (transfer_bytes, transfer_latency, recompute_latency) = match action {
-            StorageRecomputeActionV1::Offload => {
-                (Some(bytes(8)), Some(duration(10)), None)
-            }
+            StorageRecomputeActionV1::Offload => (Some(bytes(8)), Some(duration(10)), None),
             StorageRecomputeActionV1::DropAndReplay => (None, None, Some(duration(20))),
             StorageRecomputeActionV1::Keep | StorageRecomputeActionV1::Compress => {
                 (None, None, None)
@@ -750,8 +742,7 @@ mod tests {
         )
         .unwrap();
         let plan = StorageRecomputePlanV1::screen(&candidate, &costs, limits).unwrap();
-        let source =
-            StorageRecomputeBackendStateV1::new("domain.state.v1", 7, "source").unwrap();
+        let source = StorageRecomputeBackendStateV1::new("domain.state.v1", 7, "source").unwrap();
         (candidate, costs, plan, source)
     }
 
@@ -923,7 +914,10 @@ mod tests {
             execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
                 .unwrap_err();
 
-        assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Validate);
+        assert_eq!(
+            failure.stage(),
+            StorageRecomputeTransactionStageV1::Validate
+        );
         assert!(!failure.rollback_attempted());
         assert_eq!(backend.inner.state(), &source);
     }
@@ -971,14 +965,18 @@ mod tests {
         );
         assert!(failure.rollback_attempted());
         assert!(!failure.rollback_restored_source());
-        assert_eq!(failure.backend_rollback_error(), Some("injected rollback failure"));
+        assert_eq!(
+            failure.backend_rollback_error(),
+            Some("injected rollback failure")
+        );
     }
 
     #[test]
     fn no_fault_mode_remains_available_for_test_backends() {
         let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
         let mut backend = fault_backend(source, FailAt::None);
-        assert!(execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend)
-            .is_ok());
+        assert!(
+            execute_storage_recompute_transaction(&candidate, &costs, &plan, &mut backend).is_ok()
+        );
     }
 }
