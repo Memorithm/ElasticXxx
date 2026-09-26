@@ -39,8 +39,7 @@ pub struct ElasticWordWidthV1 {
 impl ElasticWordWidthV1 {
     /// Validate a width expressed in native `u64` lanes.
     pub fn from_lanes(lanes: u8) -> Result<Self, ElasticWordError> {
-        if lanes < ELASTIC_WORD_MIN_LANES
-            || lanes > ELASTIC_WORD_MAX_LANES
+        if !(ELASTIC_WORD_MIN_LANES..=ELASTIC_WORD_MAX_LANES).contains(&lanes)
             || !lanes.is_power_of_two()
         {
             return Err(ElasticWordError::UnsupportedLaneCount { lanes });
