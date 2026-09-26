@@ -609,15 +609,13 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
 
     if let Err(error) = backend.apply_if_source(candidate, plan, &source, &target) {
         return Err(match error {
-            StorageRecomputeApplyErrorV1::SourceMismatch(reason) => {
-                bound_failure_without_rollback(
-                    candidate,
-                    plan,
-                    Some(&source),
-                    StorageRecomputeTransactionStageV1::Act,
-                    format!("backend source comparison failed before mutation: {reason}"),
-                )
-            }
+            StorageRecomputeApplyErrorV1::SourceMismatch(reason) => bound_failure_without_rollback(
+                candidate,
+                plan,
+                Some(&source),
+                StorageRecomputeTransactionStageV1::Act,
+                format!("backend source comparison failed before mutation: {reason}"),
+            ),
             StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(reason) => {
                 fail_after_possible_mutation(
                     backend,
@@ -911,7 +909,8 @@ mod tests {
 
         let binding_source =
             StorageRecomputeBackendStateV1::new("domain.state.v1", 7, "source").unwrap();
-        let failure = execute(&candidate, &costs, &plan, &binding_source, &mut backend).unwrap_err();
+        let failure =
+            execute(&candidate, &costs, &plan, &binding_source, &mut backend).unwrap_err();
         assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Bind);
         assert!(!failure.rollback_attempted());
         assert_eq!(backend.state(), &stale);
