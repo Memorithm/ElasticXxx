@@ -11,7 +11,8 @@ use crate::storage_recompute::{
     ReplayReconstructionV1, StorageRecomputeActionV1, StorageRecomputeCandidateV1,
 };
 use crate::storage_recompute_cost::{
-    CostEvidenceBasisV1, QualityGuardEvidenceV1, StorageRecomputeCostVectorV1,
+    ByteEvidenceScopeV1, CostEvidenceBasisV1, QualityGuardEvidenceV1,
+    StorageRecomputeCostVectorV1,
 };
 
 /// Stable schema identity for storage/recompute planning.
@@ -77,6 +78,7 @@ impl StorageRecomputePlanV1 {
         require_action_evidence(candidate.action(), costs)?;
         require_verified_approximate_replay(candidate, costs)?;
         reject_disallowed_forecasts(costs, limits.allow_forecast_evidence)?;
+        require_physical_byte_evidence(costs, limits)?;
 
         if let Some(limit) = limits.max_resident_bytes_after {
             let observed = costs
@@ -93,6 +95,10 @@ impl StorageRecomputePlanV1 {
             if observed > limit {
                 return Err(StorageRecomputePlanError::TransferBytesExceeded { observed, limit });
             }
+        }
+
+        if limits.max_total_latency_ns.is_some() && costs.controller_latency().is_none() {
+            return Err(StorageRecomputePlanError::MissingControllerLatency);
         }
 
         let total_latency_ns = [
@@ -195,6 +201,32 @@ fn plan_fingerprint(
         .number(total_latency_ns)
 }
 
+fn require_physical_byte_evidence(
+    costs: &StorageRecomputeCostVectorV1,
+    limits: StorageRecomputePlanLimitsV1,
+) -> Result<(), StorageRecomputePlanError> {
+    if limits.max_resident_bytes_after.is_some() {
+        let scope = costs
+            .resident_bytes_after()
+            .ok_or(StorageRecomputePlanError::MissingResidentBytes)?
+            .scope();
+        if scope != ByteEvidenceScopeV1::Physical {
+            return Err(StorageRecomputePlanError::ResidentByteScopeMismatch { observed: scope });
+        }
+    }
+    if limits.max_transfer_bytes.is_some() {
+        if let Some(transfer) = costs.transfer_bytes() {
+            let scope = transfer.scope();
+            if scope != ByteEvidenceScopeV1::Physical {
+                return Err(StorageRecomputePlanError::TransferByteScopeMismatch {
+                    observed: scope,
+                });
+            }
+        }
+    }
+    Ok(())
+}
+
 fn require_action_evidence(
     action: StorageRecomputeActionV1,
     costs: &StorageRecomputeCostVectorV1,
@@ -289,12 +321,15 @@ pub enum StorageRecomputePlanError {
     MissingTransferBytes,
     MissingTransferLatency,
     MissingRecomputeLatency,
+    MissingControllerLatency,
     ApproximateReplayVerifierMissing,
     QualityEvidenceNotVerified,
     QualityVerifierMismatch,
     ForecastEvidenceForbidden,
     ResidentBytesExceeded { observed: u64, limit: u64 },
     TransferBytesExceeded { observed: u64, limit: u64 },
+    ResidentByteScopeMismatch { observed: ByteEvidenceScopeV1 },
+    TransferByteScopeMismatch { observed: ByteEvidenceScopeV1 },
     LatencyOverflow,
     LatencyExceeded { observed: u64, limit: u64 },
 }
@@ -320,6 +355,9 @@ impl fmt::Display for StorageRecomputePlanError {
             Self::MissingRecomputeLatency => {
                 output.write_str("replay candidate is missing recompute latency")
             }
+            Self::MissingControllerLatency => {
+                output.write_str("latency-bounded plan is missing controller latency")
+            }
             Self::ApproximateReplayVerifierMissing => {
                 output.write_str("approximate replay contract is missing its verifier")
             }
@@ -337,6 +375,18 @@ impl fmt::Display for StorageRecomputePlanError {
             }
             Self::TransferBytesExceeded { observed, limit } => {
                 write!(output, "transfer bytes {observed} exceed limit {limit}")
+            }
+            Self::ResidentByteScopeMismatch { observed } => {
+                write!(
+                    output,
+                    "resident-byte limit requires physical evidence, observed {observed:?}"
+                )
+            }
+            Self::TransferByteScopeMismatch { observed } => {
+                write!(
+                    output,
+                    "transfer-byte limit requires physical evidence, observed {observed:?}"
+                )
             }
             Self::LatencyOverflow => output.write_str("aggregate latency overflowed u64"),
             Self::LatencyExceeded { observed, limit } => write!(
@@ -363,6 +413,16 @@ mod tests {
             ByteEvidenceScopeV1::Physical,
             CostEvidenceBasisV1::Measured,
             "bytes-1",
+        )
+        .unwrap()
+    }
+
+    fn logical_bytes(value: u64) -> ByteCostEvidenceV1 {
+        ByteCostEvidenceV1::new(
+            value,
+            ByteEvidenceScopeV1::Logical,
+            CostEvidenceBasisV1::Measured,
+            "logical-bytes-1",
         )
         .unwrap()
     }
@@ -571,6 +631,68 @@ mod tests {
         assert_eq!(
             StorageRecomputePlanV1::screen(&replay, &costs, limits(false)),
             Err(StorageRecomputePlanError::LatencyOverflow)
+        );
+    }
+
+    #[test]
+    fn latency_budget_requires_controller_duration_evidence() {
+        let compress = candidate("compress", StorageRecomputeActionV1::Compress, None);
+        let costs = StorageRecomputeCostVectorV1::new(
+            &compress,
+            Some(bytes(10)),
+            None,
+            None,
+            None,
+            None,
+            QualityGuardEvidenceV1::NotAttached,
+        )
+        .unwrap();
+        assert_eq!(
+            StorageRecomputePlanV1::screen(&compress, &costs, limits(false)),
+            Err(StorageRecomputePlanError::MissingControllerLatency)
+        );
+    }
+
+    #[test]
+    fn byte_budgets_reject_logical_accounting() {
+        let keep = candidate("logical-resident", StorageRecomputeActionV1::Keep, None);
+        let resident = StorageRecomputeCostVectorV1::new(
+            &keep,
+            Some(logical_bytes(10)),
+            None,
+            None,
+            None,
+            None,
+            QualityGuardEvidenceV1::NotAttached,
+        )
+        .unwrap();
+        let resident_limits =
+            StorageRecomputePlanLimitsV1::new(Some(64), None, None, false).unwrap();
+        assert_eq!(
+            StorageRecomputePlanV1::screen(&keep, &resident, resident_limits),
+            Err(StorageRecomputePlanError::ResidentByteScopeMismatch {
+                observed: ByteEvidenceScopeV1::Logical,
+            })
+        );
+
+        let offload = candidate("logical-transfer", StorageRecomputeActionV1::Offload, None);
+        let transfer = StorageRecomputeCostVectorV1::new(
+            &offload,
+            Some(bytes(0)),
+            Some(logical_bytes(10)),
+            Some(duration(5, CostEvidenceBasisV1::Measured)),
+            None,
+            None,
+            QualityGuardEvidenceV1::NotAttached,
+        )
+        .unwrap();
+        let transfer_limits =
+            StorageRecomputePlanLimitsV1::new(None, Some(64), None, false).unwrap();
+        assert_eq!(
+            StorageRecomputePlanV1::screen(&offload, &transfer, transfer_limits),
+            Err(StorageRecomputePlanError::TransferByteScopeMismatch {
+                observed: ByteEvidenceScopeV1::Logical,
+            })
         );
     }
 }
