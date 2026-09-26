@@ -11,8 +11,7 @@ use crate::storage_recompute::{
     ReplayReconstructionV1, StorageRecomputeActionV1, StorageRecomputeCandidateV1,
 };
 use crate::storage_recompute_cost::{
-    ByteEvidenceScopeV1, CostEvidenceBasisV1, QualityGuardEvidenceV1,
-    StorageRecomputeCostVectorV1,
+    ByteEvidenceScopeV1, CostEvidenceBasisV1, QualityGuardEvidenceV1, StorageRecomputeCostVectorV1,
 };
 
 /// Stable schema identity for storage/recompute planning.
