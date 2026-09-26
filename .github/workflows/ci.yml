@@ -36,10 +36,15 @@ jobs:
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
           rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
           install -d -m 700 "$rust_tmp"
+          install -d -m 700 "$cargo_home"
           test -w "$rust_tmp"
+          test -w "$cargo_home"
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
           printf 'Rust temporary directory: %s\n' "$rust_tmp"
+          printf 'Cargo home: %s\n' "$cargo_home"
 
       - name: Validate ElasticBitAllocation Stage B preregistration
         shell: bash
