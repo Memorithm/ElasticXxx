@@ -77,10 +77,18 @@ COMMIT
 A future KV adapter can therefore expose 64/128/256/512/1024/2048-bit
 candidates without moving KV semantics into ElasticXxx.
 
+## Crate boundary
+
+The generic width type lives in `elastic-core`. `elastic-kv` re-exports the
+contract for compatibility but does not own it. This keeps consumers that only
+need flat lane/width semantics free from runtime, serde and KV-specific
+dependencies.
+
 ## Repository boundaries
 
-- **ElasticXxx** owns the generic width state, planning/validation composition
-  and transaction/evidence contracts.
+- **ElasticXxx / `elastic-core`** owns the dependency-free generic width state;
+  higher layers own planning/validation composition and transaction/evidence
+  contracts.
 - **KVLab** owns controlled experiments that determine when width adaptation is
   scientifically useful for KV control/index structures.
 - **FLAT-ATTENTION** owns attention/paged-KV execution and measured kernel costs.
