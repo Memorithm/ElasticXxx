@@ -1,7 +1,7 @@
 schema_version: 1
 kind: elasticxxx_ecosystem_agent_roadmap
 status: active
-last_updated: "2026-09-23"
+last_updated: "2026-09-26"
 repository: Memorithm/ElasticXxx
 intended_consumer: autonomous_coding_agent
 visibility_note: >-
@@ -156,6 +156,9 @@ verified_current_facts:
   - SML_adapter_has_no_physical_page_movement_codec_master_weight_reconstruction_GPU_transfer_or_model_quality_performance_claim
   - user_explicitly_prioritized_crates_io_productization_after_ELANG9_while_keeping_publication_unauthorized
   - P0_crates_io_packaging_readiness_candidate_PR_209_exact_head_45772d8d201f881d9b6bb4ea54ae2349daca817a_publish_false_retained
+  - EX_SR_1_storage_recompute_cost_vector_merged_through_PR_214_merge_84e04df2cd1e8a9762cb052d7447ae64c3c7f32f
+  - EX_SR_2_storage_recompute_plan_qualified_through_PR_215_exact_head_2b679a10d01040fcc1bd93e492be1feb90666055_merge_c021531e8003f375c057806bd4fdef15093250af
+  - EX_SR_2_plan_is_non_actuating_and_requires_physical_byte_evidence_controller_owned_action_duration_and_domain_owned_quality_evidence_for_approximate_replay
 
 invariants:
   - correctness_and_declared_semantics_dominate_optimization
@@ -854,8 +857,8 @@ deepseek_v41_storage_recompute_program_2026_09_24:
     - freshness_and_source_identity
   ordered_sequence:
     - EX_SR_0_versioned_storage_recompute_candidate_contract_complete_PR_213_merge_4220d62c4c3de94ae90aab26d96df51e4b474e80
-    - EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
-    - EX_SR_2_PLAN_validation_for_KEEP_COMPRESS_OFFLOAD_DROP_AND_REPLAY
+    - EX_SR_1_cost_vector_complete_PR_214_merge_84e04df2cd1e8a9762cb052d7447ae64c3c7f32f
+    - EX_SR_2_PLAN_validation_complete_PR_215_exact_head_2b679a10d01040fcc1bd93e492be1feb90666055_merge_c021531e8003f375c057806bd4fdef15093250af
     - EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
     - EX_SR_4_SLHAv2_replay_adapter_after_source_contract_qualification
     - EX_SR_5_NNIS_runtime_adapter_after_portable_runtime_contract_qualification
@@ -881,4 +884,36 @@ storage_recompute_contract_evidence_2026_09_25:
     - no_planner_or_actuation
     - no_domain_KV_semantics
     - no_quality_memory_latency_or_performance_claim
-  next: EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
+  next_at_record_time: EX_SR_1_cost_vector_for_bytes_transfer_recompute_latency_and_quality_guard
+
+storage_recompute_cost_and_plan_evidence_2026_09_26:
+  status: EX_SR_2_merged
+  cost_vector:
+    pull_request: https://github.com/Memorithm/ElasticXxx/pull/214
+    merge_revision: 84e04df2cd1e8a9762cb052d7447ae64c3c7f32f
+  planner:
+    pull_request: https://github.com/Memorithm/ElasticXxx/pull/215
+    qualified_head_revision: 2b679a10d01040fcc1bd93e492be1feb90666055
+    merge_revision: c021531e8003f375c057806bd4fdef15093250af
+    exact_head_checks:
+      - ci_run_717_success
+      - packageability_run_411_success
+      - release_candidate_prepublication_run_122_success
+      - ELANG7_CPU_reference_run_45_success
+      - continuous_hardening_run_180_success
+    exact_head_review: no_material_findings_after_four_P2_corrections
+  scope:
+    - complete_physical_byte_evidence_for_resource_budgets
+    - complete_controller_owned_action_latency_for_every_successful_plan
+    - action_specific_transfer_or_recompute_latency
+    - checked_aggregate_latency
+    - explicit_forecast_policy
+    - verified_domain_quality_for_approximate_replay
+    - structural_candidate_cost_policy_fingerprints
+    - plan_never_authorizes_actuation
+  exclusions:
+    - no_ACT
+    - no_VERIFY
+    - no_COMMIT_or_ROLLBACK_backend
+    - no_performance_or_quality_claim
+  next: EX_SR_3_transactional_ACT_VERIFY_COMMIT_or_ROLLBACK_reference_backend
