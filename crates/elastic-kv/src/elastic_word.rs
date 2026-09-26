@@ -159,10 +159,7 @@ impl ElasticWordPlaneV1 {
     }
 
     /// Allocate a zero-filled plane.
-    pub fn zeroed(
-        width: ElasticWordWidthV1,
-        word_count: usize,
-    ) -> Result<Self, ElasticWordError> {
+    pub fn zeroed(width: ElasticWordWidthV1, word_count: usize) -> Result<Self, ElasticWordError> {
         let lane_count = word_count
             .checked_mul(usize::from(width.lanes()))
             .ok_or(ElasticWordError::StorageLengthOverflow)?;
@@ -199,18 +196,20 @@ impl ElasticWordPlaneV1 {
     /// Borrow one logical word as its native lanes.
     pub fn word(&self, index: usize) -> Result<&[u64], ElasticWordError> {
         let lanes_per_word = usize::from(self.width.lanes());
-        let start = index
-            .checked_mul(lanes_per_word)
-            .ok_or(ElasticWordError::WordIndexOutOfBounds {
-                index,
-                word_count: self.word_count(),
-            })?;
-        let end = start
-            .checked_add(lanes_per_word)
-            .ok_or(ElasticWordError::WordIndexOutOfBounds {
-                index,
-                word_count: self.word_count(),
-            })?;
+        let start =
+            index
+                .checked_mul(lanes_per_word)
+                .ok_or(ElasticWordError::WordIndexOutOfBounds {
+                    index,
+                    word_count: self.word_count(),
+                })?;
+        let end =
+            start
+                .checked_add(lanes_per_word)
+                .ok_or(ElasticWordError::WordIndexOutOfBounds {
+                    index,
+                    word_count: self.word_count(),
+                })?;
         self.lanes
             .get(start..end)
             .ok_or(ElasticWordError::WordIndexOutOfBounds {
@@ -310,15 +309,9 @@ pub enum ElasticWordError {
     /// Requested allocation or repack size overflowed `usize`.
     StorageLengthOverflow,
     /// Logical word index is outside the plane.
-    WordIndexOutOfBounds {
-        index: usize,
-        word_count: usize,
-    },
+    WordIndexOutOfBounds { index: usize, word_count: usize },
     /// A stride-changing width transition was incorrectly requested as reinterpretation.
-    WidthChangeRequiresMaterialization {
-        from_bits: u16,
-        to_bits: u16,
-    },
+    WidthChangeRequiresMaterialization { from_bits: u16, to_bits: u16 },
     /// Reference contraction would drop a non-zero high lane.
     NarrowingWouldDiscardData {
         word_index: usize,
@@ -440,11 +433,7 @@ mod tests {
     fn contraction_reference_repack_accepts_only_zero_high_lanes() {
         let w256 = ElasticWordWidthV1::from_bits(256).unwrap();
         let w64 = ElasticWordWidthV1::from_bits(64).unwrap();
-        let plane = ElasticWordPlaneV1::new(
-            w256,
-            vec![0x11, 0, 0, 0, 0x22, 0, 0, 0],
-        )
-        .unwrap();
+        let plane = ElasticWordPlaneV1::new(w256, vec![0x11, 0, 0, 0, 0x22, 0, 0, 0]).unwrap();
 
         let narrowed = plane.reference_repack_zero_extended(w64).unwrap();
         assert_eq!(narrowed.as_lanes(), &[0x11, 0x22]);
