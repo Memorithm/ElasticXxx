@@ -200,6 +200,10 @@ priority_program:
           - width_changes_reject_Reinterpret_and_require_materializing_transition_semantics
           - reference_contraction_fails_closed_when_nonzero_high_lanes_would_be_discarded
           - KVLab_PR_136_PR_137_and_PR_138_supply_preregistration_flat_oracle_and_fixed_width_measurement_harness_without_runtime_promotion
+          - ElasticXxx_PR_219_merge_1206b431d6cc05f85e2d16d17d0239d1200650c5_promotes_ElasticWord_to_dependency_free_elastic_core_with_elastic_kv_compatibility_reexport
+          - KVLab_PR_158_merge_9810532c75b48523a5ed1da01e4075eb34a9bbaf_adds_all_ordered_width_transition_cost_harness_with_validation_transition_verification_and_rollback_accounting
+          - FLAT_PR_314_merge_f8d7b52fb200b09dec1c32431626ebc7c1b4c352_qualifies_paged_KV_shadow_reencoding_W128_through_W2048_against_authoritative_semantics
+          - SLHAv2_PR_121_merge_10564eb50ab056fe51b58a8f45f625b85d129c10_qualifies_lossless_W512_physical_slot_control_projection_as_second_independent_consumer
           - this_slice_has_no_live_KV_page_table_replacement_GPU_actuation_memory_saving_latency_bandwidth_or_model_quality_claim
     goals:
       - actuate_SciRust_representation_IR_choices_without_owning_codec_semantics
