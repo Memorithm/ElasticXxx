@@ -127,15 +127,17 @@ pub enum StorageRecomputeApplyErrorV1 {
     /// The source comparison failed before mutation. Rollback would be unsafe
     /// because it could overwrite the concurrent authoritative writer.
     SourceMismatch(String),
-    /// Mutation may have happened; the bound source must be restored.
-    MutationMayHaveOccurred(String),
+    /// The exact target was installed atomically before a later actuation
+    /// failure. Rollback may restore the source only while that target remains
+    /// authoritative.
+    TargetApplied(String),
 }
 
 impl StorageRecomputeApplyErrorV1 {
     #[must_use]
     pub fn reason(&self) -> &str {
         match self {
-            Self::SourceMismatch(reason) | Self::MutationMayHaveOccurred(reason) => reason,
+            Self::SourceMismatch(reason) | Self::TargetApplied(reason) => reason,
         }
     }
 }
@@ -150,7 +152,7 @@ impl fmt::Display for StorageRecomputeApplyErrorV1 {
 ///
 /// `apply_if_source` must compare `source` and perform any mutation under the
 /// same backend concurrency boundary. It must distinguish a clean comparison
-/// failure from an error after mutation may have begun.
+/// failure from an error after the exact target was installed.
 pub trait StorageRecomputeTransactionBackendV1 {
     /// Read the current authoritative state.
     fn read_state(&self) -> Result<StorageRecomputeBackendStateV1, String>;
@@ -190,13 +192,17 @@ pub trait StorageRecomputeTransactionBackendV1 {
         target: &StorageRecomputeBackendStateV1,
     ) -> Result<(), String>;
 
-    /// Restore the exact pre-transaction source after possible mutation.
-    fn rollback_action(
+    /// Restore the source only if the exact transaction target is still current.
+    ///
+    /// `Ok(false)` means another writer replaced the target; implementations
+    /// must preserve that authoritative concurrent state.
+    fn rollback_if_target(
         &mut self,
         candidate: &StorageRecomputeCandidateV1,
+        target: &StorageRecomputeBackendStateV1,
         source: &StorageRecomputeBackendStateV1,
         reason: &str,
-    ) -> Result<(), String>;
+    ) -> Result<bool, String>;
 }
 
 /// Stable lifecycle stage retained by failure evidence.
@@ -392,11 +398,13 @@ fn fail_after_possible_mutation<B: StorageRecomputeTransactionBackendV1>(
     candidate: &StorageRecomputeCandidateV1,
     plan: &StorageRecomputePlanV1,
     source: &StorageRecomputeBackendStateV1,
+    target: &StorageRecomputeBackendStateV1,
     stage: StorageRecomputeTransactionStageV1,
     reason: String,
 ) -> StorageRecomputeTransactionFailureV1 {
-    let backend_rollback_error = backend.rollback_action(candidate, source, &reason).err();
-    let rollback_restored_source = backend_rollback_error.is_none()
+    let rollback_result = backend.rollback_if_target(candidate, target, source, &reason);
+    let backend_rollback_error = rollback_result.as_ref().err().cloned();
+    let rollback_restored_source = rollback_result.is_ok_and(|restored| restored)
         && backend.read_state().is_ok_and(|current| current == *source);
     StorageRecomputeTransactionFailureV1 {
         stage,
@@ -518,7 +526,8 @@ fn commit_record(
 /// The plan is re-derived from the supplied candidate and action-time cost
 /// evidence before any backend method. The explicit transaction binding must
 /// match both the candidate and the exact authoritative source fingerprint.
-/// Only failures after mutation may have begun attempt rollback.
+/// Only failures after the exact target was installed attempt conditional
+/// rollback, which preserves any later authoritative writer.
 pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBackendV1>(
     binding: &StorageRecomputeTransactionBindingV1,
     candidate: &StorageRecomputeCandidateV1,
@@ -616,14 +625,15 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
                 StorageRecomputeTransactionStageV1::Act,
                 format!("backend source comparison failed before mutation: {reason}"),
             ),
-            StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(reason) => {
+            StorageRecomputeApplyErrorV1::TargetApplied(reason) => {
                 fail_after_possible_mutation(
                     backend,
                     candidate,
                     plan,
                     &source,
+                    &target,
                     StorageRecomputeTransactionStageV1::Act,
-                    format!("backend actuation failed after mutation may have begun: {reason}"),
+                    format!("backend actuation failed after installing the target: {reason}"),
                 )
             }
         });
@@ -635,6 +645,7 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
             candidate,
             plan,
             &source,
+            &target,
             StorageRecomputeTransactionStageV1::Verify,
             format!("post-actuation state read failed: {error}"),
         )
@@ -645,6 +656,7 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
             candidate,
             plan,
             &source,
+            &target,
             StorageRecomputeTransactionStageV1::Verify,
             "post-actuation state differs from the bound target".to_owned(),
         ));
@@ -655,6 +667,7 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
             candidate,
             plan,
             &source,
+            &target,
             StorageRecomputeTransactionStageV1::Verify,
             format!("backend verification failed: {error}"),
         ));
@@ -666,6 +679,7 @@ pub fn execute_storage_recompute_transaction<B: StorageRecomputeTransactionBacke
             candidate,
             plan,
             &source,
+            &target,
             StorageRecomputeTransactionStageV1::Commit,
             format!("backend commit failed: {error}"),
         ));
@@ -774,15 +788,19 @@ impl StorageRecomputeTransactionBackendV1 for ReferenceStorageRecomputeBackendV1
         Ok(())
     }
 
-    fn rollback_action(
+    fn rollback_if_target(
         &mut self,
         _candidate: &StorageRecomputeCandidateV1,
+        target: &StorageRecomputeBackendStateV1,
         source: &StorageRecomputeBackendStateV1,
         _reason: &str,
-    ) -> Result<(), String> {
+    ) -> Result<bool, String> {
+        if self.state != *target {
+            return Ok(false);
+        }
         self.state = source.clone();
         self.committed_fingerprint = None;
-        Ok(())
+        Ok(true)
     }
 }
 
@@ -966,6 +984,7 @@ mod tests {
         None,
         Validate,
         ConcurrentSourceMismatch,
+        ConcurrentAfterAct,
         Act,
         Verify,
         Commit,
@@ -1018,7 +1037,7 @@ mod tests {
             self.inner
                 .apply_if_source(candidate, plan, source, target)?;
             if self.fail_at == FailAt::Act {
-                return Err(StorageRecomputeApplyErrorV1::MutationMayHaveOccurred(
+                return Err(StorageRecomputeApplyErrorV1::TargetApplied(
                     "injected post-mutation actuation failure".into(),
                 ));
             }
@@ -1031,6 +1050,15 @@ mod tests {
             plan: &StorageRecomputePlanV1,
             target: &StorageRecomputeBackendStateV1,
         ) -> Result<(), String> {
+            if self.fail_at == FailAt::ConcurrentAfterAct {
+                self.inner.state = StorageRecomputeBackendStateV1::new(
+                    target.semantic_contract_id(),
+                    target.generation() + 1,
+                    "concurrent-after-act",
+                )
+                .unwrap();
+                return Err("injected concurrent writer after actuation".into());
+            }
             if self.fail_at == FailAt::Verify {
                 return Err("injected verification failure".into());
             }
@@ -1049,16 +1077,18 @@ mod tests {
             self.inner.commit_action(candidate, plan, target)
         }
 
-        fn rollback_action(
+        fn rollback_if_target(
             &mut self,
             candidate: &StorageRecomputeCandidateV1,
+            target: &StorageRecomputeBackendStateV1,
             source: &StorageRecomputeBackendStateV1,
             reason: &str,
-        ) -> Result<(), String> {
+        ) -> Result<bool, String> {
             if self.fail_at == FailAt::Rollback {
                 return Err("injected rollback failure".into());
             }
-            self.inner.rollback_action(candidate, source, reason)
+            self.inner
+                .rollback_if_target(candidate, target, source, reason)
         }
     }
 
@@ -1097,6 +1127,21 @@ mod tests {
     }
 
     #[test]
+    fn conditional_rollback_preserves_a_writer_after_actuation() {
+        let (candidate, costs, plan, source) = fixture(StorageRecomputeActionV1::Compress);
+        let mut backend = fault_backend(source.clone(), FailAt::ConcurrentAfterAct);
+
+        let failure = execute(&candidate, &costs, &plan, &source, &mut backend).unwrap_err();
+
+        assert_eq!(failure.stage(), StorageRecomputeTransactionStageV1::Verify);
+        assert!(failure.rollback_attempted());
+        assert!(!failure.rollback_restored_source());
+        assert_eq!(backend.inner.state().generation(), source.generation() + 2);
+        assert_eq!(backend.inner.state().state_id(), "concurrent-after-act");
+        assert_eq!(failure.backend_rollback_error(), None);
+    }
+
+    #[test]
     fn every_post_mutation_failure_rolls_back_and_verifies_source() {
         for (fail_at, expected_stage) in [
             (FailAt::Act, StorageRecomputeTransactionStageV1::Act),
@@ -1130,6 +1175,7 @@ mod tests {
             &candidate,
             &plan,
             &source,
+            &target,
             StorageRecomputeTransactionStageV1::Verify,
             "injected".into(),
         );
