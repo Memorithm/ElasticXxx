@@ -13,6 +13,7 @@ pub mod representation_precision;
 pub mod stage_b;
 pub mod storage_recompute;
 pub mod storage_recompute_cost;
+pub mod storage_recompute_plan;
 pub mod transaction;
 
 pub use benchmark::{
@@ -30,6 +31,11 @@ pub use storage_recompute_cost::{
     ByteCostEvidenceV1, ByteEvidenceScopeV1, CostEvidenceBasisV1, DurationCostEvidenceV1,
     QualityGuardEvidenceV1, StorageRecomputeCostError, StorageRecomputeCostVectorV1,
     MAX_STORAGE_RECOMPUTE_EVIDENCE_ID_BYTES, STORAGE_RECOMPUTE_COST_VECTOR_V1,
+};
+
+pub use storage_recompute_plan::{
+    StorageRecomputePlanError, StorageRecomputePlanLimitsV1, StorageRecomputePlanV1,
+    STORAGE_RECOMPUTE_PLAN_V1,
 };
 
 pub use storage_recompute::{
