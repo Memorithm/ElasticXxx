@@ -4,7 +4,7 @@
 //! minimal, whether exactly one lower-payload target exists, or whether an exact
 //! tie must remain ambiguous. It never grants transition or actuation authority.
 
-use crate::{
+use crate::representation_payload_selector::{
     select_minimum_payload_v1, RepresentationPayloadCandidateV1, RepresentationPayloadMinimumV1,
     RepresentationPayloadSelectorError,
 };
