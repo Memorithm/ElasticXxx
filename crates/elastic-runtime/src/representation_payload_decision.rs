@@ -82,8 +82,8 @@ pub fn evaluate_representation_payload_v1(
         });
     }
 
-    let minimum =
-        select_minimum_payload_v1(candidates).map_err(RepresentationPayloadDecisionError::Selector)?;
+    let minimum = select_minimum_payload_v1(candidates)
+        .map_err(RepresentationPayloadDecisionError::Selector)?;
     let current_is_minimum = minimum
         .profiles()
         .iter()
