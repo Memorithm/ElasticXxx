@@ -71,6 +71,7 @@ pub mod plan;
 pub mod ram_boolean_admission;
 pub mod reference_adapters;
 pub mod registry;
+pub mod representation_payload_decision;
 pub mod representation_payload_selector;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
@@ -276,6 +277,10 @@ pub use ram_boolean_admission::{
 };
 pub use reference_adapters::{TransactionalConcurrency, TransactionalRam};
 pub use registry::{RegisteredResource, ResourceRegistry};
+pub use representation_payload_decision::{
+    evaluate_representation_payload_v1, RepresentationPayloadDecisionError,
+    RepresentationPayloadDecisionV1, REPRESENTATION_PAYLOAD_DECISION_V1,
+};
 pub use representation_precision_boolean_admission::{
     representation_precision_floor_predicate_key, representation_precision_floor_signal,
     BooleanRepresentationPrecisionCandidateEvidenceV1,
