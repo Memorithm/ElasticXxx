@@ -140,16 +140,9 @@ pub fn select_minimum_payload_v1(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RepresentationPayloadSelectorError {
     EmptyCandidateSet,
-    TooManyCandidates {
-        observed: usize,
-        maximum: usize,
-    },
-    InvalidProfileId {
-        profile_id: String,
-    },
-    DuplicateProfile {
-        profile_id: String,
-    },
+    TooManyCandidates { observed: usize, maximum: usize },
+    InvalidProfileId { profile_id: String },
+    DuplicateProfile { profile_id: String },
 }
 
 impl fmt::Display for RepresentationPayloadSelectorError {
