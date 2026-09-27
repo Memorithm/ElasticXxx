@@ -42,6 +42,7 @@ pub mod configured_forecaster;
 pub mod control_loop;
 pub mod controller;
 pub mod decision_trace;
+pub mod elastic_word_width_selector;
 pub mod error;
 pub mod events;
 pub mod evidence;
@@ -141,6 +142,11 @@ pub use decision_trace::{
     PredicateTraceEntry, PseudoBooleanConstraintTermTrace, PseudoBooleanConstraintTrace,
     RejectedCandidateTrace, UnknownCandidateTrace, UnknownConstraintPredicateTrace,
     CONSTRAINED_DECISION_TRACE_SCHEMA_V1, DECISION_TRACE_SCHEMA_V1, MAX_DECISION_TRACE_BYTES,
+};
+pub use elastic_word_width_selector::{
+    ElasticWordWidthBlockReasonV1, ElasticWordWidthDirectionV1, ElasticWordWidthSelectionV1,
+    ElasticWordWidthSelectorError, ElasticWordWidthSelectorV1, ELASTIC_WORD_WIDTH_SELECTOR_V1,
+    MAX_ELASTIC_WORD_WIDTH_CANDIDATES_V1,
 };
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
