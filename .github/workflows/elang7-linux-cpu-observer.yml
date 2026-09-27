@@ -50,6 +50,10 @@ jobs:
               ;;
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
+          cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
+          install -d -m 700 "$cargo_home"
+          test -w "$cargo_home"
+          printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
           rustc +1.89.0 -Vv
       - name: Observe real Linux CPU environment
         shell: bash
