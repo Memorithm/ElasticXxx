@@ -4,7 +4,8 @@
 //! profile set, and the decision outcome. It does not carry transition,
 //! stability, semantic-admissibility, or commit authority.
 
-use crate::{RepresentationPayloadCandidateV1, RepresentationPayloadDecisionV1};
+use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
+use crate::RepresentationPayloadDecisionV1;
 
 /// Versioned identity of the structural payload decision trace.
 pub const REPRESENTATION_PAYLOAD_DECISION_TRACE_V1: &str =
@@ -112,7 +113,8 @@ impl RepresentationPayloadDecisionTraceV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{evaluate_representation_payload_v1, RepresentationPayloadCandidateV1};
+    use crate::evaluate_representation_payload_v1;
+    use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
 
     fn candidate(id: &str, bits: u64) -> RepresentationPayloadCandidateV1 {
         RepresentationPayloadCandidateV1::new(id, bits).unwrap()
