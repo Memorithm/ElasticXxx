@@ -5,14 +5,13 @@
 //! without gaining commit or actuation authority.
 
 use crate::{
-    ElasticWordWidthBlockReasonV1, ElasticWordWidthDirectionV1,
-    ElasticWordWidthStableSelectionV1, TransitionStabilityReportV1,
+    ElasticWordWidthBlockReasonV1, ElasticWordWidthDirectionV1, ElasticWordWidthStableSelectionV1,
+    TransitionStabilityReportV1,
 };
 use elastic_core::ElasticWordWidthV1;
 
 /// Versioned identity of the typed width-decision trace.
-pub const ELASTIC_WORD_WIDTH_DECISION_TRACE_V1: &str =
-    "elastic.word-width-decision-trace@1.0.0";
+pub const ELASTIC_WORD_WIDTH_DECISION_TRACE_V1: &str = "elastic.word-width-decision-trace@1.0.0";
 
 /// Stable outcome class retained by the trace.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -208,8 +207,7 @@ mod tests {
         let now = Instant::now();
         let observations = ObservationSnapshot::new(now, vec![]);
         let mut controller = controller();
-        let selection =
-            controller.select(width(512), width(64), width(2048), &observations, now);
+        let selection = controller.select(width(512), width(64), width(2048), &observations, now);
         let trace = ElasticWordWidthDecisionTraceV1::capture(
             width(512),
             width(64),
@@ -234,8 +232,7 @@ mod tests {
         let now = Instant::now();
         let observations = ObservationSnapshot::new(now, vec![]);
         let mut controller = controller();
-        let selection =
-            controller.select(width(128), width(128), width(512), &observations, now);
+        let selection = controller.select(width(128), width(128), width(512), &observations, now);
         let trace = ElasticWordWidthDecisionTraceV1::capture(
             width(128),
             width(128),
@@ -254,8 +251,7 @@ mod tests {
         let now = Instant::now();
         let observations = ObservationSnapshot::new(now, vec![]);
         let mut controller = controller();
-        let selection =
-            controller.select(width(128), width(512), width(256), &observations, now);
+        let selection = controller.select(width(128), width(512), width(256), &observations, now);
         let trace = ElasticWordWidthDecisionTraceV1::capture(
             width(128),
             width(512),
@@ -278,8 +274,7 @@ mod tests {
         let observations = ObservationSnapshot::new(start, vec![]);
         let mut controller = controller();
 
-        let first =
-            controller.select(width(512), width(64), width(2048), &observations, start);
+        let first = controller.select(width(512), width(64), width(2048), &observations, start);
         let permit = match first {
             ElasticWordWidthStableSelectionV1::Admitted { permit, .. } => permit,
             other => panic!("expected admitted transition, got {other:?}"),
@@ -295,12 +290,8 @@ mod tests {
             &later_observations,
             later,
         );
-        let trace = ElasticWordWidthDecisionTraceV1::capture(
-            width(64),
-            width(128),
-            width(2048),
-            &deferred,
-        );
+        let trace =
+            ElasticWordWidthDecisionTraceV1::capture(width(64), width(128), width(2048), &deferred);
 
         assert_eq!(trace.outcome(), ElasticWordWidthDecisionOutcomeV1::Deferred);
         assert!(trace.stability().is_some());
