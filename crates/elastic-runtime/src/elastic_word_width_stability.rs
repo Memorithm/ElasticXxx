@@ -16,8 +16,7 @@ use std::fmt;
 use std::time::Instant;
 
 /// Versioned identity of the planning + stability composition.
-pub const ELASTIC_WORD_WIDTH_STABILITY_COMPOSITION_V1: &str =
-    "elastic.word-width-stability@1.0.0";
+pub const ELASTIC_WORD_WIDTH_STABILITY_COMPOSITION_V1: &str = "elastic.word-width-stability@1.0.0";
 
 /// Non-actuating composed outcome.
 #[derive(Debug)]
@@ -269,7 +268,10 @@ mod tests {
                 direction: ElasticWordWidthDirectionV1::Expand,
                 stability,
                 ..
-            } => assert_eq!(stability.status, TransitionStabilityStatusV1::CooldownActive),
+            } => assert_eq!(
+                stability.status,
+                TransitionStabilityStatusV1::CooldownActive
+            ),
             other => panic!("expected deferred expansion, observed {other:?}"),
         }
 
