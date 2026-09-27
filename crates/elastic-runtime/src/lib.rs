@@ -44,6 +44,7 @@ pub mod controller;
 pub mod decision_trace;
 pub mod elastic_word_width_selector;
 pub mod elastic_word_width_stability;
+pub mod elastic_word_width_trace;
 pub mod error;
 pub mod events;
 pub mod evidence;
@@ -153,6 +154,10 @@ pub use elastic_word_width_selector::{
 pub use elastic_word_width_stability::{
     ElasticWordWidthStabilityControllerV1, ElasticWordWidthStabilityError,
     ElasticWordWidthStableSelectionV1, ELASTIC_WORD_WIDTH_STABILITY_COMPOSITION_V1,
+};
+pub use elastic_word_width_trace::{
+    ElasticWordWidthDecisionOutcomeV1, ElasticWordWidthDecisionTraceV1,
+    ELASTIC_WORD_WIDTH_DECISION_TRACE_V1,
 };
 pub use error::RuntimeError;
 pub use events::{NoopEventSink, RuntimeEvent, RuntimeEventKind, RuntimeEventSink};
