@@ -73,6 +73,7 @@ pub mod reference_adapters;
 pub mod registry;
 pub mod representation_payload_decision;
 pub mod representation_payload_selector;
+pub mod representation_payload_stability;
 pub mod representation_payload_trace;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
@@ -281,6 +282,10 @@ pub use registry::{RegisteredResource, ResourceRegistry};
 pub use representation_payload_decision::{
     evaluate_representation_payload_v1, RepresentationPayloadDecisionError,
     RepresentationPayloadDecisionV1, REPRESENTATION_PAYLOAD_DECISION_V1,
+};
+pub use representation_payload_stability::{
+    RepresentationPayloadStabilityControllerV1, RepresentationPayloadStabilityError,
+    RepresentationPayloadStableDecisionV1, REPRESENTATION_PAYLOAD_STABILITY_V1,
 };
 pub use representation_payload_trace::{
     RepresentationPayloadDecisionOutcomeV1, RepresentationPayloadDecisionTraceV1,
