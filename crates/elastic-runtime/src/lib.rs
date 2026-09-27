@@ -70,6 +70,7 @@ pub mod plan;
 pub mod ram_boolean_admission;
 pub mod reference_adapters;
 pub mod registry;
+pub mod representation_payload_selector;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
 pub mod thermal_energy_boolean_admission;
