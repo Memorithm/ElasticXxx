@@ -171,11 +171,140 @@ impl TaskResourceEnvelopeV1 {
         &self.budget
     }
 
+    /// Validate a bounded CPU, memory, wall-clock and concurrency plan.
+    ///
+    /// Requested GPU or model-token dimensions are rejected until a later
+    /// adapter phase can validate them. This is a preflight check only: it does
+    /// not measure host capacity or authorize physical actuation.
+    pub fn preflight_plan(
+        &self,
+        cpu_millis: Option<u64>,
+        memory_bytes: Option<u64>,
+        wall_clock_ms: Option<u64>,
+        concurrency: Option<u32>,
+    ) -> Result<TaskResourcePlanV1, TaskResourcePlanError> {
+        if self.budget.gpu_devices.is_some() {
+            return Err(TaskResourcePlanError::UnsupportedDimension {
+                dimension: "gpu_devices",
+            });
+        }
+        if self.budget.model_tokens.is_some() {
+            return Err(TaskResourcePlanError::UnsupportedDimension {
+                dimension: "model_tokens",
+            });
+        }
+
+        validate_planned_dimension("cpu_millis", self.budget.cpu_millis, cpu_millis)?;
+        validate_planned_dimension("memory_bytes", self.budget.memory_bytes, memory_bytes)?;
+        validate_planned_dimension("wall_clock_ms", self.budget.wall_clock_ms, wall_clock_ms)?;
+        validate_planned_dimension(
+            "concurrency",
+            self.budget.concurrency.map(u64::from),
+            concurrency.map(u64::from),
+        )?;
+
+        Ok(TaskResourcePlanV1 {
+            envelope_fingerprint: self.fingerprint,
+            cpu_millis,
+            memory_bytes,
+            wall_clock_ms,
+            concurrency,
+        })
+    }
+
     /// Structural identity of the contract, opaque references and all bounds.
     #[must_use]
     pub const fn fingerprint(&self) -> Fingerprint {
         self.fingerprint
     }
+}
+
+/// Preflight reservation values bound to the exact validated task envelope.
+///
+/// These values are requested plan inputs, not observations or evidence that a
+/// host can enforce them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TaskResourcePlanV1 {
+    envelope_fingerprint: Fingerprint,
+    cpu_millis: Option<u64>,
+    memory_bytes: Option<u64>,
+    wall_clock_ms: Option<u64>,
+    concurrency: Option<u32>,
+}
+
+impl TaskResourcePlanV1 {
+    #[must_use]
+    pub const fn is_bound_to(&self, envelope: &TaskResourceEnvelopeV1) -> bool {
+        self.envelope_fingerprint == envelope.fingerprint
+    }
+
+    #[must_use]
+    pub const fn cpu_millis(&self) -> Option<u64> {
+        self.cpu_millis
+    }
+
+    #[must_use]
+    pub const fn memory_bytes(&self) -> Option<u64> {
+        self.memory_bytes
+    }
+
+    #[must_use]
+    pub const fn wall_clock_ms(&self) -> Option<u64> {
+        self.wall_clock_ms
+    }
+
+    #[must_use]
+    pub const fn concurrency(&self) -> Option<u32> {
+        self.concurrency
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TaskResourcePlanError {
+    UnsupportedDimension { dimension: &'static str },
+    MissingEstimate { dimension: &'static str },
+    ZeroEstimate { dimension: &'static str },
+    ExceedsBound { dimension: &'static str },
+}
+
+impl fmt::Display for TaskResourcePlanError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedDimension { dimension } => {
+                write!(formatter, "task resource dimension {dimension} is not supported yet")
+            }
+            Self::MissingEstimate { dimension } => {
+                write!(formatter, "task resource plan is missing requested dimension {dimension}")
+            }
+            Self::ZeroEstimate { dimension } => {
+                write!(formatter, "task resource plan dimension {dimension} must be positive")
+            }
+            Self::ExceedsBound { dimension } => {
+                write!(formatter, "task resource plan exceeds requested bound {dimension}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for TaskResourcePlanError {}
+
+fn validate_planned_dimension(
+    dimension: &'static str,
+    bound: Option<u64>,
+    planned: Option<u64>,
+) -> Result<(), TaskResourcePlanError> {
+    if planned == Some(0) {
+        return Err(TaskResourcePlanError::ZeroEstimate { dimension });
+    }
+    if bound.is_some() && planned.is_none() {
+        return Err(TaskResourcePlanError::MissingEstimate { dimension });
+    }
+    if let (Some(bound), Some(planned)) = (bound, planned) {
+        if planned > bound {
+            return Err(TaskResourcePlanError::ExceedsBound { dimension });
+        }
+    }
+    Ok(())
 }
 
 /// Validation failures for the AXE-1 task resource envelope.
@@ -327,6 +456,94 @@ mod tests {
             Err(TaskResourceEnvelopeError::ReferenceTooLong {
                 field: "task_ref",
                 maximum: MAX_TASK_RESOURCE_REF_BYTES
+            })
+        );
+    }
+
+    #[test]
+    fn preflight_plan_checks_four_bounds_and_binds_the_envelope() {
+        let envelope = TaskResourceEnvelopeV1::new(
+            "task:plan",
+            "workspace:plan",
+            TaskResourceBudgetV1::new(
+                Some(2_000),
+                Some(1 << 30),
+                Some(60_000),
+                None,
+                None,
+                Some(4),
+            )
+            .expect("valid budget"),
+        )
+        .expect("envelope");
+        let plan = envelope
+            .preflight_plan(Some(1_500), Some(1 << 29), Some(30_000), Some(2))
+            .expect("plan within every bound");
+        assert!(plan.is_bound_to(&envelope));
+        assert_eq!(plan.cpu_millis(), Some(1_500));
+        assert_eq!(plan.memory_bytes(), Some(1 << 29));
+        assert_eq!(plan.wall_clock_ms(), Some(30_000));
+        assert_eq!(plan.concurrency(), Some(2));
+
+        assert_eq!(
+            envelope.preflight_plan(Some(2_001), Some(1 << 29), Some(30_000), Some(2)),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "cpu_millis"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan(Some(1_500), None, Some(30_000), Some(2)),
+            Err(TaskResourcePlanError::MissingEstimate {
+                dimension: "memory_bytes"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan(Some(1_500), Some(1 << 29), Some(60_001), Some(2)),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "wall_clock_ms"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan(Some(1_500), Some(1 << 29), Some(30_000), Some(5)),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "concurrency"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan(Some(0), Some(1 << 29), Some(30_000), Some(2)),
+            Err(TaskResourcePlanError::ZeroEstimate {
+                dimension: "cpu_millis"
+            })
+        );
+    }
+
+    #[test]
+    fn preflight_fails_closed_for_dimensions_outside_axe2() {
+        let gpu_envelope = TaskResourceEnvelopeV1::new(
+            "task:gpu",
+            "workspace:gpu",
+            TaskResourceBudgetV1::new(None, None, None, Some(0), None, None)
+                .expect("CPU-only budget is valid"),
+        )
+        .expect("envelope");
+        assert_eq!(
+            gpu_envelope.preflight_plan(None, None, None, None),
+            Err(TaskResourcePlanError::UnsupportedDimension {
+                dimension: "gpu_devices"
+            })
+        );
+
+        let token_envelope = TaskResourceEnvelopeV1::new(
+            "task:tokens",
+            "workspace:tokens",
+            TaskResourceBudgetV1::new(None, None, None, None, Some(100), None)
+                .expect("token budget is valid"),
+        )
+        .expect("envelope");
+        assert_eq!(
+            token_envelope.preflight_plan(None, None, None, None),
+            Err(TaskResourcePlanError::UnsupportedDimension {
+                dimension: "model_tokens"
             })
         );
     }
