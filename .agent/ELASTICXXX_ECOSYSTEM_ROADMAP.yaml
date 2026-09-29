@@ -992,7 +992,12 @@ ax_task_resource_program:
         - available_capacity_or_worker_placement
         - gpu_network_or_runtime_capability
         - resource_enforcement_or_physical_actuation
+  completed_slices:
+    AXE1:
+      pull_request: 232
+      merged_commit: "65951571da093820e79015023380a530e388c7cc"
+      result: validated_backend_neutral_task_resource_envelope_and_public_facade_contract
   current_slice:
-    scope: AXE1
+    scope: AXE2
     status: ready
-    objective: backend_neutral_task_resource_envelope_adapter
+    objective: map_cpu_ram_concurrency_and_wall_clock_constraints
