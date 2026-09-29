@@ -51,11 +51,6 @@ impl TaskResourceBudgetV1 {
                 return Err(TaskResourceEnvelopeError::ZeroBound { dimension });
             }
         }
-        if gpu_devices.is_some_and(|value| value > 0) && gpu_devices == Some(0) {
-            return Err(TaskResourceEnvelopeError::ZeroBound {
-                dimension: "gpu_devices",
-            });
-        }
         if concurrency == Some(0) {
             return Err(TaskResourceEnvelopeError::ZeroBound {
                 dimension: "concurrency",
