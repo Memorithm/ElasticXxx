@@ -107,10 +107,7 @@ impl TaskResourceBudgetV1 {
         fingerprint = fingerprint_optional_u64(fingerprint, self.cpu_millis);
         fingerprint = fingerprint_optional_u64(fingerprint, self.memory_bytes);
         fingerprint = fingerprint_optional_u64(fingerprint, self.wall_clock_ms);
-        fingerprint = fingerprint_optional_u64(
-            fingerprint,
-            self.gpu_devices.map(u64::from),
-        );
+        fingerprint = fingerprint_optional_u64(fingerprint, self.gpu_devices.map(u64::from));
         fingerprint = fingerprint_optional_u64(fingerprint, self.model_tokens);
         fingerprint_optional_u64(fingerprint, self.concurrency.map(u64::from))
     }
@@ -211,18 +208,18 @@ fn validate_reference(
     field: &'static str,
     value: String,
 ) -> Result<String, TaskResourceEnvelopeError> {
+    if value.len() > MAX_TASK_RESOURCE_REF_BYTES {
+        return Err(TaskResourceEnvelopeError::ReferenceTooLong {
+            field,
+            maximum: MAX_TASK_RESOURCE_REF_BYTES,
+        });
+    }
     if value.trim().is_empty()
         || value.trim() != value
         || value.chars().any(char::is_control)
         || contains_secret_marker(&value)
     {
         return Err(TaskResourceEnvelopeError::InvalidReference { field });
-    }
-    if value.len() > MAX_TASK_RESOURCE_REF_BYTES {
-        return Err(TaskResourceEnvelopeError::ReferenceTooLong {
-            field,
-            maximum: MAX_TASK_RESOURCE_REF_BYTES,
-        });
     }
     Ok(value)
 }
@@ -272,13 +269,31 @@ mod tests {
 
     #[test]
     fn empty_budget_is_valid_but_zero_limits_are_rejected() {
-        assert_eq!(TaskResourceBudgetV1::default(), TaskResourceBudgetV1::new(None, None, None, None, None, None).unwrap());
+        assert_eq!(
+            TaskResourceBudgetV1::default(),
+            TaskResourceBudgetV1::new(None, None, None, None, None, None).unwrap()
+        );
         for (dimension, result) in [
-            ("cpu_millis", TaskResourceBudgetV1::new(Some(0), None, None, None, None, None)),
-            ("memory_bytes", TaskResourceBudgetV1::new(None, Some(0), None, None, None, None)),
-            ("wall_clock_ms", TaskResourceBudgetV1::new(None, None, Some(0), None, None, None)),
-            ("model_tokens", TaskResourceBudgetV1::new(None, None, None, None, Some(0), None)),
-            ("concurrency", TaskResourceBudgetV1::new(None, None, None, None, None, Some(0))),
+            (
+                "cpu_millis",
+                TaskResourceBudgetV1::new(Some(0), None, None, None, None, None),
+            ),
+            (
+                "memory_bytes",
+                TaskResourceBudgetV1::new(None, Some(0), None, None, None, None),
+            ),
+            (
+                "wall_clock_ms",
+                TaskResourceBudgetV1::new(None, None, Some(0), None, None, None),
+            ),
+            (
+                "model_tokens",
+                TaskResourceBudgetV1::new(None, None, None, None, Some(0), None),
+            ),
+            (
+                "concurrency",
+                TaskResourceBudgetV1::new(None, None, None, None, None, Some(0)),
+            ),
         ] {
             assert_eq!(
                 result,
