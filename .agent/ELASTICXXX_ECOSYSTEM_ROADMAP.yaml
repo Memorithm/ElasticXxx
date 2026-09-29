@@ -982,3 +982,17 @@ ax_task_resource_program:
     - resource_adaptation_never_weakens_declared_security_or_semantic_invariants
     - unavailable_backend_enforcement_fails_closed
     - no_physical_actuation_is_inferred_from_a_plan_alone
+  validated_prerequisites:
+    remoteops_host_inventory_v2_wire_consumer:
+      pull_request: 231
+      merged_commit: "c7d31cfc43702d1372ca4fe86fdc7e875d444335"
+      contract: remoteops_host_resource_inventory_schema_v2
+      scope: strict_unknown_preserving_wire_validation_through_the_public_facade
+      does_not_establish:
+        - available_capacity_or_worker_placement
+        - gpu_network_or_runtime_capability
+        - resource_enforcement_or_physical_actuation
+  current_slice:
+    scope: AXE1
+    status: ready
+    objective: backend_neutral_task_resource_envelope_adapter
