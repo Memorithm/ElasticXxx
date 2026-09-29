@@ -827,8 +827,8 @@ mod tests {
             .with_max_energy_microjoules(Some(4_000_000))
             .expect("positive energy bound")
             .with_minimum_thermal_margin_millicelsius(Some(750));
-        let envelope = TaskResourceEnvelopeV1::new("task:axe3", "workspace:axe3", budget)
-            .expect("envelope");
+        let envelope =
+            TaskResourceEnvelopeV1::new("task:axe3", "workspace:axe3", budget).expect("envelope");
         let estimates = TaskResourcePlanEstimateV1 {
             gpu_devices: Some(1),
             model_tokens: Some(800),
@@ -942,9 +942,12 @@ mod tests {
         let advanced_budget = TaskResourceBudgetV1::default()
             .with_max_energy_microjoules(Some(1))
             .unwrap();
-        let advanced =
-            TaskResourceEnvelopeV1::new("task:fingerprint", "workspace:fingerprint", advanced_budget)
-                .unwrap();
+        let advanced = TaskResourceEnvelopeV1::new(
+            "task:fingerprint",
+            "workspace:fingerprint",
+            advanced_budget,
+        )
+        .unwrap();
         assert_ne!(base.fingerprint(), advanced.fingerprint());
     }
 
