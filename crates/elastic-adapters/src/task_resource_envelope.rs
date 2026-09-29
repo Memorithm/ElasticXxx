@@ -234,7 +234,7 @@ pub struct TaskResourcePlanV1 {
 
 impl TaskResourcePlanV1 {
     #[must_use]
-    pub const fn is_bound_to(&self, envelope: &TaskResourceEnvelopeV1) -> bool {
+    pub fn is_bound_to(&self, envelope: &TaskResourceEnvelopeV1) -> bool {
         self.envelope_fingerprint == envelope.fingerprint
     }
 
