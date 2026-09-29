@@ -36,6 +36,7 @@ pub mod model_execution_runtime;
 pub mod permits;
 pub mod planners;
 pub mod ram;
+pub mod remoteops_inventory;
 pub mod sml;
 pub mod soup;
 pub mod tdi93;
@@ -80,6 +81,11 @@ pub use model_execution_runtime::{
 pub use permits::ConcurrencyPermits;
 pub use planners::{HeadroomPlanner, PlannerConfigError, ThresholdPlanner};
 pub use ram::RamBudget;
+pub use remoteops_inventory::{
+    RemoteOpsHostResourceInventoryV2, RemoteOpsHostResourceInventoryWireV2,
+    RemoteOpsInventoryContractError, RemoteOpsLimitObservationV2,
+    REMOTEOPS_HOST_RESOURCE_INVENTORY_SCHEMA_V2,
+};
 pub use sml::{
     SmlElasticWeightAdapterError, SmlElasticWeightPlanEnvelopeV1, SmlElasticWeightPlanFieldV1,
     SmlElasticWeightPlanV1, SmlElasticWeightTransitionV1, SmlWeightPrecisionV1,
