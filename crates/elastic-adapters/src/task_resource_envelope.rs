@@ -271,16 +271,28 @@ impl fmt::Display for TaskResourcePlanError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnsupportedDimension { dimension } => {
-                write!(formatter, "task resource dimension {dimension} is not supported yet")
+                write!(
+                    formatter,
+                    "task resource dimension {dimension} is not supported yet"
+                )
             }
             Self::MissingEstimate { dimension } => {
-                write!(formatter, "task resource plan is missing requested dimension {dimension}")
+                write!(
+                    formatter,
+                    "task resource plan is missing requested dimension {dimension}"
+                )
             }
             Self::ZeroEstimate { dimension } => {
-                write!(formatter, "task resource plan dimension {dimension} must be positive")
+                write!(
+                    formatter,
+                    "task resource plan dimension {dimension} must be positive"
+                )
             }
             Self::ExceedsBound { dimension } => {
-                write!(formatter, "task resource plan exceeds requested bound {dimension}")
+                write!(
+                    formatter,
+                    "task resource plan exceeds requested bound {dimension}"
+                )
             }
         }
     }
