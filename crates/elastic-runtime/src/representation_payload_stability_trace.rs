@@ -150,10 +150,7 @@ mod tests {
         );
         assert_eq!(trace.permit_generation(), Some(0));
         assert!(trace.stability().is_some());
-        assert_eq!(
-            trace.decision().unique_target_profile_id(),
-            Some("sparse")
-        );
+        assert_eq!(trace.decision().unique_target_profile_id(), Some("sparse"));
         assert!(!trace.carries_authority());
     }
 
