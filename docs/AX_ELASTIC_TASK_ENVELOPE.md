@@ -52,3 +52,16 @@ the cgroup CPU quota and memory limit. Those values describe observations and
 ceilings; they are not free capacity, a placement decision, or proof of
 resource enforcement. GPU, network and runtime qualification remain outside
 this v2 contract.
+
+
+## AXE-1 typed task resource envelope
+
+The public facade exposes a native Rust
+TaskResourceEnvelopeV1 binding an opaque caller-owned task reference and
+workspace reference to optional CPU, memory, wall-clock, GPU, model-token and
+concurrency bounds. References are preserved exactly and validated as bounded,
+non-secret labels. A zero GPU count is an explicit CPU-only request; other
+specified numeric bounds must be positive.
+
+The envelope records caller intent only. It does not own task identity, prove
+host capacity, choose a worker, or authorize actuation.
