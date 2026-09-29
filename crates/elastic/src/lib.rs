@@ -27,7 +27,8 @@ pub mod kv {
 
 pub use boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
 pub use elastic_adapters::{
-    actuate_if_fresh, model_execution_current_profile_rank_signal,
+    assess_task_resource_plan_against_remoteops_v2, actuate_if_fresh,
+    model_execution_current_profile_rank_signal,
     model_execution_profile_dimension, ActuationGateError, AdapterError, ConcurrencyPermits,
     HeadroomPlanner, ModelExecutionAdaptivePlannerV1, ModelExecutionAtomicProfileError,
     ModelExecutionAtomicProfilePlannerV1, ModelExecutionBasisPointAxis,
