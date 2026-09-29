@@ -101,9 +101,10 @@ impl RepresentationPayloadStabilityTraceV1 {
 mod tests {
     use super::*;
     use crate::{
-        ObservationSnapshot, RepresentationPayloadCandidateV1,
-        RepresentationPayloadStabilityControllerV1, TransitionStabilityPolicyV1,
+        ObservationSnapshot, RepresentationPayloadStabilityControllerV1,
+        TransitionStabilityPolicyV1,
     };
+    use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
     use elastic_core::{DimensionId, TransitionMechanism};
     use std::time::{Duration, Instant};
 
