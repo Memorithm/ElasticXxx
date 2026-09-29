@@ -1008,5 +1008,13 @@ ax_task_resource_program:
       result: fail_closed_resource_preflight_without_host_capacity_or_actuation_claim
   current_slice:
     scope: AXE3
-    status: ready
-    objective: add_GPU_token_energy_and_thermal_capability_dimensions
+    status: active
+    objective: add_and_validate_GPU_token_energy_and_thermal_preflight_dimensions
+    supporting_prs:
+      - pull_request: 236
+        merged_commit: "d1a25d6b6111c9c57dee7f83c4e9350db22b7024"
+        result: typed_caller_estimates_bound_to_task_envelope_fingerprint
+        limitations:
+          - no_verified_forecast_or_measurement_provenance
+          - no_host_capacity_or_backend_enforcement_claim
+          - no_physical_actuation
