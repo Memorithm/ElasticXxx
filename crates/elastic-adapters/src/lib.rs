@@ -40,6 +40,7 @@ pub mod remoteops_inventory;
 pub mod sml;
 pub mod soup;
 pub mod task_resource_envelope;
+pub mod task_resource_host_limits;
 pub mod tdi93;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
