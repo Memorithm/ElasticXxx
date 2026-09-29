@@ -226,9 +226,9 @@ fn validate_reference(
             character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
         });
     let identifier_is_valid = !identifier.is_empty()
-        && identifier.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'/')
-        });
+        && identifier
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'/'));
     if value.trim().is_empty()
         || value.trim() != value
         || value.chars().any(char::is_control)
