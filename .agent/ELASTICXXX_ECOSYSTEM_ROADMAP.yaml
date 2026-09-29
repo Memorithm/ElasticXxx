@@ -1008,15 +1008,26 @@ ax_task_resource_program:
         - ordinary_namespaced_labels_remain_valid
         - envelope_bound_CPU_RAM_wall_clock_and_concurrency_preflight
       result: fail_closed_resource_preflight_without_host_capacity_or_actuation_claim
+    AXE3:
+      pull_request: 236
+      merged_commit: "d1a25d6b6111c9c57dee7f83c4e9350db22b7024"
+      scope:
+        - typed_GPU_token_energy_and_thermal_preflight_estimates
+        - estimates_bound_to_task_envelope_fingerprint
+        - existing_AXE2_preflight_remains_fail_closed_for_extended_dimensions
+      result: extended_resource_estimates_remain_caller_supplied_preflight_only
+      limitations:
+        - no_verified_forecast_or_measurement_provenance
+        - no_host_capacity_or_backend_enforcement_claim
+        - no_physical_actuation
   current_slice:
-    scope: AXE3
+    scope: AXE4
     status: active
-    objective: add_and_validate_GPU_token_energy_and_thermal_preflight_dimensions
+    objective: compare_task_CPU_memory_estimates_with_validated_RemoteOps_cgroup_ceilings
     supporting_prs:
-      - pull_request: 236
-        merged_commit: "d1a25d6b6111c9c57dee7f83c4e9350db22b7024"
-        result: typed_caller_estimates_bound_to_task_envelope_fingerprint
+      - pull_request: 237
+        merged_commit: "c4f25e09316c6bbe1362157b7586f4aa8539a0eb"
+        result: read_only_CPU_memory_estimate_comparison_preserves_unknown_and_unbounded_observations
         limitations:
-          - no_verified_forecast_or_measurement_provenance
-          - no_host_capacity_or_backend_enforcement_claim
-          - no_physical_actuation
+          - within_ceiling_does_not_establish_free_capacity_freshness_placement_admission_or_enforcement
+          - wall_clock_concurrency_GPU_tokens_energy_and_thermal_dimensions_remain_unsupported
