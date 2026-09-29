@@ -37,3 +37,18 @@ plans that are explicitly admitted by both.
 
 No performance, safety or sandbox claim follows from this document. Those
 claims require backend-specific evidence and independent benchmarks.
+
+
+## RemoteOps host inventory v2
+
+The public facade exposes a strict wire contract for
+remoteops-sandbox host-resource inventory schema version 2. Consumers deserialize
+the wire DTO, then call its validation method before using the observation.
+Unknown fields, omitted nullable fields, and unsupported versions fail closed.
+Unknown limits remain distinct from explicitly unbounded limits.
+
+The contract preserves host logical CPU count and total memory separately from
+the cgroup CPU quota and memory limit. Those values describe observations and
+ceilings; they are not free capacity, a placement decision, or proof of
+resource enforcement. GPU, network and runtime qualification remain outside
+this v2 contract.
