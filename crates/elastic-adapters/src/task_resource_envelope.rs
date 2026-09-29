@@ -583,7 +583,9 @@ fn validate_reference(
 
 fn contains_secret_marker(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
-    let namespace = lower.split(':').next().unwrap_or_default();
+    let Some((namespace, identifier)) = lower.split_once(':') else {
+        return false;
+    };
     let credential_namespaces = [
         "authorization",
         "bearer",
@@ -615,9 +617,17 @@ fn contains_secret_marker(value: &str) -> bool {
         "basic ",
     ];
     credential_namespaces.contains(&namespace)
-        || credential_markers
-            .iter()
-            .any(|marker| lower.contains(marker))
+        || [namespace, identifier].iter().any(|component| {
+            credential_markers.iter().any(|marker| {
+                component.match_indices(marker).any(|(offset, _)| {
+                    offset == 0
+                        || component
+                            .as_bytes()
+                            .get(offset - 1)
+                            .is_some_and(|byte| matches!(*byte, b'/' | b'-' | b'_' | b'.'))
+                })
+            })
+        })
 }
 
 fn fingerprint_optional_u64(mut fingerprint: Fingerprint, value: Option<u64>) -> Fingerprint {
@@ -706,6 +716,8 @@ mod tests {
             "token:opaque-value",
             "task:ghp_examplecredential",
             "task:sk-examplecredential",
+            "task:artifact/ghp_examplecredential",
+            "sk-examplecredential:artifact",
         ] {
             assert!(matches!(
                 TaskResourceEnvelopeV1::new(invalid, "workspace:1", budget),
@@ -718,6 +730,16 @@ mod tests {
                 field: "workspace_ref"
             })
         ));
+    }
+
+    #[test]
+    fn ordinary_labels_with_embedded_marker_fragments_are_accepted() {
+        let budget = TaskResourceBudgetV1::default();
+        let envelope =
+            TaskResourceEnvelopeV1::new("hub-task:task-17", "workspace:disk-cache", budget)
+                .expect("ordinary labels containing marker fragments");
+        assert_eq!(envelope.task_ref(), "hub-task:task-17");
+        assert_eq!(envelope.workspace_ref(), "workspace:disk-cache");
     }
 
     #[test]
