@@ -41,6 +41,8 @@ pub enum TaskResourceHostLimitStatusV1 {
 pub enum TaskResourceDimensionV1 {
     CpuMillis,
     MemoryBytes,
+    WallClockMs,
+    Concurrency,
     GpuDevices,
     ModelTokens,
     EnergyMicrojoules,
@@ -79,13 +81,15 @@ impl TaskResourceHostLimitCheckV1 {
 ///
 /// The report deliberately has no overall compatible or admitted state.
 /// Unknown and unbounded observations remain distinct, and v2 cannot assess
-/// GPU, tokens, energy, or thermal margin.
+/// wall-clock, concurrency, GPU, tokens, energy, or thermal margin.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TaskResourceHostLimitAssessmentV1 {
     plan: TaskResourcePlanV1,
     inventory_fingerprint: Fingerprint,
     cpu_millis: TaskResourceHostLimitCheckV1,
     memory_bytes: TaskResourceHostLimitCheckV1,
+    wall_clock_ms: TaskResourceHostLimitCheckV1,
+    concurrency: TaskResourceHostLimitCheckV1,
     gpu_devices: TaskResourceHostLimitCheckV1,
     model_tokens: TaskResourceHostLimitCheckV1,
     energy_microjoules: TaskResourceHostLimitCheckV1,
@@ -122,6 +126,16 @@ impl TaskResourceHostLimitAssessmentV1 {
     }
 
     #[must_use]
+    pub const fn wall_clock_ms(&self) -> TaskResourceHostLimitCheckV1 {
+        self.wall_clock_ms
+    }
+
+    #[must_use]
+    pub const fn concurrency(&self) -> TaskResourceHostLimitCheckV1 {
+        self.concurrency
+    }
+
+    #[must_use]
     pub const fn gpu_devices(&self) -> TaskResourceHostLimitCheckV1 {
         self.gpu_devices
     }
@@ -145,6 +159,14 @@ impl TaskResourceHostLimitAssessmentV1 {
     #[must_use]
     pub fn unsupported_dimensions(&self) -> Vec<TaskResourceDimensionV1> {
         [
+            (
+                TaskResourceDimensionV1::WallClockMs,
+                self.wall_clock_ms.status,
+            ),
+            (
+                TaskResourceDimensionV1::Concurrency,
+                self.concurrency.status,
+            ),
             (TaskResourceDimensionV1::GpuDevices, self.gpu_devices.status),
             (
                 TaskResourceDimensionV1::ModelTokens,
@@ -225,6 +247,8 @@ pub fn assess_task_resource_plan_against_remoteops_v2(
         inventory_fingerprint: inventory_fingerprint(inventory),
         cpu_millis: compare_limit(plan.cpu_millis(), inventory.cgroup_cpu_quota_millis()),
         memory_bytes: compare_limit(plan.memory_bytes(), inventory.cgroup_memory_limit_bytes()),
+        wall_clock_ms: unsupported(plan.wall_clock_ms()),
+        concurrency: unsupported(plan.concurrency().map(u64::from)),
         gpu_devices: gpu_check,
         model_tokens: unsupported(plan.model_tokens()),
         energy_microjoules: unsupported(plan.energy_microjoules()),
@@ -465,6 +489,46 @@ mod tests {
             TaskResourceHostLimitStatusV1::NotRequested
         );
         assert!(assessment.unsupported_dimensions().is_empty());
+    }
+
+    #[test]
+    fn wall_clock_and_concurrency_are_explicitly_unsupported() {
+        let envelope = TaskResourceEnvelopeV1::new(
+            "task:unsupported-limits",
+            "workspace:unsupported-limits",
+            TaskResourceBudgetV1::new(None, None, Some(30_000), None, None, Some(4))
+                .expect("valid wall-clock and concurrency bounds"),
+        )
+        .expect("envelope");
+        let plan = envelope
+            .preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                wall_clock_ms: Some(30_000),
+                concurrency: Some(4),
+                ..TaskResourcePlanEstimateV1::default()
+            })
+            .expect("valid plan");
+        let inventory = inventory(r#"{"state":"unknown"}"#, r#"{"state":"unknown"}"#);
+
+        let assessment =
+            assess_task_resource_plan_against_remoteops_v2(&envelope, &plan, &inventory)
+                .expect("assessment");
+        assert_eq!(
+            assessment.wall_clock_ms().status(),
+            TaskResourceHostLimitStatusV1::UnsupportedByInventory
+        );
+        assert_eq!(assessment.wall_clock_ms().requested(), Some(30_000));
+        assert_eq!(
+            assessment.concurrency().status(),
+            TaskResourceHostLimitStatusV1::UnsupportedByInventory
+        );
+        assert_eq!(assessment.concurrency().requested(), Some(4));
+        assert_eq!(
+            assessment.unsupported_dimensions(),
+            vec![
+                TaskResourceDimensionV1::WallClockMs,
+                TaskResourceDimensionV1::Concurrency,
+            ]
+        );
     }
 
     #[test]
