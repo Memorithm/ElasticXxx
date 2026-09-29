@@ -146,7 +146,10 @@ impl TaskResourceHostLimitAssessmentV1 {
     pub fn unsupported_dimensions(&self) -> Vec<TaskResourceDimensionV1> {
         [
             (TaskResourceDimensionV1::GpuDevices, self.gpu_devices.status),
-            (TaskResourceDimensionV1::ModelTokens, self.model_tokens.status),
+            (
+                TaskResourceDimensionV1::ModelTokens,
+                self.model_tokens.status,
+            ),
             (
                 TaskResourceDimensionV1::EnergyMicrojoules,
                 self.energy_microjoules.status,
@@ -158,8 +161,7 @@ impl TaskResourceHostLimitAssessmentV1 {
         ]
         .into_iter()
         .filter_map(|(dimension, status)| {
-            (status == TaskResourceHostLimitStatusV1::UnsupportedByInventory)
-                .then_some(dimension)
+            (status == TaskResourceHostLimitStatusV1::UnsupportedByInventory).then_some(dimension)
         })
         .collect()
     }
@@ -221,14 +223,8 @@ pub fn assess_task_resource_plan_against_remoteops_v2(
     Ok(TaskResourceHostLimitAssessmentV1 {
         plan: plan.clone(),
         inventory_fingerprint: inventory_fingerprint(inventory),
-        cpu_millis: compare_limit(
-            plan.cpu_millis(),
-            inventory.cgroup_cpu_quota_millis(),
-        ),
-        memory_bytes: compare_limit(
-            plan.memory_bytes(),
-            inventory.cgroup_memory_limit_bytes(),
-        ),
+        cpu_millis: compare_limit(plan.cpu_millis(), inventory.cgroup_cpu_quota_millis()),
+        memory_bytes: compare_limit(plan.memory_bytes(), inventory.cgroup_memory_limit_bytes()),
         gpu_devices: gpu_check,
         model_tokens: unsupported(plan.model_tokens()),
         energy_microjoules: unsupported(plan.energy_microjoules()),
@@ -242,15 +238,11 @@ fn compare_limit(
 ) -> TaskResourceHostLimitCheckV1 {
     let status = match (requested, observed_limit) {
         (None, _) => TaskResourceHostLimitStatusV1::NotRequested,
-        (Some(_), RemoteOpsLimitObservationV2::Unknown) => {
-            TaskResourceHostLimitStatusV1::Unknown
-        }
+        (Some(_), RemoteOpsLimitObservationV2::Unknown) => TaskResourceHostLimitStatusV1::Unknown,
         (Some(_), RemoteOpsLimitObservationV2::Unbounded) => {
             TaskResourceHostLimitStatusV1::Unbounded
         }
-        (Some(requested), RemoteOpsLimitObservationV2::Limited { value })
-            if requested <= value =>
-        {
+        (Some(requested), RemoteOpsLimitObservationV2::Limited { value }) if requested <= value => {
             TaskResourceHostLimitStatusV1::WithinObservedCeiling
         }
         (Some(_), RemoteOpsLimitObservationV2::Limited { .. }) => {
@@ -424,9 +416,8 @@ mod tests {
             .with_max_energy_microjoules(Some(4_000_000))
             .expect("valid energy bound")
             .with_minimum_thermal_margin_millicelsius(Some(750));
-        let envelope =
-            TaskResourceEnvelopeV1::new("task:extended", "workspace:extended", budget)
-                .expect("envelope");
+        let envelope = TaskResourceEnvelopeV1::new("task:extended", "workspace:extended", budget)
+            .expect("envelope");
         let plan = envelope
             .preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
                 gpu_devices: Some(1),
@@ -436,10 +427,7 @@ mod tests {
                 ..TaskResourcePlanEstimateV1::default()
             })
             .expect("valid extended plan");
-        let inventory = inventory(
-            r#"{"state":"unbounded"}"#,
-            r#"{"state":"unbounded"}"#,
-        );
+        let inventory = inventory(r#"{"state":"unbounded"}"#, r#"{"state":"unbounded"}"#);
 
         let assessment =
             assess_task_resource_plan_against_remoteops_v2(&envelope, &plan, &inventory)
