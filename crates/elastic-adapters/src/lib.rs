@@ -38,6 +38,7 @@ pub mod planners;
 pub mod ram;
 pub mod remoteops_inventory;
 pub mod sml;
+pub mod task_resource_envelope;
 pub mod soup;
 pub mod tdi93;
 
@@ -85,6 +86,10 @@ pub use remoteops_inventory::{
     RemoteOpsHostResourceInventoryV2, RemoteOpsHostResourceInventoryWireV2,
     RemoteOpsInventoryContractError, RemoteOpsLimitObservationV2,
     REMOTEOPS_HOST_RESOURCE_INVENTORY_SCHEMA_V2,
+};
+pub use task_resource_envelope::{
+    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1,
+    TASK_RESOURCE_ENVELOPE_V1, MAX_TASK_RESOURCE_REF_BYTES,
 };
 pub use sml::{
     SmlElasticWeightAdapterError, SmlElasticWeightPlanEnvelopeV1, SmlElasticWeightPlanFieldV1,
