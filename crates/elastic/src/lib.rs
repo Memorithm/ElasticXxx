@@ -44,6 +44,8 @@ pub use elastic_adapters::{
     ModelExecutionResourcePlanWireV1, ModelExecutionResourceSnapshotV1, PlannerConfigError,
     RamBudget, RemoteOpsHostResourceInventoryV2, RemoteOpsHostResourceInventoryWireV2,
     RemoteOpsInventoryContractError, RemoteOpsLimitObservationV2, SoupAutoBatchStrategy,
+    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1,
+    MAX_TASK_RESOURCE_REF_BYTES, TASK_RESOURCE_ENVELOPE_V1,
     SoupBatchSize, SoupBatchSizeWireV1, SoupContractError, SoupLayerStreamingV1,
     SoupLayerStreamingWireV1, SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource,
     Tdi93C3FactsV1, Tdi93C3PredicateV1, ThresholdPlanner,
