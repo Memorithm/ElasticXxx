@@ -104,8 +104,8 @@ pub use soup::{
     SOUP_STREAM_TASKS,
 };
 pub use task_resource_envelope::{
-    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1,
-    MAX_TASK_RESOURCE_REF_BYTES, TASK_RESOURCE_ENVELOPE_V1,
+    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1, TaskResourcePlanError,
+    TaskResourcePlanV1, MAX_TASK_RESOURCE_REF_BYTES, TASK_RESOURCE_ENVELOPE_V1,
 };
 pub use tdi93::{
     Tdi93C3FactsV1, Tdi93C3PredicateV1, TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1,
