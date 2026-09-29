@@ -998,12 +998,14 @@ ax_task_resource_program:
       merged_commit: "65951571da093820e79015023380a530e388c7cc"
       result: validated_backend_neutral_task_resource_envelope_and_public_facade_contract
     AXE2:
-      pull_requests: [233, 234]
+      pull_requests: [233, 234, 235]
       merged_commits:
         - "0f8097a20ba0cfc1fad55f3d43347896bf413dd7"
         - "08e28344c6493d076f7c2377d0e59cd683405114"
+        - "7e3cd10e6a5321e0c55a7fa9ffa4a18de33cc25d"
       scope:
         - credential_safe_task_and_workspace_reference_validation
+        - ordinary_namespaced_labels_remain_valid
         - envelope_bound_CPU_RAM_wall_clock_and_concurrency_preflight
       result: fail_closed_resource_preflight_without_host_capacity_or_actuation_claim
   current_slice:
