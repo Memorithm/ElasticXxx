@@ -455,10 +455,7 @@ mod tests {
                 ..TaskResourcePlanEstimateV1::default()
             })
             .expect("CPU-only plan");
-        let inventory = inventory(
-            r#"{"state":"unbounded"}"#,
-            r#"{"state":"unbounded"}"#,
-        );
+        let inventory = inventory(r#"{"state":"unbounded"}"#, r#"{"state":"unbounded"}"#);
 
         let assessment =
             assess_task_resource_plan_against_remoteops_v2(&envelope, &plan, &inventory)
