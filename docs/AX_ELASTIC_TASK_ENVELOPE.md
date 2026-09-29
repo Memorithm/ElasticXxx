@@ -97,7 +97,8 @@ not establish free capacity, placement compatibility, or backend enforcement.
 Inventory v2 has no capture timestamp, so freshness must be established by the
 caller outside this comparison.
 
-Unknown and unbounded observations remain distinct. GPU, model tokens, energy,
-and thermal margin are explicitly unsupported because inventory v2 does not
-report them. The result contains no overall admission or compatibility state
-and does not prove capacity, freshness, placement, or enforcement.
+Unknown and unbounded observations remain distinct. Wall-clock,
+concurrency, GPU, model tokens, energy, and thermal margin are explicitly
+unsupported because inventory v2 does not report them. The result contains no
+overall admission or compatibility state and does not prove capacity,
+freshness, placement, or enforcement.
