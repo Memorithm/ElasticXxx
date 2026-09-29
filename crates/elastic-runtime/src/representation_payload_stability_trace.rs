@@ -100,11 +100,11 @@ impl RepresentationPayloadStabilityTraceV1 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
     use crate::{
         ObservationSnapshot, RepresentationPayloadStabilityControllerV1,
         TransitionStabilityPolicyV1,
     };
-    use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
     use elastic_core::{DimensionId, TransitionMechanism};
     use std::time::{Duration, Instant};
 
