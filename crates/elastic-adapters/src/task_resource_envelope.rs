@@ -418,13 +418,15 @@ fn contains_secret_marker(value: &str) -> bool {
         "basic ",
     ];
     credential_namespaces.contains(&namespace)
-        || credential_markers.iter().any(|marker| {
-            identifier.match_indices(marker).any(|(offset, _)| {
-                offset == 0
-                    || identifier
-                        .as_bytes()
-                        .get(offset - 1)
-                        .is_some_and(|byte| matches!(*byte, b'/' | b'-' | b'_' | b'.'))
+        || [namespace, identifier].iter().any(|component| {
+            credential_markers.iter().any(|marker| {
+                component.match_indices(marker).any(|(offset, _)| {
+                    offset == 0
+                        || component
+                            .as_bytes()
+                            .get(offset - 1)
+                            .is_some_and(|byte| matches!(*byte, b'/' | b'-' | b'_' | b'.'))
+                })
             })
         })
 }
@@ -516,6 +518,7 @@ mod tests {
             "task:ghp_examplecredential",
             "task:sk-examplecredential",
             "task:artifact/ghp_examplecredential",
+            "sk-examplecredential:artifact",
         ] {
             assert!(matches!(
                 TaskResourceEnvelopeV1::new(invalid, "workspace:1", budget),
