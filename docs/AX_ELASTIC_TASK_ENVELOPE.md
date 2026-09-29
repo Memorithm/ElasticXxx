@@ -65,3 +65,25 @@ specified numeric bounds must be positive.
 
 The envelope records caller intent only. It does not own task identity, prove
 host capacity, choose a worker, or authorize actuation.
+
+
+## AXE-2 bounded task preflight
+
+The public preflight checks caller-supplied CPU, memory, wall-clock and
+concurrency estimates against the validated task envelope. It rejects missing,
+zero or over-bound estimates for requested dimensions. The result is bound to
+the envelope fingerprint and remains a plan input; it is not host capacity or
+proof of enforcement.
+
+## AXE-3 extended task dimensions
+
+A separate typed estimate surface checks GPU count, model-token ceiling,
+accumulated energy in microjoules, and a task-selected minimum thermal margin
+in millidegrees Celsius. GPU count zero remains a valid CPU-only request.
+Energy is an accumulated budget; thermal margin is a derived safety margin and
+is not treated as temperature or a fungible resource.
+
+All extended values are caller-supplied preflight estimates. ElasticXxx does
+not verify their forecast provenance, measure host capacity, qualify a backend,
+or authorize actuation. The original AXE-2 preflight method fails closed when
+an envelope requests an extended dimension.
