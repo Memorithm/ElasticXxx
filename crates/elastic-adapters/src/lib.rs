@@ -40,6 +40,7 @@ pub mod remoteops_inventory;
 pub mod sml;
 pub mod soup;
 pub mod task_resource_envelope;
+pub mod task_resource_host_limits;
 pub mod tdi93;
 
 pub use actuation::{actuate_if_fresh, ActuationGateError};
@@ -107,6 +108,11 @@ pub use task_resource_envelope::{
     TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1, TaskResourcePlanError,
     TaskResourcePlanEstimateV1, TaskResourcePlanV1, MAX_TASK_RESOURCE_REF_BYTES,
     TASK_RESOURCE_ENVELOPE_V1,
+};
+pub use task_resource_host_limits::{
+    assess_task_resource_plan_against_remoteops_v2, TaskResourceDimensionV1,
+    TaskResourceHostLimitAssessmentV1, TaskResourceHostLimitCheckV1, TaskResourceHostLimitErrorV1,
+    TaskResourceHostLimitStatusV1, TASK_RESOURCE_HOST_LIMIT_ASSESSMENT_V1,
 };
 pub use tdi93::{
     Tdi93C3FactsV1, Tdi93C3PredicateV1, TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1,

@@ -27,9 +27,10 @@ pub mod kv {
 
 pub use boolean::{predicate, ElasticGuard, ElasticGuardError, ElasticPredicates};
 pub use elastic_adapters::{
-    actuate_if_fresh, model_execution_current_profile_rank_signal,
-    model_execution_profile_dimension, ActuationGateError, AdapterError, ConcurrencyPermits,
-    HeadroomPlanner, ModelExecutionAdaptivePlannerV1, ModelExecutionAtomicProfileError,
+    actuate_if_fresh, assess_task_resource_plan_against_remoteops_v2,
+    model_execution_current_profile_rank_signal, model_execution_profile_dimension,
+    ActuationGateError, AdapterError, ConcurrencyPermits, HeadroomPlanner,
+    ModelExecutionAdaptivePlannerV1, ModelExecutionAtomicProfileError,
     ModelExecutionAtomicProfilePlannerV1, ModelExecutionBasisPointAxis,
     ModelExecutionCapabilitiesV1, ModelExecutionCapabilitiesWireV1, ModelExecutionContractError,
     ModelExecutionEnvelopeError, ModelExecutionEnvelopePolicyV1,
@@ -46,7 +47,9 @@ pub use elastic_adapters::{
     RemoteOpsInventoryContractError, RemoteOpsLimitObservationV2, SoupAutoBatchStrategy,
     SoupBatchSize, SoupBatchSizeWireV1, SoupContractError, SoupLayerStreamingV1,
     SoupLayerStreamingWireV1, SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource,
-    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1, TaskResourcePlanError,
+    TaskResourceBudgetV1, TaskResourceDimensionV1, TaskResourceEnvelopeError,
+    TaskResourceEnvelopeV1, TaskResourceHostLimitAssessmentV1, TaskResourceHostLimitCheckV1,
+    TaskResourceHostLimitErrorV1, TaskResourceHostLimitStatusV1, TaskResourcePlanError,
     TaskResourcePlanEstimateV1, TaskResourcePlanV1, Tdi93C3FactsV1, Tdi93C3PredicateV1,
     ThresholdPlanner, MAX_TASK_RESOURCE_REF_BYTES, MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION,
     MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION, MODEL_EXECUTION_ATOMIC_PROFILE_V1,
@@ -61,8 +64,8 @@ pub use elastic_adapters::{
     SOUP_DEFAULT_STREAM_BUFFERS, SOUP_HUB_RESOURCE_CONTRACT_V1, SOUP_MAX_STREAM_BUFFERS,
     SOUP_MIN_STREAM_BUFFERS, SOUP_QUALIFIED_UPSTREAM_COMMIT, SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1,
     SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS, TASK_RESOURCE_ENVELOPE_V1,
-    TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1, TDI93_C3_PREDICATE_NAMESPACE_V1,
-    TDI93_C3_SOURCE_COMMIT_V1,
+    TASK_RESOURCE_HOST_LIMIT_ASSESSMENT_V1, TDI93_C3_INTEROP_SCHEMA_V1,
+    TDI93_C3_PREDICATE_COUNT_V1, TDI93_C3_PREDICATE_NAMESPACE_V1, TDI93_C3_SOURCE_COMMIT_V1,
 };
 pub use elastic_core::control::{
     FreshnessSnapshot, ObservationEpoch, PlannerEpoch, RecommendationContext,

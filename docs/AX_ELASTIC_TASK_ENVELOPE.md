@@ -87,3 +87,18 @@ All extended values are caller-supplied preflight estimates. ElasticXxx does
 not verify their forecast provenance, measure host capacity, qualify a backend,
 or authorize actuation. The original AXE-2 preflight method fails closed when
 an envelope requests an extended dimension.
+
+## AXE-4 comparison with RemoteOps v2 cgroup ceilings
+
+The public read-only assessment compares CPU and memory plan estimates with the
+validated cgroup ceilings reported by RemoteOps inventory v2. Numeric
+exceedance is reported against that observation; a value within a ceiling does
+not establish free capacity, placement compatibility, or backend enforcement.
+Inventory v2 has no capture timestamp, so freshness must be established by the
+caller outside this comparison.
+
+Unknown and unbounded observations remain distinct. Wall-clock,
+concurrency, GPU, model tokens, energy, and thermal margin are explicitly
+unsupported because inventory v2 does not report them. The result contains no
+overall admission or compatibility state and does not prove capacity,
+freshness, placement, or enforcement.
