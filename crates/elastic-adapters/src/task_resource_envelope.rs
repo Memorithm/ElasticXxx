@@ -27,6 +27,8 @@ pub struct TaskResourceBudgetV1 {
     gpu_devices: Option<u32>,
     model_tokens: Option<u64>,
     concurrency: Option<u32>,
+    max_energy_microjoules: Option<u64>,
+    minimum_thermal_margin_millicelsius: Option<u64>,
 }
 
 impl TaskResourceBudgetV1 {
@@ -67,7 +69,39 @@ impl TaskResourceBudgetV1 {
             gpu_devices,
             model_tokens,
             concurrency,
+            max_energy_microjoules: None,
+            minimum_thermal_margin_millicelsius: None,
         })
+    }
+
+    /// Set an optional maximum accumulated energy allowance.
+    ///
+    /// The value is a caller-owned task budget in microjoules. It is not a
+    /// measured or predicted host-energy observation.
+    pub fn with_max_energy_microjoules(
+        mut self,
+        max_energy_microjoules: Option<u64>,
+    ) -> Result<Self, TaskResourceEnvelopeError> {
+        if max_energy_microjoules == Some(0) {
+            return Err(TaskResourceEnvelopeError::ZeroBound {
+                dimension: "max_energy_microjoules",
+            });
+        }
+        self.max_energy_microjoules = max_energy_microjoules;
+        Ok(self)
+    }
+
+    /// Set the minimum caller-selected thermal margin in millidegrees Celsius.
+    ///
+    /// Zero is valid. This is a task requirement, not a claim about host
+    /// temperature, cooling capacity, or the accuracy of a forecast.
+    #[must_use]
+    pub const fn with_minimum_thermal_margin_millicelsius(
+        mut self,
+        minimum_thermal_margin_millicelsius: Option<u64>,
+    ) -> Self {
+        self.minimum_thermal_margin_millicelsius = minimum_thermal_margin_millicelsius;
+        self
     }
 
     /// Requested CPU quota in millicores.
@@ -106,13 +140,33 @@ impl TaskResourceBudgetV1 {
         self.concurrency
     }
 
+    /// Maximum accumulated energy allowance in microjoules.
+    #[must_use]
+    pub const fn max_energy_microjoules(&self) -> Option<u64> {
+        self.max_energy_microjoules
+    }
+
+    /// Minimum task-selected thermal margin in millidegrees Celsius.
+    #[must_use]
+    pub const fn minimum_thermal_margin_millicelsius(&self) -> Option<u64> {
+        self.minimum_thermal_margin_millicelsius
+    }
+
     fn fingerprint_into(&self, mut fingerprint: Fingerprint) -> Fingerprint {
         fingerprint = fingerprint_optional_u64(fingerprint, self.cpu_millis);
         fingerprint = fingerprint_optional_u64(fingerprint, self.memory_bytes);
         fingerprint = fingerprint_optional_u64(fingerprint, self.wall_clock_ms);
         fingerprint = fingerprint_optional_u64(fingerprint, self.gpu_devices.map(u64::from));
         fingerprint = fingerprint_optional_u64(fingerprint, self.model_tokens);
-        fingerprint_optional_u64(fingerprint, self.concurrency.map(u64::from))
+        fingerprint = fingerprint_optional_u64(fingerprint, self.concurrency.map(u64::from));
+        if self.max_energy_microjoules.is_none()
+            && self.minimum_thermal_margin_millicelsius.is_none()
+        {
+            return fingerprint;
+        }
+        fingerprint = fingerprint.text("elastic.task-resource-envelope-axe3-dimensions@1");
+        fingerprint = fingerprint_optional_u64(fingerprint, self.max_energy_microjoules);
+        fingerprint_optional_u64(fingerprint, self.minimum_thermal_margin_millicelsius)
     }
 }
 
@@ -176,9 +230,9 @@ impl TaskResourceEnvelopeV1 {
 
     /// Validate a bounded CPU, memory, wall-clock and concurrency plan.
     ///
-    /// Requested GPU or model-token dimensions are rejected until a later
-    /// adapter phase can validate them. This is a preflight check only: it does
-    /// not measure host capacity or authorize physical actuation.
+    /// The legacy plan surface fails closed when an envelope requests a
+    /// dimension introduced after AXE-2. Use the advanced estimate method to
+    /// validate GPU, token, energy, and thermal-margin estimates.
     pub fn preflight_plan(
         &self,
         cpu_millis: Option<u64>,
@@ -186,32 +240,90 @@ impl TaskResourceEnvelopeV1 {
         wall_clock_ms: Option<u64>,
         concurrency: Option<u32>,
     ) -> Result<TaskResourcePlanV1, TaskResourcePlanError> {
-        if self.budget.gpu_devices.is_some() {
-            return Err(TaskResourcePlanError::UnsupportedDimension {
-                dimension: "gpu_devices",
-            });
-        }
-        if self.budget.model_tokens.is_some() {
-            return Err(TaskResourcePlanError::UnsupportedDimension {
-                dimension: "model_tokens",
-            });
+        for (dimension, requested) in [
+            ("gpu_devices", self.budget.gpu_devices.is_some()),
+            ("model_tokens", self.budget.model_tokens.is_some()),
+            (
+                "max_energy_microjoules",
+                self.budget.max_energy_microjoules.is_some(),
+            ),
+            (
+                "minimum_thermal_margin_millicelsius",
+                self.budget.minimum_thermal_margin_millicelsius.is_some(),
+            ),
+        ] {
+            if requested {
+                return Err(TaskResourcePlanError::UnsupportedDimension { dimension });
+            }
         }
 
-        validate_planned_dimension("cpu_millis", self.budget.cpu_millis, cpu_millis)?;
-        validate_planned_dimension("memory_bytes", self.budget.memory_bytes, memory_bytes)?;
-        validate_planned_dimension("wall_clock_ms", self.budget.wall_clock_ms, wall_clock_ms)?;
-        validate_planned_dimension(
-            "concurrency",
-            self.budget.concurrency.map(u64::from),
-            concurrency.map(u64::from),
-        )?;
-
-        Ok(TaskResourcePlanV1 {
-            envelope_fingerprint: self.fingerprint,
+        self.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
             cpu_millis,
             memory_bytes,
             wall_clock_ms,
             concurrency,
+            ..TaskResourcePlanEstimateV1::default()
+        })
+    }
+
+    /// Validate all currently supported task-resource estimates.
+    ///
+    /// The values are caller-provided preflight estimates. This method does not
+    /// observe host capacity, verify forecast provenance, or authorize
+    /// enforcement or physical actuation. Energy is accumulated work in
+    /// microjoules; thermal margin is a non-negative derived margin in
+    /// millidegrees Celsius and must meet the task-selected minimum.
+    pub fn preflight_plan_with_estimates(
+        &self,
+        estimates: TaskResourcePlanEstimateV1,
+    ) -> Result<TaskResourcePlanV1, TaskResourcePlanError> {
+        validate_planned_dimension("cpu_millis", self.budget.cpu_millis, estimates.cpu_millis)?;
+        validate_planned_dimension(
+            "memory_bytes",
+            self.budget.memory_bytes,
+            estimates.memory_bytes,
+        )?;
+        validate_planned_dimension(
+            "wall_clock_ms",
+            self.budget.wall_clock_ms,
+            estimates.wall_clock_ms,
+        )?;
+        validate_planned_dimension(
+            "concurrency",
+            self.budget.concurrency.map(u64::from),
+            estimates.concurrency.map(u64::from),
+        )?;
+        validate_planned_dimension_allow_zero(
+            "gpu_devices",
+            self.budget.gpu_devices.map(u64::from),
+            estimates.gpu_devices.map(u64::from),
+        )?;
+        validate_planned_dimension(
+            "model_tokens",
+            self.budget.model_tokens,
+            estimates.model_tokens,
+        )?;
+        validate_planned_dimension(
+            "max_energy_microjoules",
+            self.budget.max_energy_microjoules,
+            estimates.energy_microjoules,
+        )?;
+        validate_minimum_dimension(
+            "thermal_margin_millicelsius",
+            self.budget.minimum_thermal_margin_millicelsius,
+            estimates.thermal_margin_millicelsius,
+        )?;
+
+        Ok(TaskResourcePlanV1 {
+            envelope_fingerprint: self.fingerprint,
+            cpu_millis: estimates.cpu_millis,
+            memory_bytes: estimates.memory_bytes,
+            wall_clock_ms: estimates.wall_clock_ms,
+            concurrency: estimates.concurrency,
+            gpu_devices: estimates.gpu_devices,
+            model_tokens: estimates.model_tokens,
+            energy_microjoules: estimates.energy_microjoules,
+            thermal_margin_millicelsius: estimates.thermal_margin_millicelsius,
         })
     }
 
@@ -233,6 +345,34 @@ pub struct TaskResourcePlanV1 {
     memory_bytes: Option<u64>,
     wall_clock_ms: Option<u64>,
     concurrency: Option<u32>,
+    gpu_devices: Option<u32>,
+    model_tokens: Option<u64>,
+    energy_microjoules: Option<u64>,
+    thermal_margin_millicelsius: Option<u64>,
+}
+
+/// Caller-supplied task resource estimates used only for bounded preflight.
+///
+/// No field is a host observation, a verified forecast, or proof of backend
+/// enforcement. GPU count zero is allowed for an explicit CPU-only plan.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TaskResourcePlanEstimateV1 {
+    /// Requested CPU quota in millicores.
+    pub cpu_millis: Option<u64>,
+    /// Requested memory ceiling in bytes.
+    pub memory_bytes: Option<u64>,
+    /// Requested wall-clock limit in milliseconds.
+    pub wall_clock_ms: Option<u64>,
+    /// Requested maximum concurrent operations.
+    pub concurrency: Option<u32>,
+    /// GPU device count; zero is a valid explicit CPU-only plan.
+    pub gpu_devices: Option<u32>,
+    /// Planned model-token ceiling.
+    pub model_tokens: Option<u64>,
+    /// Planned accumulated energy in microjoules.
+    pub energy_microjoules: Option<u64>,
+    /// Estimated thermal margin in millidegrees Celsius.
+    pub thermal_margin_millicelsius: Option<u64>,
 }
 
 impl TaskResourcePlanV1 {
@@ -260,6 +400,26 @@ impl TaskResourcePlanV1 {
     pub const fn concurrency(&self) -> Option<u32> {
         self.concurrency
     }
+
+    #[must_use]
+    pub const fn gpu_devices(&self) -> Option<u32> {
+        self.gpu_devices
+    }
+
+    #[must_use]
+    pub const fn model_tokens(&self) -> Option<u64> {
+        self.model_tokens
+    }
+
+    #[must_use]
+    pub const fn energy_microjoules(&self) -> Option<u64> {
+        self.energy_microjoules
+    }
+
+    #[must_use]
+    pub const fn thermal_margin_millicelsius(&self) -> Option<u64> {
+        self.thermal_margin_millicelsius
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -268,6 +428,7 @@ pub enum TaskResourcePlanError {
     MissingEstimate { dimension: &'static str },
     ZeroEstimate { dimension: &'static str },
     ExceedsBound { dimension: &'static str },
+    BelowMinimum { dimension: &'static str },
 }
 
 impl fmt::Display for TaskResourcePlanError {
@@ -297,11 +458,49 @@ impl fmt::Display for TaskResourcePlanError {
                     "task resource plan exceeds requested bound {dimension}"
                 )
             }
+            Self::BelowMinimum { dimension } => {
+                write!(
+                    formatter,
+                    "task resource plan falls below requested minimum {dimension}"
+                )
+            }
         }
     }
 }
 
 impl std::error::Error for TaskResourcePlanError {}
+
+fn validate_planned_dimension_allow_zero(
+    dimension: &'static str,
+    bound: Option<u64>,
+    planned: Option<u64>,
+) -> Result<(), TaskResourcePlanError> {
+    if bound.is_some() && planned.is_none() {
+        return Err(TaskResourcePlanError::MissingEstimate { dimension });
+    }
+    if let (Some(bound), Some(planned)) = (bound, planned) {
+        if planned > bound {
+            return Err(TaskResourcePlanError::ExceedsBound { dimension });
+        }
+    }
+    Ok(())
+}
+
+fn validate_minimum_dimension(
+    dimension: &'static str,
+    minimum: Option<u64>,
+    planned: Option<u64>,
+) -> Result<(), TaskResourcePlanError> {
+    if minimum.is_some() && planned.is_none() {
+        return Err(TaskResourcePlanError::MissingEstimate { dimension });
+    }
+    if let (Some(minimum), Some(planned)) = (minimum, planned) {
+        if planned < minimum {
+            return Err(TaskResourcePlanError::BelowMinimum { dimension });
+        }
+    }
+    Ok(())
+}
 
 fn validate_planned_dimension(
     dimension: &'static str,
@@ -619,6 +818,134 @@ mod tests {
                 dimension: "model_tokens"
             })
         );
+    }
+
+    #[test]
+    fn axe3_estimates_validate_gpu_tokens_energy_and_thermal_margin() {
+        let budget = TaskResourceBudgetV1::new(None, None, None, Some(2), Some(1_000), None)
+            .expect("valid GPU and token bounds")
+            .with_max_energy_microjoules(Some(4_000_000))
+            .expect("positive energy bound")
+            .with_minimum_thermal_margin_millicelsius(Some(750));
+        let envelope = TaskResourceEnvelopeV1::new("task:axe3", "workspace:axe3", budget)
+            .expect("envelope");
+        let estimates = TaskResourcePlanEstimateV1 {
+            gpu_devices: Some(1),
+            model_tokens: Some(800),
+            energy_microjoules: Some(3_500_000),
+            thermal_margin_millicelsius: Some(1_000),
+            ..TaskResourcePlanEstimateV1::default()
+        };
+        let plan = envelope
+            .preflight_plan_with_estimates(estimates)
+            .expect("all AXE-3 estimates satisfy the task bounds");
+        assert!(plan.is_bound_to(&envelope));
+        assert_eq!(plan.gpu_devices(), Some(1));
+        assert_eq!(plan.model_tokens(), Some(800));
+        assert_eq!(plan.energy_microjoules(), Some(3_500_000));
+        assert_eq!(plan.thermal_margin_millicelsius(), Some(1_000));
+
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                gpu_devices: Some(3),
+                ..estimates
+            }),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "gpu_devices"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                model_tokens: None,
+                ..estimates
+            }),
+            Err(TaskResourcePlanError::MissingEstimate {
+                dimension: "model_tokens"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                energy_microjoules: Some(4_000_001),
+                ..estimates
+            }),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "max_energy_microjoules"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                thermal_margin_millicelsius: Some(749),
+                ..estimates
+            }),
+            Err(TaskResourcePlanError::BelowMinimum {
+                dimension: "thermal_margin_millicelsius"
+            })
+        );
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                model_tokens: Some(0),
+                ..estimates
+            }),
+            Err(TaskResourcePlanError::ZeroEstimate {
+                dimension: "model_tokens"
+            })
+        );
+    }
+
+    #[test]
+    fn axe3_zero_gpu_estimate_is_valid_only_for_cpu_only_envelope() {
+        let envelope = TaskResourceEnvelopeV1::new(
+            "task:cpu-only",
+            "workspace:cpu-only",
+            TaskResourceBudgetV1::new(None, None, None, Some(0), None, None)
+                .expect("zero GPU is an explicit CPU-only bound"),
+        )
+        .expect("envelope");
+        assert_eq!(
+            envelope
+                .preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                    gpu_devices: Some(0),
+                    ..TaskResourcePlanEstimateV1::default()
+                })
+                .expect("CPU-only plan"),
+            TaskResourcePlanV1 {
+                envelope_fingerprint: envelope.fingerprint(),
+                cpu_millis: None,
+                memory_bytes: None,
+                wall_clock_ms: None,
+                concurrency: None,
+                gpu_devices: Some(0),
+                model_tokens: None,
+                energy_microjoules: None,
+                thermal_margin_millicelsius: None,
+            }
+        );
+        assert_eq!(
+            envelope.preflight_plan_with_estimates(TaskResourcePlanEstimateV1 {
+                gpu_devices: Some(1),
+                ..TaskResourcePlanEstimateV1::default()
+            }),
+            Err(TaskResourcePlanError::ExceedsBound {
+                dimension: "gpu_devices"
+            })
+        );
+    }
+
+    #[test]
+    fn advanced_budget_changes_the_envelope_fingerprint() {
+        let base = TaskResourceEnvelopeV1::new(
+            "task:fingerprint",
+            "workspace:fingerprint",
+            TaskResourceBudgetV1::default(),
+        )
+        .unwrap();
+        let advanced_budget = TaskResourceBudgetV1::default()
+            .with_max_energy_microjoules(Some(1))
+            .unwrap();
+        let advanced =
+            TaskResourceEnvelopeV1::new("task:fingerprint", "workspace:fingerprint", advanced_budget)
+                .unwrap();
+        assert_ne!(base.fingerprint(), advanced.fingerprint());
     }
 
     #[test]
