@@ -10,6 +10,9 @@ use std::fmt;
 /// Stable identity of the native task resource envelope contract.
 pub const TASK_RESOURCE_ENVELOPE_V1: &str = "elastic.task-resource-envelope@1.0.0";
 /// Maximum byte length for opaque task and workspace reference labels.
+///
+/// References use a conservative `<namespace>:<identifier>` ASCII form so
+/// free-form credential strings are not accepted as diagnostic labels.
 pub const MAX_TASK_RESOURCE_REF_BYTES: usize = 256;
 
 /// Optional hard resource bounds supplied by the task owner.
@@ -214,9 +217,23 @@ fn validate_reference(
             maximum: MAX_TASK_RESOURCE_REF_BYTES,
         });
     }
+    let Some((namespace, identifier)) = value.split_once(':') else {
+        return Err(TaskResourceEnvelopeError::InvalidReference { field });
+    };
+    let mut namespace_chars = namespace.chars();
+    let namespace_is_valid = matches!(namespace_chars.next(), Some(first) if first.is_ascii_lowercase())
+        && namespace_chars.all(|character| {
+            character.is_ascii_lowercase() || character.is_ascii_digit() || character == '-'
+        });
+    let identifier_is_valid = !identifier.is_empty()
+        && identifier.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'/')
+        });
     if value.trim().is_empty()
         || value.trim() != value
         || value.chars().any(char::is_control)
+        || !namespace_is_valid
+        || !identifier_is_valid
         || contains_secret_marker(&value)
     {
         return Err(TaskResourceEnvelopeError::InvalidReference { field });
@@ -226,9 +243,41 @@ fn validate_reference(
 
 fn contains_secret_marker(value: &str) -> bool {
     let lower = value.to_ascii_lowercase();
-    ["token=", "api_key=", "apikey=", "secret=", "-----begin"]
-        .iter()
-        .any(|marker| lower.contains(marker))
+    let namespace = lower.split(':').next().unwrap_or_default();
+    let credential_namespaces = [
+        "authorization",
+        "bearer",
+        "basic",
+        "password",
+        "passwd",
+        "secret",
+        "token",
+        "api-key",
+        "api_key",
+        "apikey",
+        "access-token",
+        "private-key",
+    ];
+    let credential_markers = [
+        "token=",
+        "api_key=",
+        "apikey=",
+        "secret=",
+        "-----begin",
+        "ghp_",
+        "gho_",
+        "github_pat_",
+        "xoxb-",
+        "xoxp-",
+        "sk-",
+        "akia",
+        "bearer ",
+        "basic ",
+    ];
+    credential_namespaces.contains(&namespace)
+        || credential_markers
+            .iter()
+            .any(|marker| lower.contains(marker))
 }
 
 fn fingerprint_optional_u64(mut fingerprint: Fingerprint, value: Option<u64>) -> Fingerprint {
@@ -303,9 +352,9 @@ mod tests {
     }
 
     #[test]
-    fn opaque_references_reject_padding_controls_and_secret_markers() {
+    fn opaque_references_reject_padding_controls_and_credential_forms() {
         let budget = TaskResourceBudgetV1::default();
-        for invalid in ["", "  ", " task ", "task\nref", "secret://token=abc"] {
+        for invalid in [\n            "",\n            "  ",\n            " task ",\n            "task\\nref",\n            "secret://token=abc",\n            "password=hunter2",\n            "Authorization: Bearer hunter2",\n            "authorization:bearer-hunter2",\n            "token:opaque-value",\n            "task:ghp_examplecredential",\n            "task:sk-examplecredential",\n        ] {
             assert!(matches!(
                 TaskResourceEnvelopeV1::new(invalid, "workspace:1", budget),
                 Err(TaskResourceEnvelopeError::InvalidReference { field: "task_ref" })
