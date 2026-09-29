@@ -74,6 +74,7 @@ pub mod registry;
 pub mod representation_payload_decision;
 pub mod representation_payload_selector;
 pub mod representation_payload_stability;
+pub mod representation_payload_stability_trace;
 pub mod representation_payload_trace;
 pub mod representation_precision_boolean_admission;
 pub mod runtime;
@@ -286,6 +287,10 @@ pub use representation_payload_decision::{
 pub use representation_payload_stability::{
     RepresentationPayloadStabilityControllerV1, RepresentationPayloadStabilityError,
     RepresentationPayloadStableDecisionV1, REPRESENTATION_PAYLOAD_STABILITY_V1,
+};
+pub use representation_payload_stability_trace::{
+    RepresentationPayloadStabilityOutcomeV1, RepresentationPayloadStabilityTraceV1,
+    REPRESENTATION_PAYLOAD_STABILITY_TRACE_V1,
 };
 pub use representation_payload_trace::{
     RepresentationPayloadDecisionOutcomeV1, RepresentationPayloadDecisionTraceV1,
