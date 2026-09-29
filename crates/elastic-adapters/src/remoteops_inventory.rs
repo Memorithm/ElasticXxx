@@ -174,10 +174,7 @@ mod tests {
 
     #[test]
     fn unknown_and_unbounded_limits_remain_distinct() {
-        let json = VALID_INVENTORY.replace(
-            r#"{"state": "unbounded"}"#,
-            r#"{"state": "unknown"}"#,
-        );
+        let json = VALID_INVENTORY.replace(r#"{"state": "unbounded"}"#, r#"{"state": "unknown"}"#);
         let wire: RemoteOpsHostResourceInventoryWireV2 =
             serde_json::from_str(&json).expect("wire record");
         assert_eq!(
@@ -190,7 +187,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_schema_and_unknown_fields() {
-        let version_one = VALID_INVENTORY.replace(r#""schema_version": 2"#, r#""schema_version": 1"#);
+        let version_one =
+            VALID_INVENTORY.replace(r#""schema_version": 2"#, r#""schema_version": 1"#);
         let wire: RemoteOpsHostResourceInventoryWireV2 =
             serde_json::from_str(&version_one).expect("wire shape");
         assert_eq!(
@@ -202,13 +200,17 @@ mod tests {
             r#""memory_total_bytes": 17179869184,"#,
             r#""memory_total_bytes": 17179869184, "future_field": true,"#,
         );
-        assert!(serde_json::from_str::<RemoteOpsHostResourceInventoryWireV2>(&unknown_root).is_err());
+        assert!(
+            serde_json::from_str::<RemoteOpsHostResourceInventoryWireV2>(&unknown_root).is_err()
+        );
 
         let unknown_nested = VALID_INVENTORY.replace(
             r#"{"state": "unbounded"}"#,
             r#"{"state": "unbounded", "future_field": true}"#,
         );
-        assert!(serde_json::from_str::<RemoteOpsHostResourceInventoryWireV2>(&unknown_nested).is_err());
+        assert!(
+            serde_json::from_str::<RemoteOpsHostResourceInventoryWireV2>(&unknown_nested).is_err()
+        );
     }
 
     #[test]
@@ -216,7 +218,8 @@ mod tests {
         let missing = VALID_INVENTORY.replace(r#""cpu_logical_count": 4,"#, "");
         assert!(serde_json::from_str::<RemoteOpsHostResourceInventoryWireV2>(&missing).is_err());
 
-        let zero_cpu = VALID_INVENTORY.replace(r#""cpu_logical_count": 4"#, r#""cpu_logical_count": 0"#);
+        let zero_cpu =
+            VALID_INVENTORY.replace(r#""cpu_logical_count": 4"#, r#""cpu_logical_count": 0"#);
         let wire: RemoteOpsHostResourceInventoryWireV2 =
             serde_json::from_str(&zero_cpu).expect("wire shape");
         assert_eq!(
