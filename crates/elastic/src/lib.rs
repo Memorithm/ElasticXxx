@@ -44,11 +44,10 @@ pub use elastic_adapters::{
     ModelExecutionResourcePlanWireV1, ModelExecutionResourceSnapshotV1, PlannerConfigError,
     RamBudget, RemoteOpsHostResourceInventoryV2, RemoteOpsHostResourceInventoryWireV2,
     RemoteOpsInventoryContractError, RemoteOpsLimitObservationV2, SoupAutoBatchStrategy,
-    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1,
-    MAX_TASK_RESOURCE_REF_BYTES, TASK_RESOURCE_ENVELOPE_V1,
     SoupBatchSize, SoupBatchSizeWireV1, SoupContractError, SoupLayerStreamingV1,
     SoupLayerStreamingWireV1, SoupRunResourcePlanV1, SoupRunResourcePlanWireV1, SoupStreamSource,
-    Tdi93C3FactsV1, Tdi93C3PredicateV1, ThresholdPlanner,
+    TaskResourceBudgetV1, TaskResourceEnvelopeError, TaskResourceEnvelopeV1,
+    Tdi93C3FactsV1, Tdi93C3PredicateV1, ThresholdPlanner, MAX_TASK_RESOURCE_REF_BYTES,
     MODEL_EXECUTION_ACTIVATION_BUDGET_DIMENSION, MODEL_EXECUTION_ACTIVE_EXPERTS_DIMENSION,
     MODEL_EXECUTION_ATOMIC_PROFILE_V1, MODEL_EXECUTION_BASIS_POINTS_FULL,
     MODEL_EXECUTION_CAPABILITIES_MEDIA_TYPE_V1, MODEL_EXECUTION_CAPABILITIES_V1,
@@ -61,7 +60,7 @@ pub use elastic_adapters::{
     MODEL_EXECUTION_RESOURCE_PLAN_V1, SOUP_DEFAULT_STREAM_BUFFERS, SOUP_HUB_RESOURCE_CONTRACT_V1,
     SOUP_MAX_STREAM_BUFFERS, SOUP_MIN_STREAM_BUFFERS, SOUP_QUALIFIED_UPSTREAM_COMMIT,
     SOUP_RESOURCE_PLAN_MEDIA_TYPE_V1, SOUP_RESOURCE_PLAN_V1, SOUP_STREAM_TASKS,
-    TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1, TDI93_C3_PREDICATE_NAMESPACE_V1,
+    TASK_RESOURCE_ENVELOPE_V1, TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1, TDI93_C3_PREDICATE_NAMESPACE_V1,
     TDI93_C3_SOURCE_COMMIT_V1,
 };
 pub use elastic_core::control::{
