@@ -533,12 +533,9 @@ mod tests {
     #[test]
     fn ordinary_labels_with_embedded_marker_fragments_are_accepted() {
         let budget = TaskResourceBudgetV1::default();
-        let envelope = TaskResourceEnvelopeV1::new(
-            "hub-task:task-17",
-            "workspace:disk-cache",
-            budget,
-        )
-        .expect("ordinary labels containing marker fragments");
+        let envelope =
+            TaskResourceEnvelopeV1::new("hub-task:task-17", "workspace:disk-cache", budget)
+                .expect("ordinary labels containing marker fragments");
         assert_eq!(envelope.task_ref(), "hub-task:task-17");
         assert_eq!(envelope.workspace_ref(), "workspace:disk-cache");
     }
