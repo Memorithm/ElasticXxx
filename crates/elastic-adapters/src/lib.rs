@@ -111,9 +111,8 @@ pub use task_resource_envelope::{
 };
 pub use task_resource_host_limits::{
     assess_task_resource_plan_against_remoteops_v2, TaskResourceDimensionV1,
-    TaskResourceHostLimitAssessmentV1, TaskResourceHostLimitCheckV1,
-    TaskResourceHostLimitErrorV1, TaskResourceHostLimitStatusV1,
-    TASK_RESOURCE_HOST_LIMIT_ASSESSMENT_V1,
+    TaskResourceHostLimitAssessmentV1, TaskResourceHostLimitCheckV1, TaskResourceHostLimitErrorV1,
+    TaskResourceHostLimitStatusV1, TASK_RESOURCE_HOST_LIMIT_ASSESSMENT_V1,
 };
 pub use tdi93::{
     Tdi93C3FactsV1, Tdi93C3PredicateV1, TDI93_C3_INTEROP_SCHEMA_V1, TDI93_C3_PREDICATE_COUNT_V1,
