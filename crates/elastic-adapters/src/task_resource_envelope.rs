@@ -354,7 +354,19 @@ mod tests {
     #[test]
     fn opaque_references_reject_padding_controls_and_credential_forms() {
         let budget = TaskResourceBudgetV1::default();
-        for invalid in [\n            "",\n            "  ",\n            " task ",\n            "task\\nref",\n            "secret://token=abc",\n            "password=hunter2",\n            "Authorization: Bearer hunter2",\n            "authorization:bearer-hunter2",\n            "token:opaque-value",\n            "task:ghp_examplecredential",\n            "task:sk-examplecredential",\n        ] {
+        for invalid in [
+            "",
+            "  ",
+            " task ",
+            "task\nref",
+            "secret://token=abc",
+            "password=hunter2",
+            "Authorization: Bearer hunter2",
+            "authorization:bearer-hunter2",
+            "token:opaque-value",
+            "task:ghp_examplecredential",
+            "task:sk-examplecredential",
+        ] {
             assert!(matches!(
                 TaskResourceEnvelopeV1::new(invalid, "workspace:1", budget),
                 Err(TaskResourceEnvelopeError::InvalidReference { field: "task_ref" })
