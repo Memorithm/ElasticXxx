@@ -14,12 +14,51 @@ pub const REMOTEOPS_HOST_RESOURCE_INVENTORY_SCHEMA_V2: u32 = 2;
 ///
 /// Unknown and unbounded are deliberately separate. Consumers must not
 /// reinterpret an unreadable controller file as an unlimited resource.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
 pub enum RemoteOpsLimitObservationV2 {
     Unknown,
     Unbounded,
     Limited { value: u64 },
+}
+
+impl<'de> Deserialize<'de> for RemoteOpsLimitObservationV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireLimitObservation {
+            state: String,
+            #[serde(default, deserialize_with = "deserialize_present_option")]
+            value: Option<Option<u64>>,
+        }
+
+        let wire = WireLimitObservation::deserialize(deserializer)?;
+        match (wire.state.as_str(), wire.value) {
+            ("unknown", None) => Ok(Self::Unknown),
+            ("unbounded", None) => Ok(Self::Unbounded),
+            ("limited", Some(Some(value))) => Ok(Self::Limited { value }),
+            ("limited", _) => Err(serde::de::Error::custom(
+                "limited RemoteOps observation requires a numeric value",
+            )),
+            ("unknown" | "unbounded", Some(_)) => Err(serde::de::Error::custom(
+                "unknown and unbounded RemoteOps observations must omit value",
+            )),
+            (state, _) => Err(serde::de::Error::custom(format!(
+                "unsupported RemoteOps limit state {state:?}"
+            ))),
+        }
+    }
+}
+
+fn deserialize_present_option<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 /// Unvalidated wire form emitted by the RemoteOps v2 inventory command.
@@ -183,6 +222,22 @@ mod tests {
                 .cgroup_memory_limit_bytes(),
             RemoteOpsLimitObservationV2::Unknown
         );
+    }
+
+    #[test]
+    fn rejects_inconsistent_limit_states_and_values() {
+        for invalid in [
+            r#"{"state": "unknown", "value": 1}"#,
+            r#"{"state": "unbounded", "value": null}"#,
+            r#"{"state": "limited"}"#,
+            r#"{"state": "limited", "value": null}"#,
+            r#"{"state": "future"}"#,
+        ] {
+            assert!(
+                serde_json::from_str::<RemoteOpsLimitObservationV2>(invalid).is_err(),
+                "accepted invalid observation {invalid}"
+            );
+        }
     }
 
     #[test]
