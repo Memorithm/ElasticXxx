@@ -26,6 +26,15 @@ pub struct RepresentationPayloadGainPolicyV1 {
     minimum_relative_savings_bps: u16,
 }
 
+impl Default for RepresentationPayloadGainPolicyV1 {
+    fn default() -> Self {
+        Self {
+            minimum_absolute_savings_bits: 0,
+            minimum_relative_savings_bps: 0,
+        }
+    }
+}
+
 impl RepresentationPayloadGainPolicyV1 {
     /// Construct one bounded gain policy.
     ///
