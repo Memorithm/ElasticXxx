@@ -20,19 +20,10 @@ pub const REPRESENTATION_PAYLOAD_GAIN_GATE_V1: &str =
 pub const MAX_REPRESENTATION_PAYLOAD_GAIN_BPS_V1: u16 = 10_000;
 
 /// Planning-only minimum-benefit policy.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RepresentationPayloadGainPolicyV1 {
     minimum_absolute_savings_bits: u64,
     minimum_relative_savings_bps: u16,
-}
-
-impl Default for RepresentationPayloadGainPolicyV1 {
-    fn default() -> Self {
-        Self {
-            minimum_absolute_savings_bits: 0,
-            minimum_relative_savings_bps: 0,
-        }
-    }
 }
 
 impl RepresentationPayloadGainPolicyV1 {
