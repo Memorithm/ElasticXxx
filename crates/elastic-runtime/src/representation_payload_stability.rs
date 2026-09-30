@@ -43,10 +43,18 @@ pub enum RepresentationPayloadStableDecisionV1 {
     },
     Deferred {
         decision: RepresentationPayloadDecisionV1,
+        current_payload_bits: u64,
+        target_payload_bits: u64,
+        absolute_savings_bits: u64,
+        relative_savings_bps: u16,
         stability: TransitionStabilityReportV1,
     },
     Admitted {
         decision: RepresentationPayloadDecisionV1,
+        current_payload_bits: u64,
+        target_payload_bits: u64,
+        absolute_savings_bits: u64,
+        relative_savings_bps: u16,
         stability: TransitionStabilityReportV1,
         permit: TransitionStabilityPermitV1,
     },
@@ -161,16 +169,30 @@ impl RepresentationPayloadStabilityControllerV1 {
                 absolute_savings_bits,
                 relative_savings_bps,
             }),
-            RepresentationPayloadGainDecisionV1::EligibleTransition { decision, .. } => {
+            RepresentationPayloadGainDecisionV1::EligibleTransition {
+                decision,
+                current_payload_bits,
+                target_payload_bits,
+                absolute_savings_bits,
+                relative_savings_bps,
+            } => {
                 let (stability, permit) = self.gate.check(observations, now);
                 Ok(match permit {
                     Some(permit) => RepresentationPayloadStableDecisionV1::Admitted {
                         decision,
+                        current_payload_bits,
+                        target_payload_bits,
+                        absolute_savings_bits,
+                        relative_savings_bps,
                         stability,
                         permit,
                     },
                     None => RepresentationPayloadStableDecisionV1::Deferred {
                         decision,
+                        current_payload_bits,
+                        target_payload_bits,
+                        absolute_savings_bits,
+                        relative_savings_bps,
                         stability,
                     },
                 })
