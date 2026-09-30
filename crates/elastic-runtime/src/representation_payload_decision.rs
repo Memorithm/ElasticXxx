@@ -115,6 +115,7 @@ pub fn evaluate_representation_payload_v1(
 pub enum RepresentationPayloadDecisionError {
     CurrentProfileMissing { profile_id: String },
     Selector(RepresentationPayloadSelectorError),
+    GainGateInvariant { reason: &'static str },
 }
 
 impl fmt::Display for RepresentationPayloadDecisionError {
@@ -125,6 +126,9 @@ impl fmt::Display for RepresentationPayloadDecisionError {
                 "current representation profile {profile_id:?} is absent from the candidate set"
             ),
             Self::Selector(error) => write!(formatter, "payload selector failed: {error}"),
+            Self::GainGateInvariant { reason } => {
+                write!(formatter, "payload gain gate failed closed: {reason}")
+            }
         }
     }
 }
