@@ -79,19 +79,27 @@ impl RepresentationPayloadStabilityTraceV1 {
             },
             RepresentationPayloadStableDecisionV1::Deferred {
                 decision,
+                current_payload_bits,
+                target_payload_bits,
+                absolute_savings_bits,
+                relative_savings_bps,
                 stability,
             } => Self {
                 decision: RepresentationPayloadDecisionTraceV1::capture(decision),
                 outcome: RepresentationPayloadStabilityOutcomeV1::Deferred,
                 stability: Some(stability.clone()),
                 permit_generation: None,
-                current_payload_bits: None,
-                target_payload_bits: None,
-                absolute_savings_bits: None,
-                relative_savings_bps: None,
+                current_payload_bits: Some(*current_payload_bits),
+                target_payload_bits: Some(*target_payload_bits),
+                absolute_savings_bits: Some(*absolute_savings_bits),
+                relative_savings_bps: Some(*relative_savings_bps),
             },
             RepresentationPayloadStableDecisionV1::Admitted {
                 decision,
+                current_payload_bits,
+                target_payload_bits,
+                absolute_savings_bits,
+                relative_savings_bps,
                 stability,
                 permit,
             } => Self {
@@ -99,10 +107,10 @@ impl RepresentationPayloadStabilityTraceV1 {
                 outcome: RepresentationPayloadStabilityOutcomeV1::Admitted,
                 stability: Some(stability.clone()),
                 permit_generation: Some(permit.generation()),
-                current_payload_bits: None,
-                target_payload_bits: None,
-                absolute_savings_bits: None,
-                relative_savings_bps: None,
+                current_payload_bits: Some(*current_payload_bits),
+                target_payload_bits: Some(*target_payload_bits),
+                absolute_savings_bits: Some(*absolute_savings_bits),
+                relative_savings_bps: Some(*relative_savings_bps),
             },
         }
     }
@@ -208,6 +216,10 @@ mod tests {
         );
         assert_eq!(trace.permit_generation(), Some(0));
         assert!(trace.stability().is_some());
+        assert_eq!(trace.current_payload_bits(), Some(8192));
+        assert_eq!(trace.target_payload_bits(), Some(512));
+        assert_eq!(trace.absolute_savings_bits(), Some(7680));
+        assert_eq!(trace.relative_savings_bps(), Some(9375));
         assert_eq!(trace.decision().unique_target_profile_id(), Some("sparse"));
         assert!(!trace.carries_authority());
     }
@@ -339,6 +351,10 @@ mod tests {
         );
         assert!(trace.stability().is_some());
         assert_eq!(trace.permit_generation(), None);
+        assert_eq!(trace.current_payload_bits(), Some(512));
+        assert_eq!(trace.target_payload_bits(), Some(128));
+        assert_eq!(trace.absolute_savings_bits(), Some(384));
+        assert_eq!(trace.relative_savings_bps(), Some(7500));
         assert!(!trace.carries_authority());
     }
 }
