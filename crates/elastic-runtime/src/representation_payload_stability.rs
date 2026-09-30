@@ -76,7 +76,10 @@ impl RepresentationPayloadStabilityControllerV1 {
     pub fn new(
         stability_policy: TransitionStabilityPolicyV1,
     ) -> Result<Self, RepresentationPayloadStabilityError> {
-        Self::new_with_gain_policy(stability_policy, RepresentationPayloadGainPolicyV1::default())
+        Self::new_with_gain_policy(
+            stability_policy,
+            RepresentationPayloadGainPolicyV1::default(),
+        )
     }
 
     pub fn new_with_gain_policy(
@@ -124,9 +127,12 @@ impl RepresentationPayloadStabilityControllerV1 {
         observations: &ObservationSnapshot,
         now: Instant,
     ) -> Result<RepresentationPayloadStableDecisionV1, RepresentationPayloadDecisionError> {
-        let decision =
-            evaluate_representation_payload_gain_v1(current_profile_id, candidates, self.gain_policy)
-                .map_err(map_gain_error)?;
+        let decision = evaluate_representation_payload_gain_v1(
+            current_profile_id,
+            candidates,
+            self.gain_policy,
+        )
+        .map_err(map_gain_error)?;
 
         match decision {
             RepresentationPayloadGainDecisionV1::HoldBaseDecision { decision } => match decision {
@@ -358,12 +364,11 @@ mod tests {
         )
         .unwrap();
         let gain_policy = RepresentationPayloadGainPolicyV1::new(64, 500).unwrap();
-        let mut controller =
-            RepresentationPayloadStabilityControllerV1::new_with_gain_policy(
-                stability_policy,
-                gain_policy,
-            )
-            .unwrap();
+        let mut controller = RepresentationPayloadStabilityControllerV1::new_with_gain_policy(
+            stability_policy,
+            gain_policy,
+        )
+        .unwrap();
 
         let result = controller
             .evaluate(
