@@ -35,7 +35,11 @@ pub enum RepresentationPayloadStableDecisionV1 {
         decision: RepresentationPayloadDecisionV1,
     },
     InsufficientGain {
-        decision: RepresentationPayloadGainDecisionV1,
+        decision: RepresentationPayloadDecisionV1,
+        current_payload_bits: u64,
+        target_payload_bits: u64,
+        absolute_savings_bits: u64,
+        relative_savings_bps: u16,
     },
     Deferred {
         decision: RepresentationPayloadDecisionV1,
@@ -138,9 +142,19 @@ impl RepresentationPayloadStabilityControllerV1 {
                     })
                 }
             },
-            decision @ RepresentationPayloadGainDecisionV1::InsufficientGain { .. } => {
-                Ok(RepresentationPayloadStableDecisionV1::InsufficientGain { decision })
-            }
+            RepresentationPayloadGainDecisionV1::InsufficientGain {
+                decision,
+                current_payload_bits,
+                target_payload_bits,
+                absolute_savings_bits,
+                relative_savings_bps,
+            } => Ok(RepresentationPayloadStableDecisionV1::InsufficientGain {
+                decision,
+                current_payload_bits,
+                target_payload_bits,
+                absolute_savings_bits,
+                relative_savings_bps,
+            }),
             RepresentationPayloadGainDecisionV1::EligibleTransition { decision, .. } => {
                 let (stability, permit) = self.gate.check(observations, now);
                 Ok(match permit {
