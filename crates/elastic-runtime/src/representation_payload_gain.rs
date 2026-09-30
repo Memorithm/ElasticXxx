@@ -36,10 +36,12 @@ impl RepresentationPayloadGainPolicyV1 {
         minimum_relative_savings_bps: u16,
     ) -> Result<Self, RepresentationPayloadGainPolicyError> {
         if minimum_relative_savings_bps > MAX_REPRESENTATION_PAYLOAD_GAIN_BPS_V1 {
-            return Err(RepresentationPayloadGainPolicyError::RelativeThresholdOutOfRange {
-                observed_bps: minimum_relative_savings_bps,
-                maximum_bps: MAX_REPRESENTATION_PAYLOAD_GAIN_BPS_V1,
-            });
+            return Err(
+                RepresentationPayloadGainPolicyError::RelativeThresholdOutOfRange {
+                    observed_bps: minimum_relative_savings_bps,
+                    maximum_bps: MAX_REPRESENTATION_PAYLOAD_GAIN_BPS_V1,
+                },
+            );
         }
         Ok(Self {
             minimum_absolute_savings_bits,
@@ -174,10 +176,7 @@ pub fn evaluate_representation_payload_gain_v1(
 /// Fail-closed policy-construction errors.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RepresentationPayloadGainPolicyError {
-    RelativeThresholdOutOfRange {
-        observed_bps: u16,
-        maximum_bps: u16,
-    },
+    RelativeThresholdOutOfRange { observed_bps: u16, maximum_bps: u16 },
 }
 
 impl fmt::Display for RepresentationPayloadGainPolicyError {
@@ -340,10 +339,12 @@ mod tests {
     fn relative_threshold_is_bounded() {
         assert_eq!(
             RepresentationPayloadGainPolicyV1::new(0, 10_001),
-            Err(RepresentationPayloadGainPolicyError::RelativeThresholdOutOfRange {
-                observed_bps: 10_001,
-                maximum_bps: 10_000,
-            })
+            Err(
+                RepresentationPayloadGainPolicyError::RelativeThresholdOutOfRange {
+                    observed_bps: 10_001,
+                    maximum_bps: 10_000,
+                }
+            )
         );
     }
 }
