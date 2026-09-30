@@ -18,6 +18,7 @@ pub const REPRESENTATION_PAYLOAD_STABILITY_TRACE_V1: &str =
 pub enum RepresentationPayloadStabilityOutcomeV1 {
     Hold,
     Ambiguous,
+    InsufficientGain,
     Deferred,
     Admitted,
 }
@@ -45,6 +46,12 @@ impl RepresentationPayloadStabilityTraceV1 {
             RepresentationPayloadStableDecisionV1::Ambiguous { decision } => Self {
                 decision: RepresentationPayloadDecisionTraceV1::capture(decision),
                 outcome: RepresentationPayloadStabilityOutcomeV1::Ambiguous,
+                stability: None,
+                permit_generation: None,
+            },
+            RepresentationPayloadStableDecisionV1::InsufficientGain { decision, .. } => Self {
+                decision: RepresentationPayloadDecisionTraceV1::capture(decision),
+                outcome: RepresentationPayloadStabilityOutcomeV1::InsufficientGain,
                 stability: None,
                 permit_generation: None,
             },
