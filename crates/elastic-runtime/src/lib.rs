@@ -72,6 +72,7 @@ pub mod ram_boolean_admission;
 pub mod reference_adapters;
 pub mod registry;
 pub mod representation_payload_decision;
+pub mod representation_payload_gain;
 pub mod representation_payload_selector;
 pub mod representation_payload_stability;
 pub mod representation_payload_stability_trace;
@@ -283,6 +284,12 @@ pub use registry::{RegisteredResource, ResourceRegistry};
 pub use representation_payload_decision::{
     evaluate_representation_payload_v1, RepresentationPayloadDecisionError,
     RepresentationPayloadDecisionV1, REPRESENTATION_PAYLOAD_DECISION_V1,
+};
+pub use representation_payload_gain::{
+    evaluate_representation_payload_gain_v1, RepresentationPayloadGainDecisionV1,
+    RepresentationPayloadGainError, RepresentationPayloadGainPolicyError,
+    RepresentationPayloadGainPolicyV1, MAX_REPRESENTATION_PAYLOAD_GAIN_BPS_V1,
+    REPRESENTATION_PAYLOAD_GAIN_GATE_V1,
 };
 pub use representation_payload_stability::{
     RepresentationPayloadStabilityControllerV1, RepresentationPayloadStabilityError,
