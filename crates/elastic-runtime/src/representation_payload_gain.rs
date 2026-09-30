@@ -5,9 +5,10 @@
 //! when the structural saving is below an explicit absolute and/or relative floor.
 //! It never grants transition or actuation authority.
 
+use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
 use crate::{
-    evaluate_representation_payload_v1, RepresentationPayloadCandidateV1,
-    RepresentationPayloadDecisionError, RepresentationPayloadDecisionV1,
+    evaluate_representation_payload_v1, RepresentationPayloadDecisionError,
+    RepresentationPayloadDecisionV1,
 };
 use std::fmt;
 
