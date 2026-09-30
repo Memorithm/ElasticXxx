@@ -6,8 +6,11 @@
 //! Even an admitted outcome is not an actuation capability.
 
 use crate::representation_payload_decision::{
-    evaluate_representation_payload_v1, RepresentationPayloadDecisionError,
-    RepresentationPayloadDecisionV1,
+    RepresentationPayloadDecisionError, RepresentationPayloadDecisionV1,
+};
+use crate::representation_payload_gain::{
+    evaluate_representation_payload_gain_v1, RepresentationPayloadGainDecisionV1,
+    RepresentationPayloadGainError, RepresentationPayloadGainPolicyV1,
 };
 use crate::representation_payload_selector::RepresentationPayloadCandidateV1;
 use crate::{
@@ -30,6 +33,9 @@ pub enum RepresentationPayloadStableDecisionV1 {
     },
     Ambiguous {
         decision: RepresentationPayloadDecisionV1,
+    },
+    InsufficientGain {
+        decision: RepresentationPayloadGainDecisionV1,
     },
     Deferred {
         decision: RepresentationPayloadDecisionV1,
@@ -59,11 +65,19 @@ impl RepresentationPayloadStableDecisionV1 {
 #[derive(Debug)]
 pub struct RepresentationPayloadStabilityControllerV1 {
     gate: TransitionStabilityGateV1,
+    gain_policy: RepresentationPayloadGainPolicyV1,
 }
 
 impl RepresentationPayloadStabilityControllerV1 {
     pub fn new(
         stability_policy: TransitionStabilityPolicyV1,
+    ) -> Result<Self, RepresentationPayloadStabilityError> {
+        Self::new_with_gain_policy(stability_policy, RepresentationPayloadGainPolicyV1::default())
+    }
+
+    pub fn new_with_gain_policy(
+        stability_policy: TransitionStabilityPolicyV1,
+        gain_policy: RepresentationPayloadGainPolicyV1,
     ) -> Result<Self, RepresentationPayloadStabilityError> {
         if stability_policy.mechanism() != TransitionMechanism::Reencode {
             return Err(RepresentationPayloadStabilityError::MechanismMismatch {
@@ -78,12 +92,18 @@ impl RepresentationPayloadStabilityControllerV1 {
 
         Ok(Self {
             gate: TransitionStabilityGateV1::new(stability_policy),
+            gain_policy,
         })
     }
 
     #[must_use]
     pub const fn stability_gate(&self) -> &TransitionStabilityGateV1 {
         &self.gate
+    }
+
+    #[must_use]
+    pub const fn gain_policy(&self) -> RepresentationPayloadGainPolicyV1 {
+        self.gain_policy
     }
 
     /// Evaluate structural payload evidence and apply stability only to a unique
@@ -100,16 +120,28 @@ impl RepresentationPayloadStabilityControllerV1 {
         observations: &ObservationSnapshot,
         now: Instant,
     ) -> Result<RepresentationPayloadStableDecisionV1, RepresentationPayloadDecisionError> {
-        let decision = evaluate_representation_payload_v1(current_profile_id, candidates)?;
+        let decision =
+            evaluate_representation_payload_gain_v1(current_profile_id, candidates, self.gain_policy)
+                .map_err(map_gain_error)?;
 
         match decision {
-            RepresentationPayloadDecisionV1::HoldCurrentMinimum { .. } => {
-                Ok(RepresentationPayloadStableDecisionV1::Hold { decision })
+            RepresentationPayloadGainDecisionV1::HoldBaseDecision { decision } => match decision {
+                RepresentationPayloadDecisionV1::HoldCurrentMinimum { .. } => {
+                    Ok(RepresentationPayloadStableDecisionV1::Hold { decision })
+                }
+                RepresentationPayloadDecisionV1::AmbiguousMinimum { .. } => {
+                    Ok(RepresentationPayloadStableDecisionV1::Ambiguous { decision })
+                }
+                RepresentationPayloadDecisionV1::UniqueTransitionCandidate { .. } => {
+                    Err(RepresentationPayloadDecisionError::GainGateInvariant {
+                        reason: "unique_transition_returned_as_base_hold",
+                    })
+                }
+            },
+            decision @ RepresentationPayloadGainDecisionV1::InsufficientGain { .. } => {
+                Ok(RepresentationPayloadStableDecisionV1::InsufficientGain { decision })
             }
-            RepresentationPayloadDecisionV1::AmbiguousMinimum { .. } => {
-                Ok(RepresentationPayloadStableDecisionV1::Ambiguous { decision })
-            }
-            RepresentationPayloadDecisionV1::UniqueTransitionCandidate { .. } => {
+            RepresentationPayloadGainDecisionV1::EligibleTransition { decision, .. } => {
                 let (stability, permit) = self.gate.check(observations, now);
                 Ok(match permit {
                     Some(permit) => RepresentationPayloadStableDecisionV1::Admitted {
@@ -161,6 +193,25 @@ impl fmt::Display for RepresentationPayloadStabilityError {
 }
 
 impl std::error::Error for RepresentationPayloadStabilityError {}
+
+fn map_gain_error(error: RepresentationPayloadGainError) -> RepresentationPayloadDecisionError {
+    match error {
+        RepresentationPayloadGainError::CurrentProfileMissing { profile_id } => {
+            RepresentationPayloadDecisionError::CurrentProfileMissing { profile_id }
+        }
+        RepresentationPayloadGainError::Decision(error) => error,
+        RepresentationPayloadGainError::NonDecreasingTarget { .. } => {
+            RepresentationPayloadDecisionError::GainGateInvariant {
+                reason: "non_decreasing_target",
+            }
+        }
+        RepresentationPayloadGainError::RelativeSavingsOverflow => {
+            RepresentationPayloadDecisionError::GainGateInvariant {
+                reason: "relative_savings_overflow",
+            }
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -278,6 +329,43 @@ mod tests {
             }
             other => panic!("expected deferred profile transition, observed {other:?}"),
         }
+    }
+
+    #[test]
+    fn configured_gain_floor_blocks_marginal_target_without_touching_stability() {
+        let now = Instant::now();
+        let observations = ObservationSnapshot::new(now, vec![]);
+        let stability_policy = TransitionStabilityPolicyV1::new(
+            TransitionMechanism::Reencode,
+            DimensionId::REPRESENTATION,
+            None,
+            Some(Duration::from_secs(10)),
+            None,
+        )
+        .unwrap();
+        let gain_policy = RepresentationPayloadGainPolicyV1::new(64, 500).unwrap();
+        let mut controller =
+            RepresentationPayloadStabilityControllerV1::new_with_gain_policy(
+                stability_policy,
+                gain_policy,
+            )
+            .unwrap();
+
+        let result = controller
+            .evaluate(
+                "dense",
+                [candidate("dense", 1_000), candidate("hybrid", 960)],
+                &observations,
+                now,
+            )
+            .unwrap();
+
+        assert!(matches!(
+            result,
+            RepresentationPayloadStableDecisionV1::InsufficientGain { .. }
+        ));
+        assert_eq!(controller.stability_gate().generation(), 0);
+        assert_eq!(controller.gain_policy(), gain_policy);
     }
 
     #[test]
