@@ -9,6 +9,7 @@ on:
       - "crates/elastic-kv/**"
       - "crates/elastic-runtime/**"
       - "fuzz/**"
+      - "docs/security/persistent-runner-trust-boundary.md"
       - ".github/workflows/continuous-hardening.yml"
   schedule:
     - cron: "17 3 * * 0"

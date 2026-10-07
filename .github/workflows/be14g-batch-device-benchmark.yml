@@ -5,12 +5,14 @@ on:
     paths:
       - 'crates/elastic-runtime/**'
       - 'docs/boolean-be14g-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14g-batch-device-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'crates/elastic-runtime/**'
       - 'docs/boolean-be14g-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14g-batch-device-benchmark.yml'
 
 permissions:
