@@ -72,3 +72,85 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo +1.89.0 doc --workspace --no-deps
+
+  fork-validation:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare pinned Rust in ephemeral workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.89.0 --profile minimal
+          rustup component add --toolchain 1.89.0 rustfmt clippy
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
+          target_dir="$RUNNER_TEMP/elasticxxx-target"
+          install -d -m 700 "$rust_tmp" "$cargo_home" "$target_dir"
+          test -w "$rust_tmp"
+          test -w "$cargo_home"
+          test -w "$target_dir"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
+          printf 'CARGO_TARGET_DIR=%s\n' "$target_dir" >> "$GITHUB_ENV"
+          rustc +1.89.0 -Vv
+
+      - name: Validate ElasticBitAllocation Stage B preregistration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/validate_elastic_bit_stage_b.py
+          python3 tools/validate_elastic_bit_stage_b.py \
+            research/elastic-bit-allocation-stage-b-smollm2-v1.json \
+            --self-test
+
+      - name: Verify pinned BooleanLab BE15a fixture
+        run: python3 tools/verify_booleanlab_be15a_fixture.py --self-test
+
+      - name: Verify pinned TDI-9.3 BE15b fixture
+        run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
+
+      - name: Validate portable release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_release_productization.py
+          python3 scripts/check_release_candidate.py
+
+      - name: Validate package file sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for crate in \
+            memorithm-elastic-core \
+            memorithm-elastic-language-syntax \
+            memorithm-elastic-macros \
+            memorithm-elastic-eir \
+            memorithm-elastic-adapters \
+            memorithm-elastic-runtime \
+            memorithm-elastic-kv \
+            memorithm-elastic
+          do
+            cargo +1.89.0 package -p "$crate" --allow-dirty --list >/dev/null
+          done
+
+      - name: Format
+        run: cargo +1.89.0 fmt --all -- --check
+
+      - name: Clippy
+        run: cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo +1.89.0 test --workspace
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo +1.89.0 doc --workspace --no-deps
