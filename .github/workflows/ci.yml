@@ -1,7 +1,7 @@
 name: ci
 
 on:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   rust:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 30
     steps:
@@ -59,6 +59,15 @@ jobs:
       - name: Verify pinned TDI-9.3 BE15b fixture
         run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
 
+      - name: Build first-publish leaf archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo package -p memorithm-elastic-core --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-language-syntax --allow-dirty --no-verify
+      - name: Inspect first-publish leaf archives
+        run: python3 scripts/check_package_archives.py
+
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
 
@@ -74,7 +83,7 @@ jobs:
         run: cargo +1.89.0 doc --workspace --no-deps
 
   fork-validation:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -90,6 +99,7 @@ jobs:
           set -euo pipefail
           rustup toolchain install 1.89.0 --profile minimal
           rustup component add --toolchain 1.89.0 rustfmt clippy
+          rustup default 1.89.0
           rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
           cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
           target_dir="$RUNNER_TEMP/elasticxxx-target"
@@ -124,6 +134,126 @@ jobs:
           python3 scripts/check_release_productization.py
           python3 scripts/check_release_candidate.py
 
+      - name: Validate internal publish-path dependency metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          import json
+          import subprocess
+
+          root = tomllib.loads(pathlib.Path("Cargo.toml").read_text())
+          deps = root["workspace"]["dependencies"]
+          registry_by_source = {
+              "elastic-core": "memorithm-elastic-core",
+              "elastic-language-syntax": "memorithm-elastic-language-syntax",
+              "elastic-macros": "memorithm-elastic-macros",
+              "elastic-eir": "memorithm-elastic-eir",
+              "elastic-adapters": "memorithm-elastic-adapters",
+              "elastic-runtime": "memorithm-elastic-runtime",
+              "elastic-kv": "memorithm-elastic-kv",
+              "elastic": "memorithm-elastic",
+          }
+          expected_paths = {
+              "elastic-core": "crates/elastic-core",
+              "elastic-language-syntax": "crates/elastic-language-syntax",
+              "elastic-eir": "crates/elastic-eir",
+              "elastic-adapters": "crates/elastic-adapters",
+              "elastic-macros": "crates/elastic-macros",
+              "elastic-runtime": "crates/elastic-runtime",
+              "elastic-kv": "crates/elastic-kv",
+          }
+          for alias, path in expected_paths.items():
+              spec = deps.get(alias)
+              assert isinstance(spec, dict), f"{alias} must be a table dependency"
+              assert spec.get("package") == registry_by_source[alias], (
+                  f"{alias} must alias registry package {registry_by_source[alias]}"
+              )
+              assert spec.get("version") == "0.1.0", f"{alias} must pin version 0.1.0"
+              assert spec.get("path") == path, f"{alias} must retain local path {path}"
+
+          declared_msrv = root["workspace"]["package"]["rust-version"]
+          assert declared_msrv == "1.89", f"workspace MSRV drifted: {declared_msrv}"
+
+          metadata = json.loads(
+              subprocess.check_output(
+                  ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                  text=True,
+              )
+          )
+          workspace_ids = set(metadata["workspace_members"])
+          packages = {
+              package["name"]: package
+              for package in metadata["packages"]
+              if package["id"] in workspace_ids
+          }
+          for package in packages.values():
+              assert package["rust_version"] == declared_msrv, (
+                  f"{package['name']} must resolve rust-version {declared_msrv}, "
+                  f"got {package['rust_version']}"
+              )
+
+          documented_publish_chain = set(registry_by_source.values())
+          source_by_registry = {value: key for key, value in registry_by_source.items()}
+
+          # Fail closed when the public facade acquires a new non-dev workspace
+          # dependency that the release/packageability policy has not reviewed.
+          publish_chain = set()
+          pending = [registry_by_source["elastic"]]
+          while pending:
+              package_name = pending.pop()
+              if package_name in publish_chain:
+                  continue
+              publish_chain.add(package_name)
+              for dependency in packages[package_name]["dependencies"]:
+                  dependency_name = dependency["name"]
+                  if (
+                      dependency["kind"] != "dev"
+                      and dependency_name in packages
+                      and dependency_name not in publish_chain
+                  ):
+                      pending.append(dependency_name)
+
+          assert publish_chain == documented_publish_chain, (
+              "documented public facade package chain drifted from Cargo metadata; "
+              f"reachable={sorted(publish_chain)!r}, "
+              f"documented={sorted(documented_publish_chain)!r}"
+          )
+
+          for package_name in publish_chain:
+              package = packages[package_name]
+              source_name = source_by_registry[package_name]
+              assert package["version"] == "0.1.0", (
+                  f"{package_name} version drifted from pre-release line: "
+                  f"{package['version']}"
+              )
+              license_file = package.get("license_file")
+              assert license_file and license_file.endswith("/LICENSE.md"), (
+                  f"{package_name} must package the workspace LICENSE.md; "
+                  f"resolved {license_file!r}"
+              )
+              lib_targets = [
+                  target for target in package["targets"]
+                  if "lib" in target["kind"] or "proc-macro" in target["kind"]
+              ]
+              assert len(lib_targets) == 1 and lib_targets[0]["name"] == source_name.replace("-", "_"), (
+                  f"{package_name} must preserve source crate name {source_name.replace('-', '_')!r}"
+              )
+              for dependency in package["dependencies"]:
+                  if dependency["name"] in publish_chain and dependency["kind"] != "dev":
+                      expected_alias = source_by_registry[dependency["name"]]
+                      assert dependency.get("rename") == expected_alias, (
+                          f"{package_name} -> {dependency['name']} must retain alias {expected_alias!r}; "
+                          f"resolved {dependency.get('rename')!r}"
+                      )
+                      assert dependency["req"] == "^0.1.0", (
+                          f"{package_name} -> {dependency['name']} needs an explicit "
+                          f"0.1.0 registry-compatible version requirement; "
+                          f"resolved {dependency['req']}"
+                      )
+          PY
       - name: Validate package file sets
         shell: bash
         run: |

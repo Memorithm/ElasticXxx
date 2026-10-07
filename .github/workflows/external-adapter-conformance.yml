@@ -1,7 +1,7 @@
 name: External adapter v1 conformance
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic/src/lib.rs'
       - 'crates/elastic-runtime/src/**'
@@ -68,7 +68,7 @@ jobs:
 
   clean-git-consumer:
     name: clean exact-revision git consumer
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

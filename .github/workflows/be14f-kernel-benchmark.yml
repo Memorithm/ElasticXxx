@@ -1,7 +1,7 @@
 name: BE14f kernel realization benchmark smoke
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic-kernel/**'
       - 'docs/boolean-be14f-benchmark.md'
@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   smoke:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 15
     steps:

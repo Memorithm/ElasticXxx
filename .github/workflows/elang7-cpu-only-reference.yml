@@ -1,7 +1,7 @@
 name: ELANG7 CPU-only reference
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic-core/**'
       - 'crates/elastic-adapters/**'

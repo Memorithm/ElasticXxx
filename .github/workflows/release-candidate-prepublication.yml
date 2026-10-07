@@ -1,7 +1,7 @@
 name: release-candidate-prepublication
 
 on:
-  pull_request:
+  pull_request_target:
   push:
     branches: [main]
 
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   candidate:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 20
     env:

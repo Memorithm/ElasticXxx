@@ -1,7 +1,7 @@
 name: BE14h real thermal power observer
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic-runtime/src/observers.rs'
       - 'crates/elastic-runtime/src/lib.rs'
@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   observe:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 10
     steps:

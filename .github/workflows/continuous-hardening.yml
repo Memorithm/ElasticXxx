@@ -1,7 +1,7 @@
 name: continuous-hardening
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - "crates/elastic-core/**"
       - "crates/elastic-kernel/**"
@@ -44,57 +44,57 @@ jobs:
         run: cargo +nightly fuzz build
 
       - name: Fuzz identifier validation
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run identifier_validation -- -max_total_time=45
 
       - name: Fuzz transition pipeline
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run transition_pipeline -- -max_total_time=60
 
       - name: Fuzz decision trace decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run decision_trace_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz operator config decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run operator_config_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz runtime evidence decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run evidence_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz guard config decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run guard_config_decode -- -max_total_time=60 -max_len=262145
 
       - name: Fuzz model execution controller contracts
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run model_execution_contracts_decode -- -max_total_time=60 -max_len=262145
 
       - name: Fuzz Elastic language parser and expander
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run language_syntax_expand -- -max_total_time=60 -max_len=262145
 
       - name: Fuzz constrained decision trace decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run constrained_decision_trace_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz Boolean kernel trace decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run boolean_kernel_trace_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz Boolean batch/device trace decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run boolean_batch_device_trace_decode -- -max_total_time=60 -max_len=1048577
 
       - name: Fuzz Forge search candidate decoder
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request_target'
         run: cargo +nightly fuzz run forge_search_candidate_decode -- -max_total_time=60 -max_len=393217
 
 
   elang9-exact-head:
     name: ELANG9 exact-head hardening
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -142,7 +142,7 @@ jobs:
 
   miri:
     name: miri-core-kv-runtime
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request_target'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
