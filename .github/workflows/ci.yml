@@ -59,15 +59,6 @@ jobs:
       - name: Verify pinned TDI-9.3 BE15b fixture
         run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
 
-      - name: Build first-publish leaf archives
-        shell: bash
-        run: |
-          set -euo pipefail
-          cargo package -p memorithm-elastic-core --allow-dirty --no-verify
-          cargo package -p memorithm-elastic-language-syntax --allow-dirty --no-verify
-      - name: Inspect first-publish leaf archives
-        run: python3 scripts/check_package_archives.py
-
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
 
@@ -102,14 +93,11 @@ jobs:
           rustup default 1.89.0
           rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
           cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
-          target_dir="$RUNNER_TEMP/elasticxxx-target"
-          install -d -m 700 "$rust_tmp" "$cargo_home" "$target_dir"
+          install -d -m 700 "$rust_tmp" "$cargo_home"
           test -w "$rust_tmp"
           test -w "$cargo_home"
-          test -w "$target_dir"
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
           printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
-          printf 'CARGO_TARGET_DIR=%s\n' "$target_dir" >> "$GITHUB_ENV"
           rustc +1.89.0 -Vv
 
       - name: Validate ElasticBitAllocation Stage B preregistration
@@ -270,6 +258,15 @@ jobs:
           do
             cargo +1.89.0 package -p "$crate" --allow-dirty --list >/dev/null
           done
+
+      - name: Build first-publish leaf archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo package -p memorithm-elastic-core --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-language-syntax --allow-dirty --no-verify
+      - name: Inspect first-publish leaf archives
+        run: python3 scripts/check_package_archives.py
 
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
