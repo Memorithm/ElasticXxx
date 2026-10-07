@@ -101,6 +101,7 @@ jobs:
           test -w "$cargo_home"
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
           printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
+          printf 'PYTHONPYCACHEPREFIX=%s\n' "$RUNNER_TEMP/elasticxxx-pycache" >> "$GITHUB_ENV"
           rustc +1.89.0 -Vv
 
       - name: Validate ElasticBitAllocation Stage B preregistration
@@ -146,7 +147,7 @@ jobs:
 
       - name: 'Fork portable: Validate Python evidence tooling'
         env:
-          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/be13-pycache'
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/be13-pycache
         run: python3 -m py_compile scripts/be13_timing_stability.py scripts/check-be13-portable-evidence.py
       - name: 'Fork portable: Validate retained evidence'
         run: python3 scripts/check-be13-portable-evidence.py
@@ -158,7 +159,7 @@ jobs:
         run: cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c -o "$RUNNER_TEMP/be13-process-metrics"
 
       - name: 'Fork portable: Build and smoke all declared BE13 paths'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
@@ -184,7 +185,7 @@ jobs:
           assert all(row['branch_misses'] == 'unmeasured' for row in rows)
           PY
       - name: 'Fork portable: Smoke one selected path and compile metrics helper'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
@@ -204,7 +205,7 @@ jobs:
             -o "$RUNNER_TEMP/be13-process-metrics"
 
       - name: 'Fork portable: Measure guarded and non-Boolean baseline paths'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14e_representation_precision -- \
@@ -227,7 +228,7 @@ jobs:
           PY
 
       - name: 'Fork portable: Measure guarded and non-Boolean reference paths'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p elastic-kernel --bench be14f_kernel_realization -- \
@@ -250,7 +251,7 @@ jobs:
           PY
 
       - name: 'Fork portable: Measure guarded and exact-candidate reference paths'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14g_batch_device -- \
@@ -273,7 +274,7 @@ jobs:
           PY
 
       - name: 'Fork portable: Measure guarded and numeric reference paths'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14h_thermal_energy -- \
@@ -296,7 +297,7 @@ jobs:
           PY
 
       - name: 'Fork portable: Observe real Linux CPU environment'
-        shell: bash'
+        shell: bash
         run: |
           set -euo pipefail
           output="$RUNNER_TEMP/elang7-linux-cpu-observer.txt"
