@@ -121,7 +121,7 @@ jobs:
 
       - name: 'Fork portable: Fetch permanent measurement refs'
         shell: bash
-        run: git fetch --force --tags origin
+        run: git fetch --force --tags "https://github.com/${{ github.repository }}.git"
 
       - name: 'Fork portable: Validate exact-head release candidate receipt'
         shell: bash
