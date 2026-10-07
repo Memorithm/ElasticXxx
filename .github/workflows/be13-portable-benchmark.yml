@@ -5,6 +5,7 @@ on:
     paths:
       - 'crates/elastic-core/**'
       - 'docs/boolean-be13-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/be13_timing_stability.py'
       - 'tools/be13/process_metrics.c'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'crates/elastic-core/**'
       - 'docs/boolean-be13-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - 'scripts/collect-be13-portable-evidence.sh'
       - 'scripts/be13_timing_stability.py'
       - 'tools/be13/process_metrics.c'

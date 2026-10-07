@@ -11,6 +11,7 @@ on:
       - 'crates/elastic-downstream/**'
       - 'scripts/qualify-elang7-cpu-only-reference.sh'
       - 'docs/language/EMBEDDED-CPU-ONLY-REFERENCE-0.1.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/elang7-cpu-only-reference.yml'
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - 'crates/elastic-downstream/**'
       - 'scripts/qualify-elang7-cpu-only-reference.sh'
       - 'docs/language/EMBEDDED-CPU-ONLY-REFERENCE-0.1.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/elang7-cpu-only-reference.yml'
   workflow_dispatch:
 

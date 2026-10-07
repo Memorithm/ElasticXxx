@@ -5,12 +5,14 @@ on:
     paths:
       - 'crates/elastic-runtime/**'
       - 'docs/boolean-be14h-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14h-thermal-energy-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'crates/elastic-runtime/**'
       - 'docs/boolean-be14h-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14h-thermal-energy-benchmark.yml'
 
 permissions:

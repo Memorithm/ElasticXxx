@@ -11,6 +11,7 @@ on:
       - 'tools/be13/process_metrics.c'
       - 'crates/elastic-core/benches/be13_portable.rs'
       - 'docs/boolean-be13-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be13-evidence-integrity.yml'
   push:
     branches: [main]
@@ -23,6 +24,7 @@ on:
       - 'tools/be13/process_metrics.c'
       - 'crates/elastic-core/benches/be13_portable.rs'
       - 'docs/boolean-be13-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be13-evidence-integrity.yml'
 
 permissions:

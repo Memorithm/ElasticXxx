@@ -9,6 +9,7 @@ on:
       - 'crates/elastic/examples/linux_thermal_energy.rs'
       - 'crates/elastic/tests/be14h_linux_observers_public.rs'
       - 'docs/runtime/linux-thermal-energy-observers.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14h-real-observer.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'crates/elastic/examples/linux_thermal_energy.rs'
       - 'crates/elastic/tests/be14h_linux_observers_public.rs'
       - 'docs/runtime/linux-thermal-energy-observers.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14h-real-observer.yml'
 
 permissions:

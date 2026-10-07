@@ -9,6 +9,7 @@ on:
       - 'research/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/memorithm-fleet-smoke.yml'
       - '.github/workflows/ci.yml'
   workflow_dispatch:

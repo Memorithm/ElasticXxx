@@ -5,12 +5,14 @@ on:
     paths:
       - 'crates/elastic-kernel/**'
       - 'docs/boolean-be14f-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14f-kernel-benchmark.yml'
   push:
     branches: [main]
     paths:
       - 'crates/elastic-kernel/**'
       - 'docs/boolean-be14f-benchmark.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/be14f-kernel-benchmark.yml'
 
 permissions:

@@ -9,6 +9,7 @@ on:
       - 'crates/elastic/examples/linux_cpu_environment.rs'
       - 'crates/elastic/tests/elang7_linux_cpu_observer_public.rs'
       - 'docs/language/EMBEDDED-LINUX-CPU-0.1.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/elang7-linux-cpu-observer.yml'
   push:
     branches: [main]
@@ -19,6 +20,7 @@ on:
       - 'crates/elastic/examples/linux_cpu_environment.rs'
       - 'crates/elastic/tests/elang7_linux_cpu_observer_public.rs'
       - 'docs/language/EMBEDDED-LINUX-CPU-0.1.md'
+      - 'docs/security/persistent-runner-trust-boundary.md'
       - '.github/workflows/elang7-linux-cpu-observer.yml'
 
 permissions:
