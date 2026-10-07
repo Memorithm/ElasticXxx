@@ -1,7 +1,7 @@
 name: BE14f kernel realization benchmark smoke
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic-kernel/**'
       - 'docs/boolean-be14f-benchmark.md'
@@ -22,11 +22,13 @@ concurrency:
 
 jobs:
   smoke:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Require trusted persistent runner and pinned Rust
@@ -42,9 +44,13 @@ jobs:
           esac
           rustup toolchain list | grep -F '1.89.0' >/dev/null
           rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
           install -d -m 700 "$rust_tmp"
+          install -d -m 700 "$cargo_home"
           test -w "$rust_tmp"
+          test -w "$cargo_home"
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
           rustc +1.89.0 -Vv
           uname -a
       - name: Measure guarded and non-Boolean reference paths

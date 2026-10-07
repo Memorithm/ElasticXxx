@@ -1,7 +1,7 @@
 name: BE14g batch device benchmark smoke
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - 'crates/elastic-runtime/**'
       - 'docs/boolean-be14g-benchmark.md'
@@ -22,11 +22,13 @@ concurrency:
 
 jobs:
   smoke:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - name: Require trusted persistent runner and pinned Rust

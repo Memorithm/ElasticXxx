@@ -1,7 +1,7 @@
 name: ci
 
 on:
-  pull_request:
+  pull_request_target:
 
 permissions:
   contents: read
@@ -12,11 +12,13 @@ concurrency:
 
 jobs:
   rust:
+    if: github.event_name != 'pull_request_target' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, Linux, ARM64, scirust-arm64, jetson-thor, internal]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
@@ -40,6 +42,7 @@ jobs:
           test -w "$cargo_home"
           printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
           printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
+          printf 'PYTHONPYCACHEPREFIX=%s\n' "$RUNNER_TEMP/elasticxxx-pycache" >> "$GITHUB_ENV"
           printf 'Rust temporary directory: %s\n' "$rust_tmp"
           printf 'Cargo home: %s\n' "$cargo_home"
 
@@ -57,6 +60,437 @@ jobs:
 
       - name: Verify pinned TDI-9.3 BE15b fixture
         run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
+
+      - name: Format
+        run: cargo +1.89.0 fmt --all -- --check
+
+      - name: Clippy
+        run: cargo +1.89.0 clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo +1.89.0 test --workspace
+
+      - name: Rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo +1.89.0 doc --workspace --no-deps
+
+  fork-validation:
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare pinned Rust in ephemeral workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.89.0 --profile minimal
+          rustup component add --toolchain 1.89.0 rustfmt clippy
+          rustup default 1.89.0
+          rust_tmp="$RUNNER_TEMP/elasticxxx-rust-tmp"
+          cargo_home="$RUNNER_TEMP/elasticxxx-cargo-home"
+          install -d -m 700 "$rust_tmp" "$cargo_home"
+          test -w "$rust_tmp"
+          test -w "$cargo_home"
+          printf 'TMPDIR=%s\n' "$rust_tmp" >> "$GITHUB_ENV"
+          printf 'CARGO_HOME=%s\n' "$cargo_home" >> "$GITHUB_ENV"
+          printf 'PYTHONPYCACHEPREFIX=%s\n' "$RUNNER_TEMP/elasticxxx-pycache" >> "$GITHUB_ENV"
+          rustc +1.89.0 -Vv
+
+      - name: Validate ElasticBitAllocation Stage B preregistration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/validate_elastic_bit_stage_b.py
+          python3 tools/validate_elastic_bit_stage_b.py \
+            research/elastic-bit-allocation-stage-b-smollm2-v1.json \
+            --self-test
+
+      - name: Verify pinned BooleanLab BE15a fixture
+        run: python3 tools/verify_booleanlab_be15a_fixture.py --self-test
+
+      - name: Verify pinned TDI-9.3 BE15b fixture
+        run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
+
+      - name: 'Fork portable: Fetch permanent measurement refs'
+        shell: bash
+        run: git fetch --force --tags "https://github.com/${{ github.repository }}.git"
+
+      - name: 'Fork portable: Validate exact-head release candidate receipt'
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ''
+          CARGO_REGISTRIES_CRATES_IO_TOKEN: ''
+          CARGO_NET_OFFLINE: 'true'
+        run: |
+          set -euo pipefail
+          python3 scripts/check_release_candidate.py \
+            --require-clean \
+            --write-receipt "$RUNNER_TEMP/release-candidate-receipt.json"
+          python3 - "$RUNNER_TEMP/release-candidate-receipt.json" "${{ github.event.pull_request.head.sha }}" <<'PY'
+          import json
+          import sys
+          receipt = json.load(open(sys.argv[1], encoding='utf-8'))
+          assert receipt['current_head'] == sys.argv[2], (receipt['current_head'], sys.argv[2])
+          assert receipt['publication_suspended'] is True
+          assert receipt['registry_publication_authorized'] is False
+          assert receipt['registry_mutation_authorized'] is False
+          assert receipt['network_registry_queries_performed'] is False
+          PY
+
+      - name: 'Fork portable: Validate Python evidence tooling'
+        env:
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/be13-pycache
+        run: python3 -m py_compile scripts/be13_timing_stability.py scripts/check-be13-portable-evidence.py
+      - name: 'Fork portable: Validate retained evidence'
+        run: python3 scripts/check-be13-portable-evidence.py
+      - name: 'Fork portable: Validate collector shell syntax'
+        run: bash -n scripts/collect-be13-portable-evidence.sh scripts/test-be13-build-attestation.sh
+      - name: 'Fork portable: Validate build-attestation rejection paths'
+        run: bash scripts/test-be13-build-attestation.sh
+      - name: 'Fork portable: Compile direct process-metrics helper'
+        run: cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c -o "$RUNNER_TEMP/be13-process-metrics"
+
+      - name: 'Fork portable: Build and smoke all declared BE13 paths'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be13.csv"
+          python3 - <<'PY'
+          import csv
+          from pathlib import Path
+
+          csv_path = Path(__import__('os').environ['RUNNER_TEMP']) / 'be13.csv'
+          rows = list(csv.DictReader(csv_path.read_text().splitlines()))
+          expected = [
+              'scalar_if_chain',
+              'generic_bool_expr',
+              'u64_compiled_guard',
+              'multiword_guard',
+              'batch_filter',
+          ]
+          assert [row['path'] for row in rows] == expected
+          assert all(row['result'] == 'True' for row in rows)
+          assert all(int(row['evaluations']) > 0 for row in rows)
+          assert all(row['allocations'] == 'unmeasured' for row in rows)
+          assert all(row['memory_peak_bytes'] == 'unmeasured' for row in rows)
+          assert all(row['branch_misses'] == 'unmeasured' for row in rows)
+          PY
+      - name: 'Fork portable: Smoke one selected path and compile metrics helper'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p memorithm-elastic-core --bench be13_portable -- \
+            --warmup 10 --iterations 1000 --path u64_compiled_guard \
+            >"$RUNNER_TEMP/be13-single.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+          path = Path(os.environ['RUNNER_TEMP']) / 'be13-single.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert len(rows) == 1
+          assert rows[0]['path'] == 'u64_compiled_guard'
+          assert rows[0]['result'] == 'True'
+          PY
+          cc -std=c11 -O2 -Wall -Wextra -Werror tools/be13/process_metrics.c \
+            -o "$RUNNER_TEMP/be13-process-metrics"
+
+      - name: 'Fork portable: Measure guarded and non-Boolean baseline paths'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14e_representation_precision -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14e.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'be14e.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert [row['path'] for row in rows] == [
+              'unguarded_declared_validate',
+              'guarded_preplan_validate',
+          ]
+          assert all(int(row['elapsed_ns']) >= 0 for row in rows)
+          assert all(int(row['iterations']) == 1000 for row in rows)
+          assert all(float(row['ns_per_iteration']) >= 0.0 for row in rows)
+          assert len({row['target_id_bytes'] for row in rows}) == 1
+          PY
+
+      - name: 'Fork portable: Measure guarded and non-Boolean reference paths'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p elastic-kernel --bench be14f_kernel_realization -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14f.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'be14f.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert [row['path'] for row in rows] == [
+              'unguarded_plan_transaction',
+              'guarded_boolean_plan_transaction',
+          ]
+          assert all(int(row['elapsed_ns']) >= 0 for row in rows)
+          assert all(int(row['iterations']) == 1000 for row in rows)
+          assert all(float(row['ns_per_iteration']) >= 0.0 for row in rows)
+          assert len({row['outcome_sanity'] for row in rows}) == 1
+          PY
+
+      - name: 'Fork portable: Measure guarded and exact-candidate reference paths'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14g_batch_device -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14g.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'be14g.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert [row['path'] for row in rows] == [
+              'unguarded_exact_transaction',
+              'guarded_preplan_trace_transaction',
+          ]
+          assert all(int(row['elapsed_ns']) >= 0 for row in rows)
+          assert all(int(row['iterations']) == 1000 for row in rows)
+          assert all(float(row['ns_per_iteration']) >= 0.0 for row in rows)
+          assert len({row['outcome_sanity'] for row in rows}) == 1
+          PY
+
+      - name: 'Fork portable: Measure guarded and numeric reference paths'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.89.0 bench -p memorithm-elastic-runtime --bench be14h_thermal_energy -- \
+            --warmup 10 --iterations 1000 | tee "$RUNNER_TEMP/be14h.csv"
+          python3 - <<'PY'
+          import csv
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ['RUNNER_TEMP']) / 'be14h.csv'
+          rows = list(csv.DictReader(path.read_text().splitlines()))
+          assert [row['path'] for row in rows] == [
+              'unguarded_numeric_transaction',
+              'guarded_preplan_trace_transaction',
+          ]
+          assert all(int(row['elapsed_ns']) >= 0 for row in rows)
+          assert all(int(row['iterations']) == 1000 for row in rows)
+          assert all(float(row['ns_per_iteration']) >= 0.0 for row in rows)
+          assert len({row['outcome_sanity'] for row in rows}) == 1
+          PY
+
+      - name: 'Fork portable: Observe real Linux CPU environment'
+        shell: bash
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/elang7-linux-cpu-observer.txt"
+          cargo +1.89.0 run -q -p memorithm-elastic --example linux_cpu_environment | tee "$output"
+          python3 - "$output" <<'PY'
+          import math
+          import re
+          import sys
+
+          lines = open(sys.argv[1], encoding='utf-8').read().splitlines()
+          values = {}
+          unsupported = set()
+          for line in lines:
+              match = re.search(r'signal=([^ ]+) value=([^ ]+)', line)
+              if match:
+                  values[match.group(1)] = float(match.group(2))
+                  continue
+              match = re.search(r'observation unsupported .* signal=([^ ]+) reason=', line)
+              if match:
+                  unsupported.add(match.group(1))
+
+          affinity = values.get('linux-cpu-affinity-allowed-cpus')
+          assert affinity is not None and math.isfinite(affinity) and affinity >= 1.0, (values, unsupported)
+
+          unlimited = values.get('linux-cpu-quota-unlimited')
+          assert unlimited in (0.0, 1.0), (values, unsupported)
+          quota = values.get('linux-cpu-quota-cores')
+          if unlimited == 0.0:
+              assert quota is not None and math.isfinite(quota) and quota >= 0.0, (values, unsupported)
+          else:
+              assert 'linux-cpu-quota-cores' in unsupported and quota is None, (values, unsupported)
+
+          for signal in ('linux-cpu-pressure-some-avg10', 'linux-cpu-pressure-full-avg10'):
+              if signal in values:
+                  assert math.isfinite(values[signal]) and 0.0 <= values[signal] <= 1.0, (values, unsupported)
+              else:
+                  assert signal in unsupported, (values, unsupported)
+
+          print('ELANG7 real CPU observer qualified:', {'values': values, 'unsupported': sorted(unsupported)})
+          PY
+
+      - name: Validate portable release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_release_productization.py
+          python3 scripts/check_release_candidate.py
+
+      - name: Validate internal publish-path dependency metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+
+          import json
+          import subprocess
+
+          root = tomllib.loads(pathlib.Path("Cargo.toml").read_text())
+          deps = root["workspace"]["dependencies"]
+          registry_by_source = {
+              "elastic-core": "memorithm-elastic-core",
+              "elastic-language-syntax": "memorithm-elastic-language-syntax",
+              "elastic-macros": "memorithm-elastic-macros",
+              "elastic-eir": "memorithm-elastic-eir",
+              "elastic-adapters": "memorithm-elastic-adapters",
+              "elastic-runtime": "memorithm-elastic-runtime",
+              "elastic-kv": "memorithm-elastic-kv",
+              "elastic": "memorithm-elastic",
+          }
+          expected_paths = {
+              "elastic-core": "crates/elastic-core",
+              "elastic-language-syntax": "crates/elastic-language-syntax",
+              "elastic-eir": "crates/elastic-eir",
+              "elastic-adapters": "crates/elastic-adapters",
+              "elastic-macros": "crates/elastic-macros",
+              "elastic-runtime": "crates/elastic-runtime",
+              "elastic-kv": "crates/elastic-kv",
+          }
+          for alias, path in expected_paths.items():
+              spec = deps.get(alias)
+              assert isinstance(spec, dict), f"{alias} must be a table dependency"
+              assert spec.get("package") == registry_by_source[alias], (
+                  f"{alias} must alias registry package {registry_by_source[alias]}"
+              )
+              assert spec.get("version") == "0.1.0", f"{alias} must pin version 0.1.0"
+              assert spec.get("path") == path, f"{alias} must retain local path {path}"
+
+          declared_msrv = root["workspace"]["package"]["rust-version"]
+          assert declared_msrv == "1.89", f"workspace MSRV drifted: {declared_msrv}"
+
+          metadata = json.loads(
+              subprocess.check_output(
+                  ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+                  text=True,
+              )
+          )
+          workspace_ids = set(metadata["workspace_members"])
+          packages = {
+              package["name"]: package
+              for package in metadata["packages"]
+              if package["id"] in workspace_ids
+          }
+          for package in packages.values():
+              assert package["rust_version"] == declared_msrv, (
+                  f"{package['name']} must resolve rust-version {declared_msrv}, "
+                  f"got {package['rust_version']}"
+              )
+
+          documented_publish_chain = set(registry_by_source.values())
+          source_by_registry = {value: key for key, value in registry_by_source.items()}
+
+          # Fail closed when the public facade acquires a new non-dev workspace
+          # dependency that the release/packageability policy has not reviewed.
+          publish_chain = set()
+          pending = [registry_by_source["elastic"]]
+          while pending:
+              package_name = pending.pop()
+              if package_name in publish_chain:
+                  continue
+              publish_chain.add(package_name)
+              for dependency in packages[package_name]["dependencies"]:
+                  dependency_name = dependency["name"]
+                  if (
+                      dependency["kind"] != "dev"
+                      and dependency_name in packages
+                      and dependency_name not in publish_chain
+                  ):
+                      pending.append(dependency_name)
+
+          assert publish_chain == documented_publish_chain, (
+              "documented public facade package chain drifted from Cargo metadata; "
+              f"reachable={sorted(publish_chain)!r}, "
+              f"documented={sorted(documented_publish_chain)!r}"
+          )
+
+          for package_name in publish_chain:
+              package = packages[package_name]
+              source_name = source_by_registry[package_name]
+              assert package["version"] == "0.1.0", (
+                  f"{package_name} version drifted from pre-release line: "
+                  f"{package['version']}"
+              )
+              license_file = package.get("license_file")
+              assert license_file and license_file.endswith("/LICENSE.md"), (
+                  f"{package_name} must package the workspace LICENSE.md; "
+                  f"resolved {license_file!r}"
+              )
+              lib_targets = [
+                  target for target in package["targets"]
+                  if "lib" in target["kind"] or "proc-macro" in target["kind"]
+              ]
+              assert len(lib_targets) == 1 and lib_targets[0]["name"] == source_name.replace("-", "_"), (
+                  f"{package_name} must preserve source crate name {source_name.replace('-', '_')!r}"
+              )
+              for dependency in package["dependencies"]:
+                  if dependency["name"] in publish_chain and dependency["kind"] != "dev":
+                      expected_alias = source_by_registry[dependency["name"]]
+                      assert dependency.get("rename") == expected_alias, (
+                          f"{package_name} -> {dependency['name']} must retain alias {expected_alias!r}; "
+                          f"resolved {dependency.get('rename')!r}"
+                      )
+                      assert dependency["req"] == "^0.1.0", (
+                          f"{package_name} -> {dependency['name']} needs an explicit "
+                          f"0.1.0 registry-compatible version requirement; "
+                          f"resolved {dependency['req']}"
+                      )
+          PY
+      - name: Validate package file sets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for crate in \
+            memorithm-elastic-core \
+            memorithm-elastic-language-syntax \
+            memorithm-elastic-macros \
+            memorithm-elastic-eir \
+            memorithm-elastic-adapters \
+            memorithm-elastic-runtime \
+            memorithm-elastic-kv \
+            memorithm-elastic
+          do
+            cargo +1.89.0 package -p "$crate" --allow-dirty --list >/dev/null
+          done
+
+      - name: Build first-publish leaf archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo package -p memorithm-elastic-core --allow-dirty --no-verify
+          cargo package -p memorithm-elastic-language-syntax --allow-dirty --no-verify
+      - name: Inspect first-publish leaf archives
+        run: python3 scripts/check_package_archives.py
 
       - name: Format
         run: cargo +1.89.0 fmt --all -- --check
