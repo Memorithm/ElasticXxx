@@ -1,7 +1,7 @@
 schema_version: 1
 kind: memorithm_ml_maturity_program
 status: active
-last_updated: "2026-09-26"
+last_updated: "2026-10-13"
 repository: Memorithm/ElasticXxx
 objective: >-
   Make ElasticXxx the evidence-backed 5/5 adaptive ML resource runtime: it must
@@ -320,3 +320,26 @@ completion_definition: >-
   adapted across multiple resource dimensions, every actuation is verified and
   rollback-capable, and reproducible evidence shows when adaptation beats or
   loses to static baselines under declared objectives.
+
+
+external_sml_eng2a_model_feasibility_observation_2026_10_13:
+  status: functional_external_precommit_gate_pass_without_real_ELASTIC_actuation
+  observed_consumer: Memorithm/SML-GENIUS
+  consumer_PR: 535
+  consumer_merge: e4dc98332c8949336e0956380c2367de51b55289
+  consumer_pinned_ElasticXxx_revision: 958ce6301730ceeec4bb1252ff12222e5bb7d431
+  exact_head_CI: {dedicated: 38318809978, full_CI: 38318809658, both: success}
+  external_model_owned_guards:
+    - retained_exact_training_bytes_required_for_recompute
+    - bounded_full_256_class_TRAIN_and_independent_probe_parity
+    - depth_semantics_changes_and_unqualified_Reencode_refused
+    - impossible_model_widening_never_accepted_as_physical_operation
+    - synthetic_frontier_validate_without_commit_then_rollback
+  maturity_limits:
+    - no_ElasticXxx_generic_verifier_or_core_behavior_changed
+    - no_new_provider_actuation_or_rollback_capability_qualified
+    - source_identity_not_cryptographically_attested_in_provider
+    - bounded_8192_TRAIN_prediction_research_gate_not_full_corpus_capacity
+    - no_physical_RSS_hard_budget_or_model_quality_policy_improvement
+    - does_not_satisfy_5_of_5_end_to_end_live_resource_runtime
+  next_evidence: model_bound_physical_provider_contract_and_independent_post_actuation_verification
