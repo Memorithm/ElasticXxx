@@ -343,3 +343,26 @@ external_sml_eng2a_model_feasibility_observation_2026_10_13:
     - no_physical_RSS_hard_budget_or_model_quality_policy_improvement
     - does_not_satisfy_5_of_5_end_to_end_live_resource_runtime
   next_evidence: model_bound_physical_provider_contract_and_independent_post_actuation_verification
+
+
+eng2b_H1_consumer_heap_actuation_evidence_2026_10_13:
+  status: external_SML_model_owned_one_process_heap_swap_verified
+  source: Memorithm/SML-GENIUS
+  pull_request: 536
+  merge: 925dcd9d6fa0ced389cff0301bb632f57f15c4b0
+  source_head: d1c3a55f38d1f9b1d3e18c970e304a1ff13447d1
+  dedicated_CI: 38353641217
+  general_CI: 38353641499
+  qualified_model_owned_operations:
+    - actual_std_mem_replace_Box_model_from_immutable_retained_source
+    - full_vector_float_bitwise_verification_pre_and_post_heap_swap
+    - structural_core_Recompute_then_frontier_commit_on_verified_state_only
+    - injected_after_ACT_after_VERIFY_and_after_commit_failures_restore_original_object_and_epoch
+    - reverse_switch_recompute_and_original_train_model_identity_preserved
+  not_a_5_of_5_exit:
+    - no_model_independent_generic_ElasticXxx_live_provider
+    - no_enforced_peak_physical_RAM_or_vram_budget
+    - double_resident_transient_allocation_unbudgeted
+    - no_multithreaded_readers_crash_recovery_or_host_attestation
+    - no_model_quality_improvement_real_corpus_evidence_or_default_SML_route
+  next_necessary_evidence: source_epoch_bound_physical_provider_with_runtime_budget_and_durable_rollback
