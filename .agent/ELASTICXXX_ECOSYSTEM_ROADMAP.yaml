@@ -1086,3 +1086,41 @@ eng2b_H1_external_sml_heap_qualification_2026_10_13:
     - process_heap_during_transition_contains_two_models_and_may_peak_above_static
   issue: https://github.com/Memorithm/ElasticXxx/issues/244
   next_gate: physical_source_epoch_bound_provider_and_verified_RSS_peak_concurrent_or_crash_rollback
+
+
+eng1c_cap2a_sml_external_full_corpus_cardinality_2026_10_13:
+  status: model_owned_external_capacity_census_qualified_generic_ElasticXxx_not_actuated
+  consumer_repository: Memorithm/SML-GENIUS
+  pull_request: 539
+  merge_commit: 6a0f7e20c980abb6a2f8c3530722cae33308e180
+  full_source_head: 888b2705c8aa8473a2a39c4a088982d3c705d1d2
+  source_module: crates/sml-core/src/bin/sml-eng1c-cap2-external.rs
+  source_sha: f2bb9b20d8df775f6778a0afe362569e704aee7d
+  dedicated_CI: 38357154238
+  general_CI: 38357154028
+  results: docs/RESULTS-ENG-1C-CAP2A-EXACT-FULL-TRAIN-INDEX.md
+  corpus_source_identity: frozen_raw_and_normalized_sha256
+  scanned_data: TRAIN_only_fr_en_two_independent_books
+  depth32_french:
+    exact_contexts: 14281533
+    exact_distinct_follower_pairs: 14878280
+    observed_next_byte_targets: 598208
+    sorted_record_scratch_bytes: 670110080
+  depth32_english:
+    exact_contexts: 13932625
+    exact_distinct_follower_pairs: 14519708
+    observed_next_byte_targets: 590272
+    sorted_record_scratch_bytes: 661205888
+  external_sort_budgets:
+    max_sort_records_per_run: 262144
+    max_sorted_runs: 96
+    max_scratch_bytes: 1073741824
+    OS_virtual_address_KiB: 262144
+  negative_resource_findings:
+    - fitted_model_limit_500000_TRAIN_events_exceeded_by_both_complete_books
+    - 250000_node_and_500000_follower_pair_fitted_model_caps_exceeded_at_depth7_plus
+    - small_external_scanner_RSS_does_NOT_imply_small_queryable_model_memory
+    - generic_ElasticXxx_ACT_VERIFY_ROLLBACK_not_involved
+    - no_validation_TEST_prediction_loss_or_SML25B_route_executed
+  next_model_owned_slice: SML_CAP2b_paged_exact_Witten_Bell_store_issue_540
+  next_generic_Elastic_slice: source_epoch_bound_hard_peak_memory_provider_rollback_issue_244
