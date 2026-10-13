@@ -366,3 +366,26 @@ eng2b_H1_consumer_heap_actuation_evidence_2026_10_13:
     - no_multithreaded_readers_crash_recovery_or_host_attestation
     - no_model_quality_improvement_real_corpus_evidence_or_default_SML_route
   next_necessary_evidence: source_epoch_bound_physical_provider_with_runtime_budget_and_durable_rollback
+
+
+external_sml_cap2a_full_corpus_capacity_negative_2026_10_13:
+  status: exact_capacity_measurement_success_but_current_model_full_TRAIN_admission_STOP
+  repository: Memorithm/SML-GENIUS
+  source_PR: 539
+  merge_sha: 6a0f7e20c980abb6a2f8c3530722cae33308e180
+  exact_head_CI: {dedicated: 38357154238, general: 38357154028, both: success}
+  source_data: independent_frozen_Gutenberg_FR_EN_TRAIN_only
+  depth32_contexts: {FR: 14281533, EN: 13932625}
+  depth32_follower_pairs: {FR: 14878280, EN: 14519708}
+  external_scanner_operating_limits:
+    virtual_memory_KiB: 262144
+    scratch_bytes: 1073741824
+  scientific_capacity_stop:
+    - no_complete_model_trained_or_heldout_predictions_scored
+    - existing_Witten_Bell_engine_event_node_pair_caps_unchanged_and_insufficient
+    - disk_sort_index_census_not_an_online_live_ELASTIC_resource_backend
+    - no_production_model_quality_latency_memory_or_SML25B_promotion
+  next_required_evidence:
+    - separately_preregistered_SML_queryable_paged_full_TRAIN_count_store
+    - generic_source_epoch_bound_verified_physical_residency_and_hard_peak_budget
+    - preserve_domain_feasibility_gates_and_negative_resource_results
