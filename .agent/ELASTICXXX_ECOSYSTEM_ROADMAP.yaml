@@ -1058,3 +1058,31 @@ eng2a_sml_n_gram_precommit_consumer_2026_10_13:
     - no_cryptographic_host_or_corpus_identity_attestation
     - no_model_loss_memory_RSS_latency_or_production_promotion_proof
   next_step: issue_244_versioned_generic_feasibility_and_physical_evidence_contract_before_real_actuation
+
+
+eng2b_H1_external_sml_heap_qualification_2026_10_13:
+  status: consumer_opt_in_in_process_heap_ACT_VERIFY_COMMIT_or_ROLLBACK_qualified
+  consumer: Memorithm/SML-GENIUS
+  pull_request: 536
+  merge_commit: 925dcd9d6fa0ced389cff0301bb632f57f15c4b0
+  code_path: crates/sml-elastic-bench/src/eng2_heap_swap.rs
+  source_blob: 1eac808ffa44a37db569b6475a0fe3da272646fe
+  frozen_before_implementation_commit: dbd109953744fc0f54e7110f9f7798178d645ad4
+  dedicated_CI_run: 38353641217
+  general_CI_run: 38353641499
+  final_head: d1c3a55f38d1f9b1d3e18c970e304a1ff13447d1
+  verified_behavior:
+    - trusted_external_SML_owned_byte_identical_TRAIN_and_source_epoch_admission
+    - same_depth_equal_256_class_predictor_pre_swap_and_after_heap_swap
+    - active_heap_Box_physically_replaced_via_std_mem_replace
+    - original_active_heap_Box_retained_until_frontier_commit
+    - injected_after_heap_after_postverify_after_commit_rollback_restores_exact_original_Box
+    - safe_bidirectional_Recompute_from_retained_source_with_no_Reencode_assumption
+  generic_contract_limitations:
+    - ElasticXxx_core_and_facade_not_modified
+    - no_MMAP_disk_GPU_model_provider_or_generic_hard_memory_budget
+    - no_continuous_multi_reader_or_crash_durable_transaction
+    - no_production_inference_or_heldout_model_quality_pass
+    - process_heap_during_transition_contains_two_models_and_may_peak_above_static
+  issue: https://github.com/Memorithm/ElasticXxx/issues/244
+  next_gate: physical_source_epoch_bound_provider_and_verified_RSS_peak_concurrent_or_crash_rollback
