@@ -23,14 +23,14 @@ concurrency:
 
 jobs:
   preflight:
-    runs-on: [self-hosted, Linux, ARM64, memorithm-ci, thor-general, ci-light, trusted-main]
+    runs-on: [self-hosted, Linux, X64, memorithm-ci, dell-general, ci-light, trusted-main]
     timeout-minutes: 15
     steps:
       - name: Verify non-privileged shared lane
         shell: bash
         run: |
           set -euo pipefail
-          test "$(hostname)" = tarek
+          test "$(hostname)" = debian
           if sudo -n true 2>/dev/null; then exit 71; fi
           for forbidden in sudo wheel docker lxd; do ! id -nG | grep -qw "$forbidden"; done
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -44,14 +44,17 @@ jobs:
       - run: python3 tools/verify_tdi9_3_be15b_fixture.py --self-test
 
   rust:
-    runs-on: [self-hosted, Linux, ARM64, memorithm-ci, thor-general, ci-heavy, trusted-main]
+    env:
+      CARGO_BUILD_JOBS: "8"
+      RUST_TEST_THREADS: "8"
+    runs-on: [self-hosted, Linux, X64, memorithm-ci, dell-general, ci-heavy, trusted-main]
     timeout-minutes: 30
     steps:
       - name: Verify non-privileged shared lane
         shell: bash
         run: |
           set -euo pipefail
-          test "$(hostname)" = tarek
+          test "$(hostname)" = debian
           if sudo -n true 2>/dev/null; then exit 71; fi
           for forbidden in sudo wheel docker lxd; do ! id -nG | grep -qw "$forbidden"; done
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
